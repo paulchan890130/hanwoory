@@ -48,7 +48,7 @@ def get_google_sheet_df():
         "https://www.googleapis.com/auth/drive"
     ]
     creds = ServiceAccountCredentials.from_json_keyfile_name(
-        r"C:\\Users\\윤찬\\내 드라이브\\한우리 현행업무\\프로그램\\출입국업무관리\\hanwoory-9eaa1a4c54d7.json",
+        "/etc/secrets/hanwoory-9eaa1a4c54d7.json",
         scope
     )
     client = gspread.authorize(creds)
@@ -69,7 +69,7 @@ def save_customer_df(df):
         "https://www.googleapis.com/auth/drive"
     ]
     creds = ServiceAccountCredentials.from_json_keyfile_name(
-        r"C:\\Users\\윤찬\\내 드라이브\\한우리 현행업무\\프로그램\\출입국업무관리\\hanwoory-9eaa1a4c54d7.json",
+        "/etc/secrets/hanwoory-9eaa1a4c54d7.json",
         scope
     )
     client = gspread.authorize(creds)
