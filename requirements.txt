@@ -3,4 +3,3 @@ gspread
 requests
 pandas
 google-auth
-google-auth-transport-requests
