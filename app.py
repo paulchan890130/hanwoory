@@ -10,6 +10,9 @@ import datetime
 import json
 import uuid # Ensure uuid is imported
 import calendar
+import streamlit.components.v1 as components
+import matplotlib.pyplot as plt
+
 # platform was already imported
 
 def safe_int(val):
@@ -51,6 +54,7 @@ MEMO_MID_SHEET_NAME = "중기메모"
 MEMO_SHORT_SHEET_NAME = "단기메모"
 PLANNED_TASKS_SHEET_NAME = "예정업무"
 ACTIVE_TASKS_SHEET_NAME = "진행업무"
+COMPLETED_TASKS_SHEET_NAME = "완료업무"
 
 from google.oauth2.service_account import Credentials
 from google.auth.transport.requests import AuthorizedSession
@@ -189,6 +193,11 @@ def load_customer_df():
                     df[col_name] = df[col_name].astype(str).apply(
                         lambda x: x.split('.')[0].zfill(zfill_len) if pd.notna(x) and x.strip() != "" and x.strip().lower() != 'nan' else ""
                     )
+            # 등록증 번호 앞자리 0 보존 처리
+            if '등록증' in df.columns:
+                df['등록증'] = df['등록증'].astype(str).apply(
+                    lambda x: x.split('.')[0].zfill(6) if pd.notna(x) and x.strip() and x.strip().lower() != 'nan' else ""
+                )
             return df
         except Exception as e:
             st.error(f"'{CUSTOMER_SHEET_NAME}' 시트에서 고객 데이터 로드 중 오류 발생: {e}")
@@ -362,6 +371,14 @@ def save_active_tasks(data_list_of_dicts):
         return True
     return False
 
+# --- Completed Task Functions ---
+
+def load_completed_tasks():
+    return read_data_from_sheet(COMPLETED_TASKS_SHEET_NAME, default_if_empty=[])
+
+def save_completed_tasks(records):
+    header = ["id", "category", "date", "name", "work", "details", "complete_date"]
+    return write_data_to_sheet(COMPLETED_TASKS_SHEET_NAME, records, header_list=header)
 
 # -----------------------------
 # ✅ Streamlit App Logic
@@ -398,6 +415,13 @@ if st:
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = "home"
 
+    st.markdown("""
+    <style>
+      [data-testid="stVerticalBlock"] > div { margin-bottom: 0px !important; }
+      [data-testid="stColumns"] { margin-bottom: 0px !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
     title_col, toolbar_col = st.columns([2, 3]) 
     with title_col:
         st.title("📋 출입국 업무관리")
@@ -406,10 +430,9 @@ if st:
         toolbar_options = {
             "🏠 홈으로": "home",
             "🗒️ 메모장": "memo",
-            "📚 업무참고": "reference",
+            "📚 업무": "reference",
             "👥 고객관리": "customer",
-            "📊 일일결산": "daily",
-            "📅 월간결산": "monthly", 
+            "📊 결산": "daily",
             "🧭 메뉴얼 검색": "manual"
         }
         num_buttons = len(toolbar_options)
@@ -456,7 +479,6 @@ if st:
                     df_customer = pd.concat([pd.DataFrame([new_row], columns=new_row.index), df_customer], ignore_index=True)
                     st.session_state['df'] = df_customer.copy()
                     st.info("새 행이 추가되었습니다. 저장하려면 💾 버튼을 누르세요.")
-                    st.rerun()
                 else:
                     st.error("새 행을 추가할 수 없습니다. 고객 데이터의 열 구조를 확인해주세요.")
 
@@ -474,7 +496,8 @@ if st:
             df_display_filtered = df_display_full
             st.session_state['customer_search_mask_indices'] = df_display_full.index 
 
-        df_display_for_editor = df_display_filtered.reset_index(drop=True)
+        df_display_for_editor = df_display_filtered.copy()
+        df_display_for_editor = df_display_for_editor.fillna("").astype(str).reset_index(drop=True)
 
 
         with col_select: 
@@ -561,6 +584,11 @@ if st:
 
         with col_save:
             if st.button("💾 저장", use_container_width=True):
+                components.html("""
+                    <script>
+                        document.activeElement.blur();
+                    </script>
+                """, height=0)
                 full_df_to_save = st.session_state['df'].copy()
                 edited_df_corrected = edited_df_display.copy() 
 
@@ -573,6 +601,12 @@ if st:
                                 for col_editor in edited_df_corrected.columns:
                                     if col_editor in full_df_to_save.columns:
                                         full_df_to_save.loc[original_idx, col_editor] = edited_df_corrected.loc[i, col_editor]
+                        # 날짜 필드 문자열로 들어오므로 datetime 형식으로 맞춰줌
+                        if '만기일' in edited_df_corrected.columns:
+                            edited_df_corrected['만기일'] = pd.to_datetime(edited_df_corrected['만기일'], errors='coerce').dt.strftime("%Y-%m-%d")
+                        if '만기' in edited_df_corrected.columns:
+                            edited_df_corrected['만기'] = pd.to_datetime(edited_df_corrected['만기'], errors='coerce').dt.strftime("%Y-%m-%d")
+
                     else: 
                         st.warning("검색 중 행 수가 변경되어 일부 변경사항만 적용될 수 있습니다. 전체 목록에서 확인 및 저장해주세요.")
                 else: 
@@ -594,50 +628,44 @@ if st:
             
     elif current_page == "daily":
         st.subheader("📊 일일결산") 
-        
+
+        col_left, col_right = st.columns([8,1])
+        with col_right:
+            if st.button("📅 월간결산", use_container_width=True):
+                st.session_state["current_page"] = "monthly"
+                st.rerun()
+
         data = load_daily() 
         balance = load_balance()
         
-        if 'daily_selected_year' not in st.session_state:
-            st.session_state.daily_selected_year = datetime.date.today().year
-            st.session_state.daily_selected_month = datetime.date.today().month
-            st.session_state.daily_selected_day = datetime.date.today().day
+        # -------------------
+        # 날짜 선택: Streamlit 기본 달력
+        # -------------------
+        if "daily_selected_date" not in st.session_state:
+            st.session_state["daily_selected_date"] = datetime.date.today()
 
-        date_sel_cols = st.columns([1,1,1, 3]) 
-        with date_sel_cols[0]:
-            선택_년 = st.selectbox("연도", list(range(2020, datetime.date.today().year + 2)), 
-                                 index=(st.session_state.daily_selected_year - 2020), 
-                                 key="daily_sel_year_old")
-        with date_sel_cols[1]:
-            선택_월 = st.selectbox("월", list(range(1, 13)), 
-                                 index=(st.session_state.daily_selected_month - 1), 
-                                 key="daily_sel_month_old")
-        with date_sel_cols[2]:
-            _, num_days_in_month = calendar.monthrange(선택_년, 선택_월)
-            선택_일 = st.selectbox("일", list(range(1, num_days_in_month + 1)), 
-                                 index=min(st.session_state.daily_selected_day, num_days_in_month) - 1, 
-                                 key="daily_sel_day_old")
-        
-        try:
-            선택날짜 = datetime.date(선택_년, 선택_월, 선택_일)
-            if (선택_년 != st.session_state.daily_selected_year or
-                선택_월 != st.session_state.daily_selected_month or
-                선택_일 != st.session_state.daily_selected_day):
-                st.session_state.daily_selected_year = 선택_년
-                st.session_state.daily_selected_month = 선택_월
-                st.session_state.daily_selected_day = 선택_일
-                st.rerun()
+        # 달력 위젯
+        선택날짜 = st.date_input(
+            "날짜 선택",
+            value=st.session_state["daily_selected_date"],
+            key="daily_date_input"
+        )
 
-        except ValueError: 
-            st.error("유효하지 않은 날짜입니다. 다시 선택해주세요.")
-            선택날짜 = datetime.date(st.session_state.daily_selected_year, st.session_state.daily_selected_month, st.session_state.daily_selected_day) 
+        # 날짜가 바뀌면 다시 렌더링
+        if 선택날짜 != st.session_state["daily_selected_date"]:
+            st.session_state["daily_selected_date"] = 선택날짜
+            st.rerun()
+
+        # 문자열 포맷
+        선택날짜_문자열 = 선택날짜.strftime("%Y-%m-%d")
+        선택날짜_표시     = 선택날짜.strftime("%Y년 %m월 %d일")
+
+        st.subheader(f"📊 일일결산: {선택날짜_표시}")
 
 
         선택날짜_문자열 = 선택날짜.strftime("%Y-%m-%d")
         선택날짜_표시 = 선택날짜.strftime("%Y년 %m월 %d일")
         이번달_str = 선택날짜.strftime("%Y-%m") 
-
-        st.subheader(f"📊 일일결산: {선택날짜_표시}") 
 
         오늘_데이터 = [row for row in data if row.get("date") == 선택날짜_문자열]
         오늘_데이터.sort(key=lambda x: x.get('time', '00:00:00')) 
@@ -767,44 +795,132 @@ if st:
             st.write(f"💰 현재 사무실 현금 (선택일 마감 기준): {int(사무실현금_누적):,} 원")
         st.caption(f"* '{선택날짜.strftime('%Y년 %m월')}' 전체 순수익은 '{balance['profit']:,}' 원 입니다 (Google Sheet '잔액' 기준).")
 
-
     elif current_page == "monthly":
         st.subheader("📅 월간결산")
-        st.info("이 페이지는 추후 상세 월간 통계 및 보고서 기능을 위해 준비 중입니다.")
-        all_daily_data_monthly = load_daily() 
-        if not all_daily_data_monthly:
-            st.write("결산 데이터가 없습니다.")
+
+        all_daily_data = load_daily()
+        if not all_daily_data:
+            st.warning("결산 데이터가 없습니다.")
+            st.stop()
+
+        df_all = pd.DataFrame(all_daily_data)
+        df_all['date'] = pd.to_datetime(df_all['date'], errors='coerce')
+        df_all['순수익'] = df_all['income_cash'] + df_all['income_etc'] - df_all['exp_cash'] - df_all['exp_etc']
+        df_all['총매출'] = df_all['income_cash'] + df_all['income_etc']
+
+        # ⬛ 1. 월별 요약 테이블
+        st.markdown("### 📊 월별 순수익 요약")
+        df_all = df_all.dropna(subset=['date'])
+        df_all['month'] = df_all['date'].dt.to_period('M').astype(str)
+
+        monthly_summary = df_all.groupby('month').agg({
+            'income_cash': 'sum',
+            'income_etc': 'sum',
+            'exp_cash': 'sum',
+            'exp_etc': 'sum',
+            '순수익': 'sum'
+        }).rename(columns={
+            'income_cash': '현금입금',
+            'income_etc': '기타입금',
+            'exp_cash': '현금지출',
+            'exp_etc': '기타지출'
+        })
+
+        monthly_summary['총입금'] = monthly_summary['현금입금'] + monthly_summary['기타입금']
+        monthly_summary['총지출'] = monthly_summary['현금지출'] + monthly_summary['기타지출']
+
+        df_display = monthly_summary[['총입금', '총지출', '순수익']].astype(int)
+        st.dataframe(df_display.style.format("{:,} 원"), use_container_width=True)
+
+        st.markdown("---")
+
+        # ✅ 한국 폰트 설정
+        import matplotlib.pyplot as plt
+        import matplotlib.font_manager as fm
+        font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+        if os.name == 'nt':
+            font_path = "C:/Windows/Fonts/malgun.ttf"
+        if os.path.exists(font_path):
+            fontprop = fm.FontProperties(fname=font_path)
+            plt.rcParams['font.family'] = fontprop.get_name()
         else:
-            monthly_summary = {} 
-            for entry_m in all_daily_data_monthly: 
-                try: 
-                    month_year = datetime.datetime.strptime(entry_m.get('date', ''), "%Y-%m-%d").strftime("%Y-%m")
-                except ValueError:
-                    continue 
+            st.warning("한국 폰트를 찾을 수 없어 기본 폰트로 표시됩니다. 글자가 깨질 수 있습니다.")
 
-                if not month_year: continue
+        # ⬛ 2. 📈 요일별 순수익 분석
+        st.markdown("### 📈 요일별 순수익 분석")
+        df_all['weekday'] = df_all['date'].dt.day_name()
 
-                if month_year not in monthly_summary:
-                    monthly_summary[month_year] = {'income': 0, 'expense': 0, 'profit': 0}
-                
-                income = entry_m.get('income_cash',0) + entry_m.get('income_etc',0)
-                expense = entry_m.get('exp_cash',0) + entry_m.get('exp_etc',0) 
-                
-                monthly_summary[month_year]['income'] += income
-                monthly_summary[month_year]['expense'] += expense
-                monthly_summary[month_year]['profit'] += (income - expense)
-            
-            if not monthly_summary:
-                st.write("월별 요약 데이터가 없습니다.")
+        weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        weekday_kor = ['월', '화', '수', '목', '금', '토', '일']
+        weekday_map = dict(zip(weekday_order, weekday_kor))
+
+        weekday_summary = df_all.groupby('weekday')['순수익'].sum().reindex(weekday_order)
+
+        if weekday_summary.isnull().all():
+            st.warning("요일별 수익 데이터가 없습니다.")
+        else:
+            plt.figure(figsize=(8, 4))
+            plt.bar([weekday_map.get(day, day) for day in weekday_summary.index], weekday_summary.values)
+            plt.title('요일별 순수익')
+            plt.ylabel('수익(원)')
+            plt.xlabel('요일')
+            st.pyplot(plt)
+
+        st.markdown("---")
+
+        # ⬛ 3. 🧼 업무별 순수익 분석
+        st.markdown("### 🧼 업무별 순수익 분석")
+
+        def classify_task(task_text):
+            task_text = str(task_text)
+            if any(keyword in task_text for keyword in ['등록', '연장', '변경']):
+                return '출입국'
+            elif '공증' in task_text:
+                return '공증'
+            elif '영주' in task_text:
+                return '영주'
             else:
-                st.write("전체 기간 월별 요약:")
-                df_monthly = pd.DataFrame.from_dict(monthly_summary, orient='index')
-                df_monthly = df_monthly.sort_index(ascending=False)
-                df_monthly_display = df_monthly.copy()
-                for col_dmd in ['income', 'expense', 'profit']: 
-                    df_monthly_display[col_dmd] = df_monthly_display[col_dmd].apply(lambda x: f"{x:,} 원")
-                st.dataframe(df_monthly_display, use_container_width=True)
+                return '기타'
 
+        df_all['업무분류'] = df_all['task'].apply(classify_task)
+
+        task_summary = df_all.groupby('업무분류')['순수익'].sum().reindex(['출입국', '공증', '영주', '기타'])
+
+        plt.figure(figsize=(6, 4))
+        task_summary.plot(kind='bar', color='orange')
+        plt.title('업무별 순수익 분석')
+        plt.ylabel('수익(원)')
+        plt.xlabel('업무')
+        st.pyplot(plt)
+
+        st.markdown("---")
+
+        # ⬛ 4. ⏰ 시간대별 매출 분석
+        st.markdown("### ⏰ 시간대별 매출 분석")
+
+        def classify_time_group(t_str):
+            try:
+                hour = int(str(t_str).split(':')[0])
+                if hour < 11:
+                    return '오전'
+                elif hour < 16:
+                    return '점심~오후'
+                elif hour < 21:
+                    return '저녁'
+                else:
+                    return '야간'
+            except:
+                return '기타'
+
+        df_all['시간대'] = df_all['time'].apply(classify_time_group)
+        time_summary = df_all.groupby('시간대')['총매출'].sum().reindex(['오전','점심~오후','저녁','야간','기타'])
+
+        plt.figure(figsize=(6, 4))
+        time_summary.plot(kind='bar', color='green')
+        plt.title('시간대별 매출 분석')
+        plt.ylabel('총매출(원)')
+        plt.xlabel('시간대')
+        st.pyplot(plt)
 
     elif current_page == "manual": 
         st.subheader("🧭 메뉴얼 검색 (GPT 기반)")
@@ -850,9 +966,114 @@ if st:
                 st.success("✅ 단기메모가 저장되었습니다.")
                 st.rerun()
 
+    # 📄 문서작성 자동화 페이지
+    elif current_page == "document":
+        st.subheader("📝 문서작성 자동화")
+    
+        # --- 1) 입력 영역 ---
+        if "df_customer" not in st.session_state:
+            st.session_state["df_customer"] = load_customer_df()
+        df_cust = st.session_state["df_customer"]
+        cust_list = df_cust["한글"].fillna("").tolist()
+    
+        cols = st.columns([2,2,2,2,2])
+        with cols[0]:
+            search_term = st.text_input("🔍 고객 검색 (이름 입력)", key="doc_search")
+            customer = search_term
+            # 미성년자 대리인 로직
+            birth_val = df_cust.loc[df_cust["한글"]==customer, "등록증"].squeeze() if customer in cust_list else None
+            if birth_val:
+                try:
+                    birth_year = int(str(birth_val).split("-")[0])
+                except:
+                    birth_year = 1900
+                if birth_year > datetime.date.today().year - 19 and "대리인" in df_cust.columns:
+                    reps = df_cust["대리인"].dropna().unique().tolist()
+                    proxy = st.selectbox("대리인 선택", [""]+reps, key="doc_proxy")
+        with cols[1]:
+            업무 = st.selectbox("업무", ["H2","F4","F5","국적"], key="doc_task")
+        with cols[2]:
+            내용 = st.selectbox("내용", ["등록","연장","자격변경","자격부여","체류지 변경","등록사항 변경"], key="doc_action")
+        with cols[3]:
+            체류지 = st.text_input("체류지", placeholder="검색 또는 직접 입력", key="doc_location")
+        with cols[4]:
+            보증인 = st.text_input("신원보증인", placeholder="검색 또는 직접 입력", key="doc_guarantor")
+    
+        st.markdown("---")
+    
+        # --- 2) 필요 서류 안내 ---
+        if st.button("➕ 필요서류 보기", key="show_docs"):
+            서류맵 = { ("H2","등록"): ["비자신청서","초청장"],
+                      ("F4","연장"): ["체류연장신청서","재직증명서"] }
+            needed = 서류맵.get((업무,내용), ["서류 정의 필요"])        
+            for d in needed: st.write(f"- {d}")
+    
+        st.markdown("---")
+    
+        # --- 3) PDF 업로드 ---
+        uploaded = st.file_uploader("🗂️ 양식 PDF 업로드", type="pdf", key="doc_template_pdf")
+        if uploaded:
+            st.success("업로드 완료. 자동작성 로직 연결 예정입니다.")
+
+    # 📚 업무참고 페이지
     elif current_page == "reference":
         st.subheader("📚 업무참고")
-        st.info("이 페이지는 업무 참고 자료 (예: 링크, 파일 목록, 주요 공지사항 등)를 표시할 수 있는 영역입니다. 현재는 준비 중입니다.")
+        col_blank, col_doc, col_done = st.columns([8,1,1])
+        with col_doc:
+            if st.button("📝 서류작성", key="nav-document"):
+                st.session_state["current_page"] = "document"
+                st.rerun()
+        with col_done:
+            if st.button("✅ 완료업무", key="nav-completed-ref"):
+                st.session_state["current_page"] = "completed"
+                st.rerun()
+        # 업무참고로 돌아왔을 때도 iframe이 항상 실행되도록 분기 바로 안에 배치
+        components.iframe(
+            "https://docs.google.com/spreadsheets/d/1Jr-vGVMwRFlXu04J8Q1zEwmwv8b0CO0nqyRyRACowpY/edit?usp=drive_link",
+            height=800,
+            scrolling=True
+        )
+
+    elif current_page == "completed":
+        st.subheader("✅ 완료업무")
+
+        # 1) 검색 입력창
+        search_term = st.text_input("🔍 검색", key="completed_search_term")
+
+        # 2) 데이터 불러오기 및 DataFrame 변환
+        completed = load_completed_tasks()
+        df = pd.DataFrame(completed)
+        if not df.empty and 'category' in df.columns:
+            df['category'] = df['category'].fillna('')
+            df = df.sort_values(by='category')
+
+        # 3) id 컬럼 숨기기
+        if "id" in df.columns:
+            df = df.drop(columns=["id"])
+
+        # 4) 검색어 필터링
+        if search_term:
+            mask = df.astype(str).apply(
+                lambda row: search_term.lower() in row.str.lower().to_string(),
+                axis=1
+            )
+            df = df[mask]
+
+        # 5) 테이블 표시 (필요하다면 st.data_editor)
+        edited = st.data_editor(
+            df,
+            use_container_width=True,
+            num_rows="dynamic",
+            hide_index=True
+        )
+
+        # 6) 편집 후 저장 (옵션)
+        if st.button("💾 저장 완료업무"):
+            save_completed_tasks(
+                # 다시 id 없이 저장하려면, load_completed_tasks() 대신 edited 에 complete_date 등 포함
+                edited.to_dict("records")
+            )
+            st.success("완료업무 시트에 저장되었습니다.")
 
     elif current_page == "home":
         # Use st.columns(2) for a 50/50 split as per the old UI's implied structure
@@ -863,7 +1084,10 @@ if st:
             
             # --- Calendar specific data (events_data_home) ---
             # This should use the Google Sheets based load_events()
-            events_data_home = load_events() # Using the global load_events
+            if "events_data_home" not in st.session_state:
+                # 한 번만 불러와서 세션에 저장
+                st.session_state["events_data_home"] = load_events()
+            events_data_home = st.session_state["events_data_home"]
 
             # --- Year/Month Selection ---
             # Old UI: col_year, col_month = st.columns([1, 1])
@@ -940,26 +1164,33 @@ if st:
                     ev_cols_cal_disp = st.columns([8,2]) 
                     ev_cols_cal_disp[0].write(f"{idx_ev_cal + 1}. {event_item_cal}") 
                     if ev_cols_cal_disp[1].button("삭제", key=f"del_event_home_cal_{selected_date_str_cal_display}_{idx_ev_cal}", use_container_width=True):
-                        events_data_home[selected_date_str_cal_display].pop(idx_ev_cal)
-                        if not events_data_home[selected_date_str_cal_display]: 
-                            del events_data_home[selected_date_str_cal_display]
-                        save_events(events_data_home) # Use the correct save_events
+                        # ① 세션에서 꺼내서
+                        ev_dict = st.session_state["events_data_home"]
+                        # ② 리스트에서 삭제
+                        ev_dict[selected_date_str_cal_display].pop(idx_ev_cal)
+                        # ③ 빈 리스트가 되면 키 자체를 지우고
+                        if not ev_dict[selected_date_str_cal_display]:
+                            del ev_dict[selected_date_str_cal_display]
+                        # ④ 수정된 dict을 저장 함수로 넘기기
+                        save_events(ev_dict)
                         st.success("일정이 삭제되었습니다.") 
                         st.rerun()
             
-            event_text_cal_input = st.text_input(f"일정 입력 ({selected_date_str_cal_display})", key="event_text_cal_input_home") 
-            if st.button("일정 저장", key="save_event_cal_home"):
-                if event_text_cal_input: # Check if text is not empty
-                    if selected_date_str_cal_display not in events_data_home:
-                        events_data_home[selected_date_str_cal_display] = []
-                    events_data_home[selected_date_str_cal_display].append(event_text_cal_input)
-                    save_events(events_data_home) # Use the correct save_events
+            with st.form("calendar_event_form"):
+                event_text_cal_input = st.text_input(f"일정 입력 ({selected_date_str_cal_display})", key="event_text_cal_input_fixed")
+                submitted = st.form_submit_button("일정 저장")
+
+                if submitted:
+                    if event_text_cal_input:
+                        ev_dict = st.session_state["events_data_home"]
+                        # 키가 없으면 빈 리스트 생성
+                        ev_dict.setdefault(selected_date_str_cal_display, [])
+                        # 텍스트 추가
+                        ev_dict[selected_date_str_cal_display].append(event_text_cal_input)
+                        # 저장
+                        save_events(ev_dict)
                     st.success(f"'{event_text_cal_input}' 일정이 저장되었습니다.")
-                    # Clear the input after saving by re-running or clearing session state for the input if desired
-                    st.session_state.event_text_cal_input_home = "" # Attempt to clear input
                     st.rerun()
-                else:
-                    st.warning("일정 내용을 입력해주세요.") # Warn if empty
             
             st.markdown("---")
             today_str_cal_summary = today_cal.strftime("%Y-%m-%d") 
@@ -982,8 +1213,8 @@ if st:
                 else: st.write("(일정 없음)")
 
         with home_col_right:
-            # This is the equivalent of the old `load_customer_data()` function
-            st.subheader("2. 🛂 여권 만기 6개월 이내 고객") 
+            # This is the equivalent of the old load_customer_data() function
+            st.subheader("2. 🪪 등록증 만기 4개월 전") # Old subheader
             
             df_customers_for_alert = load_customer_df() # Use the main customer loader
             
@@ -1020,23 +1251,7 @@ if st:
                 df_alert_display_prepared['생년월일'] = df_customers_for_alert.get('등록증', pd.Series(dtype='str')).apply(format_birthdate_alert)
 
                 # Passport expiry
-                df_customers_for_alert['여권만기일_dt_alert'] = pd.to_datetime(df_customers_for_alert.get('만기일'), errors='coerce') # '만기일' is passport expiry
-                passport_alert_limit_hr = pd.to_datetime(datetime.date.today() + pd.DateOffset(months=6)) 
-                passport_alerts_hr = df_customers_for_alert[ 
-                    df_customers_for_alert['여권만기일_dt_alert'].notna() & 
-                    (df_customers_for_alert['여권만기일_dt_alert'] <= passport_alert_limit_hr) &
-                    (df_customers_for_alert['여권만기일_dt_alert'] >= pd.to_datetime(datetime.date.today()))
-                ].sort_values(by='여권만기일_dt_alert')
-                
-                if not passport_alerts_hr.empty:
-                    display_df_passport_alert = df_alert_display_prepared.loc[passport_alerts_hr.index].copy()
-                    display_df_passport_alert['여권만기일'] = passport_alerts_hr['여권만기일_dt_alert'].dt.strftime('%Y-%m-%d')
-                    st.dataframe(display_df_passport_alert[['한글이름', '여권만기일', '여권번호', '생년월일', '전화번호']], use_container_width=True, hide_index=True) # height removed for auto-sizing
-                else:
-                    st.write("(표시할 고객 없음)") 
-
-                st.subheader("3. 🪪 등록증 만기 4개월 이내 고객") # Old subheader
-                df_customers_for_alert['등록증만기일_dt_alert'] = pd.to_datetime(df_customers_for_alert.get('만기'), errors='coerce') # '만기' is reg card expiry
+                df_customers_for_alert['등록증만기일_dt_alert'] = pd.to_datetime(df_customers_for_alert.get('만기일'), errors='coerce') # '만기일' is reg card expiry
                 card_alert_limit_hr = pd.to_datetime(datetime.date.today() + pd.DateOffset(months=4)) 
                 card_alerts_hr = df_customers_for_alert[ 
                     df_customers_for_alert['등록증만기일_dt_alert'].notna() & 
@@ -1048,6 +1263,26 @@ if st:
                     display_df_card_alert = df_alert_display_prepared.loc[card_alerts_hr.index].copy()
                     display_df_card_alert['등록증만기일'] = card_alerts_hr['등록증만기일_dt_alert'].dt.strftime('%Y-%m-%d')
                     st.dataframe(display_df_card_alert[['한글이름', '등록증만기일', '여권번호', '생년월일', '전화번호']], use_container_width=True, hide_index=True) # height removed
+                else:
+                    st.write("(표시할 고객 없음)") 
+
+                st.subheader("3. 🪪 여권 만기 6개월 전") # Old subheader
+                df_customers_for_alert['여권만기일_dt_alert'] = pd.to_datetime(
+                    df_customers_for_alert.get('만기').astype(str).str.strip(),
+                    errors='coerce'
+                )
+
+                passport_alert_limit_hr = pd.to_datetime(datetime.date.today() + pd.DateOffset(months=6))
+                passport_alerts_hr = df_customers_for_alert[ 
+                    df_customers_for_alert['여권만기일_dt_alert'].notna() & 
+                    (df_customers_for_alert['여권만기일_dt_alert'] <= passport_alert_limit_hr) &
+                    (df_customers_for_alert['여권만기일_dt_alert'] >= pd.to_datetime(datetime.date.today()))
+                ].sort_values(by='여권만기일_dt_alert')
+                
+                if not passport_alerts_hr.empty:
+                    display_df_passport_alert = df_alert_display_prepared.loc[passport_alerts_hr.index].copy()
+                    display_df_passport_alert['여권만기일'] = passport_alerts_hr['여권만기일_dt_alert'].dt.strftime('%Y-%m-%d')
+                    st.dataframe(display_df_passport_alert[['한글이름', '여권만기일', '여권번호', '생년월일', '전화번호']], use_container_width=True, hide_index=True) # height removed for auto-sizing
                 else:
                     st.write("(표시할 고객 없음)") 
 
@@ -1125,51 +1360,77 @@ if st:
                     st.warning("내용을 입력해주세요.")
         
         st.markdown("---")
+
         st.subheader("5. 🛠️ 진행업무")
-        active_tasks_data_h = load_active_tasks() 
-        구분_옵션_active_home = ["출입국", "전자", "공증", "여권", "초청", "영주권", "기타"] 
+        active_tasks_data_h = load_active_tasks()
+        구분_옵션_active_home = ["출입국", "전자민원", "공증", "여권", "초청", "영주권", "기타"] 
         구분_우선순위_active_home = {option: i for i, option in enumerate(구분_옵션_active_home)}
 
         active_tasks_data_h.sort(key=lambda x: (구분_우선순위_active_home.get(x.get("category","").split(" - ")[0], 99), pd.to_datetime(x.get("date", "9999-12-31"), errors='coerce')))
 
-        # Headers for active tasks (as in old code)
-        h_cols_active = st.columns([0.8, 1, 1, 1, 4, 0.5, 0.5]) # Ratios from old code for data row
-        h_cols_active[0].markdown("**구분**")
-        h_cols_active[1].markdown("**진행일**")
-        h_cols_active[2].markdown("**성명**")
-        h_cols_active[3].markdown("**업무**")
-        h_cols_active[4].markdown("**세부내용**")
-        h_cols_active[5].markdown("**수정**")
-        h_cols_active[6].markdown("**삭제**")
-
-
-        for idx_active_h, task_active_h in enumerate(active_tasks_data_h): 
-            unique_key_active_h = f"active_task_home_disp_{task_active_h.get('id', idx_active_h)}" # More specific key
-            cols_active_edit = st.columns([0.8, 1, 1, 1, 4, 0.5, 0.5]) # Ratios from old code
-            
-            new_category_active = cols_active_edit[0].text_input(" ", value=task_active_h.get("category",""), key=f"{unique_key_active_h}_cat_txt", label_visibility="collapsed")
-            new_date_active = cols_active_edit[1].text_input(" ", value=task_active_h.get("date",""), key=f"{unique_key_active_h}_date_txt", label_visibility="collapsed")
-            new_name_active = cols_active_edit[2].text_input(" ", value=task_active_h.get("name",""), key=f"{unique_key_active_h}_name", label_visibility="collapsed")
-            new_work_active = cols_active_edit[3].text_input(" ", value=task_active_h.get("work",""), key=f"{unique_key_active_h}_work", label_visibility="collapsed")
-            new_details_active = cols_active_edit[4].text_input(" ", value=task_active_h.get("details",""), key=f"{unique_key_active_h}_details", label_visibility="collapsed")
-
-            if cols_active_edit[5].button("수정", key=f"{unique_key_active_h}_save_btn", help="수정 저장", use_container_width=True): # Old button text
-                try: 
-                    datetime.datetime.strptime(new_date_active, "%Y-%m-%d")
+        h_cols = st.columns([0.8, 1, 1, 1, 4, 0.8, 0.8, 0.8], gap="small")
+        h_cols[0].markdown("**구분**")
+        h_cols[1].markdown("**진행일**")
+        h_cols[2].markdown("**성명**")
+        h_cols[3].markdown("**업무**")
+        h_cols[4].markdown("**세부내용**")
+        h_cols[5].markdown("**수정**")
+        h_cols[6].markdown("**완료**")
+        h_cols[7].markdown("**삭제**")
+        
+        # --- 행별 입력 폼 ---
+        for idx, task in enumerate(active_tasks_data_h):
+            uid = f"{task['id']}_{idx}"
+            cols = st.columns([0.8, 1, 1, 1, 4, 0.8, 0.8, 0.8], gap="small")
+        
+            new_category = cols[0].text_input(" ", value=task["category"], key=f"{uid}_cat",    label_visibility="collapsed")
+            new_date     = cols[1].text_input(" ", value=task["date"],     key=f"{uid}_date",   label_visibility="collapsed")
+            new_name     = cols[2].text_input(" ", value=task["name"],     key=f"{uid}_name",   label_visibility="collapsed")
+            new_work     = cols[3].text_input(" ", value=task["work"],     key=f"{uid}_work",   label_visibility="collapsed")
+            new_details  = cols[4].text_input(" ", value=task["details"],  key=f"{uid}_details",label_visibility="collapsed")
+        
+            # 수정
+            if cols[5].button("수정", key=f"{uid}_save", use_container_width=True):
+                try:
+                    datetime.datetime.strptime(new_date, "%Y-%m-%d")
                 except ValueError:
-                    st.error(f"날짜 형식이 잘못되었습니다 (YYYY-MM-DD): {new_date_active}")
+                    st.error("날짜 형식은 YYYY-MM-DD 이어야 합니다.")
                     st.stop()
-                active_tasks_data_h[idx_active_h].update({
-                    "category": new_category_active, "date": new_date_active,
-                    "name": new_name_active, "work": new_work_active, "details": new_details_active
+                active_tasks_data_h[idx].update({
+                    "category": new_category,
+                    "date":     new_date,
+                    "name":     new_name,
+                    "work":     new_work,
+                    "details":  new_details
                 })
                 save_active_tasks(active_tasks_data_h)
                 st.success("진행업무가 수정되었습니다.")
                 st.rerun()
-            if cols_active_edit[6].button("❌", key=f"{unique_key_active_h}_delete_btn", help="삭제", use_container_width=True): # Old button text
-                active_tasks_data_h.pop(idx_active_h)
+        
+            # 완료
+            if cols[6].button("완료", key=f"{uid}_complete", use_container_width=True):
+                today = datetime.date.today().strftime("%Y-%m-%d")
+                comp = load_completed_tasks()
+                comp.append({
+                    "id":            task["id"],
+                    "category":      task["category"],
+                    "date":          task["date"],
+                    "name":          task["name"],
+                    "work":          task["work"],
+                    "details":       task["details"],
+                    "complete_date": today,
+                })
+                save_completed_tasks(comp)
+                active_tasks_data_h.pop(idx)
                 save_active_tasks(active_tasks_data_h)
-                st.success("진행업무가 삭제되었습니다.")
+                st.success("업무가 완료되어 완료업무 탭으로 이동했습니다.")
+                st.rerun()
+        
+            # 삭제
+            if cols[7].button("삭제", key=f"{uid}_delete", use_container_width=True):
+                active_tasks_data_h.pop(idx)
+                save_active_tasks(active_tasks_data_h)
+                st.warning("해당 업무가 삭제되었습니다.")
                 st.rerun()
 
         with st.form("add_active_form_home", clear_on_submit=True): # Key from old code
@@ -1219,4 +1480,3 @@ else:
     print("Streamlit is not available. Cannot run the application.")
     print(f"Key path configured: {KEY_PATH}")
     print("To run, ensure Streamlit is installed ('pip install streamlit') and run 'streamlit run your_script_name.py'")
-
