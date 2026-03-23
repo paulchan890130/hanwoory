@@ -1,6 +1,0 @@
-streamlit
-gspread
-requests
-pandas
-google-auth
-matplotlib
