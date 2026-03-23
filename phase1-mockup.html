@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>한우리 Phase 1 화면 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; background: #F8F9FA; color: #1A202C; font-size: 13px; }
+
+/* ── 탭 선택기 ── */
+.tab-bar { display: flex; gap: 0; background: #1A1F2E; padding: 10px 16px 0; position: sticky; top: 0; z-index: 999; }
+.tab-btn { padding: 8px 18px; cursor: pointer; font-size: 12px; color: #CBD5E0; border: none; background: transparent; border-radius: 6px 6px 0 0; font-family: inherit; }
+.tab-btn.active { background: #F8F9FA; color: #1A202C; font-weight: 600; }
+
+.screen { display: none; }
+.screen.active { display: flex; height: calc(100vh - 42px); }
+
+/* ── 사이드바 ── */
+.sidebar { width: 220px; min-height: 100%; background: #1A1F2E; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-logo { padding: 18px 20px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.sidebar-logo .brand { font-size: 16px; font-weight: 700; color: #F5A623; letter-spacing: -0.02em; }
+.sidebar-logo .subtitle { font-size: 10px; color: #718096; margin-top: 2px; }
+.sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; color: #A0AEC0; transition: all 0.15s; font-size: 13px; border-left: 3px solid transparent; }
+.nav-item:hover { color: #E2E8F0; background: rgba(255,255,255,0.05); }
+.nav-item.active { color: #F5A623; background: rgba(245,166,35,0.12); border-left-color: #F5A623; font-weight: 500; }
+.nav-icon { width: 18px; text-align: center; font-size: 15px; flex-shrink: 0; }
+
+/* ── 메인 영역 ── */
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { height: 56px; background: #FFF; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; padding: 0 24px; gap: 12px; flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.topbar-search { flex: 1; max-width: 300px; height: 36px; border: 1.5px solid #E2E8F0; border-radius: 20px; display: flex; align-items: center; padding: 0 14px; gap: 8px; background: #F8F9FA; }
+.topbar-search input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; color: #4A5568; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.office-name { font-size: 12px; color: #718096; }
+.bell-btn { position: relative; width: 34px; height: 34px; border-radius: 50%; background: #F7FAFC; border: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
+.bell-badge { position: absolute; top: -3px; right: -3px; background: #E53E3E; color: #fff; font-size: 9px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.logout-btn { font-size: 12px; color: #718096; background: none; border: 1px solid #E2E8F0; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+
+.page-content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+/* ── 공용 컴포넌트 ── */
+.hw-card { background: #FFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.hw-card-title { font-size: 13px; font-weight: 600; color: #4A5568; margin-bottom: 12px; }
+.page-title { font-size: 18px; font-weight: 700; color: #1A202C; margin-bottom: 16px; }
+.btn-gold { background: #F5A623; color: #fff; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+.btn-outline { background: #FFF; color: #4A5568; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.btn-danger-sm { background: #FFF5F5; color: #E53E3E; border: 1px solid #FEB2B2; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.quick-actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.qa-btn { display: flex; align-items: center; gap: 8px; background: #FFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 12px; color: #4A5568; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: all 0.15s; font-family: inherit; }
+.qa-btn:hover { border-color: #F5A623; color: #F5A623; }
+.qa-icon { font-size: 16px; }
+
+.hw-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hw-table th { padding: 10px 12px; background: #F7FAFC; border-bottom: 1px solid #E2E8F0; text-align: left; color: #718096; font-weight: 500; white-space: nowrap; }
+.hw-table td { padding: 9px 12px; border-bottom: 1px solid #E2E8F0; color: #2D3748; }
+.hw-table tr:hover td { background: #EBF4FF; cursor: pointer; }
+.row-warn td { background: #FFFBF0 !important; }
+.row-danger td { background: #FFF5F5 !important; }
+.dday-danger { color: #E53E3E; font-weight: 600; }
+.dday-warn { color: #DD6B20; font-weight: 600; }
+
+/* 탭 */
+.tabs { display: flex; border-bottom: 2px solid #E2E8F0; margin-bottom: 16px; }
+.tab { padding: 8px 18px; cursor: pointer; font-size: 13px; color: #718096; border: none; background: none; font-family: inherit; position: relative; bottom: -2px; border-bottom: 2px solid transparent; }
+.tab.active { color: #F5A623; border-bottom-color: #F5A623; font-weight: 600; }
+
+/* ── 대시보드 ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.calendar-placeholder { background: linear-gradient(135deg, #F8F9FA 0%, #EDF2F7 100%); border-radius: 8px; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #A0AEC0; font-size: 20px; border: 1px dashed #CBD5E0; }
+.memo-textarea { width: 100%; height: 80px; border: 1.5px solid #CBD5E0; border-radius: 8px; padding: 10px; font-size: 12px; resize: none; font-family: inherit; color: #4A5568; }
+.alert-count { display: inline-flex; align-items: center; background: #FFF5F5; color: #C53030; border: 1px solid #FEB2B2; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 600; margin-left: 12px; }
+
+/* ── 드로어 ── */
+.drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 100; }
+.drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: #FFF; box-shadow: -4px 0 20px rgba(0,0,0,0.12); z-index: 101; display: flex; flex-direction: column; animation: slideIn 0.2s ease; }
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.drawer-header { padding: 16px 20px; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.drawer-title { font-size: 15px; font-weight: 600; color: #1A202C; }
+.drawer-id { font-size: 11px; color: #A0AEC0; margin-top: 2px; }
+.folder-btn { display: flex; align-items: center; gap: 5px; background: #EBF8FF; color: #3182CE; border: 1px solid #BEE3F8; border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; font-family: inherit; }
+.close-btn { width: 28px; height: 28px; border-radius: 6px; background: none; border: none; cursor: pointer; font-size: 18px; color: #A0AEC0; display: flex; align-items: center; justify-content: center; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-item { display: flex; flex-direction: column; gap: 3px; }
+.field-item.col-2 { grid-column: span 2; }
+.field-label { font-size: 10px; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { height: 34px; border: 1.5px solid #CBD5E0; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; color: #2D3748; }
+.field-input:focus { outline: none; border-color: #F5A623; box-shadow: 0 0 0 3px rgba(245,166,35,0.12); }
+.field-textarea { border: 1.5px solid #CBD5E0; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: inherit; color: #2D3748; resize: none; height: 56px; }
+.dday-pills { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.dday-pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.dday-pill.ok { background: #F0FFF4; color: #276749; }
+.dday-pill.warn { background: #FFFBF0; color: #C05621; }
+.dday-pill.danger { background: #FFF5F5; color: #C53030; }
+.drawer-footer { padding: 14px 20px; border-top: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+
+/* ── 업무관리 ── */
+.task-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.sum-footer { display: flex; gap: 16px; padding: 10px 0 0; border-top: 1px solid #E2E8F0; margin-top: 4px; }
+.sum-item { font-size: 11px; color: #718096; }
+.sum-item strong { color: #2D3748; }
+.complete-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.complete-modal { background: #FFF; border-radius: 16px; padding: 24px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.modal-icon { width: 40px; height: 40px; border-radius: 50%; background: #F0FFF4; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px; }
+
+/* ── 메모 ── */
+.memo-editor { border: 1.5px solid #CBD5E0; border-radius: 10px; padding: 14px; font-size: 13px; font-family: 'Menlo', 'Consolas', monospace; color: #2D3748; line-height: 1.8; height: calc(100vh - 320px); min-height: 400px; width: 100%; resize: none; }
+.dirty-indicator { font-size: 11px; color: #F5A623; font-weight: 600; }
+
+/* ── 통합검색 ── */
+.search-container { max-width: 700px; margin: 0 auto; padding-top: 20px; }
+.search-box { display: flex; gap: 10px; }
+.search-input-wrap { flex: 1; height: 48px; border: 2px solid #E2E8F0; border-radius: 12px; display: flex; align-items: center; padding: 0 16px; gap: 10px; background: #FFF; transition: border-color 0.15s; }
+.search-input-wrap:focus-within { border-color: #F5A623; box-shadow: 0 0 0 3px rgba(245,166,35,0.12); }
+.search-input-wrap input { border: none; outline: none; font-size: 14px; width: 100%; font-family: inherit; }
+.search-submit { height: 48px; padding: 0 24px; background: #F5A623; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.search-empty { text-align: center; padding: 60px 20px; background: #FFF; border-radius: 16px; border: 1px solid #E2E8F0; margin-top: 24px; }
+.empty-icon { font-size: 48px; display: block; margin-bottom: 12px; opacity: 0.3; }
+.hint-tags { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.hint-tag { background: #FFF3D4; color: #A0660A; border: 1px solid #F5A623; border-radius: 20px; padding: 5px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.search-type-tabs { display: flex; gap: 4px; margin-top: 20px; flex-wrap: wrap; }
+.stype-btn { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid #E2E8F0; background: #FFF; font-size: 12px; color: #718096; cursor: pointer; font-family: inherit; }
+.stype-btn.active { background: #F5A623; color: #FFF; border-color: #F5A623; font-weight: 600; }
+.skeleton { background: linear-gradient(90deg, #F0F0F0 25%, #E0E0E0 50%, #F0F0F0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; height: 12px; }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton-card { background: #FFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 16px; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<!-- 탭 선택 -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showScreen('dashboard')">① 대시보드</button>
+  <button class="tab-btn" onclick="showScreen('customers')">② 고객관리 (드로어)</button>
+  <button class="tab-btn" onclick="showScreen('tasks')">③ 업무관리</button>
+  <button class="tab-btn" onclick="showScreen('memos')">④ 메모</button>
+  <button class="tab-btn" onclick="showScreen('search')">⑤ 통합검색</button>
+</div>
+
+<!-- ━━━━━━━━━ ① 대시보드 ━━━━━━━━━ -->
+<div id="screen-dashboard" class="screen active">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand">한우리</div>
+      <div class="subtitle">출입국 업무관리</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active"><span class="nav-icon">🏠</span>홈 대시보드</div>
+      <div class="nav-item"><span class="nav-icon">👥</span>고객관리</div>
+      <div class="nav-item"><span class="nav-icon">📋</span>업무관리</div>
+      <div class="nav-item"><span class="nav-icon">📅</span>일일결산</div>
+      <div class="nav-item"><span class="nav-icon">📝</span>메모</div>
+      <div class="nav-item"><span class="nav-icon">🔍</span>통합검색</div>
+      <div class="nav-item"><span class="nav-icon">📰</span>게시판</div>
+      <div class="nav-item"><span class="nav-icon">📚</span>업무참고</div>
+      <div class="nav-item"><span class="nav-icon">📄</span>문서자동작성</div>
+      <div class="nav-item"><span class="nav-icon">📷</span>OCR 스캔</div>
+    </nav>
+  </div>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-search"><span>🔍</span><input placeholder="검색... (Ctrl+K)" readonly></div>
+      <div class="topbar-right">
+        <span class="office-name">한우리 출입국사무소</span>
+        <div class="bell-btn">🔔<div class="bell-badge">7</div></div>
+        <button class="logout-btn">로그아웃</button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div style="display:flex;align-items:center;margin-bottom:16px;">
+        <span class="page-title" style="margin-bottom:0;">홈 대시보드</span>
+        <span class="alert-count">⚠️ 만기 알림 7건</span>
+      </div>
+      <!-- 빠른 액션 -->
+      <div class="quick-actions">
+        <button class="qa-btn"><span class="qa-icon">👤</span>신규 고객</button>
+        <button class="qa-btn"><span class="qa-icon">📋</span>진행업무 추가</button>
+        <button class="qa-btn"><span class="qa-icon">📷</span>OCR 스캔</button>
+        <button class="qa-btn"><span class="qa-icon">📅</span>일정 추가</button>
+      </div>
+      <!-- 2단 그리드 -->
+      <div class="grid-2">
+        <div>
+          <div class="hw-card">
+            <div class="hw-card-title">📅 일정 달력</div>
+            <div class="calendar-placeholder">📅<span style="font-size:12px;">FullCalendar (골드 이벤트)</span></div>
+          </div>
+          <div class="hw-card">
+            <div class="hw-card-title">📝 단기메모</div>
+            <textarea class="memo-textarea" placeholder="단기 업무 메모...">• 김철수 비자 서류 접수 확인
+• 이영희 등록증 만기 안내 전화
+• 오후 박민준 여권 재발급 상담</textarea>
+            <button class="btn-gold" style="margin-top:8px;font-size:11px;padding:5px 12px;">💾 저장</button>
+          </div>
+        </div>
+        <div>
+          <div class="hw-card">
+            <div class="hw-card-title">🪪 등록증 만기 4개월 전</div>
+            <table class="hw-table">
+              <thead><tr><th>한글이름</th><th>등록증만기일</th><th>여권번호</th><th>전화번호</th></tr></thead>
+              <tbody>
+                <tr class="row-danger"><td>왕홍메이</td><td class="dday-danger">2024-04-12 (D-23)</td><td>EA1234567</td><td>010-1234-5678</td></tr>
+                <tr class="row-warn"><td>리우진</td><td class="dday-warn">2024-05-08 (D-49)</td><td>EA7890123</td><td>010-9876-5432</td></tr>
+                <tr><td>판가르카</td><td>2024-06-30 (D-101)</td><td>F1234567</td><td>010-5555-0000</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="hw-card">
+            <div class="hw-card-title">🛂 여권 만기 6개월 전</div>
+            <table class="hw-table">
+              <thead><tr><th>한글이름</th><th>여권만기일</th><th>여권번호</th><th>전화번호</th></tr></thead>
+              <tbody>
+                <tr class="row-warn"><td>라지브쿠마르</td><td class="dday-warn">2024-07-15 (D-126)</td><td>L3456789</td><td>010-2222-3333</td></tr>
+                <tr><td>응우옌티호아</td><td>2024-08-20 (D-162)</td><td>B9876543</td><td>010-4444-5555</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- 예정업무 -->
+      <div class="hw-card">
+        <div class="hw-card-title">📌 예정업무</div>
+        <table class="hw-table">
+          <thead><tr><th>기간</th><th>날짜</th><th>내용</th><th>비고</th></tr></thead>
+          <tbody>
+            <tr><td><span class="dday-danger">단기🔴</span></td><td>2024-03-25</td><td>왕홍메이 등록증 갱신 서류 준비</td><td>여권사본 필요</td></tr>
+            <tr><td><span class="dday-warn">중기🟡</span></td><td>2024-04-10</td><td>라지브쿠마르 취업비자 연장</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━ ② 고객관리 (드로어 열린 상태) ━━━━━━━━━ -->
+<div id="screen-customers" class="screen">
+  <div class="sidebar">
+    <div class="sidebar-logo"><div class="brand">한우리</div><div class="subtitle">출입국 업무관리</div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-item"><span class="nav-icon">🏠</span>홈 대시보드</div>
+      <div class="nav-item active"><span class="nav-icon">👥</span>고객관리</div>
+      <div class="nav-item"><span class="nav-icon">📋</span>업무관리</div>
+      <div class="nav-item"><span class="nav-icon">📝</span>메모</div>
+      <div class="nav-item"><span class="nav-icon">🔍</span>통합검색</div>
+    </nav>
+  </div>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-search"><span>🔍</span><input placeholder="검색... (Ctrl+K)" readonly></div>
+      <div class="topbar-right">
+        <span class="office-name">한우리 출입국사무소</span>
+        <div class="bell-btn">🔔<div class="bell-badge">7</div></div>
+        <button class="logout-btn">로그아웃</button>
+      </div>
+    </div>
+    <div class="page-content" style="position:relative;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <span class="page-title" style="margin-bottom:0;">고객관리</span>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div style="height:36px;border:1.5px solid #E2E8F0;border-radius:20px;display:flex;align-items:center;padding:0 14px;gap:8px;width:260px;"><span>🔍</span><input style="border:none;outline:none;font-size:12px;background:transparent;width:100%;" placeholder="이름, 여권번호, 국적 검색..." readonly></div>
+          <button class="btn-gold">👤 신규 고객</button>
+        </div>
+      </div>
+      <!-- 목록 테이블 (드로어 뒤에 깔림) -->
+      <div class="hw-card" style="padding:0;overflow:hidden;opacity:0.55;">
+        <table class="hw-table">
+          <thead><tr><th>한글이름</th><th>영문이름</th><th>여권번호</th><th>국적</th><th>생년월일</th><th>체류자격</th><th>등록증만기일</th><th>여권만기일</th></tr></thead>
+          <tbody>
+            <tr class="row-danger"><td>왕홍메이</td><td>Wang Hongmei</td><td>EA1234567</td><td>중국</td><td>1990-03-15</td><td>비전문취업(E-9)</td><td class="dday-danger">2024-04-12</td><td>2027-09-01</td></tr>
+            <tr style="background:rgba(245,166,35,0.08);outline:2px solid #F5A623;"><td>리우진</td><td>Liu Jin</td><td>EA7890123</td><td>중국</td><td>1985-07-22</td><td>거주(F-2)</td><td class="dday-warn">2024-05-08</td><td>2026-05-20</td></tr>
+            <tr><td>판가르카</td><td>Pangarkar Raj</td><td>F1234567</td><td>인도</td><td>1992-11-01</td><td>전문직(E-7)</td><td>2024-06-30</td><td>2028-11-01</td></tr>
+            <tr><td>라지브쿠마르</td><td>Rajiv Kumar</td><td>L3456789</td><td>인도</td><td>1988-04-10</td><td>결혼이민(F-6)</td><td>2025-01-15</td><td class="dday-warn">2024-07-15</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 드로어 오버레이 -->
+      <div class="drawer-overlay" style="position:absolute;"></div>
+
+      <!-- 드로어 패널 -->
+      <div class="drawer" style="position:absolute;">
+        <div class="drawer-header">
+          <div>
+            <div class="drawer-title">리우진 (Liu Jin)</div>
+            <div class="drawer-id">ID: 0042</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="folder-btn">📁 폴더 ↗</button>
+            <button class="close-btn">✕</button>
+          </div>
+        </div>
+        <div class="drawer-body">
+          <div class="field-grid">
+            <div class="field-item"><div class="field-label">한글이름</div><input class="field-input" value="리우진"></div>
+            <div class="field-item"><div class="field-label">영문이름</div><input class="field-input" value="Liu Jin"></div>
+            <div class="field-item"><div class="field-label">여권번호</div><input class="field-input" value="EA7890123"></div>
+            <div class="field-item"><div class="field-label">국적</div><input class="field-input" value="중국"></div>
+            <div class="field-item"><div class="field-label">생년월일 (YYYY-MM-DD)</div><input class="field-input" value="1985-07-22"></div>
+            <div class="field-item"><div class="field-label">성별</div><select class="field-input"><option>남</option><option selected>여</option></select></div>
+            <div class="field-item"><div class="field-label">전화번호</div><input class="field-input" value="010-9876-5432"></div>
+            <div class="field-item"><div class="field-label">체류자격</div><input class="field-input" value="거주(F-2)"></div>
+            <div class="field-item"><div class="field-label">등록증만기일</div><input class="field-input" value="2024-05-08" style="border-color:#F5A623;box-shadow:0 0 0 2px rgba(245,166,35,0.15);"></div>
+            <div class="field-item"><div class="field-label">여권만기일</div><input class="field-input" value="2026-05-20"></div>
+            <div class="field-item col-2"><div class="field-label">주소</div><input class="field-input" value="서울시 구로구 디지털로 123"></div>
+            <div class="field-item"><div class="field-label">직장</div><input class="field-input" value="삼성전자 협력업체"></div>
+            <div class="field-item"><div class="field-label">긴급연락처</div><input class="field-input" value="010-1111-2222"></div>
+            <div class="field-item col-2"><div class="field-label">메모</div><textarea class="field-textarea">3월 내로 등록증 갱신 서류 제출 필요. 고용확인서 추가로 받아야 함.</textarea></div>
+          </div>
+          <div class="dday-pills">
+            <span class="dday-pill danger">등록증만기일: D-49</span>
+            <span class="dday-pill ok">여권만기일: D-427</span>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn-danger-sm">🗑 삭제</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-outline">취소</button>
+            <button class="btn-gold">💾 저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━ ③ 업무관리 ━━━━━━━━━ -->
+<div id="screen-tasks" class="screen">
+  <div class="sidebar">
+    <div class="sidebar-logo"><div class="brand">한우리</div><div class="subtitle">출입국 업무관리</div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-item"><span class="nav-icon">🏠</span>홈 대시보드</div>
+      <div class="nav-item"><span class="nav-icon">👥</span>고객관리</div>
+      <div class="nav-item active"><span class="nav-icon">📋</span>업무관리</div>
+      <div class="nav-item"><span class="nav-icon">📝</span>메모</div>
+    </nav>
+  </div>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-search"><span>🔍</span><input placeholder="검색... (Ctrl+K)" readonly></div>
+      <div class="topbar-right"><span class="office-name">한우리 출입국사무소</span><div class="bell-btn">🔔<div class="bell-badge">7</div></div><button class="logout-btn">로그아웃</button></div>
+    </div>
+    <div class="page-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <span class="page-title" style="margin-bottom:0;">업무관리</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-gold">+ 업무 추가</button>
+          <button class="btn-gold" style="background:#38A169;">✓ 선택 처리 (2건)</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab active">진행업무 <span style="background:#F5A623;color:#fff;border-radius:12px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px;">5</span></button>
+        <button class="tab">예정업무</button>
+        <button class="tab">완료업무</button>
+      </div>
+      <div class="hw-card" style="padding:0;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="hw-table" style="min-width:900px;">
+            <thead><tr><th>분류</th><th>날짜</th><th>이름</th><th>업무</th><th>세부내용</th><th style="text-align:right;">이체</th><th style="text-align:right;">현금</th><th style="text-align:right;">카드</th><th style="text-align:right;">미수</th><th style="text-align:center;">처리</th><th style="text-align:center;">완료✅</th><th style="text-align:center;">삭제❌</th></tr></thead>
+            <tbody>
+              <tr style="background:rgba(72,187,120,0.08);"><td>비자</td><td>2024-03-20</td><td>왕홍메이</td><td style="color:#3182CE;font-weight:500;">E-9 갱신</td><td style="color:#3182CE;">서류 접수 완료</td><td style="text-align:right;">150,000</td><td style="text-align:right;"></td><td style="text-align:right;"></td><td style="text-align:right;"></td><td style="text-align:center;"><input type="checkbox" checked style="accent-color:#3182CE;"></td><td style="text-align:center;"><input type="checkbox" checked style="accent-color:#38A169;"></td><td style="text-align:center;"><input type="checkbox" style="accent-color:#E53E3E;"></td></tr>
+              <tr><td>여권</td><td>2024-03-20</td><td>리우진</td><td><input style="border:none;outline:none;font-size:12px;background:transparent;width:100%;"></td><td><input style="border:none;outline:none;font-size:12px;background:transparent;width:100%;" value="여권 재발급 신청"></td><td style="text-align:right;">80,000</td><td style="text-align:right;"></td><td style="text-align:right;"></td><td style="text-align:right;color:#E53E3E;">50,000</td><td style="text-align:center;"><input type="checkbox" style="accent-color:#3182CE;"></td><td style="text-align:center;"><input type="checkbox" style="accent-color:#38A169;"></td><td style="text-align:center;"><input type="checkbox" checked style="accent-color:#E53E3E;"></td></tr>
+              <tr><td>등록증</td><td>2024-03-19</td><td>판가르카</td><td>체류자격 변경</td><td>E-7 → F-2 신청서 작성</td><td style="text-align:right;"></td><td style="text-align:right;">200,000</td><td style="text-align:right;"></td><td style="text-align:right;"></td><td style="text-align:center;"><input type="checkbox" style="accent-color:#3182CE;"></td><td style="text-align:center;"><input type="checkbox" style="accent-color:#38A169;"></td><td style="text-align:center;"><input type="checkbox" style="accent-color:#E53E3E;"></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="sum-footer" style="padding:10px 16px;">
+          <span class="sum-item">이체: <strong>230,000</strong></span>
+          <span class="sum-item">현금: <strong>200,000</strong></span>
+          <span class="sum-item" style="color:#E53E3E;">미수: <strong style="color:#E53E3E;">50,000</strong></span>
+        </div>
+      </div>
+      <!-- 완료이동 확인 모달 -->
+      <div class="complete-modal-overlay">
+        <div class="complete-modal">
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div class="modal-icon">✅</div>
+            <div>
+              <div style="font-weight:700;font-size:14px;margin-bottom:8px;">완료 처리 확인</div>
+              <div style="font-size:12px;color:#718096;line-height:1.7;">선택된 <strong style="color:#1A202C;">1건</strong>의 업무를 완료업무 탭으로 이동합니다.<br>이 작업은 되돌릴 수 없습니다.</div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button class="btn-outline">취소</button>
+            <button class="btn-gold">✓ 완료 처리</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━ ④ 메모 ━━━━━━━━━ -->
+<div id="screen-memos" class="screen">
+  <div class="sidebar">
+    <div class="sidebar-logo"><div class="brand">한우리</div><div class="subtitle">출입국 업무관리</div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-item"><span class="nav-icon">🏠</span>홈 대시보드</div>
+      <div class="nav-item"><span class="nav-icon">👥</span>고객관리</div>
+      <div class="nav-item"><span class="nav-icon">📋</span>업무관리</div>
+      <div class="nav-item active"><span class="nav-icon">📝</span>메모</div>
+      <div class="nav-item"><span class="nav-icon">🔍</span>통합검색</div>
+    </nav>
+  </div>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-search"><span>🔍</span><input placeholder="검색... (Ctrl+K)" readonly></div>
+      <div class="topbar-right"><span class="office-name">한우리 출입국사무소</span><div class="bell-btn">🔔</div><button class="logout-btn">로그아웃</button></div>
+    </div>
+    <div class="page-content">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <span class="page-title" style="margin-bottom:0;">메모</span>
+        <span style="font-size:12px;color:#A0AEC0;">이번 주/이번 달 업무</span>
+      </div>
+      <div class="tabs">
+        <button class="tab active">📝 중기 메모</button>
+        <button class="tab">📚 장기 메모</button>
+      </div>
+      <!-- 단기 탭 없음: 대시보드 전용 -->
+      <div class="hw-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span class="dirty-indicator">● 저장되지 않은 변경사항</span>
+          <button class="btn-gold" style="font-size:11px;padding:6px 14px;">💾 저장</button>
+        </div>
+        <textarea class="memo-editor">■ 이번 주 처리 예정 (3/18 ~ 3/22)
+─────────────────────────────
+[월] 왕홍메이 E-9 갱신서류 접수
+[화] 리우진 여권 재발급 서류 준비
+[수] 법무부 방문 — 등록증 처리 3건
+[목] 판가르카 체류자격 변경 신청
+[금] 정기 미수금 정리
+
+■ 다음 주 주의사항
+─────────────────────────────
+• 3/25 — 왕홍메이 등록증 만기 D-23
+• 비자 연장 신청 마감: 4/1
+• 새 수수료 테이블 확인 필요
+
+■ 미결 사항
+─────────────────────────────
+[ ] 라지브쿠마르 결혼증빙서류 추가 제출
+[ ] 응우옌티호아 취업확인서 갱신</textarea>
+        <p style="font-size:11px;color:#A0AEC0;margin-top:8px;">Ctrl+S (또는 Cmd+S) 로 저장</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━ ⑤ 통합검색 ━━━━━━━━━ -->
+<div id="screen-search" class="screen">
+  <div class="sidebar">
+    <div class="sidebar-logo"><div class="brand">한우리</div><div class="subtitle">출입국 업무관리</div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-item"><span class="nav-icon">🏠</span>홈 대시보드</div>
+      <div class="nav-item"><span class="nav-icon">👥</span>고객관리</div>
+      <div class="nav-item"><span class="nav-icon">📋</span>업무관리</div>
+      <div class="nav-item"><span class="nav-icon">📝</span>메모</div>
+      <div class="nav-item active"><span class="nav-icon">🔍</span>통합검색</div>
+    </nav>
+  </div>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-search" style="border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,0.12);"><span>🔍</span><input placeholder="검색 중: '비자'" value="비자" readonly></div>
+      <div class="topbar-right"><span class="office-name">한우리 출입국사무소</span><div class="bell-btn">🔔<div class="bell-badge">7</div></div><button class="logout-btn">로그아웃</button></div>
+    </div>
+    <div class="page-content">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <span class="page-title" style="margin-bottom:0;">통합검색</span>
+      </div>
+      <div class="hw-card">
+        <div class="search-box">
+          <div class="search-input-wrap"><span>🔍</span><input value="비자" style="font-size:14px;" readonly></div>
+          <button class="search-submit">🔍 검색</button>
+        </div>
+        <!-- 카테고리 탭 (검색 후 표시) -->
+        <div class="search-type-tabs" style="margin-top:16px;">
+          <button class="stype-btn active">🔍 전체</button>
+          <button class="stype-btn">👤 고객</button>
+          <button class="stype-btn">📋 업무</button>
+          <button class="stype-btn">📰 게시판</button>
+          <button class="stype-btn">📚 업무참고</button>
+          <button class="stype-btn">📝 메모</button>
+        </div>
+      </div>
+      <!-- Phase 1 스켈레톤 로딩 애니메이션 -->
+      <div style="margin-top:4px;">
+        <div style="font-size:11px;color:#A0AEC0;margin-bottom:8px;padding:0 4px;">
+          ※ Phase 1 스켈레톤: 검색 UI 골격 구현 완료. 실제 데이터 검색은 Phase 3에서 구현 예정
+        </div>
+        <div class="skeleton-card"><div class="skeleton" style="width:55%;margin-bottom:8px;"></div><div class="skeleton" style="width:90%;margin-bottom:6px;height:10px;"></div><div class="skeleton" style="width:75%;height:10px;"></div></div>
+        <div class="skeleton-card"><div class="skeleton" style="width:40%;margin-bottom:8px;"></div><div class="skeleton" style="width:85%;margin-bottom:6px;height:10px;"></div><div class="skeleton" style="width:70%;height:10px;"></div></div>
+        <div class="skeleton-card"><div class="skeleton" style="width:60%;margin-bottom:8px;"></div><div class="skeleton" style="width:80%;margin-bottom:6px;height:10px;"></div><div class="skeleton" style="width:65%;height:10px;"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

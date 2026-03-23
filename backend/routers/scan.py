@@ -1,0 +1,335 @@
+"""OCR 스캔 라우터 - 여권/외국인등록증 + 기존 고객 upsert"""
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+import io, datetime
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from pydantic import BaseModel
+from typing import Optional
+from backend.auth import get_current_user
+
+router = APIRouter()
+
+
+# ── Tesseract 초기화 ──────────────────────────────────────────────────────────
+
+def _ensure_tesseract():
+    import platform
+    try:
+        import pytesseract
+
+        # 프로젝트 tessdata 경로 (ocrb.traineddata 포함)
+        _here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        project_tessdata = os.path.join(_here, "tessdata")
+
+        if platform.system() == "Windows":
+            TESSERACT_ROOT = r"C:\Program Files\Tesseract-OCR"
+            pytesseract.pytesseract.tesseract_cmd = os.path.join(TESSERACT_ROOT, "tesseract.exe")
+            sys_tessdata = os.path.join(TESSERACT_ROOT, "tessdata")
+            # ocrb.traineddata가 시스템 tessdata에 없으면 프로젝트 tessdata에서 복사
+            ocrb_sys = os.path.join(sys_tessdata, "ocrb.traineddata")
+            ocrb_proj = os.path.join(project_tessdata, "ocrb.traineddata")
+            if not os.path.exists(ocrb_sys) and os.path.exists(ocrb_proj):
+                try:
+                    import shutil
+                    shutil.copy2(ocrb_proj, ocrb_sys)
+                except Exception:
+                    pass
+            os.environ["TESSDATA_PREFIX"] = sys_tessdata + os.sep
+        else:
+            pytesseract.pytesseract.tesseract_cmd = "tesseract"
+            # Linux: 프로젝트 tessdata를 TESSDATA_PREFIX로 설정
+            os.environ["TESSDATA_PREFIX"] = project_tessdata + os.sep
+
+        return pytesseract
+    except ImportError:
+        return None
+
+
+# ── OCR 엔드포인트 ────────────────────────────────────────────────────────────
+
+@router.post("/passport")
+async def scan_passport(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
+    _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
+    try:
+        from pages.page_scan import parse_passport
+        from PIL import Image
+        img_bytes = await file.read()
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        result = parse_passport(img)
+        return result or {"error": "파싱 실패 - MRZ를 인식하지 못했습니다."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR 오류: {str(e)}")
+
+
+@router.post("/arc")
+async def scan_arc(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """외국인등록증 이미지 → 정보 추출"""
+    # A안: fast=True 고정 (OCR 조합 최대 2회, 처리시간 단축)
+    # 여권은 parse_passport() 그대로 유지 — 분리 운영
+    _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
+    try:
+        from pages.page_scan import parse_arc
+        from PIL import Image
+        img_bytes = await file.read()
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        result = parse_arc(img, fast=True)
+        return result or {"error": "파싱 실패"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR 오류: {str(e)}")
+
+
+# ── upsert 요청 스키마 ────────────────────────────────────────────────────────
+
+class ScanUpsertRequest(BaseModel):
+    """
+    OCR 결과를 고객 시트에 upsert.
+    필드명은 실무 시트 축약형 컬럼과 일치시킨다.
+    """
+    # 여권 정보
+    성: Optional[str] = ""        # 영문 성
+    명: Optional[str] = ""        # 영문 이름
+    국적: Optional[str] = ""
+    성별: Optional[str] = ""
+    여권: Optional[str] = ""      # 여권번호
+    발급: Optional[str] = ""      # 여권 발급일
+    만기: Optional[str] = ""      # 여권 만기일
+    # 등록증 정보
+    한글: Optional[str] = ""      # 한글이름
+    등록증: Optional[str] = ""    # 등록번호 앞자리
+    번호: Optional[str] = ""      # 등록번호 뒷자리
+    발급일: Optional[str] = ""    # 등록증 발급일
+    만기일: Optional[str] = ""    # 등록증 만기일
+    주소: Optional[str] = ""
+    # 기타
+    연: Optional[str] = ""        # 전화번호 앞
+    락: Optional[str] = ""        # 전화번호 중간
+    처: Optional[str] = ""        # 전화번호 뒷
+    V: Optional[str] = ""         # 비고
+
+
+# ── 날짜 정규화 ───────────────────────────────────────────────────────────────
+
+def _normalize_ymd(s: str) -> str:
+    """'YYYYMMDD' / 'YYYY.MM.DD' / 'YYYY-MM-DD' → 'YYYY-MM-DD'"""
+    if not s:
+        return ""
+    s = s.strip().replace(".", "-").replace("/", "-")
+    if len(s) == 8 and s.isdigit():
+        return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+    return s[:10] if len(s) >= 10 else s
+
+
+# ── 필드 alias 정규화 ─────────────────────────────────────────────────────────
+# 프론트에서 풀네임 키가 오는 경우에도 수용.
+# 우선순위: 실무 축약형 키 = 최종 저장 키.
+_FIELD_ALIASES: dict = {
+    "한글이름":          "한글",
+    "korean_name":       "한글",
+    "name":              "한글",
+    "surname":           "성",
+    "given_names":       "명",
+    "영문이름":          "명",    # 축약형 "명"으로 단일 매핑 (성+명 합산 문자열이면 "성"이 비게 되는 문제를 방지)
+    "여권번호":          "여권",
+    "passport_no":       "여권",
+    "passport":          "여권",
+    "여권만기일":         "만기",
+    "expiry_date":       "만기",
+    "expiry":            "만기",
+    "여권발급일":         "발급",
+    "등록증만기일":       "만기일",
+    "등록증발급일":       "발급일",
+    "전화번호":          "__phone__",  # 단일 전화번호 문자열 → 분리 처리
+    "phone":             "__phone__",
+    "nationality":       "국적",
+    "nation":            "국적",
+    "gender":            "성별",
+    "sex":               "성별",
+    "생년월일":          "생년월일",  # 시트 컬럼 없음 — 저장 제외
+    "birth_date":        "생년월일",
+    "dob":               "생년월일",
+}
+
+# 저장하지 않을 필드 (시트 컬럼 없거나 내부 처리용)
+_SKIP_FIELDS = {"생년월일", "raw_mrz", "error", "국가"}
+
+
+def _split_phone_str(phone: str) -> dict:
+    """전화번호 문자열 → {연, 락, 처}"""
+    parts = phone.replace(" ", "").split("-")
+    if len(parts) == 3:
+        return {"연": parts[0], "락": parts[1], "처": parts[2]}
+    if len(parts) == 2:
+        return {"연": parts[0], "락": parts[1], "처": ""}
+    d = phone.replace(r"\D", "")
+    d = "".join(c for c in phone if c.isdigit())
+    if len(d) == 11:
+        return {"연": d[:3], "락": d[3:7], "처": d[7:]}
+    if len(d) == 10:
+        return {"연": d[:3], "락": d[3:6], "처": d[6:]}
+    return {"연": phone, "락": "", "처": ""}
+
+
+def _normalize_fields(raw: dict) -> dict:
+    """
+    alias 정규화 + 날짜 정규화.
+    raw: {필드명: 값} (frontend에서 온 editForm 그대로)
+    반환: {실무 축약형 컬럼명: 정규화된 값}
+    """
+    date_fields = {"발급", "만기", "발급일", "만기일"}
+    out: dict = {}
+    for k, v in raw.items():
+        v = str(v or "").strip()
+        if not v:
+            continue
+        # alias 변환
+        canonical = _FIELD_ALIASES.get(k, k)
+        # 저장 제외 필드
+        if canonical in _SKIP_FIELDS:
+            continue
+        # 전화번호 분리
+        if canonical == "__phone__":
+            parts = _split_phone_str(v)
+            for pk, pv in parts.items():
+                if pv:
+                    out[pk] = pv
+            continue
+        # 날짜 정규화
+        if canonical in date_fields:
+            v = _normalize_ymd(v) or v
+        out[canonical] = v
+    return out
+
+
+# ── upsert 엔드포인트 ─────────────────────────────────────────────────────────
+
+@router.post("/register")
+def scan_register(
+    body: dict,
+    user: dict = Depends(get_current_user),
+):
+    """
+    OCR 결과를 고객 시트에 upsert (tenant 격리).
+
+    - body: 프론트 editForm 그대로 수신 (축약형 키 또는 풀네임 키 모두 수용)
+    - _normalize_fields()가 alias 변환 + 날짜 정규화를 담당
+    - 여권(여권) 또는 등록증 앞/뒤(등록증+번호)로 기존 고객 탐색
+    - 기존 고객 → 변경 필드만 batch_update (만기일만 바뀐 경우 안전)
+    - 신규 고객 → 고객ID 발급 후 append
+
+    core/customer_service.py의 upsert_customer_from_scan()은 Streamlit
+    session_state를 직접 참조하므로 FastAPI에서 직접 호출 불가.
+    tenant_service.get_worksheet()로 동일 로직 구현.
+    """
+    from backend.services.tenant_service import get_worksheet
+    from config import CUSTOMER_SHEET_NAME
+    import pandas as pd
+
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+
+    # ── alias 정규화 + 날짜 정규화 ──
+    data = _normalize_fields(body)
+
+    if not data:
+        raise HTTPException(status_code=400, detail="upsert할 데이터가 없습니다.")
+
+    # ── 시트 데이터 로드 ──────────────────────────────────────────
+    try:
+        ws = get_worksheet(CUSTOMER_SHEET_NAME, tenant_id)
+        all_values = ws.get_all_values()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"시트 접근 실패: {str(e)}")
+
+    if not all_values:
+        raise HTTPException(status_code=500, detail="고객 시트가 비어 있습니다.")
+
+    headers = all_values[0]
+    rows    = all_values[1:]
+    df = pd.DataFrame(rows, columns=headers)
+
+    def norm(s): return str(s or "").strip()
+
+    # ── 기존 고객 탐색 ────────────────────────────────────────────
+    key_passport  = norm(data.get("여권", ""))
+    key_reg_front = norm(data.get("등록증", ""))
+    key_reg_back  = norm(data.get("번호", ""))
+
+    hit_idx = None
+
+    if key_passport and "여권" in df.columns:
+        matches = df.index[df["여권"].astype(str).str.strip() == key_passport].tolist()
+        if matches:
+            hit_idx = matches[0]
+
+    if hit_idx is None and key_reg_front and key_reg_back:
+        if "등록증" in df.columns and "번호" in df.columns:
+            matches = df.index[
+                (df["등록증"].astype(str).str.strip() == key_reg_front) &
+                (df["번호"].astype(str).str.strip()   == key_reg_back)
+            ].tolist()
+            if matches:
+                hit_idx = matches[0]
+
+    # ── 컬럼 인덱스 헬퍼 ─────────────────────────────────────────
+    def _col_letter(n: int) -> str:
+        s = ""
+        while n > 0:
+            n, r = divmod(n - 1, 26)
+            s = chr(65 + r) + s
+        return s
+
+    # ── 1) 기존 고객 업데이트 ────────────────────────────────────
+    if hit_idx is not None:
+        rownum = hit_idx + 2   # 헤더 1행 + 0-index 보정
+        batch  = []
+        for col_name, val in data.items():
+            if col_name in headers:
+                col_idx = headers.index(col_name) + 1  # 1-based
+                cell    = f"{_col_letter(col_idx)}{rownum}"
+                batch.append({"range": cell, "values": [[val]]})
+
+        if batch:
+            try:
+                ws.batch_update(batch)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"고객 업데이트 실패: {str(e)}")
+
+        customer_id = str(df.at[hit_idx, "고객ID"]) if "고객ID" in df.columns else ""
+        return {
+            "status": "updated",
+            "고객ID": customer_id,
+            "message": f"기존 고객({customer_id}) 정보가 업데이트되었습니다.",
+        }
+
+    # ── 2) 신규 고객 추가 ────────────────────────────────────────
+    today_str = datetime.date.today().strftime("%Y%m%d")
+    if "고객ID" in df.columns:
+        today_ids = df["고객ID"].astype(str).str.strip()
+        today_count = today_ids[today_ids.str.startswith(today_str)].shape[0]
+    else:
+        today_count = 0
+    new_id = today_str + str(today_count + 1).zfill(2)
+
+    base = {h: "" for h in headers}
+    base["고객ID"] = new_id
+    for k, v in data.items():
+        if k in base:
+            base[k] = v
+
+    try:
+        ws.append_row([base.get(h, "") for h in headers])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"고객 추가 실패: {str(e)}")
+
+    return {
+        "status": "created",
+        "고객ID": new_id,
+        "message": f"신규 고객이 추가되었습니다 (고객ID: {new_id}).",
+    }

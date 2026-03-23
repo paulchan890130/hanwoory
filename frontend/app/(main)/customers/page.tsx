@@ -1,0 +1,372 @@
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { customersApi } from "@/lib/api";
+import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink } from "lucide-react";
+
+// ── 만기 D-Day 계산 ────────────────────────────────────────────────────────────
+function parseDateStr(s: string): Date | null {
+  if (!s) return null;
+  const clean = s.replace(/\./g, "-").slice(0, 10);
+  const d = new Date(clean);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getDaysUntil(dateStr: string): number | null {
+  const d = parseDateStr(dateStr);
+  if (!d) return null;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.floor((d.getTime() - now.getTime()) / 86_400_000);
+}
+
+function expiryBadge(days: number | null): { text: string; style: React.CSSProperties } | null {
+  if (days === null) return null;
+  if (days < 0) return { text: `만료`, style: { background: "#FED7D7", color: "#C53030" } };
+  if (days <= 30) return { text: `D-${days}`, style: { background: "#FED7D7", color: "#C53030" } };
+  if (days <= 120) return { text: `D-${days}`, style: { background: "#FEEBC8", color: "#9C4221" } };
+  return null;
+}
+
+function rowHighlight(c: Record<string, string>): React.CSSProperties {
+  const cardDays = getDaysUntil(c["만기일"]);
+  const passDays = getDaysUntil(c["만기"]);
+  const min = [cardDays, passDays].reduce<number | null>((m, d) => {
+    if (d === null) return m;
+    return m === null ? d : Math.min(m, d);
+  }, null);
+  if (min === null) return {};
+  if (min <= 30) return { background: "#FFF5F5" };
+  if (min <= 120) return { background: "#FFFBF0" };
+  return {};
+}
+
+// ── 원본 시트 컬럼 정의 (기존 Streamlit 화면과 동일) ──────────────────────────
+// 시트 컬럼명 그대로 사용 (매핑 없음)
+const ALL_FIELDS = [
+  "한글", "국적", "성", "명", "연", "락", "처",
+  "등록증", "번호", "발급일", "만기일",
+  "여권", "발급", "만기",
+  "주소", "V", "위임내역", "비고", "폴더",
+];
+
+// 테이블에서 보일 컬럼 — 정보밀도 최대화, 원본 Streamlit 동일 컬럼 순서
+const TABLE_COLS: { key: string; label: string; w?: string }[] = [
+  { key: "한글",     label: "한글이름",    w: "76px" },
+  { key: "국적",     label: "국적",       w: "44px" },
+  { key: "성",       label: "성",         w: "64px" },
+  { key: "명",       label: "명",         w: "84px" },
+  { key: "_tel",     label: "연락처",     w: "104px" },
+  { key: "V",        label: "체류",       w: "50px" },
+  { key: "등록증",   label: "등록앞",     w: "68px" },
+  { key: "번호",     label: "등록뒤",     w: "68px" },
+  { key: "발급일",   label: "등록발급",   w: "82px" },
+  { key: "만기일",   label: "등록만기",   w: "82px" },
+  { key: "여권",     label: "여권번호",   w: "90px" },
+  { key: "만기",     label: "여권만기",   w: "82px" },
+  { key: "주소",     label: "주소",       w: "130px" },
+];
+
+// 드로어 필드 그룹 (원본 화면 구조 반영)
+const DRAWER_GROUPS = [
+  {
+    title: "기본정보",
+    fields: [
+      { key: "한글",   label: "한글이름" },
+      { key: "국적",   label: "국적" },
+      { key: "성",     label: "영문 성(Last)" },
+      { key: "명",     label: "영문 이름(First)" },
+      { key: "V",      label: "체류자격" },
+    ],
+  },
+  {
+    title: "연락처",
+    fields: [
+      { key: "연",   label: "전화번호 앞자리" },
+      { key: "락",   label: "전화번호 중간" },
+      { key: "처",   label: "전화번호 끝자리" },
+      { key: "주소", label: "주소", wide: true },
+    ],
+  },
+  {
+    title: "등록증",
+    fields: [
+      { key: "등록증", label: "등록번호 앞자리(생년월일)" },
+      { key: "번호",   label: "등록번호 뒷자리" },
+      { key: "발급일", label: "등록증 발급일" },
+      { key: "만기일", label: "등록증 만기일" },
+    ],
+  },
+  {
+    title: "여권",
+    fields: [
+      { key: "여권", label: "여권번호" },
+      { key: "발급", label: "여권 발급일" },
+      { key: "만기", label: "여권 만기일" },
+    ],
+  },
+  {
+    title: "업무정보",
+    fields: [
+      { key: "위임내역", label: "위임내역", wide: true },
+      { key: "비고",     label: "비고",     wide: true },
+      { key: "폴더",     label: "폴더 ID/URL", wide: true },
+    ],
+  },
+];
+
+function emptyCustomer(): Record<string, string> {
+  const rec: Record<string, string> = { 고객ID: "" };
+  ALL_FIELDS.forEach((f) => (rec[f] = ""));
+  return rec;
+}
+
+// ── 우측 드로어 ────────────────────────────────────────────────────────────────
+function CustomerDrawer({
+  customer, isNew, onClose, onSave, onDelete, isSaving,
+}: {
+  customer: Record<string, string> | null;
+  isNew: boolean;
+  onClose: () => void;
+  onSave: (d: Record<string, string>) => void;
+  onDelete?: (id: string) => void;
+  isSaving: boolean;
+}) {
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (customer) { setForm({ ...customer }); setDirty(false); }
+  }, [customer]);
+
+  if (!customer) return null;
+
+  const id = customer["고객ID"] || "";
+  const name = form["한글"] || `${form["성"] ?? ""} ${form["명"] ?? ""}`.trim() || "신규 고객";
+  const rawFolder = form["폴더"] || "";
+  const folderId = rawFolder.includes("drive.google.com")
+    ? rawFolder.split("/").pop()?.split("?")[0] || "" : rawFolder;
+  const folderUrl = folderId ? `https://drive.google.com/drive/folders/${folderId}` : null;
+
+  const change = (k: string, v: string) => { setForm((p) => ({ ...p, [k]: v })); setDirty(true); };
+
+  const cardDays = getDaysUntil(form["만기일"]);
+  const passDays = getDaysUntil(form["만기"]);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.2)" }} onClick={onClose} />
+      <div className="hw-drawer open" style={{ zIndex: 50, width: 400 }}>
+        {/* 헤더 */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:"1px solid #E2E8F0", flexShrink:0 }}>
+          <div>
+            <div style={{ fontWeight:600, fontSize:14, color:"#2D3748" }}>{isNew ? "신규 고객 등록" : name}</div>
+            {!isNew && id && <div style={{ fontSize:11, color:"#A0AEC0", marginTop:2 }}>ID: {id}</div>}
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            {folderUrl && (
+              <a href={folderUrl} target="_blank" rel="noopener noreferrer"
+                style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"#3182CE", background:"#EBF8FF", border:"1px solid #BEE3F8", borderRadius:6, padding:"4px 10px" }}>
+                <FolderOpen size={13} /> 폴더 <ExternalLink size={11} />
+              </a>
+            )}
+            <button onClick={onClose} style={{ padding:6, color:"#718096" }}><X size={16} /></button>
+          </div>
+        </div>
+
+        {/* 만기 D-Day */}
+        {!isNew && (cardDays !== null || passDays !== null) && (
+          <div style={{ padding:"8px 20px", background:"#F7FAFC", borderBottom:"1px solid #E2E8F0", display:"flex", gap:8, flexWrap:"wrap" }}>
+            {[{ label:"등록증만기", days:cardDays }, { label:"여권만기", days:passDays }].map(({ label, days }) => {
+              const badge = expiryBadge(days);
+              if (!badge) return null;
+              return (
+                <span key={label} style={{ ...badge.style, borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:600 }}>
+                  {label}: {badge.text}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 필드 그룹 */}
+        <div style={{ flex:1, overflowY:"auto", padding:"16px 20px" }}>
+          {DRAWER_GROUPS.map((grp) => (
+            <div key={grp.title} style={{ marginBottom:18 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#F5A623", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{grp.title}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                {grp.fields.map((f) => (
+                  <div key={f.key} style={(f as { wide?: boolean }).wide ? { gridColumn:"1/-1" } : {}}>
+                    <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>{f.label}</label>
+                    <input
+                      type="text"
+                      className="hw-input w-full text-xs"
+                      value={form[f.key] ?? ""}
+                      onChange={(e) => change(f.key, e.target.value)}
+                      placeholder={f.label}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 푸터 */}
+        <div style={{ padding:"12px 20px", borderTop:"1px solid #E2E8F0", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+          <div>
+            {!isNew && onDelete && (
+              <button className="btn-danger flex items-center gap-1.5 text-xs"
+                onClick={() => { if (confirm(`'${name}' 고객을 삭제하시겠습니까?`)) onDelete(id); }}>
+                <Trash2 size={12} /> 삭제
+              </button>
+            )}
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={onClose} className="btn-secondary text-xs">취소</button>
+            <button onClick={() => onSave(form)} disabled={(!dirty && !isNew) || isSaving}
+              className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50">
+              <Save size={12} /> {isNew ? "등록" : "저장"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── 메인 페이지 ────────────────────────────────────────────────────────────────
+export default function CustomersPage() {
+  const qc = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<Record<string, string> | null>(null);
+  const [isNewMode, setIsNewMode] = useState(false);
+
+  const { data: customers = [], isLoading, error } = useQuery({
+    queryKey: ["customers", search],
+    queryFn: () => customersApi.list(search || undefined).then((r) => r.data as Record<string, string>[]),
+  });
+
+  useEffect(() => {
+    if (searchParams.get("action") === "new") {
+      setSelectedCustomer(emptyCustomer()); setIsNewMode(true);
+      router.replace("/customers");
+    }
+  }, [searchParams, router]);
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, string> }) => customersApi.update(id, data),
+    onSuccess: () => { toast.success("저장됨"); qc.invalidateQueries({ queryKey: ["customers"] }); setSelectedCustomer(null); },
+    onError: () => toast.error("저장 실패"),
+  });
+  const addMut = useMutation({
+    mutationFn: (data: Record<string, string>) => customersApi.add(data),
+    onSuccess: () => { toast.success("신규 고객 등록됨"); qc.invalidateQueries({ queryKey: ["customers"] }); setSelectedCustomer(null); setIsNewMode(false); },
+    onError: () => toast.error("등록 실패"),
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => customersApi.delete(id),
+    onSuccess: () => { toast.success("삭제됨"); qc.invalidateQueries({ queryKey: ["customers"] }); setSelectedCustomer(null); },
+    onError: () => toast.error("삭제 실패"),
+  });
+
+  const handleSave = (form: Record<string, string>) => {
+    if (isNewMode) { addMut.mutate(form); }
+    else { const id = form["고객ID"] || selectedCustomer?.["고객ID"] || ""; updateMut.mutate({ id, data: form }); }
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      {/* 툴바 */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+        <h1 className="hw-page-title" style={{ marginRight:8 }}>고객관리</h1>
+        <div className="hw-search-bar" style={{ width:260 }}>
+          <Search size={13} className="search-icon" />
+          <input type="text" placeholder="이름, 여권번호, 국적 검색..."
+            value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <button onClick={() => { setSelectedCustomer(emptyCustomer()); setIsNewMode(true); }}
+          className="btn-primary flex items-center gap-1.5 text-xs">
+          <UserPlus size={14} /> 신규 고객
+        </button>
+        {customers.length > 0 && (
+          <span style={{ fontSize:12, color:"#718096", marginLeft:"auto" }}>
+            총 <strong style={{ color:"#2D3748" }}>{customers.length}</strong>명
+          </span>
+        )}
+      </div>
+
+      {/* 테이블 */}
+      {isLoading ? (
+        <div className="hw-card" style={{ color:"#A0AEC0", fontSize:13 }}>불러오는 중...</div>
+      ) : error ? (
+        <div className="hw-card" style={{ color:"#C53030", fontSize:13 }}>데이터 로딩 오류. 새로고침 해주세요.</div>
+      ) : customers.length === 0 ? (
+        <div className="hw-card" style={{ color:"#A0AEC0", fontSize:13, textAlign:"center", padding:"40px 0" }}>
+          {search ? `'${search}' 검색 결과가 없습니다.` : "등록된 고객이 없습니다."}
+        </div>
+      ) : (
+        <div className="hw-card" style={{ padding:0, overflow:"hidden" }}>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr style={{ background:"#F7FAFC", borderBottom:"2px solid #E2E8F0" }}>
+                  {TABLE_COLS.map((col) => (
+                    <th key={col.key} style={{
+                      padding:"8px 10px", textAlign:"left", fontWeight:600,
+                      fontSize:11, color:"#718096", whiteSpace:"nowrap",
+                      minWidth: col.w, maxWidth: col.w,
+                    }}>{col.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map((c) => {
+                  const id = c["고객ID"] || "";
+                  const tel = [c["연"] || "", c["락"] || "", c["처"] || ""].filter(Boolean).join("-");
+                  const isSelected = selectedCustomer?.["고객ID"] === id;
+                  return (
+                    <tr key={id} onClick={() => { setSelectedCustomer(c); setIsNewMode(false); }}
+                      style={{ ...rowHighlight(c), cursor:"pointer", borderBottom:"1px solid #EDF2F7",
+                        ...(isSelected ? { background:"rgba(245,166,35,0.08)", outline:"2px solid rgba(245,166,35,0.3)" } : {}) }}>
+                      {TABLE_COLS.map((col) => {
+                        const val = col.key === "_tel" ? tel : (c[col.key] || "");
+                        const isExpiry = col.key === "만기일" || col.key === "만기";
+                        const badge = isExpiry ? expiryBadge(getDaysUntil(val)) : null;
+                        return (
+                          <td key={col.key} style={{ padding:"7px 10px", whiteSpace:"nowrap",
+                            maxWidth: col.w, overflow:"hidden", textOverflow:"ellipsis" }}>
+                            {badge ? (
+                              <span>
+                                <span style={{ marginRight:4 }}>{val}</span>
+                                <span style={{ ...badge.style, borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:600 }}>{badge.text}</span>
+                              </span>
+                            ) : val}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 우측 드로어 */}
+      {selectedCustomer && (
+        <CustomerDrawer
+          customer={selectedCustomer} isNew={isNewMode}
+          onClose={() => { setSelectedCustomer(null); setIsNewMode(false); }}
+          onSave={handleSave}
+          onDelete={!isNewMode ? (id) => deleteMut.mutate(id) : undefined}
+          isSaving={updateMut.isPending || addMut.isPending}
+        />
+      )}
+    </div>
+  );
+}
