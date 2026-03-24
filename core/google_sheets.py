@@ -533,68 +533,95 @@ def get_worksheet(client, sheet_name: str):
 
 def create_office_files_for_tenant(tenant_id: str, office_name: str = "") -> dict:
     """
-    새 사무소(tenant)를 위해 구글 드라이브에 폴더 1개 + 시트 2개를 자동 생성.
-    - 부모 폴더: PARENT_DRIVE_FOLDER_ID
-    - 고객 데이터 시트: CUSTOMER_DATA_TEMPLATE_ID 복사
-    - 업무정리 시트: WORK_REFERENCE_TEMPLATE_ID 복사
+    새 사무소(tenant)를 위해 구글 드라이브에 폴더 1개와 시트 2개를 자동 생성합니다.
 
-    반환:
-        {
-            "folder_id": "<드라이브 폴더 ID>",
-            "customer_sheet_key": "<고객 데이터 스프레드시트 ID>",
-            "work_sheet_key": "<업무정리 스프레드시트 ID>",
-        }
+    동작 순서:
+      1. PARENT_DRIVE_FOLDER_ID 아래에 전용 폴더를 생성합니다.
+      2. 고객 데이터 템플릿(CUSTOMER_DATA_TEMPLATE_ID)을 복사합니다.
+      3. 업무정리 템플릿(WORK_REFERENCE_TEMPLATE_ID)을 복사합니다.
+
+    기존 구현은 중간 단계에서 예외가 발생하면 다음 단계를 수행하지 않고
+    전체 함수가 실패했습니다. 이 함수는 각 단계에서 발생하는 예외를
+    개별적으로 처리하여 가능한 정보는 최대한 반환하고,
+    에러 메시지는 ``errors`` 키에 누적합니다.
+
+    Args:
+        tenant_id (str): 사무소(테넌트) 식별자. 빈 값이면 공백을 제거한 ``tenant_id`` 를 사용합니다.
+        office_name (str, optional): 사무소 이름. 비어 있으면 ``tenant_id`` 를 사용합니다.
+
+    Returns:
+        dict: 생성된 폴더 및 시트 ID와 오류 메시지(있는 경우)를 포함한 딕셔너리. 형식은 다음과 같습니다.
+
+        ``{
+            "folder_id": "...",
+            "customer_sheet_key": "...",  # 실패 시 빈 문자열
+            "work_sheet_key": "...",      # 실패 시 빈 문자열
+            "errors": "고객데이터 시트 복사 실패: ...; 업무정리 시트 복사 실패: ..."
+        }``
+        ``errors`` 키는 실패가 없을 때는 존재하지 않을 수 있습니다.
     """
     tenant_id = (tenant_id or "").strip()
     office_name = (office_name or "").strip() or tenant_id
 
     drive_svc = get_drive_service()
+    result: dict[str, str] = {"folder_id": "", "customer_sheet_key": "", "work_sheet_key": ""}
+    errors: list[str] = []
 
     # 1) 사무소 전용 폴더 생성
-    folder_name = f"{tenant_id}_{office_name}"
-    folder_meta = {
-        "name": folder_name,
-        "mimeType": "application/vnd.google-apps.folder",
-        "parents": [PARENT_DRIVE_FOLDER_ID],
-    }
-    folder = drive_svc.files().create(
-        body=folder_meta,
-        fields="id",
-        supportsAllDrives=True,
-    ).execute()
-    folder_id = folder["id"]
+    try:
+        folder_name = f"{tenant_id}_{office_name}"
+        folder_meta = {
+            "name": folder_name,
+            "mimeType": "application/vnd.google-apps.folder",
+            "parents": [PARENT_DRIVE_FOLDER_ID],
+        }
+        folder = drive_svc.files().create(
+            body=folder_meta,
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
+        result["folder_id"] = folder.get("id", "")
+    except Exception as e:
+        # 폴더 생성이 실패하면 이후 단계는 의미가 없으므로 예외를 그대로 발생시킨다.
+        raise RuntimeError(f"폴더 생성 중 오류: {e}")
 
     # 2) 고객 데이터 템플릿 복사
-    customer_name = f"{office_name}_고객데이터"
-    customer_file = drive_svc.files().copy(
-        fileId=CUSTOMER_DATA_TEMPLATE_ID,
-        body={
-            "name": customer_name,
-            "parents": [folder_id],
-        },
-        fields="id",
-        supportsAllDrives=True,
-    ).execute()
-    customer_sheet_key = customer_file["id"]
+    try:
+        customer_name = f"{office_name}_고객데이터"
+        cust_file = drive_svc.files().copy(
+            fileId=CUSTOMER_DATA_TEMPLATE_ID,
+            body={
+                "name": customer_name,
+                "parents": [result["folder_id"]],
+            },
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
+        result["customer_sheet_key"] = cust_file.get("id", "")
+    except Exception as e:
+        errors.append(f"고객데이터 시트 복사 실패: {e}")
 
     # 3) 업무정리 템플릿 복사
-    work_name = f"{office_name}_업무정리"
-    work_file = drive_svc.files().copy(
-        fileId=WORK_REFERENCE_TEMPLATE_ID,
-        body={
-            "name": work_name,
-            "parents": [folder_id],
-        },
-        fields="id",
-        supportsAllDrives=True,
-    ).execute()
-    work_sheet_key = work_file["id"]
+    try:
+        work_name = f"{office_name}_업무정리"
+        work_file = drive_svc.files().copy(
+            fileId=WORK_REFERENCE_TEMPLATE_ID,
+            body={
+                "name": work_name,
+                "parents": [result["folder_id"]],
+            },
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
+        result["work_sheet_key"] = work_file.get("id", "")
+    except Exception as e:
+        errors.append(f"업무정리 시트 복사 실패: {e}")
 
-    return {
-        "folder_id": folder_id,
-        "customer_sheet_key": customer_sheet_key,
-        "work_sheet_key": work_sheet_key,
-    }
+    if errors:
+        # 에러 메시지를 세미콜론으로 연결해 하나의 문자열로 저장
+        result["errors"] = "; ".join(errors)
+
+    return result
 
 # ===== 공용 Read/Write =====
 def write_data_to_sheet(sheet_name: str, records: list[dict], header_list: list[str]) -> bool:

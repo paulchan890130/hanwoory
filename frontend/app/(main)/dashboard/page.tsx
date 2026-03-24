@@ -411,6 +411,21 @@ export default function DashboardPage() {
               aspectRatio={1.4}
               expandRows={true}
               events={calEvents}
+              // 한 날짜에 최소 두 줄 이상의 일정을 표시
+              dayMaxEvents={2}
+              // 일정 텍스트를 클릭해도 메모 창이 열리도록 추가
+              eventClick={(info) => {
+                const dateStr = info.event.startStr;
+                const existing = (events as Record<string, string[]>)[dateStr] || [];
+                setCalendarDate(dateStr);
+                setCalendarMemo(existing.join("\n"));
+                setCalModalIsEdit(existing.length > 0);
+                setShowCalModal(true);
+              }}
+              // 클릭 가능한 부분에 마우스 커서를 손 모양으로 표시
+              eventDidMount={(arg) => {
+                arg.el.style.cursor = "pointer";
+              }}
               headerToolbar={{ left: "prev", center: "title", right: "next" }}
               dateClick={(info) => {
                 const existing = (events as Record<string, string[]>)[info.dateStr] || [];

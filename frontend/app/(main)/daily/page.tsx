@@ -70,16 +70,15 @@ export default function DailyPage() {
     queryFn: () => dailyApi.getBalance().then((r) => r.data),
   });
 
-  // 월별 합계
+  // 월별 합계 – 항상 현재 연/월의 요약을 불러와서 카드에 표시하고, 패널에도 사용한다.
   const { data: monthlySummary } = useQuery({
     queryKey: ["daily", "summary", viewYear, viewMonth],
     queryFn: () => dailyApi.getMonthlySummary(viewYear, viewMonth).then((r) => r.data),
-    enabled: showMonthly,
   });
 
   // 직전 3개월 평균
   const prev3Months = useMemo(() => {
-    const months = [];
+    const months = [] as { year: number; month: number }[];
     for (let i = 1; i <= 3; i++) {
       const d = new Date(viewYear, viewMonth - 1 - i, 1);
       months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
@@ -103,11 +102,11 @@ export default function DailyPage() {
   const avg3 = useMemo(() => {
     const months = [m1, m2, m3].filter(Boolean);
     if (!months.length) return null;
-    const avgIncome = Math.round(months.reduce((s, m) => s + safeInt((m as Record<string, unknown>)?.net_income), 0) / months.length);
-    const avgInCash = Math.round(months.reduce((s, m) => s + safeInt((m as Record<string, unknown>)?.income_cash), 0) / months.length);
-    const avgInEtc  = Math.round(months.reduce((s, m) => s + safeInt((m as Record<string, unknown>)?.income_etc), 0) / months.length);
-    const avgExCash = Math.round(months.reduce((s, m) => s + safeInt((m as Record<string, unknown>)?.exp_cash), 0) / months.length);
-    const avgExEtc  = Math.round(months.reduce((s, m) => s + safeInt((m as Record<string, unknown>)?.exp_etc), 0) / months.length);
+    const avgIncome = Math.round(months.reduce((s, m: any) => s + safeInt(m?.net_income), 0) / months.length);
+    const avgInCash = Math.round(months.reduce((s, m: any) => s + safeInt(m?.income_cash), 0) / months.length);
+    const avgInEtc  = Math.round(months.reduce((s, m: any) => s + safeInt(m?.income_etc), 0) / months.length);
+    const avgExCash = Math.round(months.reduce((s, m: any) => s + safeInt(m?.exp_cash), 0) / months.length);
+    const avgExEtc  = Math.round(months.reduce((s, m: any) => s + safeInt(m?.exp_etc), 0) / months.length);
     return { avgIncome, avgInCash, avgInEtc, avgExCash, avgExEtc };
   }, [m1, m2, m3]);
 
@@ -171,6 +170,7 @@ export default function DailyPage() {
   const sumExCash = (entries as DailyEntry[]).reduce((s, e) => s + safeInt(e.exp_cash), 0);
   const sumExEtc  = (entries as DailyEntry[]).reduce((s, e) => s + safeInt(e.exp_etc), 0);
   const sumCashOut= (entries as DailyEntry[]).reduce((s, e) => s + safeInt(e.cash_out), 0);
+  const netTotal  = sumInCash + sumInEtc - sumExCash - sumExEtc - sumCashOut;
 
   const moveDate = (delta: number) => {
     const d = new Date(date);
@@ -326,25 +326,29 @@ export default function DailyPage() {
           style={{ fontSize: 12, color: "#3182CE", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
           오늘
         </button>
-        <button onClick={() => setShowMonthly(p => !p)} className="btn-secondary"
+        <button onClick={() => setShowMonthly((p) => !p)} className="btn-secondary"
           style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", display: "flex", alignItems: "center", gap: 4 }}>
           <BarChart2 size={12} /> {showMonthly ? "월별 합계 닫기" : `${viewYear}년 ${viewMonth}월 합계`}
         </button>
       </div>
 
       {/* ── 요약 카드 ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "12px" }}>
+        {/* 이번달 누적 순수익 카드 */}
         <div className="hw-card" style={{ padding: "16px" }}>
-          <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 4 }}>누적 현금 잔액</div>
-          <input type="text" inputMode="numeric"
-            style={{ fontSize: 22, fontWeight: 700, color: "#2B6CB0", border: "none", background: "transparent", outline: "none", width: "100%" }}
-            value={balance.cash}
-            onChange={(e) => { const v = safeInt(e.target.value); qc.setQueryData(["daily", "balance"], { ...balance, cash: v }); }}
-            onBlur={() => saveBalMut.mutate(balance as BalanceData)} />
+          <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 4 }}>이번달 누적 순수익</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: safeInt((monthlySummary as any)?.net_income) >= 0 ? "#276749" : "#C53030" }}>
+            {formatNumber(safeInt((monthlySummary as any)?.net_income))}
+          </div>
           <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 4 }}>
-            오늘 현금: +{formatNumber(sumInCash)} −{formatNumber(sumExCash + sumCashOut)}
+            {monthlySummary ? (
+              <>
+                수입 {formatNumber(safeInt((monthlySummary as any)?.income_cash) + safeInt((monthlySummary as any)?.income_etc))} / 지출 {formatNumber(safeInt((monthlySummary as any)?.exp_cash) + safeInt((monthlySummary as any)?.exp_etc) + safeInt((monthlySummary as any)?.cash_out))}
+              </>
+            ) : null}
           </div>
         </div>
+        {/* 오늘 수익 합계 카드 */}
         <div className="hw-card" style={{ padding: "16px" }}>
           <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 4 }}>오늘 수익 합계</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#276749" }}>
@@ -354,21 +358,20 @@ export default function DailyPage() {
             수입 {formatNumber(sumInCash + sumInEtc)} / 지출 {formatNumber(sumExCash + sumExEtc)}
           </div>
         </div>
+        {/* 직전 3개월 평균 카드 */}
+        {avg3 ? (
+          <div className="hw-card" style={{ padding: "10px 16px" }}>
+            <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+              <BarChart2 size={12} /> 직전 3개월 평균
+            </div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
+              <span>순수익: <strong style={{ color: avg3.avgIncome >= 0 ? "#276749" : "#C53030" }}>{formatNumber(avg3.avgIncome)}</strong></span>
+              <span style={{ color: "#718096" }}>수입(현){formatNumber(avg3.avgInCash)} / 수입(기타){formatNumber(avg3.avgInEtc)}</span>
+              <span style={{ color: "#718096" }}>지출(현){formatNumber(avg3.avgExCash)} / 지출(기타){formatNumber(avg3.avgExEtc)}</span>
+            </div>
+          </div>
+        ) : (<div />)}
       </div>
-
-      {/* 3개월 평균 */}
-      {avg3 && (
-        <div className="hw-card" style={{ padding: "10px 16px" }}>
-          <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
-            <BarChart2 size={12} /> 직전 3개월 평균
-          </div>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
-            <span>순수익: <strong style={{ color: avg3.avgIncome >= 0 ? "#276749" : "#C53030" }}>{formatNumber(avg3.avgIncome)}</strong></span>
-            <span style={{ color: "#718096" }}>수입(현){formatNumber(avg3.avgInCash)} / 수입(기타){formatNumber(avg3.avgInEtc)}</span>
-            <span style={{ color: "#718096" }}>지출(현){formatNumber(avg3.avgExCash)} / 지출(기타){formatNumber(avg3.avgExEtc)}</span>
-          </div>
-        </div>
-      )}
 
       {/* 월별 합계 패널 */}
       {showMonthly && monthlySummary && (
@@ -378,12 +381,12 @@ export default function DailyPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {[
-              { label: "수입(현금)", val: (monthlySummary as Record<string, unknown>).income_cash, color: "#2B6CB0" },
-              { label: "수입(기타)", val: (monthlySummary as Record<string, unknown>).income_etc, color: "#2B6CB0" },
-              { label: "지출(현금)", val: (monthlySummary as Record<string, unknown>).exp_cash, color: "#C53030" },
-              { label: "지출(기타)", val: (monthlySummary as Record<string, unknown>).exp_etc, color: "#C53030" },
-              { label: "현금출납", val: (monthlySummary as Record<string, unknown>).cash_out, color: "#718096" },
-              { label: "순수익", val: (monthlySummary as Record<string, unknown>).net_income, color: safeInt((monthlySummary as Record<string, unknown>).net_income) >= 0 ? "#276749" : "#C53030" },
+              { label: "수입(현금)", val: (monthlySummary as any).income_cash, color: "#2B6CB0" },
+              { label: "수입(기타)", val: (monthlySummary as any).income_etc, color: "#2B6CB0" },
+              { label: "지출(현금)", val: (monthlySummary as any).exp_cash, color: "#C53030" },
+              { label: "지출(기타)", val: (monthlySummary as any).exp_etc, color: "#C53030" },
+              { label: "현금출납", val: (monthlySummary as any).cash_out, color: "#718096" },
+              { label: "순수익", val: (monthlySummary as any).net_income, color: safeInt((monthlySummary as any).net_income) >= 0 ? "#276749" : "#C53030" },
             ].map(({ label, val, color }) => (
               <div key={label} style={{ background: "#F7FAFC", borderRadius: 6, padding: "8px 10px" }}>
                 <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>{label}</div>
@@ -394,37 +397,37 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* ── 새 항목 추가 폼 ── 테이블 컬럼(구분/성명/세부내용/수입/지출1/지출2)과 단일 행 정렬 */}
+      {/* ── 새 항목 추가 폼 ── 테이블 컬럼(시간/구분/성명/세부내용/수입/지출1/지출2)과 단일 행 정렬 */}
       <div className="hw-card" style={{ padding: "8px 12px", overflowX: "auto" }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 6 }}>+ 새 내역</div>
-        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", minWidth: 820 }}>
-
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", minWidth: 900 }}>
+          {/* 시간 (80px) */}
+          <div style={{ width: 80, flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>시간</div>
+            <input type="time" title="시간 (비워두면 자동)" style={{ ...inputSm, width: "100%" }}
+              value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+          </div>
           {/* 구분 (60px) */}
           <div style={{ width: 60, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>구분</div>
             <select style={{ ...inputSm, width: "100%" }} value={newCategory} onChange={(e) => setNewCategory(e.target.value)}>
               <option value="">선택</option>
-              {CAT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              {CAT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-
           {/* 성명 (72px) */}
           <div style={{ width: 72, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>성명</div>
             <input style={{ ...inputSm, width: "100%" }} placeholder="성명" value={newName} onChange={(e) => setNewName(e.target.value)} />
           </div>
-
-          {/* 세부내용 = 시간 + 내용 + 비고 (flex) */}
+          {/* 세부내용 및 비고 (flex) */}
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>세부내용</div>
             <div style={{ display: "flex", gap: 4 }}>
-              <input type="time" title="시간 (비워두면 자동)" style={{ ...inputSm, width: 76, flexShrink: 0 }}
-                value={newTime} onChange={(e) => setNewTime(e.target.value)} />
               <input style={{ ...inputSm, flex: 1 }} placeholder="세부내용" value={newTask} onChange={(e) => setNewTask(e.target.value)} />
               <input style={{ ...inputSm, width: 72, flexShrink: 0 }} placeholder="비고" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} />
             </div>
           </div>
-
           {/* 수입 (90px) */}
           <div style={{ width: 90, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>수입</div>
@@ -433,14 +436,13 @@ export default function DailyPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <select style={{ ...inputSm, width: "100%", fontSize: 11 }} value={newIncType} onChange={(e) => setNewIncType(e.target.value)}>
-                  {INCOME_METHODS.map(m => <option key={m} value={m}>{m || "유형"}</option>)}
+                  {INCOME_METHODS.map((m) => <option key={m} value={m}>{m || "유형"}</option>)}
                 </select>
                 <input type="text" inputMode="numeric" style={{ ...inputSm, width: "100%", textAlign: "right" }}
                   placeholder="0" value={newIncAmt} onChange={(e) => setNewIncAmt(e.target.value)} />
               </div>
             )}
           </div>
-
           {/* 지출1 (90px) */}
           <div style={{ width: 90, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>지출1</div>
@@ -450,14 +452,13 @@ export default function DailyPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <select style={{ ...inputSm, width: "100%", fontSize: 11 }} value={newE1Type} onChange={(e) => setNewE1Type(e.target.value)}>
-                  {EXPENSE_METHODS.map(m => <option key={m} value={m}>{m || "유형"}</option>)}
+                  {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{m || "유형"}</option>)}
                 </select>
                 <input type="text" inputMode="numeric" style={{ ...inputSm, width: "100%", textAlign: "right" }}
                   placeholder="0" value={newE1Amt} onChange={(e) => setNewE1Amt(e.target.value)} />
               </div>
             )}
           </div>
-
           {/* 지출2 (90px) */}
           <div style={{ width: 90, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>지출2</div>
@@ -466,22 +467,20 @@ export default function DailyPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <select style={{ ...inputSm, width: "100%", fontSize: 11 }} value={newE2Type} onChange={(e) => setNewE2Type(e.target.value)}>
-                  {EXPENSE_METHODS.map(m => <option key={m} value={m}>{m || "유형"}</option>)}
+                  {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{m || "유형"}</option>)}
                 </select>
                 <input type="text" inputMode="numeric" style={{ ...inputSm, width: "100%", textAlign: "right" }}
                   placeholder="0" value={newE2Amt} onChange={(e) => setNewE2Amt(e.target.value)} />
               </div>
             )}
           </div>
-
-          {/* 추가 버튼 (32+32=64px → 수정/삭제 열과 정렬) */}
+          {/* 추가 버튼 (64px) */}
           <div style={{ width: 64, flexShrink: 0, display: "flex", alignItems: "flex-end" }}>
             <button onClick={handleAdd} disabled={addMut.isPending} className="btn-primary"
               style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 10px", justifyContent: "center", width: "100%" }}>
               <Plus size={12} /> 추가
             </button>
           </div>
-
         </div>
       </div>
 
@@ -497,6 +496,7 @@ export default function DailyPage() {
                 <th style={{ width: 90, textAlign: "right" }}>수입</th>
                 <th style={{ width: 90, textAlign: "right" }}>지출1</th>
                 <th style={{ width: 90, textAlign: "right" }}>지출2</th>
+                <th style={{ width: 90, textAlign: "right" }}>순수익</th>
                 <th style={{ width: 32, textAlign: "center" }}>수정</th>
                 <th style={{ width: 32, textAlign: "center" }}>삭제</th>
               </tr>
@@ -523,6 +523,7 @@ export default function DailyPage() {
                     dispE1 = safeInt(entry.exp_cash) + safeInt(entry.exp_etc); dispE2 = 0;
                   }
                 }
+                const profitVal = dispInc - dispE1 - dispE2;
 
                 if (isEditing) {
                   const ev = editValues;
@@ -531,23 +532,23 @@ export default function DailyPage() {
                     <tr key={entry.id} style={{ background: "#FFFBEA" }}>
                       <td>
                         <select style={{ ...cellStyle, fontSize: 11, width: 72 }}
-                          value={ev.category || ""} onChange={(e) => setEditValues(p => ({ ...p, category: e.target.value }))}>
+                          value={ev.category || ""} onChange={(e) => setEditValues((p) => ({ ...p, category: e.target.value }))}>
                           <option value="">선택</option>
-                          {CAT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                          {CAT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </td>
-                      <td><input style={{ ...cellStyle, minWidth: 60 }} value={ev.name || ""} onChange={(e) => setEditValues(p => ({ ...p, name: e.target.value }))} /></td>
+                      <td><input style={{ ...cellStyle, minWidth: 60 }} value={ev.name || ""} onChange={(e) => setEditValues((p) => ({ ...p, name: e.target.value }))} /></td>
                       <td>
                         <div style={{ display: "flex", gap: 4 }}>
-                          <input type="time" style={{ ...cellStyle, width: 80 }} value={ev.time || ""} onChange={(e) => setEditValues(p => ({ ...p, time: e.target.value }))} />
-                          <input style={{ ...cellStyle, flex: 1 }} value={ev.task || ""} onChange={(e) => setEditValues(p => ({ ...p, task: e.target.value }))} />
+                          <input type="time" style={{ ...cellStyle, width: 80 }} value={ev.time || ""} onChange={(e) => setEditValues((p) => ({ ...p, time: e.target.value }))} />
+                          <input style={{ ...cellStyle, flex: 1 }} value={ev.task || ""} onChange={(e) => setEditValues((p) => ({ ...p, task: e.target.value }))} />
                         </div>
                       </td>
                       {editIsCashOut ? (
                         <>
                           <td colSpan={2} style={{ textAlign: "right" }}>
                             <input type="text" inputMode="numeric" style={{ ...cellStyle, textAlign: "right", width: 80 }}
-                              value={safeInt(ev.cash_out) || ""} onChange={(e) => setEditValues(p => ({ ...p, cash_out: safeInt(e.target.value) }))} />
+                              value={safeInt(ev.cash_out) || ""} onChange={(e) => setEditValues((p) => ({ ...p, cash_out: safeInt(e.target.value) }))} />
                           </td>
                           <td />
                         </>
@@ -556,42 +557,44 @@ export default function DailyPage() {
                           <td style={{ textAlign: "right" }}>
                             <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                               <select style={{ ...cellStyle, fontSize: 10, width: 44 }}
-                                value={ev.inc_type || ""} onChange={(e) => setEditValues(p => ({ ...p, inc_type: e.target.value }))}>
-                                {INCOME_METHODS.map(m => <option key={m} value={m}>{m || "-"}</option>)}
+                                value={ev.inc_type || ""} onChange={(e) => setEditValues((p) => ({ ...p, inc_type: e.target.value }))}>
+                                {INCOME_METHODS.map((m) => <option key={m} value={m}>{m || "-"}</option>)}
                               </select>
                               <input type="text" inputMode="numeric" style={{ ...cellStyle, textAlign: "right", width: 60 }}
                                 value={safeInt(ev.income_cash) + safeInt(ev.income_etc) || ""}
                                 onChange={(e) => {
                                   const v = safeInt(e.target.value);
-                                  if (ev.inc_type === "현금") setEditValues(p => ({ ...p, income_cash: v, income_etc: 0 }));
-                                  else setEditValues(p => ({ ...p, income_etc: v, income_cash: 0 }));
+                                  if (ev.inc_type === "현금") setEditValues((p) => ({ ...p, income_cash: v, income_etc: 0 }));
+                                  else setEditValues((p) => ({ ...p, income_etc: v, income_cash: 0 }));
                                 }} />
                             </div>
                           </td>
                           <td style={{ textAlign: "right" }}>
                             <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                               <select style={{ ...cellStyle, fontSize: 10, width: 44 }}
-                                value={ev.e1_type || ""} onChange={(e) => setEditValues(p => ({ ...p, e1_type: e.target.value }))}>
-                                {EXPENSE_METHODS.map(m => <option key={m} value={m}>{m || "-"}</option>)}
+                                value={ev.e1_type || ""} onChange={(e) => setEditValues((p) => ({ ...p, e1_type: e.target.value }))}>
+                                {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{m || "-"}</option>)}
                               </select>
                               <input type="text" inputMode="numeric" style={{ ...cellStyle, textAlign: "right", width: 60 }}
                                 value={safeInt(ev.exp_cash) || ""}
-                                onChange={(e) => setEditValues(p => ({ ...p, exp_cash: safeInt(e.target.value) }))} />
+                                onChange={(e) => setEditValues((p) => ({ ...p, exp_cash: safeInt(e.target.value) }))} />
                             </div>
                           </td>
                           <td style={{ textAlign: "right" }}>
                             <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                               <select style={{ ...cellStyle, fontSize: 10, width: 44 }}
-                                value={ev.e2_type || ""} onChange={(e) => setEditValues(p => ({ ...p, e2_type: e.target.value }))}>
-                                {EXPENSE_METHODS.map(m => <option key={m} value={m}>{m || "-"}</option>)}
+                                value={ev.e2_type || ""} onChange={(e) => setEditValues((p) => ({ ...p, e2_type: e.target.value }))}>
+                                {EXPENSE_METHODS.map((m) => <option key={m} value={m}>{m || "-"}</option>)}
                               </select>
                               <input type="text" inputMode="numeric" style={{ ...cellStyle, textAlign: "right", width: 60 }}
                                 value={safeInt(ev.exp_etc) || ""}
-                                onChange={(e) => setEditValues(p => ({ ...p, exp_etc: safeInt(e.target.value) }))} />
+                                onChange={(e) => setEditValues((p) => ({ ...p, exp_etc: safeInt(e.target.value) }))} />
                             </div>
                           </td>
                         </>
                       )}
+                      {/* 순수익 칸: 편집 모드에서는 비워둔다 */}
+                      <td />
                       <td style={{ textAlign: "center" }}>
                         <button onClick={saveEdit} disabled={updateMut.isPending}
                           style={{ color: "#48BB78", background: "none", border: "none", cursor: "pointer", padding: 2 }}>
@@ -634,6 +637,10 @@ export default function DailyPage() {
                         <span>{e2Label && <span style={{ fontSize: 10, color: "#718096", marginRight: 2 }}>{e2Label}</span>}{formatNumber(dispE2)}</span>
                       )}
                     </td>
+                    {/* 순수익 표시 */}
+                    <td style={{ textAlign: "right", fontSize: 12, color: profitVal >= 0 ? "#276749" : "#C53030" }}>
+                      {profitVal !== 0 && formatNumber(profitVal)}
+                    </td>
                     <td style={{ textAlign: "center" }}>
                       <button onClick={() => startEdit(entry)}
                         style={{ color: "#3182CE", background: "none", border: "none", cursor: "pointer", padding: 2 }}>
@@ -656,6 +663,7 @@ export default function DailyPage() {
                 <td style={{ padding: "6px 8px", textAlign: "right", color: "#2B6CB0" }}>{formatNumber(sumInCash + sumInEtc)}</td>
                 <td style={{ padding: "6px 8px", textAlign: "right", color: "#C53030" }}>{formatNumber(sumExCash + sumCashOut)}</td>
                 <td style={{ padding: "6px 8px", textAlign: "right", color: "#C53030" }}>{formatNumber(sumExEtc)}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right", color: netTotal >= 0 ? "#276749" : "#C53030" }}>{formatNumber(netTotal)}</td>
                 <td colSpan={2} />
               </tr>
             </tfoot>

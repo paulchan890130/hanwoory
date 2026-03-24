@@ -185,16 +185,27 @@ def render():
                 st.write(f"- 업무정리 시트: `{work_sheet_key or '(미생성)'}`")
             with col_f2:
                 if st.button("📂 폴더+시트 자동 생성/재생성", use_container_width=True):
+                    """
+                    버튼 클릭 시 새 폴더와 시트를 생성/재생성한다.
+                    create_office_files_for_tenant()에서 오류가 발생해도
+                    부분적으로 생성된 결과를 이용해 df를 업데이트하고,
+                    발생한 오류는 사용자에게 경고로 표시한다.
+                    """
                     try:
                         res = create_office_files_for_tenant(
                             tenant_id=new_tenant_id or selected_id,
                             office_name=new_office_name or selected_id,
                         )
+                        # 부분 성공 값도 데이터프레임에 기록
                         df.at[idx, "folder_id"] = res.get("folder_id", "")
                         df.at[idx, "customer_sheet_key"] = res.get("customer_sheet_key", "")
                         df.at[idx, "work_sheet_key"] = res.get("work_sheet_key", "")
+                        # 오류 메시지가 있으면 사용자에게 표시
+                        err_msg = res.get("errors")
+                        if err_msg:
+                            st.warning(f"일부 파일 생성에 실패했습니다: {err_msg}")
                         if save_accounts_df(df):
-                            st.success("폴더 및 시트가 생성/갱신되었습니다.")
+                            st.success("폴더 및 시트 정보가 저장되었습니다.")
                     except Exception as e:
                         st.error(f"폴더/시트 자동 생성 중 오류: {e}")
 
@@ -304,9 +315,12 @@ def render():
                             folder_id = res.get("folder_id", "")
                             customer_sheet_key = res.get("customer_sheet_key", "")
                             work_sheet_key = res.get("work_sheet_key", "")
+                            err_msg = res.get("errors")
+                            if err_msg:
+                                st.warning(f"새 계정용 폴더/시트 생성 중 일부 실패: {err_msg}")
                         except Exception as e:
                             st.error(f"폴더/시트 자동 생성 중 오류: {e}")
-                            # 자동생성 실패해도 계정 자체는 만들 수 있게 두고, 나중에 수정 탭에서 다시 시도 가능
+                            # 자동생성 실패해도 계정 자체는 만들 수 있게 두고, 나중에 수정 탭에서 다시 시 가능
 
                     new_row = {
                         "login_id": login_id,

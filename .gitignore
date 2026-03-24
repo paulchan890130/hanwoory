@@ -21,3 +21,17 @@ token.json
 
 # Streamlit 캐시 (있다면)
 .streamlit/
+
+desktop.ini
+**/desktop.ini
+
+node_modules/
+frontend/node_modules/
+.tmp.driveupload/
+.next/
+dist/
+build/
+desktop.ini
+**/desktop.ini
+Thumbs.db
+**/Thumbs.db

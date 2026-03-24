@@ -1,0 +1,274 @@
+맞아. 이 채팅에서 같은 문제를 사실상 푼 핵심은 “내 계정 용량”이 아니라, 복사 API를 실제로 누가 실행하고 있느냐를 바로잡은 거였어.
+
+지금 코드 기준으로 보면, 해결 포인트는 두 가지였다.
+
+1. 시트 생성 실패 원인: 복사 주체 계정이 내가 생각한 계정이 아니었음
+
+이 채팅에서 해결한 핵심은:
+
+Drive 템플릿 복사(files.copy)를 서비스계정이나 다른 계정으로 하고 있었고, 실제 복사 주체를 OAuth 사용자 계정으로 바꿨다
+또는 토큰이 잘못된 계정으로 발급돼 있어서, 그 토큰을 올바른 계정으로 다시 만들었다
+
+였어.
+
+왜 이렇게 보냐
+
+google_sheets.py를 보면 위쪽에는 예전에 서비스계정으로 Drive를 열던 코드가 남아 있는데:
+
+def get_drive_service():
+    scopes = ["https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_file(KEY_PATH, scopes=scopes)
+    return build("drive", "v3", credentials=creds)
+
+아래쪽에 같은 이름의 함수가 다시 정의돼 있고, Python에서는 맨 아래 정의가 최종 적용된다.
+즉, 실제로는 이 코드가 살아 있다:
+
+@st.cache_resource(ttl=600)
+def get_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = get_user_credentials(scopes)
+    return gspread.authorize(creds)
+
+def get_drive_service():
+    scopes = ["https://www.googleapis.com/auth/drive"]
+    creds = get_user_credentials(scopes)
+    return build("drive", "v3", credentials=creds)
+
+즉, 최종 해결 상태에서는 Drive 복사 주체가 서비스계정이 아니라 token.json으로 로그인된 OAuth 사용자였다는 뜻이야.
+
+이게 왜 중요했냐
+
+네가 “내 계정 용량은 충분하다”라고 했잖아.
+그런데 오류가 계속 났다면, 보통 실제 문제는 이거다.
+
+브라우저로는 A 계정을 쓰고 있다고 생각함
+그런데 서버/앱의 token.json은 예전에 로그인한 B 계정 토큰임
+files.copy()는 B 계정 기준으로 실행됨
+그래서 quota 오류가 남
+
+즉:
+
+문제는 Google Drive의 용량 자체가 아니라, “어느 계정으로 복사하고 있었는지”였다
+
+이 채팅에서 그걸 해결한 방식은 아래 흐름이야.
+
+해결 흐름
+Drive API 사용자 확인 함수로 실제 복사 주체 계정을 찍어봄
+get_drive_service() / get_gspread_client()를 OAuth 사용자 기반으로 통일
+token.json을 원하는 구글 계정으로 다시 발급
+그 계정 기준으로 폴더/시트 복사가 정상 수행됨
+
+실제로 이 파일에 디버그 함수도 있다:
+
+def debug_print_drive_user():
+    svc = get_drive_service()
+    about = svc.about().get(fields="user, storageQuota").execute()
+    print("현재 API 사용자 이메일:", about["user"]["emailAddress"])
+    print("storageQuota:", about["storageQuota"])
+
+이 함수가 중요한 이유는,
+지금 복사 요청을 보내는 계정이 누구인지 바로 확인할 수 있기 때문이야.
+
+2. 그 다음 문제: 폴더/시트가 생겨도 테넌트에 자동 연동이 안 되던 문제
+
+이건 별개로 또 해결했지.
+
+핵심은:
+
+생성된 folder_id, customer_sheet_key, work_sheet_key를 Accounts row에 저장하고, 런타임의 모든 시트 접근이 그 값을 보도록 강제한 것
+
+이거였어.
+
+2-1. 생성 함수
+
+create_office_files_for_tenant()는 최종적으로 이렇게 동작한다.
+
+PARENT_DRIVE_FOLDER_ID 아래에 tenant_id_office_name 폴더 생성
+고객데이터 템플릿 복사
+업무정리 템플릿 복사
+그리고 아래 dict 반환
+{
+    "folder_id": folder_id,
+    "customer_sheet_key": customer_sheet_key,
+    "work_sheet_key": work_sheet_key,
+}
+2-2. 관리자 승인 화면에서 Accounts에 저장
+
+관리자 페이지에서 자동 생성 버튼을 누르면,
+이 반환값을 Accounts DataFrame에 다시 써 넣고 저장한다.
+
+res = create_office_files_for_tenant(
+    tenant_id=new_tenant_id or selected_id,
+    office_name=new_office_name or selected_id,
+)
+df.at[idx, "folder_id"] = res.get("folder_id", "")
+df.at[idx, "customer_sheet_key"] = res.get("customer_sheet_key", "")
+df.at[idx, "work_sheet_key"] = res.get("work_sheet_key", "")
+if save_accounts_df(df):
+    st.success("폴더 및 시트가 생성/갱신되었습니다.")
+
+즉, 생성만 하면 끝이 아니라 반드시 Accounts에 기록해야 자동 연동이 된다.
+
+2-3. 런타임에서 tenant_id → sheet_key 매핑으로만 열게 바꿈
+
+여기서 진짜 자동연동이 완성됐다.
+
+_load_tenant_sheet_keys()가 Accounts를 읽어서:
+
+{
+  "hanwoory": {"customer": "...", "work": "..."},
+  "paul": {"customer": "...", "work": "..."},
+}
+
+이 구조를 만든다. 그리고 is_active가 TRUE인 row만 반영한다.
+
+그 다음:
+
+get_customer_sheet_key_for_tenant(tenant_id)
+get_work_sheet_key_for_tenant(tenant_id)
+
+가 각 tenant_id에 맞는 시트 키를 반환하고,
+최종적으로 get_worksheet()가 탭 이름에 따라 customer/work workbook을 라우팅한다.
+
+즉:
+
+고객 데이터 / 일정 / 메모 / 예정업무 / 진행업무 등 → customer_sheet_key
+업무참고 / 업무정리 → work_sheet_key
+
+이렇게 강제로 tenant_id 기준 매핑만 보게 만든 게 해결이었다.
+
+3. 그래서 이 채팅에서 같은 문제를 푼 “정확한 방법”을 한 줄로 요약하면
+해결 1
+
+Drive 복사 주체를 올바른 OAuth 사용자 계정으로 맞췄다.
+즉, get_drive_service()가 token.json 기반 OAuth를 사용하게 정리했고,
+필요하면 token.json을 원하는 계정으로 다시 발급했다.
+
+해결 2
+
+생성된 folder/sheet ID를 Accounts에 저장하고, 앱이 그 매핑만 보게 했다.
+즉, 생성 성공 → Accounts update → tenant_id resolver → get_worksheet 라우팅 구조를 만들었다.
+
+4. Next.js + FastAPI에서 똑같이 적용해야 하는 포인트
+
+네 Next.js + FastAPI에서도 동일하게 가야 해.
+
+A. “누가 복사하는지”부터 확인
+
+가장 먼저 해야 할 건 이거야.
+
+FastAPI에 디버그용 엔드포인트 하나 만들기
+
+Drive API로 about().get(fields="user, storageQuota")를 호출해서:
+
+현재 API 사용자 이메일
+storageQuota
+
+를 찍어봐.
+
+Python 예시는 이거야:
+
+def debug_drive_user(drive_service):
+    about = drive_service.about().get(fields="user, storageQuota").execute()
+    print("현재 API 사용자:", about["user"]["emailAddress"])
+    print("storageQuota:", about["storageQuota"])
+
+여기서 네가 생각한 계정이 아니면,
+지금 quota 문제는 “구글 용량이 부족”이 아니라
+잘못된 토큰/잘못된 계정으로 복사 중인 문제다.
+
+B. provision API는 반드시 OAuth 사용자 기준으로 실행
+
+FastAPI 쪽에서 Drive 폴더 생성/템플릿 복사하는 서비스가
+서비스계정 기반이면, 지금 같은 문제가 다시 날 가능성이 크다.
+
+반드시:
+
+로그인한 관리자 구글 계정의 OAuth 토큰
+또는 명확히 관리 중인 단일 관리자 OAuth 토큰
+
+기준으로 files.create / files.copy를 실행해야 한다.
+
+즉, FastAPI에서도 구조는 이거야:
+
+drive = build("drive", "v3", credentials=user_oauth_creds)
+
+서비스계정으로 해놓고 “왜 내 계정 용량은 충분한데 quota가 나지?”라고 보면 계속 헷갈린다.
+
+C. 생성 후 DB 저장
+
+템플릿 복사 성공하면 반드시 DB의 tenant row에 저장:
+
+folder_id
+customer_sheet_key
+work_sheet_key
+is_active = true
+
+이걸 안 하면 생성은 됐는데 자동연동은 안 된다.
+
+D. 런타임은 tenant_id → sheet_key resolver만 사용
+
+페이지나 API에서 직접 시트 ID 하드코딩 금지.
+
+반드시:
+
+resolve_customer_sheet_key(tenant_id)
+resolve_work_sheet_key(tenant_id)
+
+이 함수만 통해서 읽고 쓰게 해야 한다.
+
+5. 네가 지금 바로 Next.js/FastAPI에서 확인해야 할 것
+템플릿 복사 API가 서비스계정으로 돌고 있나, OAuth 사용자로 돌고 있나
+about().get(fields="user, storageQuota") 찍었을 때 실제 사용자 이메일이 누구로 나오나
+복사 성공 후 folder_id, customer_sheet_key, work_sheet_key를 DB에 저장하고 있나
+승인 후 is_active = true가 되나
+페이지/API가 tenant_id 기반 resolver만 보나, 아니면 기본 시트 ID를 계속 보고 있나
+6. 결론
+
+이 채팅에서 그 문제를 해결한 방법은 “용량 늘리기”가 아니라 이거였어:
+
+실제 Drive 복사 주체 계정을 바로잡고(OAuth 토큰 계정 확인/재발급), 생성된 folder/sheet ID를 Accounts에 저장한 뒤 tenant_id 기반 resolver로 자동연동되게 만든 것
+
+즉, 네 Next.js + FastAPI에서도 먼저 봐야 할 건:
+
+복사하는 계정이 정말 네가 생각한 그 구글 계정이 맞는지
+그리고 복사 성공 후 DB에 키를 저장하고 있는지
+
+이 두 개야.
+
+원하면 다음 답변에서
+FastAPI용 debug_drive_user, provision_workspace, tenant sheet resolver 코드를 바로 복붙용으로 짜줄게.
+
+
+작업 중 더 이상의 인터넷 검색이 불가능해 수정사항 적용은 시도하지 못했습니다. 대신 다음과 같이 조치 방향을 정리했습니다.
+
+분석 요약
+문제는 폴더는 생성되지만 템플릿 스프레드시트가 복사되지 않고, 생성된 리소스가 Accounts(테넌트) 표에 기록되지 않아 자동 연동이 끊기는 것이었습니다.
+core/google_sheets.py의 create_office_files_for_tenant() 함수는 폴더·스프레드시트 생성 모두 성공해야만 값을 반환합니다. 복사 실패시 예외를 던지므로 폴더 ID도 기록되지 않습니다.
+관리자 페이지에서는 이 반환값이 있어야 Accounts 시트에 folder_id, customer_sheet_key, work_sheet_key를 저장하도록 만들어져 있어, 부분적으로라도 저장할 길이 없습니다.
+Drive API를 호출하는 계정도 문제가 될 수 있습니다. 이전에는 서비스 계정으로 복사를 시도했지만, quotas에 걸려 실패했습니다. 최종 수정안에서는 사용자의 OAuth 계정으로 Drive 복사를 실행해야 합니다.
+해결 방안 제안
+Drive 인증 재구성
+get_drive_service()와 get_gspread_client()를 모두 get_user_credentials(scopes)로 토큰을 받아오는 방식으로 통일하십시오. 이렇게 하면 사용자가 로그인한 Google 계정을 사용하여 복사하며, 용량 부족으로 인한 실패를 막을 수 있습니다.
+복사 함수 수정
+
+create_office_files_for_tenant()를 수정해, 폴더 생성/시트 복사 단계를 개별 try/except 블록으로 분리하고, 실패하더라도 이미 성공한 folder_id나 일부 sheet_key를 반환하도록 하십시오. 결과를 다음과 같이 구성합니다:
+
+return {
+  "folder_id": created_folder_id,
+  "customer_sheet_key": customer_key_or_empty,
+  "work_sheet_key": work_key_or_empty,
+  "errors": list_of_error_messages,
+}
+Accounts 업데이트 로직 강화
+pages/page_admin_accounts.py에서 자동 생성 버튼 처리 시, 반환된 값 중 존재하는 항목만 Accounts 시트에 저장하도록 바꾸십시오. 시트 복사가 실패했어도 폴더 ID는 저장됩니다.
+관리자 승인 절차 강화
+시트 복사까지 성공한 경우에만 is_active를 TRUE로 설정하여 정상 작동을 보장합니다. 그렇지 않을 경우 errors 내용을 관리자에게 표시해 문제를 파악하도록 합니다.
+테넌트별 시트 라우팅 유지
+런타임에서 스프레드시트를 열 때는 get_customer_sheet_key_for_tenant(tenant_id)와 get_work_sheet_key_for_tenant(tenant_id) 함수를 통해 키를 가져오고 get_worksheet()를 통해 라우팅하도록 하십시오. 이렇게 하면 시트를 하드코딩하지 않고 Accounts에 저장된 키를 사용합니다.
+
+이 방식대로 수정하면 Next.js + FastAPI 프로젝트에서도 동일한 문제를 예방할 수 있습니다: 생성된 폴더와 시트 ID를 데이터베이스에 저장하고, 모든 시트 접근은 tenant_id 기반 키 조회 후 수행하여 멀티테넌트 환경에서 파일이 올바르게 연결되도록 합니다.
