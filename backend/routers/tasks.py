@@ -80,10 +80,18 @@ def add_active_task(task: ActiveTask, user: dict = Depends(get_current_user)):
 @router.put("/active/{task_id}", response_model=dict)
 def update_active_task(task_id: str, task: ActiveTask, user: dict = Depends(get_current_user)):
     ACTIVE, *_ = _sheet_names()
-    task.id = task_id
-    rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-    upsert_sheet(ACTIVE, user["tenant_id"], ACTIVE_HEADER, [rec], id_field="id")
-    return rec
+    tenant_id = user["tenant_id"]
+    # Partial update: only fields explicitly sent by the client are written.
+    # model_dump(exclude_unset=True) excludes Pydantic defaults for unset fields,
+    # preventing a single-field edit from zeroing all other columns.
+    changes = {k: ("" if v is None else str(v))
+               for k, v in task.model_dump(exclude_unset=True).items()}
+    changes["id"] = task_id
+    all_tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
+    existing = next((r for r in all_tasks if r.get("id") == task_id), {})
+    merged = {**existing, **changes}
+    upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, [merged], id_field="id")
+    return merged
 
 
 @router.delete("/active")
@@ -144,10 +152,15 @@ def add_planned_task(task: PlannedTask, user: dict = Depends(get_current_user)):
 @router.put("/planned/{task_id}", response_model=dict)
 def update_planned_task(task_id: str, task: PlannedTask, user: dict = Depends(get_current_user)):
     _, PLANNED, _ = _sheet_names()
-    task.id = task_id
-    rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-    upsert_sheet(PLANNED, user["tenant_id"], PLANNED_HEADER, [rec], id_field="id")
-    return rec
+    tenant_id = user["tenant_id"]
+    changes = {k: ("" if v is None else str(v))
+               for k, v in task.model_dump(exclude_unset=True).items()}
+    changes["id"] = task_id
+    all_tasks = read_sheet(PLANNED, tenant_id, default_if_empty=[]) or []
+    existing = next((r for r in all_tasks if r.get("id") == task_id), {})
+    merged = {**existing, **changes}
+    upsert_sheet(PLANNED, tenant_id, PLANNED_HEADER, [merged], id_field="id")
+    return merged
 
 
 @router.delete("/planned")

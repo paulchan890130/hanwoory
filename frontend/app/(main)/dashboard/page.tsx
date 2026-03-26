@@ -131,27 +131,27 @@ function ActiveTaskRow({
     <tr style={{ background: rowBg }}>
       <td>
         <input className="hw-table-input" defaultValue={task.category}
-          onBlur={(e) => onUpdate(task.id, "category", e.target.value)} />
+          onBlur={(e) => { if (e.target.value !== (task.category ?? "")) onUpdate(task.id, "category", e.target.value); }} />
       </td>
       <td style={{ whiteSpace: "nowrap" }}>
         <input className="hw-table-input" defaultValue={task.date}
-          onBlur={(e) => onUpdate(task.id, "date", e.target.value)} />
+          onBlur={(e) => { if (e.target.value !== (task.date ?? "")) onUpdate(task.id, "date", e.target.value); }} />
       </td>
       <td>
         <input className="hw-table-input" defaultValue={task.name}
-          onBlur={(e) => onUpdate(task.id, "name", e.target.value)} />
+          onBlur={(e) => { if (e.target.value !== (task.name ?? "")) onUpdate(task.id, "name", e.target.value); }} />
       </td>
       <td style={{ minWidth: 110 }}>
         {isProc
           ? <span style={{ color: "#3182CE", fontWeight: 500 }}>{task.work}</span>
           : <input className="hw-table-input" defaultValue={task.work}
-              onBlur={(e) => onUpdate(task.id, "work", e.target.value)} />}
+              onBlur={(e) => { if (e.target.value !== (task.work ?? "")) onUpdate(task.id, "work", e.target.value); }} />}
       </td>
       <td style={{ minWidth: 130 }}>
         {isProc
           ? <span style={{ color: "#3182CE" }}>{task.details}</span>
           : <input className="hw-table-input" defaultValue={task.details}
-              onBlur={(e) => onUpdate(task.id, "details", e.target.value)} />}
+              onBlur={(e) => { if (e.target.value !== (task.details ?? "")) onUpdate(task.id, "details", e.target.value); }} />}
       </td>
       {(["transfer","cash","card","stamp","receivable"] as const).map((f) => (
         <td key={f} style={{ textAlign: "right", width: 56 }}>
@@ -160,7 +160,10 @@ function ActiveTaskRow({
             style={{ textAlign: "right" }}
             defaultValue={safeInt(task[f]) || ""}
             placeholder={f === "transfer" ? "이체" : f === "cash" ? "현금" : f === "card" ? "카드" : f === "stamp" ? "인지" : "미수"}
-            onBlur={(e) => onUpdate(task.id, f, e.target.value)} />
+            onBlur={(e) => {
+              const orig = String(safeInt(task[f]) || "");
+              if (e.target.value !== orig) onUpdate(task.id, f, e.target.value);
+            }} />
         </td>
       ))}
       {/* 처리중 체크박스 */}
@@ -213,7 +216,7 @@ function PlannedTaskRow({
         <select
           style={{ background: "transparent", fontSize: 12, border: "none", outline: "none", cursor: "pointer", color: periodColor, fontWeight: 600 }}
           defaultValue={task.period}
-          onBlur={(e) => onUpdate(task.id, { period: e.target.value })}
+          onBlur={(e) => { if (e.target.value !== (task.period ?? "")) onUpdate(task.id, { period: e.target.value }); }}
         >
           {["장기🟢","중기🟡","단기🔴","완료✅","보류⏹️"].map(p => (
             <option key={p} value={p}>{p}</option>
@@ -222,15 +225,15 @@ function PlannedTaskRow({
       </td>
       <td style={{ whiteSpace: "nowrap" }}>
         <input className="hw-table-input" defaultValue={task.date}
-          onBlur={(e) => onUpdate(task.id, { date: e.target.value })} />
+          onBlur={(e) => { if (e.target.value !== (task.date ?? "")) onUpdate(task.id, { date: e.target.value }); }} />
       </td>
       <td>
         <input className="hw-table-input" style={{ minWidth: 160 }} defaultValue={task.content}
-          onBlur={(e) => onUpdate(task.id, { content: e.target.value })} />
+          onBlur={(e) => { if (e.target.value !== (task.content ?? "")) onUpdate(task.id, { content: e.target.value }); }} />
       </td>
       <td>
         <input className="hw-table-input" style={{ minWidth: 100 }} defaultValue={task.note}
-          onBlur={(e) => onUpdate(task.id, { note: e.target.value })} />
+          onBlur={(e) => { if (e.target.value !== (task.note ?? "")) onUpdate(task.id, { note: e.target.value }); }} />
       </td>
     </tr>
   );

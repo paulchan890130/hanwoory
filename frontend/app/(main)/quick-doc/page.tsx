@@ -9,9 +9,25 @@ import {
 } from "@/lib/api";
 import {
   FileText, Download, Loader2, Search, X,
-  RotateCcw, User, Home, Shield, Users, UserCheck, Stamp, Zap,
+  RotateCcw, User, Home, Shield, Users, UserCheck, Stamp, Zap, Edit2,
 } from "lucide-react";
 import Link from "next/link";
+
+// ─────────────────────────────────────────────────────────────────────────
+// 편집 후 재다운로드 패널에 노출할 필드
+// key: 사용자에게 보여줄 레이블, value: backend PDF 위젯 이름
+// ─────────────────────────────────────────────────────────────────────────
+const OVERRIDE_FIELDS: { label: string; key: string; placeholder: string }[] = [
+  { label: "신청인 한글이름",   key: "koreanname", placeholder: "예: 왕소명" },
+  { label: "신청인 성(영문)",   key: "Surname",    placeholder: "예: WANG" },
+  { label: "신청인 이름(영문)", key: "Given names",placeholder: "예: XIAOMING" },
+  { label: "신청인 주소",       key: "adress",     placeholder: "거주지 주소" },
+  { label: "신청인 전화 앞",    key: "phone1",     placeholder: "010" },
+  { label: "신청인 전화 중",    key: "phone2",     placeholder: "0000" },
+  { label: "신청인 전화 끝",    key: "phone3",     placeholder: "0000" },
+  { label: "숙소제공자 한글이름", key: "hkoreanname", placeholder: "예: 김철수" },
+  { label: "숙소제공자 주소",   key: "hadress",    placeholder: "숙소 주소" },
+];
 
 // ── 색상 상수 ─────────────────────────────────────────────────────────────
 const GOLD = "#F5A623";
@@ -261,6 +277,11 @@ export default function QuickDocPage() {
   const [pdfUrl, setPdfUrl]         = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [confirmMissing, setConfirmMissing] = useState<string[] | null>(null);
+  // ── 편집 후 재다운로드 ──
+  const [showEditPanel, setShowEditPanel]       = useState(false);
+  const [editOverrides, setEditOverrides]       = useState<Record<string, string>>({});
+  const [lastPayload, setLastPayload]           = useState<FullDocGenRequest | null>(null);
+  const [regenLoading, setRegenLoading]         = useState(false);
 
   // ── 행정사 정보 ──
   const [agentInfo, setAgentInfo] = useState<{ office_name: string; contact_name: string } | null>(null);
@@ -297,6 +318,12 @@ export default function QuickDocPage() {
   const showGuardian   = isMinor;
 
   // ── 필요서류 자동 조회 ──
+  // docsUserModified: 사용자가 체크박스를 직접 수정했으면 true.
+  // fetchTrigger: "worktype" 이면 onSuccess에서 checkedDocs를 항상 초기화.
+  //              "applicant" 이면 사용자가 이미 수정한 경우 초기화하지 않음.
+  const docsUserModified = useRef(false);
+  const fetchTrigger     = useRef<"worktype" | "applicant">("worktype");
+
   const docsMut = useMutation({
     mutationFn: () =>
       quickDocApi.getRequiredDocs(
@@ -304,24 +331,41 @@ export default function QuickDocPage() {
         applicant.customer?.reg_no ?? "",
       ).then((r) => r.data),
     onSuccess: (data) => {
-      setCheckedDocs(new Set([...data.main_docs, ...data.agent_docs]));
+      if (fetchTrigger.current === "worktype" || !docsUserModified.current) {
+        // 업무 유형이 바뀌었거나 사용자가 아직 체크박스를 건드리지 않은 경우: 서버 기본값으로 초기화
+        setCheckedDocs(new Set([...data.main_docs, ...data.agent_docs]));
+        docsUserModified.current = false;
+      }
+      // 신청인만 바뀌었고 사용자가 이미 수동으로 수정한 경우: checkedDocs를 건드리지 않음
     },
   });
 
-  // 선택 완료 시 자동 서류 조회
+  // 업무 유형(category/minwon/kind/detail) 변경 → 항상 초기화 + 재조회
   useEffect(() => {
+    fetchTrigger.current = "worktype";
+    docsUserModified.current = false;
     if (selectionComplete) {
       docsMut.mutate();
     } else {
       setCheckedDocs(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, minwon, kind, detail, applicant.customer?.reg_no]);
+  }, [category, minwon, kind, detail]);
+
+  // 신청인 변경(reg_no 기반) → 재조회하되 사용자 수정 체크박스 보존
+  useEffect(() => {
+    if (selectionComplete) {
+      fetchTrigger.current = "applicant";
+      docsMut.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicant.customer?.reg_no]);
 
   // ── 리셋 ──
   const resetAll = () => {
     setCategory(""); setMinwon(""); setKind(""); setDetail("");
     setCheckedDocs(new Set());
+    docsUserModified.current = false;
     setApplicant(emptyRole(true));
     setAccommodation(emptyRole(true));
     setGuarantor(emptyRole(true));
@@ -329,6 +373,9 @@ export default function QuickDocPage() {
     setAggregator(emptyRole(true));
     if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
     setConfirmMissing(null);
+    setShowEditPanel(false);
+    setEditOverrides({});
+    setLastPayload(null);
   };
 
   // 구분 변경 → 하위 초기화
@@ -342,14 +389,47 @@ export default function QuickDocPage() {
     setKind(v); setDetail("");
   };
 
-  // ── PDF 생성 ──
+  // ── PDF 생성 (내부 공통 함수) ──
+  const _runGenerate = useCallback(async (payload: FullDocGenRequest, opts: { isRegen?: boolean } = {}) => {
+    if (!opts.isRegen) {
+      setGenerating(true);
+      setConfirmMissing(null);
+      setShowEditPanel(false);
+      setEditOverrides({});
+      if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
+    } else {
+      setRegenLoading(true);
+    }
+    try {
+      const res = await quickDocApi.generateFull(payload);
+      const blob = res.data as Blob;
+      if (blob.type?.includes("application/json")) {
+        const text = await blob.text();
+        try { toast.error("PDF 생성 실패: " + (JSON.parse(text)?.detail || text)); } catch { toast.error("PDF 생성 실패"); }
+        return null;
+      }
+      return blob;
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: Blob | { detail?: string } } })?.response?.data;
+      if (errData instanceof Blob) {
+        try {
+          const text = await errData.text();
+          const json = JSON.parse(text);
+          toast.error("PDF 생성 실패: " + String(json?.detail?.message || json?.detail || text).slice(0, 200));
+        } catch { toast.error("PDF 생성 실패 (파싱 오류)"); }
+      } else {
+        toast.error((errData as { detail?: string })?.detail || "PDF 생성 실패");
+      }
+      return null;
+    } finally {
+      if (!opts.isRegen) setGenerating(false);
+      else setRegenLoading(false);
+    }
+  }, [pdfUrl]);
+
   const doGenerate = useCallback(async () => {
     if (!roleIsSet(applicant)) { toast.error("신청인을 선택하거나 이름을 입력해 주세요."); return; }
     if (checkedDocs.size === 0) { toast.error("서류를 하나 이상 선택하세요."); return; }
-
-    setGenerating(true);
-    setConfirmMissing(null);
-    if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
 
     const payload: FullDocGenRequest = {
       category, minwon,
@@ -374,35 +454,48 @@ export default function QuickDocPage() {
       seal_agent:         agentSeal,
     };
 
-    try {
-      const res = await quickDocApi.generateFull(payload);
-      const blob = res.data as Blob;
-      if (blob.type?.includes("application/json")) {
-        const text = await blob.text();
-        try { toast.error("PDF 생성 실패: " + (JSON.parse(text)?.detail || text)); } catch { toast.error("PDF 생성 실패"); }
-        return;
-      }
+    const blob = await _runGenerate(payload);
+    if (blob) {
+      setLastPayload(payload);
       setPdfUrl(URL.createObjectURL(blob));
       toast.success("PDF 생성 완료");
-    } catch (err: unknown) {
-      const errData = (err as { response?: { data?: Blob | { detail?: string } } })?.response?.data;
-      if (errData instanceof Blob) {
-        try {
-          const text = await errData.text();
-          const json = JSON.parse(text);
-          toast.error("PDF 생성 실패: " + String(json?.detail?.message || json?.detail || text).slice(0, 200));
-        } catch { toast.error("PDF 생성 실패 (파싱 오류)"); }
-      } else {
-        toast.error((errData as { detail?: string })?.detail || "PDF 생성 실패");
-      }
-    } finally {
-      setGenerating(false);
     }
-  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, checkedDocs, category, minwon, effectiveKind, effectiveDetail, pdfUrl]);
+  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, checkedDocs, category, minwon, effectiveKind, effectiveDetail, _runGenerate]);
+
+  // ── 편집 후 재다운로드 ──
+  const handleEditDownload = useCallback(async () => {
+    if (!lastPayload) return;
+    const activeOverrides: Record<string, string> = {};
+    for (const [k, v] of Object.entries(editOverrides)) {
+      if (v.trim() !== "") activeOverrides[k] = v.trim();
+    }
+    if (Object.keys(activeOverrides).length === 0) {
+      // 수정사항 없음 → 기존 blob 다운로드
+      const a = document.createElement("a");
+      a.href = pdfUrl!;
+      a.download = `${roleDisplayName(applicant) || "고객"}_${category}_${minwon}.pdf`;
+      a.click();
+      return;
+    }
+    // 수정사항 있음 → 오버라이드 포함 재생성 후 즉시 다운로드
+    const regenPayload = { ...lastPayload, direct_overrides: activeOverrides };
+    const blob = await _runGenerate(regenPayload, { isRegen: true });
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${roleDisplayName(applicant) || "고객"}_${category}_${minwon}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success("수정된 PDF 다운로드");
+    }
+  }, [lastPayload, editOverrides, pdfUrl, applicant, category, minwon, _runGenerate]);
 
   const handleGenerate = () => {
     const missing: string[] = [];
-    if (!roleIsSet(accommodation)) missing.push("숙소제공자");
+    // 숙소 관련 서류가 선택된 경우에만 숙소제공자 누락 경고
+    const accommodationDocSelected = Array.from(checkedDocs).some((d) => d.includes("숙소"));
+    if (accommodationDocSelected && !roleIsSet(accommodation)) missing.push("숙소제공자");
     if (showGuarantor && !roleIsSet(guarantor)) missing.push("신원보증인");
     if (showGuardian  && !roleIsSet(guardian))  missing.push("대리인");
     if (showAggregator && !roleIsSet(aggregator)) missing.push("합산자");
@@ -616,6 +709,7 @@ export default function QuickDocPage() {
                         type="checkbox"
                         checked={checkedDocs.has(doc)}
                         onChange={(e) => {
+                          docsUserModified.current = true;
                           const n = new Set(checkedDocs);
                           e.target.checked ? n.add(doc) : n.delete(doc);
                           setCheckedDocs(n);
@@ -637,6 +731,7 @@ export default function QuickDocPage() {
                         type="checkbox"
                         checked={checkedDocs.has(doc)}
                         onChange={(e) => {
+                          docsUserModified.current = true;
                           const n = new Set(checkedDocs);
                           e.target.checked ? n.add(doc) : n.delete(doc);
                           setCheckedDocs(n);
@@ -793,7 +888,7 @@ export default function QuickDocPage() {
           border: "2px solid #276749", borderRadius: 12,
           background: "#F0FFF4", padding: "16px 20px",
         }}>
-          {/* 상단: 성공 메시지 + 다운로드 버튼 */}
+          {/* 상단: 성공 메시지 + 버튼들 */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div>
               <span style={{ fontSize: 15, fontWeight: 700, color: "#276749" }}>✅ PDF 생성 완료</span>
@@ -801,21 +896,72 @@ export default function QuickDocPage() {
                 {roleDisplayName(applicant) || "고객"}_{category}_{minwon}
               </span>
             </div>
-            <button
-              onClick={() => {
-                const a = document.createElement("a");
-                a.href = pdfUrl;
-                a.download = `${roleDisplayName(applicant) || "고객"}_${category}_${minwon}.pdf`;
-                a.click();
-              }}
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "8px 18px", borderRadius: 8, fontSize: 13,
-                background: GOLD, color: "#fff", border: "none", cursor: "pointer", fontWeight: 700,
-              }}>
-              <Download size={14} /> 다운로드
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              {/* 내용 수정 토글 버튼 */}
+              <button
+                onClick={() => setShowEditPanel((v) => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "8px 14px", borderRadius: 8, fontSize: 13,
+                  background: showEditPanel ? "#EBF8FF" : "#fff",
+                  color: "#3182CE",
+                  border: `1px solid ${showEditPanel ? "#3182CE" : BORDER}`,
+                  cursor: "pointer", fontWeight: 600,
+                }}>
+                <Edit2 size={13} /> 내용 수정
+              </button>
+              {/* 다운로드: 수정사항이 있으면 재생성, 없으면 기존 blob */}
+              <button
+                onClick={handleEditDownload}
+                disabled={regenLoading}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "8px 18px", borderRadius: 8, fontSize: 13,
+                  background: GOLD, color: "#fff", border: "none",
+                  cursor: regenLoading ? "default" : "pointer",
+                  fontWeight: 700, opacity: regenLoading ? 0.6 : 1,
+                }}>
+                {regenLoading
+                  ? <><Loader2 size={13} className="animate-spin" /> 재생성 중...</>
+                  : <><Download size={14} /> {Object.values(editOverrides).some(v => v.trim()) ? "수정 후 다운로드" : "다운로드"}</>
+                }
+              </button>
+            </div>
           </div>
+
+          {/* 편집 패널 — 내용 수정 클릭 시 표시 */}
+          {showEditPanel && (
+            <div style={{
+              background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 10,
+              padding: "14px 18px", marginBottom: 14,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#2D3748", marginBottom: 10 }}>
+                📝 내용 수정 — 바꿀 항목만 입력하세요 (비워두면 원본 유지)
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px" }}>
+                {OVERRIDE_FIELDS.map(({ label, key, placeholder }) => (
+                  <div key={key}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 3 }}>{label}</div>
+                    <input
+                      value={editOverrides[key] ?? ""}
+                      onChange={(e) => setEditOverrides((prev) => ({ ...prev, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      style={{
+                        width: "100%", padding: "6px 10px",
+                        border: `1px solid ${editOverrides[key]?.trim() ? GOLD : BORDER}`,
+                        borderRadius: 6, fontSize: 12, boxSizing: "border-box",
+                        background: editOverrides[key]?.trim() ? "#FFFBF0" : "#fff",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 8 }}>
+                수정 후 "수정 후 다운로드"를 클릭하면 입력한 값이 반영된 새 PDF가 생성됩니다.
+              </div>
+            </div>
+          )}
+
           {/* 전체폭 PDF 뷰어 — #pagemode=none 으로 썸네일 패널 기본 접힘 */}
           <iframe
             src={`${pdfUrl}#pagemode=none`}

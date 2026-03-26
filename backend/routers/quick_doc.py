@@ -611,6 +611,9 @@ class FullDocGenRequest(BaseModel):
     seal_guardian: bool = True
     seal_aggregator: bool = True
     seal_agent: bool = True
+    # 편집 후 재생성용: PDF 위젯 이름 → 덮어쓸 값. build_field_values 결과에 최종 적용.
+    # 빈 문자열("")도 유효한 재정의로 처리한다. None 값은 무시.
+    direct_overrides: Optional[dict] = None
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
@@ -750,6 +753,10 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         kind=kind,
         detail=detail,
     )
+
+    # ── 편집 후 재생성: direct_overrides를 build_field_values 결과에 최종 적용 ──
+    if req.direct_overrides:
+        field_values.update({k: str(v) for k, v in req.direct_overrides.items() if v is not None})
 
     # ── PDF 병합 ──
     try:
