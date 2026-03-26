@@ -868,7 +868,12 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
     return results
 
 
-# ── 위임장 빠른작성 ────────────────────────────────────────────────────────────
+# ── 원클릭 작성 ────────────────────────────────────────────────────────────────
+# Output types the one-click generator knows about.
+# Add to IMPLEMENTED_OUTPUTS when a new type has a working backend path.
+_ALL_OUTPUTS = {"위임장", "건강보험(세대합가)", "건강보험(피부양자)", "하이코리아", "소시넷"}
+_IMPLEMENTED_OUTPUTS = {"위임장"}
+
 
 class QuickPoaRequest(BaseModel):
     # 신청인 정보
@@ -896,6 +901,8 @@ class QuickPoaRequest(BaseModel):
     ck_change: bool = False
     ck_granting: bool = False
     ck_ant: bool = False
+    # 원클릭 출력 선택 (기본: 위임장만)
+    selected_outputs: list[str] = ["위임장"]
 
 
 def _pdf_bytes_to_jpg_or_zip(pdf_bytes: bytes, dpi: int = 200):
@@ -922,11 +929,22 @@ def _pdf_bytes_to_jpg_or_zip(pdf_bytes: bytes, dpi: int = 200):
 @router.post("/quick-poa")
 def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
     """
-    위임장 빠른작성: 임시 입력 → 도장 포함 PDF → JPG(또는 ZIP) 반환.
-    page_quick_doc.py의 render() 로직을 FastAPI 엔드포인트로 이식.
+    원클릭 작성: selected_outputs에 따라 해당 서류를 빠르게 생성해 반환.
+    현재 구현된 출력: 위임장 (JPG/ZIP).
     """
     if not req.kor_name.strip():
         raise HTTPException(status_code=400, detail="신청인 한글명은 필수입니다.")
+
+    # Validate selected outputs
+    requested = set(req.selected_outputs or ["위임장"])
+    unknown = requested - _ALL_OUTPUTS
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 출력 유형: {unknown}")
+    not_impl = requested - _IMPLEMENTED_OUTPUTS
+    if not_impl:
+        raise HTTPException(status_code=400, detail=f"미구현 출력 유형: {not_impl}")
+    if "위임장" not in requested:
+        raise HTTPException(status_code=400, detail="현재 위임장만 생성 가능합니다.")
 
     template_rel = DOC_TEMPLATES.get("위임장")
     if not template_rel:
@@ -1020,17 +1038,23 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
     ymd = today.strftime("%Y%m%d")
     base_name = f"{ymd}_{row['한글']}_위임장"
 
+    # HTTP headers must be latin-1 encoded; use RFC 5987 for non-ASCII filenames.
+    from urllib.parse import quote as _quote
+    ext = "jpg" if kind == "jpg" else "zip"
+    encoded_name = _quote(f"{base_name}.{ext}", safe="")
+    cd = f"attachment; filename*=UTF-8''{encoded_name}"
+
     if kind == "jpg":
         return StreamingResponse(
             io.BytesIO(data_bytes),
             media_type="image/jpeg",
-            headers={"Content-Disposition": f'attachment; filename="{base_name}.jpg"'},
+            headers={"Content-Disposition": cd},
         )
     else:
         return StreamingResponse(
             io.BytesIO(data_bytes),
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{base_name}.zip"'},
+            headers={"Content-Disposition": cd},
         )
 
 
@@ -1069,8 +1093,10 @@ def generate_documents(req: DocGenRequest, user: dict = Depends(get_current_user
         merged.close()
         buf.seek(0)
         filename = f"서류_{'_'.join(req.selected_docs[:3])}.pdf"
+        from urllib.parse import quote as _quote
+        cd = f"attachment; filename*=UTF-8''{_quote(filename, safe='')}"
         return StreamingResponse(buf, media_type="application/pdf",
-                                  headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+                                  headers={"Content-Disposition": cd})
     except ImportError:
         return {"status": "fitz_missing", "selected_docs": req.selected_docs,
                 "message": "PyMuPDF 미설치"}

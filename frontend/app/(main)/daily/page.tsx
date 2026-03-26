@@ -1,10 +1,11 @@
 "use client";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { dailyApi, type DailyEntry, type BalanceData } from "@/lib/api";
+import { dailyApi, customersApi, type DailyEntry, type BalanceData } from "@/lib/api";
 import { today, safeInt, formatNumber } from "@/lib/utils";
-import { Plus, Trash2, ChevronLeft, ChevronRight, BarChart2, Save, Pencil, X } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, BarChart2, Save, Pencil, X, UserPlus, ScanLine } from "lucide-react";
 
 // ── 기존 Streamlit 구분 옵션 (그대로 복원) ──
 const 구분_옵션 = ["출입국", "전자민원", "공증", "여권", "초청", "영주권", "기타"];
@@ -110,6 +111,22 @@ export default function DailyPage() {
     return { avgIncome, avgInCash, avgInEtc, avgExCash, avgExEtc };
   }, [m1, m2, m3]);
 
+  // ── 고객 자동완성 ──
+  const [customerSuggestions, setCustomerSuggestions] = useState<Record<string, string>[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  // Dropdown uses position:fixed to escape parent overflow:auto clipping
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const updateDropdownPos = () => {
+    if (nameInputRef.current) {
+      const r = nameInputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 240) });
+    }
+  };
+
   // ── 새 항목 상태 ──
   const [newCategory, setNewCategory] = useState("");
   const [newName, setNewName] = useState("");
@@ -124,15 +141,60 @@ export default function DailyPage() {
   const [newCashOut, setNewCashOut] = useState("");
   const [newMemo, setNewMemo] = useState("");
 
+  // 이름 입력 시 고객 자동완성 검색
+  useEffect(() => {
+    if (!newName.trim() || newName.length < 1) {
+      setCustomerSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await customersApi.list(newName.trim());
+        const list = (res.data as Record<string, string>[]).slice(0, 8);
+        setCustomerSuggestions(list);
+        setShowSuggestions(list.length > 0 || newName.trim().length > 0);
+      } catch {}
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [newName]);
+
+  const addNewCustomerMut = useMutation({
+    mutationFn: (data: Record<string, string>) => customersApi.add(data),
+    onSuccess: (res) => {
+      const newId = (res.data as { 고객ID: string }).고객ID;
+      setSelectedCustomerId(newId);
+      setShowNewCustomerModal(false);
+      toast.success("신규 고객 등록됨");
+    },
+    onError: () => toast.error("고객 등록 실패"),
+  });
+
   const addMut = useMutation({
     mutationFn: (entry: Partial<DailyEntry>) => dailyApi.addEntry(entry),
-    onSuccess: () => {
+    onSuccess: async (_, vars) => {
+      // 고객이 연결된 경우 위임내역 append
+      if (selectedCustomerId && newCategory !== "현금출금") {
+        const parts = [vars.date, vars.category, vars.task || newName].filter(Boolean);
+        const incAmt = (vars.income_cash || 0) + (vars.income_etc || 0);
+        const expAmt = (vars.exp_cash || 0) + (vars.exp_etc || 0);
+        const amtParts: string[] = [];
+        if (incAmt) amtParts.push(`수입 ${formatNumber(incAmt)}`);
+        if (expAmt) amtParts.push(`지출 ${formatNumber(expAmt)}`);
+        const entryText = amtParts.length
+          ? `${parts.join(" ")} (${amtParts.join(", ")})`
+          : parts.join(" ");
+        try {
+          await customersApi.appendDelegation(selectedCustomerId, entryText);
+        } catch { /* 위임내역 append 실패는 결산 추가를 막지 않음 */ }
+      }
       toast.success("추가됨");
       qc.invalidateQueries({ queryKey: ["daily", "entries"] });
       // 입력 초기화
       setNewCategory(""); setNewName(""); setNewTask(""); setNewTime("");
       setNewIncType(""); setNewE1Type(""); setNewE2Type("");
       setNewIncAmt(""); setNewE1Amt(""); setNewE2Amt(""); setNewCashOut(""); setNewMemo("");
+      setSelectedCustomerId(null); setCustomerSuggestions([]); setShowSuggestions(false);
     },
     onError: () => toast.error("추가 실패"),
   });
@@ -415,10 +477,61 @@ export default function DailyPage() {
               {CAT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-          {/* 성명 (72px) */}
-          <div style={{ width: 72, flexShrink: 0 }}>
-            <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>성명</div>
-            <input style={{ ...inputSm, width: "100%" }} placeholder="성명" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          {/* 성명 (96px) — 고객 자동완성 */}
+          <div style={{ width: 96, flexShrink: 0, position: "relative" }}>
+            <div style={{ fontSize: 10, color: "#718096", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
+              성명
+              {selectedCustomerId && (
+                <span style={{ fontSize: 9, color: "#38A169", fontWeight: 700 }}>●연결됨</span>
+              )}
+            </div>
+            <input
+              ref={nameInputRef}
+              style={{ ...inputSm, width: "100%" }}
+              placeholder="성명 검색"
+              value={newName}
+              onChange={(e) => { setNewName(e.target.value); setSelectedCustomerId(null); updateDropdownPos(); }}
+              onFocus={() => { updateDropdownPos(); if (customerSuggestions.length > 0) setShowSuggestions(true); }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
+              autoComplete="off"
+            />
+            {showSuggestions && dropdownPos && (
+              <div style={{
+                position: "fixed",
+                top: dropdownPos.top,
+                left: dropdownPos.left,
+                width: dropdownPos.width,
+                zIndex: 9999,
+                background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6,
+                maxHeight: 220, overflowY: "auto",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
+              }}>
+                {customerSuggestions.map((c) => (
+                  <div
+                    key={c["고객ID"]}
+                    onMouseDown={() => {
+                      setNewName(c["한글"] || `${c["성"]} ${c["명"]}`.trim());
+                      setSelectedCustomerId(c["고객ID"]);
+                      setShowSuggestions(false);
+                    }}
+                    style={{ padding: "6px 10px", fontSize: 12, cursor: "pointer", borderBottom: "1px solid #F7FAFC" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#F7FAFC")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                  >
+                    <span style={{ fontWeight: 600 }}>{c["한글"] || `${c["성"]} ${c["명"]}`.trim()}</span>
+                    <span style={{ marginLeft: 6, fontSize: 10, color: "#A0AEC0" }}>{c["국적"]} {c["V"]}</span>
+                  </div>
+                ))}
+                <div
+                  onMouseDown={() => { setShowSuggestions(false); setShowNewCustomerModal(true); }}
+                  style={{ padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#F5A623", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#FFFBF0")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                >
+                  <UserPlus size={11} /> 신규 고객 등록
+                </div>
+              </div>
+            )}
           </div>
           {/* 세부내용 및 비고 (flex) */}
           <div style={{ flex: 1 }}>
@@ -668,6 +781,106 @@ export default function DailyPage() {
               </tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+
+      {/* ── 신규 고객 등록 모달 ── */}
+      {showNewCustomerModal && (
+        <NewCustomerModal
+          initialName={newName}
+          onClose={() => setShowNewCustomerModal(false)}
+          onSubmit={(data) => addNewCustomerMut.mutate(data)}
+          isSaving={addNewCustomerMut.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── 신규 고객 간편 등록 모달 ────────────────────────────────────────────────────
+function NewCustomerModal({
+  initialName, onClose, onSubmit, isSaving,
+}: {
+  initialName: string;
+  onClose: () => void;
+  onSubmit: (data: Record<string, string>) => void;
+  isSaving: boolean;
+}) {
+  const router = useRouter();
+  const [form, setForm] = useState<Record<string, string>>({
+    한글: initialName,
+    국적: "", 성: "", 명: "", V: "",
+    연: "010", 락: "", 처: "",
+    등록증: "", 번호: "", 발급일: "", 만기일: "",
+    여권: "", 발급: "", 만기: "",
+  });
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const inputSm: React.CSSProperties = {
+    width: "100%", border: "1px solid #CBD5E0", borderRadius: 6,
+    padding: "5px 8px", fontSize: 12, outline: "none", background: "#fff",
+    boxSizing: "border-box",
+  };
+  const label: React.CSSProperties = { display: "block", fontSize: 10, color: "#718096", marginBottom: 2 };
+
+  return (
+    <div className="hw-modal-overlay" onClick={onClose}>
+      <div className="hw-modal" style={{ maxWidth: 480, padding: 0 }} onClick={(e) => e.stopPropagation()}>
+        <div className="hw-modal-header" style={{ padding: "14px 20px" }}>
+          <span>신규 고객 등록</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => { onClose(); router.push("/scan"); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                fontSize: 11, fontWeight: 600, color: "#3182CE",
+                background: "#EBF8FF", border: "1px solid #BEE3F8",
+                borderRadius: 6, padding: "3px 8px", cursor: "pointer",
+              }}
+              title="OCR 스캔 페이지에서 여권/등록증을 스캔하세요. 완료 후 일일결산으로 돌아와서 입력하세요."
+            >
+              <ScanLine size={12} /> OCR 스캔
+            </button>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}>
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+        <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, maxHeight: "60vh", overflowY: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div><label style={label}>한글이름 *</label><input style={inputSm} value={form["한글"]} onChange={(e) => set("한글", e.target.value)} placeholder="홍길동" /></div>
+            <div><label style={label}>국적</label><input style={inputSm} value={form["국적"]} onChange={(e) => set("국적", e.target.value)} placeholder="CHN" /></div>
+            <div><label style={label}>영문 성 (Last)</label><input style={inputSm} value={form["성"]} onChange={(e) => set("성", e.target.value)} placeholder="HONG" /></div>
+            <div><label style={label}>영문 이름 (First)</label><input style={inputSm} value={form["명"]} onChange={(e) => set("명", e.target.value)} placeholder="GILDONG" /></div>
+            <div><label style={label}>체류자격</label><input style={inputSm} value={form["V"]} onChange={(e) => set("V", e.target.value)} placeholder="F-6" /></div>
+            <div><label style={label}>여권번호</label><input style={inputSm} value={form["여권"]} onChange={(e) => set("여권", e.target.value)} placeholder="AB1234567" /></div>
+          </div>
+          <div>
+            <label style={label}>전화번호</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+              <input style={inputSm} value={form["연"]} onChange={(e) => set("연", e.target.value)} placeholder="010" />
+              <input style={inputSm} value={form["락"]} onChange={(e) => set("락", e.target.value)} placeholder="0000" />
+              <input style={inputSm} value={form["처"]} onChange={(e) => set("처", e.target.value)} placeholder="0000" />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div><label style={label}>등록번호 앞 (생년월일)</label><input style={inputSm} value={form["등록증"]} onChange={(e) => set("등록증", e.target.value)} placeholder="YYMMDD" /></div>
+            <div><label style={label}>등록번호 뒤 7자리</label><input style={inputSm} value={form["번호"]} onChange={(e) => set("번호", e.target.value)} placeholder="1234567" /></div>
+            <div><label style={label}>등록증 만기일</label><input style={inputSm} value={form["만기일"]} onChange={(e) => set("만기일", e.target.value)} placeholder="YYYY-MM-DD" /></div>
+            <div><label style={label}>여권 만기일</label><input style={inputSm} value={form["만기"]} onChange={(e) => set("만기", e.target.value)} placeholder="YYYY-MM-DD" /></div>
+          </div>
+        </div>
+        <div className="hw-modal-footer">
+          <button onClick={onClose} className="btn-secondary" style={{ fontSize: 12 }}>취소</button>
+          <button
+            onClick={() => { if (!form["한글"].trim()) { toast.error("한글이름은 필수입니다."); return; } onSubmit(form); }}
+            disabled={isSaving}
+            className="btn-primary"
+            style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}
+          >
+            <UserPlus size={13} /> 등록
+          </button>
         </div>
       </div>
     </div>

@@ -227,6 +227,40 @@ def update_customer(customer_id: str, data: dict, user: dict = Depends(get_curre
     return {"ok": True}
 
 
+@router.post("/{customer_id}/delegation-append")
+def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
+    """위임내역 필드에 새 항목을 줄 바꿈으로 추가 (덮어쓰기 아님)"""
+    from backend.services.tenant_service import upsert_sheet
+    from config import CUSTOMER_SHEET_NAME
+
+    entry: str = str(data.get("entry", "")).strip()
+    if not entry:
+        raise HTTPException(status_code=422, detail="entry 필드가 비어있습니다.")
+
+    tenant_id = user["tenant_id"]
+    records = _get_records(tenant_id)
+    if not records:
+        raise HTTPException(status_code=404, detail="고객을 찾을 수 없습니다.")
+
+    header_list = list(records[0].keys())
+    target = None
+    for r in records:
+        if str(r.get("고객ID", "")).strip() == str(customer_id).strip():
+            target = r
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+
+    existing = str(target.get("위임내역", "")).strip()
+    target["위임내역"] = (existing + "\n" + entry).strip() if existing else entry
+
+    ok = upsert_sheet(CUSTOMER_SHEET_NAME, tenant_id, header_list, [target], id_field="고객ID")
+    if not ok:
+        raise HTTPException(status_code=500, detail="위임내역 업데이트 실패")
+    return {"ok": True, "위임내역": target["위임내역"]}
+
+
 @router.delete("/{customer_id}")
 def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
     from backend.services.tenant_service import delete_from_sheet

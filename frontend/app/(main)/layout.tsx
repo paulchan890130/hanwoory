@@ -13,21 +13,21 @@ const SIDEBAR_COLLAPSED_KEY = "hw_sidebar_collapsed";
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // ready = true only after mount AND auth confirmed — children never render until then
+  const [ready, setReady] = useState(false);
 
-  // 인증 체크
   useEffect(() => {
-    if (!isLoggedIn()) {
-      router.replace("/login");
-    }
-  }, [router]);
-
-  // 사이드바 상태 localStorage 복원
-  useEffect(() => {
+    // 사이드바 상태 localStorage 복원
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     if (saved === "true") setCollapsed(true);
-    setMounted(true);
-  }, []);
+
+    // 인증 체크: 미로그인이면 리디렉트하고 ready를 올리지 않음
+    if (!isLoggedIn()) {
+      router.replace("/login");
+      return; // ready stays false → blank page shown until redirect completes
+    }
+    setReady(true);
+  }, [router]);
 
   const handleToggle = () => {
     setCollapsed((prev) => {
@@ -39,8 +39,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const leftOffset = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH;
 
-  // 마운트 전 레이아웃 깜빡임 방지
-  if (!mounted) {
+  // 인증 확인 전 (미마운트 포함) — 아무것도 렌더하지 않음
+  if (!ready) {
     return (
       <div className="min-h-screen" style={{ background: "var(--hw-page-bg)" }} />
     );

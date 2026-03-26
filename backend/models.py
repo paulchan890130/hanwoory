@@ -45,6 +45,10 @@ class ActiveTask(BaseModel):
     planned_expense: Optional[str] = "0"
     processed: Optional[bool] = False
     processed_timestamp: Optional[str] = ""
+    # 업무 단계 타임스탬프 (접수 → 처리 → 보관중)
+    reception: Optional[str] = ""
+    processing: Optional[str] = ""
+    storage: Optional[str] = ""
 
 class PlannedTask(BaseModel):
     id: Optional[str] = None
@@ -61,6 +65,9 @@ class CompletedTask(BaseModel):
     work: Optional[str] = ""
     details: Optional[str] = ""
     complete_date: Optional[str] = ""
+    reception: Optional[str] = ""
+    processing: Optional[str] = ""
+    storage: Optional[str] = ""
 
 class CompleteTasksRequest(BaseModel):
     """진행업무 → 완료업무 이동 요청"""

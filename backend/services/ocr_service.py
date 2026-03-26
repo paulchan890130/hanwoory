@@ -57,6 +57,10 @@ _NAME_BAN = {
     "외국", "국내", "거소", "신고", "증", "재외동포", "재외동", "외동포",
     "재외", "동포", "국적", "주소", "발급", "발급일", "발급일자",
     "만기", "체류", "자격", "종류", "성명", "이름", "사력",
+    # Added: common card-label OCR noise found in benchmark
+    "국가", "지역", "발금", "발금일", "발금일자", "체류자", "체류파", "제류자",
+    "발급원", "받큼일", "소신고", "겁소고", "재위동", "재외등", "체등자", "체륭자",
+    "개류자", "력재외", "송영지",
 }
 
 
@@ -871,15 +875,15 @@ def _extract_kor_name_strict(text: str) -> str:
     m = re.search(r"\(([가-힣]{2,4})\)", text)
     if m:
         cand = m.group(1)
-        if cand not in _NAME_BAN:
+        if cand not in _NAME_BAN and not cand.endswith("출"):
             return cand
     m = re.search(r"(성명|이름)\s*[:\-]?\s*([가-힣]{2,3})", text)
     if m:
         cand = m.group(2)
-        if cand not in _NAME_BAN:
+        if cand not in _NAME_BAN and not cand.endswith("출"):
             return cand
     toks = re.findall(r"[가-힣]{2,3}", text)
-    toks = [t for t in toks if t not in _NAME_BAN]
+    toks = [t for t in toks if t not in _NAME_BAN and not t.endswith("출")]
     if not toks:
         return ""
     label_pos_list = [p for p in (text.find("성명"), text.find("이름")) if p != -1]
@@ -952,9 +956,17 @@ def _looks_like_korean_address(s: str) -> bool:
     s = (s or "").strip()
     if not s:
         return False
-    if not re.search(r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", s):
+    # Province check is a plus but OCR often garbles province names;
+    # require at least a city/district/road-level component.
+    has_province = bool(re.search(
+        r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", s
+    ))
+    has_road = bool(re.search(r"(시|군|구|로|길|번길|대로)", s))
+    if not has_road:
         return False
-    if not re.search(r"(시|군|구|로|길|번길|대로)", s):
+    # Without a province marker, require at least one number (street number) to
+    # avoid accepting bare noise like "민원시".
+    if not has_province and not re.search(r"\d", s):
         return False
     return True
 
@@ -1135,9 +1147,11 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     def _pick_labeled_date(text: str, labels_regex: str):
         if not text:
             return ""
-        m1 = re.search(labels_regex + r"[^\d]{0,10}(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})", text, re.I)
+        # Gap raised to 30 to handle bilingual labels like "발급일자 Issue Date 2024.04.30"
+        m1 = re.search(labels_regex + r"[^\d]{0,30}(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})", text, re.I)
         if m1:
-            return m1.group(1).replace("/", "-").replace(".", "-")
+            # Use lastindex: labels_regex creates group 1, date pattern is group 2
+            return m1.group(m1.lastindex).replace("/", "-").replace(".", "-")
         return ""
 
     issued = _pick_labeled_date(tn_top, r"(발\s*급|발\s*행|issue|issued)")
@@ -1201,17 +1215,27 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         except Exception:
             pass
 
+        # Parentheses pattern "(홍길동)" is the most reliable ARC name signal — return immediately.
+        # Score-pool approach let ROI noise (score ≤ 13) beat a correct parentheses match (score 5).
         text_name = _extract_kor_name_strict(text_top)
         if text_name:
-            cands.append((5, text_name))
+            return text_name
 
         bad = {
             "방문취", "거주따", "매확청", "사격", "재태서", "외국", "국내", "거소", "신고", "주소",
             "체류", "만기", "발급", "번호", "등록", "증명", "유효", "취업", "가능",
+            # Added: card-label OCR noise patterns found in benchmark
+            "소신고", "국가", "지역", "발금일", "체류자", "체류파", "제류자",
+            "인천출", "수원출", "안산출", "시흥출", "화성출", "부평출", "성남출",
+            "재위동", "재외등", "겁소고",
         }
+        # Also discard any token that ends with "출" (city+immigration-office abbreviation)
+        # or starts with "발금" (OCR garble of 발급)
         score_map = {}
         for sc, tok in cands:
             if tok in bad:
+                continue
+            if tok.endswith("출") or tok.startswith("발금"):
                 continue
             score_map[tok] = score_map.get(tok, 0) + sc
 
@@ -1236,7 +1260,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
 
     expiry = _pick_labeled_date(
         tn_bot,
-        r"(만기|유효|until|expiry|expiration|valid\s*until|까지)",
+        r"(만기|만료|유효|until|expiry|expiration|valid\s*until|까지)",
     )
     ds_bot = _find_all_dates(tn_bot)
 
@@ -1424,6 +1448,24 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             addr_retry = _best_addr_latest(addr_txt)
             if addr_retry and not _looks_weak_address(addr_retry):
                 addr = addr_retry
+        except Exception:
+            pass
+
+    # For right-side-up backs (best_deg=0, new-format cards), the 국내거소 section
+    # sits in the bottom ~50-98% of the card — the standard 34-80% ROI can miss it.
+    if _looks_weak_address(addr) and best_deg == 0:
+        try:
+            rw, rh = bot.size
+            addr_roi2 = bot.crop((
+                int(rw * 0.08),
+                int(rh * 0.50),
+                int(rw * 0.96),
+                int(rh * 0.98),
+            ))
+            addr_txt2 = _ocr(ImageOps.grayscale(addr_roi2), lang="kor", config="--oem 3 --psm 6")
+            addr_retry2 = _best_addr_latest(addr_txt2)
+            if addr_retry2 and not _looks_weak_address(addr_retry2):
+                addr = addr_retry2
         except Exception:
             pass
 

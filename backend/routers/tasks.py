@@ -28,6 +28,7 @@ ACTIVE_HEADER = [
     "id", "category", "date", "name", "work", "details",
     "transfer", "cash", "card", "stamp", "receivable",
     "planned_expense", "processed", "processed_timestamp",
+    "reception", "processing", "storage",
 ]
 
 
@@ -36,10 +37,28 @@ _MAX_NS = 9999999999999999999
 
 
 def _sort_key_active(t: dict):
-    """page_home.py _sort_key_active 와 동일한 정렬키"""
+    """정렬: 체크 조합 순서 (없음 → 접수 → 접수+처리 → 접수+처리+보관중), 각 그룹 내 날짜 오름차순.
+    독립 체크 가능하므로 체크된 단계의 수와 순서로 rank를 계산.
+    """
     import datetime as _dt
-    proc = str(t.get("processed", "")).strip().lower() in ("true", "1", "y")
+
     cat_rank = _CAT_RANK.get(t.get("category", "기타"), 99)
+
+    reception  = bool((t.get("reception",  "") or "").strip())
+    processing = bool((t.get("processing", "") or "").strip())
+    storage    = bool((t.get("storage",    "") or "").strip())
+
+    # rank: 높을수록 뒤에 정렬 (진행이 많이 된 것이 아래)
+    # 조합 순서: 없음=0, 접수만=1, 접수+처리=2, 접수+처리+보관중=3
+    # 독립 체크로 순서가 맞지 않더라도 최고 단계로 처리
+    if storage:
+        status_rank = 3
+    elif processing:
+        status_rank = 2
+    elif reception:
+        status_rank = 1
+    else:
+        status_rank = 0
 
     raw_date = t.get("date", "") or ""
     try:
@@ -48,15 +67,7 @@ def _sort_key_active(t: dict):
     except Exception:
         date_ns = _MAX_NS
 
-    if proc:
-        raw_ts = t.get("processed_timestamp", "") or ""
-        try:
-            ts = _dt.datetime.fromisoformat(raw_ts)
-            ts_ns = int(ts.timestamp() * 1e9)
-        except Exception:
-            ts_ns = -1
-        return (0, cat_rank, -ts_ns, date_ns)
-    return (1, cat_rank, date_ns)
+    return (status_rank, cat_rank, date_ns)
 
 
 @router.get("/active", response_model=List[dict])
@@ -111,14 +122,19 @@ def complete_tasks(req: CompleteTasksRequest, user: dict = Depends(get_current_u
     by_id = {r.get("id"): r for r in all_active if r.get("id")}
 
     today = datetime.date.today().isoformat()
-    completed_header = ["id", "category", "date", "name", "work", "details", "complete_date"]
+    completed_header = ["id", "category", "date", "name", "work", "details", "complete_date",
+                        "reception", "processing", "storage"]
     completed_records = []
 
     for tid in req.task_ids:
         t = by_id.get(tid)
         if t:
-            cr = {k: str(t.get(k, "")) for k in completed_header[:-1]}
+            base_keys = ["id", "category", "date", "name", "work", "details"]
+            cr = {k: str(t.get(k, "")) for k in base_keys}
             cr["complete_date"] = today
+            # carry over status timestamps
+            for ts_field in ("reception", "processing", "storage"):
+                cr[ts_field] = str(t.get(ts_field, ""))
             completed_records.append(cr)
 
     if completed_records:
@@ -172,7 +188,8 @@ def delete_planned_tasks(req: DeleteTasksRequest, user: dict = Depends(get_curre
 
 # ────────────────────────────── 완료업무 ──────────────────────────────────────
 
-COMPLETED_HEADER = ["id", "category", "date", "name", "work", "details", "complete_date"]
+COMPLETED_HEADER = ["id", "category", "date", "name", "work", "details", "complete_date",
+                    "reception", "processing", "storage"]
 
 
 @router.get("/completed", response_model=List[dict])

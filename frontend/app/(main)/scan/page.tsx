@@ -141,11 +141,20 @@ export default function ScanPage() {
       if (d.error) {
         toast.error(d.error);
       } else {
+        // ── [INSTRUMENT] OCR result vs current state ──────────────────────────
+        console.log("[SCAN][FE][OCR-ARC] OCR result 만기일 from server:", JSON.stringify(d.만기일));
+        // NOTE: set만기일 below runs AFTER this OCR call resolves.
+        // If the user edited 만기일 while OCR was loading, this WILL overwrite it.
+        // ─────────────────────────────────────────────────────────────────────
         if (d.한글) set한글(d.한글);
         if (d.등록증) set등록증(d.등록증);
         if (d.번호) set번호(d.번호);
         if (d.발급일) set발급일(d.발급일);
-        if (d.만기일) set만기일(d.만기일);
+        if (d.만기일) {
+          console.log("[SCAN][FE][OCR-ARC] set만기일 called with:", d.만기일,
+            "— this OVERWRITES any user edit made during OCR loading");
+          set만기일(d.만기일);
+        }
         if (d.주소) set주소(d.주소);
         toast.success("등록증 OCR 완료");
       }
@@ -203,6 +212,11 @@ export default function ScanPage() {
       처: 처.trim(),
       V: V.trim(),
     };
+    // ── [INSTRUMENT] log state + payload at submit time ───────────────────────
+    console.log("[SCAN][FE][SUBMIT] 만기일 React state at submit:", JSON.stringify(만기일));
+    console.log("[SCAN][FE][SUBMIT] 여권만기 React state at submit:", JSON.stringify(여권만기));
+    console.log("[SCAN][FE][SUBMIT] full payload:", JSON.stringify(data, null, 2));
+    // ─────────────────────────────────────────────────────────────────────────
     registerMut.mutate(data);
   };
 
@@ -310,7 +324,7 @@ export default function ScanPage() {
       <div style={{ fontWeight: 600, fontSize: 14, color: "#2D3748" }}>🔎 스캔 결과 확인 및 수정</div>
 
       {/* Row 1: 여권 이미지 (7) + 여권 정보 (3) */}
-      <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: 16, alignItems: "center" }}>
         <div className="hw-card" style={{ padding: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#4A5568" }}>여권 이미지</div>
           {passportPreview ? (
@@ -377,7 +391,7 @@ export default function ScanPage() {
       </div>
 
       {/* Row 2: 등록증 이미지 (7) + 등록증 정보 (3) */}
-      <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: 16, alignItems: "center" }}>
         <div className="hw-card" style={{ padding: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#4A5568" }}>등록증 / 스티커 이미지</div>
           {arcPreview ? (

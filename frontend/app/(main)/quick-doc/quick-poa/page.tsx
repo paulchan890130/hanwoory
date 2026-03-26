@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { quickPoaApi, type QuickPoaRequest } from "@/lib/api";
+import { oneClickApi, type QuickPoaRequest, type OneClickOutput } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Download, Loader2 } from "lucide-react";
 
@@ -32,12 +32,44 @@ const checkboxRowStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+// ── Output-type registry ─────────────────────────────────────────────────────
+// To add a new output type: add an entry here, set implemented: true,
+// and wire the backend path in quick_doc.py (POST /quick-poa → selected_outputs).
+interface OutputTypeSpec {
+  id: OneClickOutput;
+  label: string;
+  implemented: boolean;
+}
+
+const OUTPUT_TYPES: OutputTypeSpec[] = [
+  { id: "위임장",             label: "위임장",             implemented: true  },
+  { id: "건강보험(세대합가)", label: "건강보험 (세대합가)", implemented: false },
+  { id: "건강보험(피부양자)", label: "건강보험 (피부양자)", implemented: false },
+  { id: "하이코리아",         label: "하이코리아",          implemented: false },
+  { id: "소시넷",             label: "소시넷",              implemented: false },
+];
+
 export default function QuickPoaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState("위임장");
+
+  // Selected output types (only implemented ones can be checked)
+  const [selectedOutputs, setSelectedOutputs] = useState<Set<OneClickOutput>>(
+    new Set<OneClickOutput>(["위임장"])
+  );
+
+  const toggleOutput = (id: OneClickOutput, implemented: boolean) => {
+    if (!implemented) return;
+    setSelectedOutputs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const [form, setForm] = useState<QuickPoaRequest>({
     kor_name: "",
@@ -71,6 +103,10 @@ export default function QuickPoaPage() {
       setError("신청인 한글명은 필수입니다.");
       return;
     }
+    if (selectedOutputs.size === 0) {
+      setError("출력할 항목을 하나 이상 선택하세요.");
+      return;
+    }
     setLoading(true);
     setError(null);
     if (downloadUrl) {
@@ -78,16 +114,38 @@ export default function QuickPoaPage() {
       setDownloadUrl(null);
     }
     try {
-      const res = await quickPoaApi.generate(form);
+      const res = await oneClickApi.generate({
+        ...form,
+        selected_outputs: Array.from(selectedOutputs),
+      });
       const blob = res.data as Blob;
       const cd = res.headers["content-disposition"] || "";
-      const match = cd.match(/filename="([^"]+)"/);
-      const fname = match ? match[1] : "위임장.jpg";
+      // Support both RFC 5987 (filename*=UTF-8''...) and legacy (filename="...")
+      const rfc5987 = cd.match(/filename\*=UTF-8''([^\s;]+)/i);
+      const legacy  = cd.match(/filename="([^"]+)"/);
+      const fname = rfc5987
+        ? decodeURIComponent(rfc5987[1])
+        : legacy
+          ? legacy[1]
+          : "위임장.jpg";
       setDownloadName(fname);
       setDownloadUrl(URL.createObjectURL(blob));
     } catch (e: unknown) {
-      const detail =
-        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      // When responseType="blob", axios wraps error responses as Blobs too.
+      // Parse the Blob as text/JSON to extract the real FastAPI detail message.
+      let detail: string | undefined;
+      const errData = (e as { response?: { data?: unknown } })?.response?.data;
+      if (errData instanceof Blob) {
+        try {
+          const text = await errData.text();
+          const json = JSON.parse(text);
+          detail = json?.detail;
+        } catch {
+          // ignore parse failure
+        }
+      } else {
+        detail = (errData as { detail?: string } | undefined)?.detail;
+      }
       setError(detail || "생성 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
@@ -97,7 +155,7 @@ export default function QuickPoaPage() {
   return (
     <div style={{ maxWidth: 760, margin: "0 auto" }}>
       {/* 헤더 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <button
           onClick={() => router.back()}
           style={{
@@ -109,11 +167,56 @@ export default function QuickPoaPage() {
           <ChevronLeft size={13} /> 돌아가기
         </button>
         <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
-          ⚡ 위임장 빠른작성
+          ⚡ 원클릭 작성
         </h1>
         <span style={{ fontSize: 12, color: "#A0AEC0" }}>
           임시 입력 → 도장 포함 → JPG 다운로드
         </span>
+      </div>
+
+      {/* 출력 항목 선택 */}
+      <div
+        style={{
+          background: "#fff", borderRadius: 10, border: "1px solid #E2E8F0",
+          padding: "12px 18px", marginBottom: 14,
+          display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16,
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#2D3748", whiteSpace: "nowrap" }}>
+          출력 항목
+        </span>
+        {OUTPUT_TYPES.map(({ id, label, implemented }) => (
+          <label
+            key={id}
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              fontSize: 13,
+              color: implemented ? "#2D3748" : "#A0AEC0",
+              cursor: implemented ? "pointer" : "not-allowed",
+              userSelect: "none",
+            }}
+            title={implemented ? undefined : "준비 중"}
+          >
+            <input
+              type="checkbox"
+              disabled={!implemented}
+              checked={selectedOutputs.has(id)}
+              onChange={() => toggleOutput(id, implemented)}
+            />
+            {label}
+            {!implemented && (
+              <span
+                style={{
+                  fontSize: 10, color: "#A0AEC0",
+                  background: "#F7FAFC", border: "1px solid #E2E8F0",
+                  borderRadius: 4, padding: "1px 5px", lineHeight: 1.4,
+                }}
+              >
+                준비 중
+              </span>
+            )}
+          </label>
+        ))}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -213,13 +316,13 @@ export default function QuickPoaPage() {
               위임업무 (해당 항목 선택)
             </div>
             {[
-              { key: "ck_extension"   as const, label: "체류기간연장" },
-              { key: "ck_registration"as const, label: "외국인등록(등록증발급)" },
-              { key: "ck_card"        as const, label: "등록증재발급" },
-              { key: "ck_adrc"        as const, label: "체류지변경" },
-              { key: "ck_change"      as const, label: "체류자격 변경허가" },
-              { key: "ck_granting"    as const, label: "자격부여" },
-              { key: "ck_ant"         as const, label: "등록사항변경" },
+              { key: "ck_extension"    as const, label: "체류기간연장" },
+              { key: "ck_registration" as const, label: "외국인등록(등록증발급)" },
+              { key: "ck_card"         as const, label: "등록증재발급" },
+              { key: "ck_adrc"         as const, label: "체류지변경" },
+              { key: "ck_change"       as const, label: "체류자격 변경허가" },
+              { key: "ck_granting"     as const, label: "자격부여" },
+              { key: "ck_ant"          as const, label: "등록사항변경" },
             ].map(({ key, label }) => (
               <label key={key} style={checkboxRowStyle}>
                 <input
@@ -249,16 +352,18 @@ export default function QuickPoaPage() {
       {/* 생성 버튼 */}
       <button
         onClick={handleGenerate}
-        disabled={loading}
+        disabled={loading || selectedOutputs.size === 0}
         style={{
           marginTop: 18, width: "100%", padding: "11px 0",
           borderRadius: 9, border: "none", fontSize: 14, fontWeight: 700,
-          background: loading ? "#CBD5E0" : "#F5A623",
-          color: "#fff", cursor: loading ? "not-allowed" : "pointer",
+          background: (loading || selectedOutputs.size === 0) ? "#CBD5E0" : "#F5A623",
+          color: "#fff", cursor: (loading || selectedOutputs.size === 0) ? "not-allowed" : "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
         }}
       >
-        {loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> 생성 중...</> : "🖨 위임장 생성"}
+        {loading
+          ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> 생성 중...</>
+          : "⚡ 원클릭 생성"}
       </button>
 
       {/* 다운로드 버튼 */}

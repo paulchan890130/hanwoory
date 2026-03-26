@@ -96,7 +96,7 @@ function ResultCard({ result, router }: { result: SearchResult; router: ReturnTy
             >
               {meta.label}
             </span>
-            <span className="font-semibold text-sm truncate" style={{ color: "#1A202C" }}>
+            <span className="font-semibold text-sm" style={{ color: "#1A202C", wordBreak: "break-word" }}>
               {result.title}
             </span>
           </div>
@@ -236,9 +236,9 @@ function SearchPageContent() {
 
       {/* 검색 입력 */}
       <div className="hw-card">
-        <div className="flex gap-3">
-          <div className="hw-search-bar flex-1">
-            <Search size={14} className="search-icon" />
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#A0AEC0", pointerEvents: "none" }} />
             <input
               type="text"
               placeholder="고객, 업무, 게시글, 메모, 업무참고 검색..."
@@ -248,11 +248,19 @@ function SearchPageContent() {
                 if (e.key === "Enter") handleSearch(inputValue);
               }}
               autoFocus
+              style={{
+                width: "100%", height: 38, border: "1px solid #CBD5E0", borderRadius: 20,
+                padding: "0 16px 0 38px", fontSize: 13, outline: "none", background: "#F8F9FA",
+                boxSizing: "border-box",
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "#F5A623"; e.currentTarget.style.background = "#fff"; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = "#CBD5E0"; e.currentTarget.style.background = "#F8F9FA"; }}
             />
           </div>
           <button
             onClick={() => handleSearch(inputValue)}
             className="btn-primary flex items-center gap-1.5 text-sm px-5"
+            style={{ flexShrink: 0 }}
           >
             <Search size={14} /> 검색
           </button>

@@ -53,19 +53,19 @@ const ALL_FIELDS = [
 
 // 테이블에서 보일 컬럼 — 정보밀도 최대화, 원본 Streamlit 동일 컬럼 순서
 const TABLE_COLS: { key: string; label: string; w?: string }[] = [
-  { key: "한글",     label: "한글이름",    w: "76px" },
-  { key: "국적",     label: "국적",       w: "44px" },
-  { key: "성",       label: "성",         w: "64px" },
-  { key: "명",       label: "명",         w: "84px" },
-  { key: "_tel",     label: "연락처",     w: "104px" },
-  { key: "V",        label: "체류",       w: "50px" },
-  { key: "등록증",   label: "등록앞",     w: "68px" },
-  { key: "번호",     label: "등록뒤",     w: "68px" },
-  { key: "발급일",   label: "등록발급",   w: "82px" },
-  { key: "만기일",   label: "등록만기",   w: "82px" },
-  { key: "여권",     label: "여권번호",   w: "90px" },
-  { key: "만기",     label: "여권만기",   w: "82px" },
-  { key: "주소",     label: "주소",       w: "130px" },
+  { key: "한글",     label: "한글이름",    w: "64px" },
+  { key: "국적",     label: "국적",       w: "36px" },
+  { key: "성",       label: "성",         w: "54px" },
+  { key: "명",       label: "명",         w: "70px" },
+  { key: "_tel",     label: "연락처",     w: "88px" },
+  { key: "V",        label: "체류",       w: "42px" },
+  { key: "등록증",   label: "등록앞",     w: "58px" },
+  { key: "번호",     label: "등록뒤",     w: "58px" },
+  { key: "발급일",   label: "등록발급",   w: "70px" },
+  { key: "만기일",   label: "등록만기",   w: "70px" },
+  { key: "여권",     label: "여권번호",   w: "78px" },
+  { key: "만기",     label: "여권만기",   w: "70px" },
+  { key: "주소",     label: "주소",       w: "110px" },
 ];
 
 // 드로어 필드 그룹 (원본 화면 구조 반영)
@@ -157,7 +157,7 @@ function CustomerDrawer({
   return (
     <>
       <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.2)" }} onClick={onClose} />
-      <div className="hw-drawer open" style={{ zIndex: 50, width: 400 }}>
+      <div className="hw-drawer open" style={{ zIndex: 50, width: "min(480px, 100vw)" }}>
         {/* 헤더 */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:"1px solid #E2E8F0", flexShrink:0 }}>
           <div>
@@ -177,7 +177,7 @@ function CustomerDrawer({
 
         {/* 만기 D-Day */}
         {!isNew && (cardDays !== null || passDays !== null) && (
-          <div style={{ padding:"8px 20px", background:"#F7FAFC", borderBottom:"1px solid #E2E8F0", display:"flex", gap:8, flexWrap:"wrap" }}>
+          <div style={{ padding:"8px 20px", background:"#F7FAFC", borderBottom:"1px solid #E2E8F0", display:"flex", gap:8, flexWrap:"wrap", flexShrink:0 }}>
             {[{ label:"등록증만기", days:cardDays }, { label:"여권만기", days:passDays }].map(({ label, days }) => {
               const badge = expiryBadge(days);
               if (!badge) return null;
@@ -191,23 +191,27 @@ function CustomerDrawer({
         )}
 
         {/* 필드 그룹 */}
-        <div style={{ flex:1, overflowY:"auto", padding:"16px 20px" }}>
+        <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px", minHeight:0, boxSizing:"border-box" }}>
           {DRAWER_GROUPS.map((grp) => (
             <div key={grp.title} style={{ marginBottom:18 }}>
               <div style={{ fontSize:11, fontWeight:700, color:"#F5A623", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{grp.title}</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                {grp.fields.map((f) => (
-                  <div key={f.key} style={(f as { wide?: boolean }).wide ? { gridColumn:"1/-1" } : {}}>
-                    <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>{f.label}</label>
-                    <input
-                      type="text"
-                      className="hw-input w-full text-xs"
-                      value={form[f.key] ?? ""}
-                      onChange={(e) => change(f.key, e.target.value)}
-                      placeholder={f.label}
-                    />
-                  </div>
-                ))}
+                {grp.fields.map((f) => {
+                  const wide = (f as { wide?: boolean }).wide;
+                  return (
+                    <div key={f.key} style={{ minWidth:0, overflow:"hidden", ...(wide ? { gridColumn:"1/-1" } : {}) }}>
+                      <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>{f.label}</label>
+                      <input
+                        type="text"
+                        className="hw-input"
+                        style={{ width:"100%", boxSizing:"border-box" }}
+                        value={form[f.key] ?? ""}
+                        onChange={(e) => change(f.key, e.target.value)}
+                        placeholder={f.label}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -280,20 +284,33 @@ export default function CustomersPage() {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      {/* 툴바 */}
-      <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-        <h1 className="hw-page-title" style={{ marginRight:8 }}>고객관리</h1>
-        <div className="hw-search-bar" style={{ width:260 }}>
-          <Search size={13} className="search-icon" />
-          <input type="text" placeholder="이름, 여권번호, 국적 검색..."
-            value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* 툴바 — flex row, 각 아이템에 명시적 shrink/grow 지정 */}
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <h1 className="hw-page-title" style={{ flexShrink:0 }}>고객관리</h1>
+        {/* hw-search-bar CSS 클래스 사용 안 함: flex:1 / max-width:520px 가 버튼 overlap 유발 */}
+        <div style={{ position:"relative", width:260, flexShrink:0 }}>
+          <Search size={13} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#A0AEC0", pointerEvents:"none" }} />
+          <input
+            type="text"
+            placeholder="이름, 여권번호, 국적 검색..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width:"100%", height:36, border:"1px solid #E2E8F0", borderRadius:20,
+              padding:"0 16px 0 38px", fontSize:13, outline:"none", boxSizing:"border-box",
+              background:"#F8F9FA", color:"var(--hw-text)",
+            }}
+          />
         </div>
-        <button onClick={() => { setSelectedCustomer(emptyCustomer()); setIsNewMode(true); }}
-          className="btn-primary flex items-center gap-1.5 text-xs">
+        <button
+          onClick={() => { setSelectedCustomer(emptyCustomer()); setIsNewMode(true); }}
+          className="btn-primary"
+          style={{ flexShrink:0, display:"flex", alignItems:"center", gap:6, fontSize:12 }}
+        >
           <UserPlus size={14} /> 신규 고객
         </button>
         {customers.length > 0 && (
-          <span style={{ fontSize:12, color:"#718096", marginLeft:"auto" }}>
+          <span style={{ fontSize:12, color:"#718096", marginLeft:"auto", flexShrink:0 }}>
             총 <strong style={{ color:"#2D3748" }}>{customers.length}</strong>명
           </span>
         )}
@@ -311,14 +328,19 @@ export default function CustomersPage() {
       ) : (
         <div className="hw-card" style={{ padding:0, overflow:"hidden" }}>
           <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, tableLayout:"fixed" }}>
+              <colgroup>
+                {TABLE_COLS.map((col) => (
+                  <col key={col.key} style={{ width: col.w }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr style={{ background:"#F7FAFC", borderBottom:"2px solid #E2E8F0" }}>
                   {TABLE_COLS.map((col) => (
                     <th key={col.key} style={{
-                      padding:"8px 10px", textAlign:"left", fontWeight:600,
+                      padding:"8px 6px", textAlign:"left", fontWeight:600,
                       fontSize:11, color:"#718096", whiteSpace:"nowrap",
-                      minWidth: col.w, maxWidth: col.w,
+                      overflow:"hidden", textOverflow:"ellipsis",
                     }}>{col.label}</th>
                   ))}
                 </tr>
@@ -337,8 +359,8 @@ export default function CustomersPage() {
                         const isExpiry = col.key === "만기일" || col.key === "만기";
                         const badge = isExpiry ? expiryBadge(getDaysUntil(val)) : null;
                         return (
-                          <td key={col.key} style={{ padding:"7px 10px", whiteSpace:"nowrap",
-                            maxWidth: col.w, overflow:"hidden", textOverflow:"ellipsis" }}>
+                          <td key={col.key} style={{ padding:"7px 6px", whiteSpace:"nowrap",
+                            overflow:"hidden", textOverflow:"ellipsis" }}>
                             {badge ? (
                               <span>
                                 <span style={{ marginRight:4 }}>{val}</span>

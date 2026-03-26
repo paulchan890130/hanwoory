@@ -227,14 +227,31 @@ def scan_register(
     session_state를 직접 참조하므로 FastAPI에서 직접 호출 불가.
     tenant_service.get_worksheet()로 동일 로직 구현.
     """
+    import logging
+    _log = logging.getLogger("scan.register")
+
     from backend.services.tenant_service import get_worksheet
     from config import CUSTOMER_SHEET_NAME
     import pandas as pd
 
     tenant_id = user.get("tenant_id") or user.get("sub", "")
 
+    # ── [INSTRUMENT] log incoming raw body ──────────────────────────────────
+    _log.warning("[SCAN][BE] incoming raw body 만기일=%r  여권만기(만기)=%r",
+                 body.get("만기일", "<missing>"), body.get("만기", "<missing>"))
+    _log.warning("[SCAN][BE] incoming raw body keys: %s", list(body.keys()))
+    # ────────────────────────────────────────────────────────────────────────
+
     # ── alias 정규화 + 날짜 정규화 ──
     data = _normalize_fields(body)
+
+    # ── [INSTRUMENT] log normalized data ────────────────────────────────────
+    _log.warning("[SCAN][BE] normalized 만기일=%r  (absent=skipped by _normalize_fields because empty)",
+                 data.get("만기일", "<absent – was empty or missing in body>"))
+    _log.warning("[SCAN][BE] normalized 만기(여권만기)=%r",
+                 data.get("만기", "<absent>"))
+    _log.warning("[SCAN][BE] full normalized data: %s", data)
+    # ────────────────────────────────────────────────────────────────────────
 
     if not data:
         raise HTTPException(status_code=400, detail="upsert할 데이터가 없습니다.")
@@ -261,11 +278,13 @@ def scan_register(
     key_reg_back  = norm(data.get("번호", ""))
 
     hit_idx = None
+    match_reason = None
 
     if key_passport and "여권" in df.columns:
         matches = df.index[df["여권"].astype(str).str.strip() == key_passport].tolist()
         if matches:
             hit_idx = matches[0]
+            match_reason = f"passport match: 여권={key_passport!r}"
 
     if hit_idx is None and key_reg_front and key_reg_back:
         if "등록증" in df.columns and "번호" in df.columns:
@@ -275,6 +294,16 @@ def scan_register(
             ].tolist()
             if matches:
                 hit_idx = matches[0]
+                match_reason = f"reg-number match: 등록증={key_reg_front!r} 번호={key_reg_back!r}"
+
+    # ── [INSTRUMENT] log match result ───────────────────────────────────────
+    if hit_idx is not None:
+        _log.warning("[SCAN][BE] EXISTING CUSTOMER FOUND — hit_idx=%d reason=%s", hit_idx, match_reason)
+    else:
+        _log.warning("[SCAN][BE] NO MATCH — will create new customer")
+        _log.warning("[SCAN][BE] search keys: passport=%r reg_front=%r reg_back=%r",
+                     key_passport, key_reg_front, key_reg_back)
+    # ────────────────────────────────────────────────────────────────────────
 
     # ── 컬럼 인덱스 헬퍼 ─────────────────────────────────────────
     def _col_letter(n: int) -> str:
@@ -287,6 +316,17 @@ def scan_register(
     # ── 1) 기존 고객 업데이트 ────────────────────────────────────
     if hit_idx is not None:
         rownum = hit_idx + 2   # 헤더 1행 + 0-index 보정
+        customer_id = str(df.at[hit_idx, "고객ID"]) if "고객ID" in df.columns else ""
+        existing_만기일 = str(df.at[hit_idx, "만기일"]) if "만기일" in df.columns else "<col missing>"
+
+        # ── [INSTRUMENT] log UPDATE path ──────────────────────────────────────
+        _log.warning("[SCAN][BE] PATH=updated  customer_id=%r  row=%d  match=%s",
+                     customer_id, rownum, match_reason)
+        _log.warning("[SCAN][BE] existing sheet 만기일=%r  incoming normalized 만기일=%r",
+                     existing_만기일,
+                     data.get("만기일", "<absent – NOT being written, old value preserved>"))
+        # ──────────────────────────────────────────────────────────────────────
+
         batch  = []
         for col_name, val in data.items():
             if col_name in headers:
@@ -300,7 +340,6 @@ def scan_register(
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"고객 업데이트 실패: {str(e)}")
 
-        customer_id = str(df.at[hit_idx, "고객ID"]) if "고객ID" in df.columns else ""
         return {
             "status": "updated",
             "고객ID": customer_id,
@@ -321,6 +360,14 @@ def scan_register(
     for k, v in data.items():
         if k in base:
             base[k] = v
+
+    # ── [INSTRUMENT] log CREATE path ──────────────────────────────────────
+    _log.warning("[SCAN][BE] PATH=created  new_id=%r", new_id)
+    _log.warning("[SCAN][BE] new row 만기일=%r  만기(여권)=%r",
+                 base.get("만기일", ""), base.get("만기", ""))
+    _log.warning("[SCAN][BE] full new row (non-empty only): %s",
+                 {k: v for k, v in base.items() if v})
+    # ──────────────────────────────────────────────────────────────────────
 
     try:
         ws.append_row([base.get(h, "") for h in headers])

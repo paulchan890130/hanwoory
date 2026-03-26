@@ -109,18 +109,102 @@ function ExpiryTable({ rows, dateField }: { rows: ExpiryAlert[]; dateField: stri
   );
 }
 
+// ── 진행업무 D+ 헬퍼 (가장 최근 체크 타임스탬프 기준) ─────────────────────────
+function latestStageTs(task: ActiveTask): string {
+  return [task.storage || "", task.processing || "", task.reception || ""]
+    .filter(Boolean)
+    .sort()
+    .reverse()[0] ?? "";
+}
+
+function dPlusFromTs(ts: string): number {
+  if (!ts) return 0;
+  const start = new Date(ts.slice(0, 10));
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
+}
+
+function fmtDate(iso: string): string {
+  // "2026-03-25T..." → "03/25"
+  return iso ? iso.slice(5, 10).replace("-", "/") : "";
+}
+
 // ── 진행업무 행 ─────────────────────────────────────────────────────────────────
 function ActiveTaskRow({
-  task, onUpdate, onToggleComplete, onToggleDelete, markedComplete, markedDelete,
+  task, onSave, onToggleComplete, onToggleDelete, markedComplete, markedDelete,
 }: {
   task: ActiveTask;
-  onUpdate: (id: string, field: string, value: string | boolean) => void;
+  onSave: (id: string, data: Partial<ActiveTask>) => void;
   onToggleComplete: (id: string) => void;
   onToggleDelete: (id: string) => void;
   markedComplete: boolean;
   markedDelete: boolean;
 }) {
-  const isProc = task.processed === true || String(task.processed).toLowerCase() === "true";
+  // All editable fields as local controlled state — nothing persists until the row save button is clicked
+  const [category, setCategory] = useState(task.category ?? "");
+  const [date, setDate] = useState(task.date ?? "");
+  const [name, setName] = useState(task.name ?? "");
+  const [work, setWork] = useState(task.work ?? "");
+  const [details, setDetails] = useState(task.details ?? "");
+  const [transfer, setTransfer] = useState(String(safeInt(task.transfer) || ""));
+  const [cash, setCash] = useState(String(safeInt(task.cash) || ""));
+  const [card, setCard] = useState(String(safeInt(task.card) || ""));
+  const [stamp, setStamp] = useState(String(safeInt(task.stamp) || ""));
+  const [receivable, setReceivable] = useState(String(safeInt(task.receivable) || ""));
+  const [localReception, setLocalReception] = useState<string>((task.reception as string) || "");
+  const [localProcessing, setLocalProcessing] = useState<string>((task.processing as string) || "");
+  const [localStorage_, setLocalStorage_] = useState<string>((task.storage as string) || "");
+  const [dirty, setDirty] = useState(false);
+
+  // Sync all local state when server data changes (after save / refetch)
+  useEffect(() => {
+    setCategory(task.category ?? "");
+    setDate(task.date ?? "");
+    setName(task.name ?? "");
+    setWork(task.work ?? "");
+    setDetails(task.details ?? "");
+    setTransfer(String(safeInt(task.transfer) || ""));
+    setCash(String(safeInt(task.cash) || ""));
+    setCard(String(safeInt(task.card) || ""));
+    setStamp(String(safeInt(task.stamp) || ""));
+    setReceivable(String(safeInt(task.receivable) || ""));
+    setLocalReception((task.reception as string) || "");
+    setLocalProcessing((task.processing as string) || "");
+    setLocalStorage_((task.storage as string) || "");
+    setDirty(false);
+  }, [task.id, task.category, task.date, task.name, task.work, task.details,
+      task.transfer, task.cash, task.card, task.stamp, task.receivable,
+      task.reception, task.processing, task.storage]);
+
+  const mark = () => setDirty(true);
+
+  const toggleLocal = (field: "reception" | "processing" | "storage") => {
+    if (field === "reception")   setLocalReception( (p) => p ? "" : new Date().toISOString());
+    else if (field === "processing") setLocalProcessing((p) => p ? "" : new Date().toISOString());
+    else                         setLocalStorage_( (p) => p ? "" : new Date().toISOString());
+    setDirty(true);
+  };
+
+  const handleSave = () => {
+    onSave(task.id, {
+      category, date, name, work, details,
+      transfer: safeInt(transfer) || 0,
+      cash: safeInt(cash) || 0,
+      card: safeInt(card) || 0,
+      stamp: safeInt(stamp) || 0,
+      receivable: safeInt(receivable) || 0,
+      reception: localReception,
+      processing: localProcessing,
+      storage: localStorage_,
+    });
+    setDirty(false);
+  };
+
+  // Display uses local (pending) state so checkboxes feel responsive
+  const latestTs = [localStorage_, localProcessing, localReception]
+    .filter(Boolean).sort().reverse()[0] ?? "";
+  const dp = dPlusFromTs(latestTs);
   const rowBg = markedDelete
     ? "rgba(229,62,62,0.06)"
     : markedComplete
@@ -130,53 +214,94 @@ function ActiveTaskRow({
   return (
     <tr style={{ background: rowBg }}>
       <td>
-        <input className="hw-table-input" defaultValue={task.category}
-          onBlur={(e) => { if (e.target.value !== (task.category ?? "")) onUpdate(task.id, "category", e.target.value); }} />
+        <input className="hw-table-input" value={category}
+          onChange={(e) => { setCategory(e.target.value); mark(); }} />
       </td>
       <td style={{ whiteSpace: "nowrap" }}>
-        <input className="hw-table-input" defaultValue={task.date}
-          onBlur={(e) => { if (e.target.value !== (task.date ?? "")) onUpdate(task.id, "date", e.target.value); }} />
+        <input className="hw-table-input" value={date}
+          onChange={(e) => { setDate(e.target.value); mark(); }} />
       </td>
       <td>
-        <input className="hw-table-input" defaultValue={task.name}
-          onBlur={(e) => { if (e.target.value !== (task.name ?? "")) onUpdate(task.id, "name", e.target.value); }} />
+        <input className="hw-table-input" value={name}
+          onChange={(e) => { setName(e.target.value); mark(); }} />
       </td>
       <td style={{ minWidth: 110 }}>
-        {isProc
-          ? <span style={{ color: "#3182CE", fontWeight: 500 }}>{task.work}</span>
-          : <input className="hw-table-input" defaultValue={task.work}
-              onBlur={(e) => { if (e.target.value !== (task.work ?? "")) onUpdate(task.id, "work", e.target.value); }} />}
+        <input className="hw-table-input" value={work}
+          onChange={(e) => { setWork(e.target.value); mark(); }} />
       </td>
       <td style={{ minWidth: 130 }}>
-        {isProc
-          ? <span style={{ color: "#3182CE" }}>{task.details}</span>
-          : <input className="hw-table-input" defaultValue={task.details}
-              onBlur={(e) => { if (e.target.value !== (task.details ?? "")) onUpdate(task.id, "details", e.target.value); }} />}
+        <input className="hw-table-input" value={details}
+          onChange={(e) => { setDetails(e.target.value); mark(); }} />
       </td>
-      {(["transfer","cash","card","stamp","receivable"] as const).map((f) => (
-        <td key={f} style={{ textAlign: "right", width: 56 }}>
-          <input type="text" inputMode="numeric"
-            className="hw-table-input"
-            style={{ textAlign: "right" }}
-            defaultValue={safeInt(task[f]) || ""}
-            placeholder={f === "transfer" ? "이체" : f === "cash" ? "현금" : f === "card" ? "카드" : f === "stamp" ? "인지" : "미수"}
-            onBlur={(e) => {
-              const orig = String(safeInt(task[f]) || "");
-              if (e.target.value !== orig) onUpdate(task.id, f, e.target.value);
-            }} />
-        </td>
-      ))}
-      {/* 처리중 체크박스 */}
-      <td style={{ textAlign: "center", width: 48 }}>
-        <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, cursor: "pointer" }}>
-          <input type="checkbox" checked={isProc}
-            onChange={() => onUpdate(task.id, "processed", !isProc)}
-            style={{ accentColor: "#3182CE" }} />
-          <span style={{ fontSize: 9, color: "#3182CE" }}>처리중</span>
-        </label>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input"
+          style={{ textAlign: "right" }} value={transfer} placeholder="이체"
+          onChange={(e) => { setTransfer(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input"
+          style={{ textAlign: "right" }} value={cash} placeholder="현금"
+          onChange={(e) => { setCash(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input"
+          style={{ textAlign: "right" }} value={card} placeholder="카드"
+          onChange={(e) => { setCard(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input"
+          style={{ textAlign: "right" }} value={stamp} placeholder="인지"
+          onChange={(e) => { setStamp(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input"
+          style={{ textAlign: "right" }} value={receivable} placeholder="미수"
+          onChange={(e) => { setReceivable(e.target.value); mark(); }} />
+      </td>
+      {/* 접수 / 처리 / 보관중 — 가로 배치 + 행 전체 저장 버튼 */}
+      <td style={{ minWidth: 200, verticalAlign: "middle" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {latestTs ? (
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#718096" }}>D+{dp}</span>
+          ) : null}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={!!localReception} onChange={() => toggleLocal("reception")}
+                style={{ accentColor: "#3182CE", width: 11, height: 11 }} />
+              <span style={{ fontSize: 10, color: localReception ? "#2B6CB0" : "#A0AEC0", fontWeight: localReception ? 700 : 400 }}>접수</span>
+              {localReception && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(localReception)}</span>}
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={!!localProcessing} onChange={() => toggleLocal("processing")}
+                style={{ accentColor: "#D69E2E", width: 11, height: 11 }} />
+              <span style={{ fontSize: 10, color: localProcessing ? "#975A16" : "#A0AEC0", fontWeight: localProcessing ? 700 : 400 }}>처리</span>
+              {localProcessing && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(localProcessing)}</span>}
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={!!localStorage_} onChange={() => toggleLocal("storage")}
+                style={{ accentColor: "#9F7AEA", width: 11, height: 11 }} />
+              <span style={{ fontSize: 10, color: localStorage_ ? "#553C9A" : "#A0AEC0", fontWeight: localStorage_ ? 700 : 400 }}>보관중</span>
+              {localStorage_ && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(localStorage_)}</span>}
+            </label>
+          </div>
+          {/* 행 전체 저장 — 변경이 있을 때만 표시 */}
+          {dirty && (
+            <button
+              onClick={handleSave}
+              style={{
+                marginTop: 1, padding: "2px 7px", fontSize: 9, fontWeight: 700,
+                background: "#F5A623", color: "#fff",
+                border: "none", borderRadius: 4, cursor: "pointer",
+                whiteSpace: "nowrap", alignSelf: "flex-start",
+              }}
+            >
+              저장
+            </button>
+          )}
+        </div>
       </td>
       {/* 완료 체크박스 */}
-      <td style={{ textAlign: "center", width: 48 }}>
+      <td style={{ textAlign: "center", width: 44 }}>
         <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, cursor: "pointer" }}>
           <input type="checkbox" checked={markedComplete}
             onChange={() => onToggleComplete(task.id)}
@@ -185,7 +310,7 @@ function ActiveTaskRow({
         </label>
       </td>
       {/* 삭제 체크박스 */}
-      <td style={{ textAlign: "center", width: 48 }}>
+      <td style={{ textAlign: "center", width: 44 }}>
         <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, cursor: "pointer" }}>
           <input type="checkbox" checked={markedDelete}
             onChange={() => onToggleDelete(task.id)}
@@ -197,26 +322,48 @@ function ActiveTaskRow({
   );
 }
 
-// ── 예정업무 행 (인라인 편집) ───────────────────────────────────────────────────
+// ── 예정업무 행 (인라인 편집 + 명시적 저장 버튼) ─────────────────────────────
 function PlannedTaskRow({
   task, onUpdate,
 }: {
   task: PlannedTask;
   onUpdate: (id: string, data: Partial<PlannedTask>) => void;
 }) {
+  const [period, setPeriod] = useState(task.period ?? "");
+  const [date, setDate] = useState(task.date ?? "");
+  const [content, setContent] = useState(task.content ?? "");
+  const [note, setNote] = useState(task.note ?? "");
+  const [dirty, setDirty] = useState(false);
+
+  // Sync if task data changes (e.g. after refetch)
+  useEffect(() => {
+    setPeriod(task.period ?? "");
+    setDate(task.date ?? "");
+    setContent(task.content ?? "");
+    setNote(task.note ?? "");
+    setDirty(false);
+  }, [task.id, task.period, task.date, task.content, task.note]);
+
+  const mark = () => setDirty(true);
+  const handleSave = () => {
+    onUpdate(task.id, { period, date, content, note });
+    setDirty(false);
+  };
+
   const periodColor =
-    task.period === "단기🔴" ? "#C53030" :
-    task.period === "중기🟡" ? "#975A16" :
-    task.period === "장기🟢" ? "#276749" :
-    task.period === "완료✅" ? "#A0AEC0" :
+    period === "단기🔴" ? "#C53030" :
+    period === "중기🟡" ? "#975A16" :
+    period === "장기🟢" ? "#276749" :
+    period === "완료✅" ? "#A0AEC0" :
     "#4A5568";
+
   return (
-    <tr style={{ opacity: task.period === "완료✅" ? 0.55 : 1 }}>
+    <tr style={{ opacity: period === "완료✅" ? 0.55 : 1 }}>
       <td style={{ whiteSpace: "nowrap" }}>
         <select
           style={{ background: "transparent", fontSize: 12, border: "none", outline: "none", cursor: "pointer", color: periodColor, fontWeight: 600 }}
-          defaultValue={task.period}
-          onBlur={(e) => { if (e.target.value !== (task.period ?? "")) onUpdate(task.id, { period: e.target.value }); }}
+          value={period}
+          onChange={(e) => { setPeriod(e.target.value); mark(); }}
         >
           {["장기🟢","중기🟡","단기🔴","완료✅","보류⏹️"].map(p => (
             <option key={p} value={p}>{p}</option>
@@ -224,16 +371,32 @@ function PlannedTaskRow({
         </select>
       </td>
       <td style={{ whiteSpace: "nowrap" }}>
-        <input className="hw-table-input" defaultValue={task.date}
-          onBlur={(e) => { if (e.target.value !== (task.date ?? "")) onUpdate(task.id, { date: e.target.value }); }} />
+        <input className="hw-table-input" value={date}
+          onChange={(e) => { setDate(e.target.value); mark(); }} />
       </td>
       <td>
-        <input className="hw-table-input" style={{ minWidth: 160 }} defaultValue={task.content}
-          onBlur={(e) => { if (e.target.value !== (task.content ?? "")) onUpdate(task.id, { content: e.target.value }); }} />
+        <input className="hw-table-input" style={{ minWidth: 160 }} value={content}
+          onChange={(e) => { setContent(e.target.value); mark(); }} />
       </td>
       <td>
-        <input className="hw-table-input" style={{ minWidth: 100 }} defaultValue={task.note}
-          onBlur={(e) => { if (e.target.value !== (task.note ?? "")) onUpdate(task.id, { note: e.target.value }); }} />
+        <input className="hw-table-input" style={{ minWidth: 100 }} value={note}
+          onChange={(e) => { setNote(e.target.value); mark(); }} />
+      </td>
+      <td style={{ width: 52 }}>
+        <button
+          onClick={handleSave}
+          disabled={!dirty}
+          style={{
+            padding: "3px 8px", fontSize: 10, fontWeight: 700,
+            background: dirty ? "#F5A623" : "#E2E8F0",
+            color: dirty ? "#fff" : "#A0AEC0",
+            border: "none", borderRadius: 4,
+            cursor: dirty ? "pointer" : "default",
+            whiteSpace: "nowrap",
+          }}
+        >
+          저장
+        </button>
       </td>
     </tr>
   );
@@ -340,20 +503,46 @@ export default function DashboardPage() {
     },
   });
 
-  const handleFieldUpdate = (id: string, field: string, value: string | boolean) => {
-    updateTaskMut.mutate({ id, data: { [field]: value } as Partial<ActiveTask> });
+  const handleActiveTaskSave = (id: string, data: Partial<ActiveTask>) => {
+    updateTaskMut.mutate({ id, data });
   };
 
   const handlePlannedUpdate = (id: string, data: Partial<PlannedTask>) => {
     updatePlannedMut.mutate({ id, data });
   };
 
+  // ── 예정업무 추가 ──
+  const [newPlannedPeriod, setNewPlannedPeriod] = useState("단기🔴");
+  const [newPlannedDate, setNewPlannedDate] = useState("");
+  const [newPlannedContent, setNewPlannedContent] = useState("");
+  const [newPlannedNote, setNewPlannedNote] = useState("");
+
+  const addPlannedMut = useMutation({
+    mutationFn: (task: Partial<PlannedTask>) => tasksApi.addPlanned(task),
+    onSuccess: () => {
+      toast.success("예정업무 추가됨");
+      setNewPlannedPeriod("단기🔴");
+      setNewPlannedDate("");
+      setNewPlannedContent("");
+      setNewPlannedNote("");
+      qc.invalidateQueries({ queryKey: ["tasks", "planned"] });
+    },
+    onError: () => toast.error("예정업무 추가 실패"),
+  });
+
+  const handleAddPlanned = () => {
+    if (!newPlannedContent.trim()) { toast.error("내용을 입력하세요."); return; }
+    addPlannedMut.mutate({ period: newPlannedPeriod, date: newPlannedDate, content: newPlannedContent, note: newPlannedNote });
+  };
+
   const handleBatchSave = () => {
     const completeArr = Array.from(completedIds);
     const deleteArr = Array.from(deleteIds).filter((id) => !completedIds.has(id));
+    if (!completeArr.length && !deleteArr.length) { toast.info("선택된 항목이 없습니다."); return; }
+    if (completeArr.length && !confirm(`${completeArr.length}건을 완료 처리하시겠습니까?`)) return;
+    if (deleteArr.length && !confirm(`${deleteArr.length}건을 삭제하시겠습니까?`)) return;
     if (completeArr.length) completeTasksMut.mutate(completeArr);
     if (deleteArr.length) deleteTasksMut.mutate(deleteArr);
-    if (!completeArr.length && !deleteArr.length) toast.info("선택된 항목이 없습니다.");
   };
 
   const calEvents = Object.entries(events as Record<string, string[]>).flatMap(([date, texts]) =>
@@ -501,29 +690,71 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 예정업무 (인라인 편집) ── */}
+      {/* ── 예정업무 (인라인 편집 + 추가) ── */}
       <div className="hw-card">
         <div className="hw-card-title">📌 예정업무</div>
-        {sortedPlanned.length === 0 ? (
-          <p style={{ fontSize: 12, color: "#A0AEC0" }}>예정된 업무가 없습니다.</p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="hw-table">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>기간</th>
-                  <th style={{ textAlign: "left" }}>날짜</th>
-                  <th style={{ textAlign: "left" }}>내용</th>
-                  <th style={{ textAlign: "left" }}>비고</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedPlanned.map((t) => (
-                  <PlannedTaskRow key={t.id} task={t} onUpdate={handlePlannedUpdate} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div style={{ overflowX: "auto" }}>
+          <table className="hw-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>기간</th>
+                <th style={{ textAlign: "left" }}>날짜</th>
+                <th style={{ textAlign: "left" }}>내용</th>
+                <th style={{ textAlign: "left" }}>비고</th>
+                <th style={{ width: 48 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedPlanned.map((t) => (
+                <PlannedTaskRow key={t.id} task={t} onUpdate={handlePlannedUpdate} />
+              ))}
+              {/* 새 예정업무 추가 행 */}
+              <tr style={{ background: "#F7FAFC" }}>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <select
+                    style={{ background: "transparent", fontSize: 12, border: "none", outline: "none", cursor: "pointer", fontWeight: 600 }}
+                    value={newPlannedPeriod}
+                    onChange={(e) => setNewPlannedPeriod(e.target.value)}
+                  >
+                    {["장기🟢","중기🟡","단기🔴","완료✅","보류⏹️"].map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <input className="hw-table-input" value={newPlannedDate} placeholder="날짜"
+                    onChange={(e) => setNewPlannedDate(e.target.value)} />
+                </td>
+                <td>
+                  <input className="hw-table-input" style={{ minWidth: 160 }} value={newPlannedContent} placeholder="내용 입력..."
+                    onChange={(e) => setNewPlannedContent(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddPlanned(); }} />
+                </td>
+                <td>
+                  <input className="hw-table-input" style={{ minWidth: 100 }} value={newPlannedNote} placeholder="비고"
+                    onChange={(e) => setNewPlannedNote(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddPlanned(); }} />
+                </td>
+                <td style={{ width: 52 }}>
+                  <button
+                    onClick={handleAddPlanned}
+                    disabled={addPlannedMut.isPending}
+                    style={{
+                      padding: "3px 8px", fontSize: 10, fontWeight: 700,
+                      background: "#3182CE", color: "#fff",
+                      border: "none", borderRadius: 4, cursor: "pointer",
+                      opacity: addPlannedMut.isPending ? 0.5 : 1,
+                    }}
+                  >
+                    추가
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {sortedPlanned.length === 0 && (
+          <p style={{ fontSize: 12, color: "#A0AEC0", marginTop: 4 }}>예정된 업무가 없습니다. 위에서 추가하세요.</p>
         )}
       </div>
 
@@ -551,7 +782,7 @@ export default function DashboardPage() {
         ) : (
           <>
             <div style={{ overflowX: "auto" }}>
-              <table className="hw-table" style={{ minWidth: 900 }}>
+              <table className="hw-table" style={{ minWidth: 960 }}>
                 <thead>
                   <tr>
                     <th style={{ textAlign: "left" }}>분류</th>
@@ -564,9 +795,9 @@ export default function DashboardPage() {
                     <th style={{ textAlign: "right", width: 56 }}>카드</th>
                     <th style={{ textAlign: "right", width: 56 }}>인지</th>
                     <th style={{ textAlign: "right", width: 56 }}>미수</th>
-                    <th style={{ textAlign: "center", width: 48 }}>처리중</th>
-                    <th style={{ textAlign: "center", width: 48 }}>완료✅</th>
-                    <th style={{ textAlign: "center", width: 48 }}>삭제❌</th>
+                    <th style={{ width: 150 }}>접수/처리/보관중</th>
+                    <th style={{ textAlign: "center", width: 44 }}>완료✅</th>
+                    <th style={{ textAlign: "center", width: 44 }}>삭제❌</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -574,7 +805,7 @@ export default function DashboardPage() {
                     <ActiveTaskRow
                       key={task.id}
                       task={task}
-                      onUpdate={handleFieldUpdate}
+                      onSave={handleActiveTaskSave}
                       onToggleComplete={(id) =>
                         setCompletedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })
                       }

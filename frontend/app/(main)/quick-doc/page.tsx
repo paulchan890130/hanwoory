@@ -532,7 +532,7 @@ export default function QuickDocPage() {
               textDecoration: "none", fontWeight: 600,
             }}
           >
-            <Zap size={11} /> 위임장 빠른작성
+            <Zap size={11} /> 원클릭 작성
           </Link>
           {(category || roleIsSet(applicant)) && (
             <button onClick={resetAll}

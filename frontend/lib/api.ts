@@ -63,14 +63,9 @@ export interface ActiveTask {
   planned_expense: string;
   processed: boolean | string;
   processed_timestamp: string;
-}
-
-export interface PlannedTask {
-  id: string;
-  date: string;
-  period: string;
-  content: string;
-  note: string;
+  reception?: string;
+  processing?: string;
+  storage?: string;
 }
 
 export interface CompletedTask {
@@ -81,6 +76,17 @@ export interface CompletedTask {
   work: string;
   details: string;
   complete_date: string;
+  reception?: string;
+  processing?: string;
+  storage?: string;
+}
+
+export interface PlannedTask {
+  id: string;
+  date: string;
+  period: string;
+  content: string;
+  note: string;
 }
 
 export interface DailyEntry {
@@ -154,6 +160,8 @@ export const customersApi = {
   update: (id: string, data: Record<string, string>) => api.put(`/api/customers/${id}`, data),
   delete: (id: string) => api.delete(`/api/customers/${id}`),
   expiryAlerts: () => api.get<{ card_alerts: ExpiryAlert[]; passport_alerts: ExpiryAlert[] }>("/api/customers/expiry-alerts"),
+  appendDelegation: (id: string, entry: string) =>
+    api.post(`/api/customers/${id}/delegation-append`, { entry }),
 };
 
 export interface ExpiryAlert {
@@ -360,7 +368,17 @@ export const manualApi = {
     api.get<ManualSearchResult>("/api/manual/search", { params: { q } }),
 };
 
-// ── 위임장 빠른작성 ───────────────────────────────────────────────────────────
+// ── 원클릭 작성 ──────────────────────────────────────────────────────────────
+
+// Output types recognised by the one-click generator.
+// Only "위임장" has a working backend path right now.
+// Add entries here as new output types are implemented.
+export type OneClickOutput =
+  | "위임장"
+  | "건강보험(세대합가)"
+  | "건강보험(피부양자)"
+  | "하이코리아"
+  | "소시넷";
 
 export interface QuickPoaRequest {
   kor_name: string;
@@ -384,9 +402,11 @@ export interface QuickPoaRequest {
   ck_change?: boolean;
   ck_granting?: boolean;
   ck_ant?: boolean;
+  /** Which one-click output types to generate. Default: ["위임장"]. */
+  selected_outputs?: OneClickOutput[];
 }
 
-export const quickPoaApi = {
+export const oneClickApi = {
   generate: (data: QuickPoaRequest) =>
     api.post("/api/quick-doc/quick-poa", data, { responseType: "blob" }),
 };
