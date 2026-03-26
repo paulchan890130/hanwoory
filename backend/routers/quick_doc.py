@@ -861,6 +861,172 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
     return results
 
 
+# ── 위임장 빠른작성 ────────────────────────────────────────────────────────────
+
+class QuickPoaRequest(BaseModel):
+    # 신청인 정보
+    kor_name: str                      # 한글명 (도장명)
+    surname: str = ""                  # 영문 성
+    given: str = ""                    # 영문 이름
+    stay_status: str = ""              # 체류자격 (V 필드)
+    reg6: str = ""                     # 등록증 앞 6자리
+    no7: str = ""                      # 등록증 뒤 7자리
+    addr: str = ""                     # 주소
+    phone1: str = "010"
+    phone2: str = ""
+    phone3: str = ""
+    passport: str = ""
+    # 도장 옵션
+    apply_applicant_seal: bool = True
+    apply_agent_seal: bool = True
+    # 해상도
+    dpi: int = 200
+    # 위임업무 체크
+    ck_extension: bool = False
+    ck_registration: bool = False
+    ck_card: bool = False
+    ck_adrc: bool = False
+    ck_change: bool = False
+    ck_granting: bool = False
+    ck_ant: bool = False
+
+
+def _pdf_bytes_to_jpg_or_zip(pdf_bytes: bytes, dpi: int = 200):
+    """PDF → 1페이지면 JPEG bytes, 다페이지면 ZIP(JPEGs) bytes 반환."""
+    import fitz, zipfile
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        n = doc.page_count
+        if n <= 0:
+            return ("jpg", b"")
+        if n == 1:
+            pix = doc.load_page(0).get_pixmap(dpi=dpi, alpha=False)
+            return ("jpg", pix.tobytes("jpeg"))
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for i in range(n):
+                pix = doc.load_page(i).get_pixmap(dpi=dpi, alpha=False)
+                zf.writestr(f"page_{i+1:03d}.jpg", pix.tobytes("jpeg"))
+        return ("zip", buf.getvalue())
+    finally:
+        doc.close()
+
+
+@router.post("/quick-poa")
+def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
+    """
+    위임장 빠른작성: 임시 입력 → 도장 포함 PDF → JPG(또는 ZIP) 반환.
+    page_quick_doc.py의 render() 로직을 FastAPI 엔드포인트로 이식.
+    """
+    if not req.kor_name.strip():
+        raise HTTPException(status_code=400, detail="신청인 한글명은 필수입니다.")
+
+    template_rel = DOC_TEMPLATES.get("위임장")
+    if not template_rel:
+        raise HTTPException(status_code=500, detail="DOC_TEMPLATES에 '위임장' 경로가 없습니다.")
+
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    template_path = os.path.join(base_dir, template_rel)
+    if not os.path.exists(template_path):
+        raise HTTPException(status_code=500, detail=f"위임장 템플릿 파일이 없습니다: {template_path}")
+
+    # 행정사 계정 정보 조회
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    account: Optional[dict] = None
+    try:
+        from config import ACCOUNTS_SHEET_NAME
+        from core.google_sheets import read_data_from_sheet
+        records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
+        for r in records:
+            if str(r.get("tenant_id", "")).strip() == tenant_id:
+                account = r
+                break
+    except Exception:
+        pass
+
+    row = {
+        "한글": req.kor_name.strip(),
+        "성": req.surname.strip(),
+        "명": req.given.strip(),
+        "V": req.stay_status.strip(),
+        "등록증": req.reg6.strip(),
+        "번호": req.no7.strip(),
+        "주소": req.addr.strip(),
+        "연": req.phone1.strip(),
+        "락": req.phone2.strip(),
+        "처": req.phone3.strip(),
+        "여권": req.passport.strip(),
+    }
+
+    is_minor = calc_is_minor(row.get("등록증", ""))
+
+    field_values = build_field_values(
+        row=row,
+        prov=None,
+        guardian=None,
+        guarantor=None,
+        aggregator=None,
+        is_minor=is_minor,
+        account=account,
+        category="체류",
+        minwon="기타",
+    )
+
+    today = datetime.date.today()
+    field_values.update({
+        "작성년": str(today.year),
+        "월":    str(today.month),
+        "일":    str(today.day),
+        "extension":   "V" if req.ck_extension   else "",
+        "registration":"V" if req.ck_registration else "",
+        "adrc":        "V" if req.ck_adrc         else "",
+        "change":      "V" if req.ck_change       else "",
+        "granting":    "V" if req.ck_granting     else "",
+        "ant":         "V" if req.ck_ant          else "",
+        "card":        "0" if req.ck_card         else "",
+    })
+
+    agent_name = (account.get("contact_name", "") if account else "").strip()
+    seal_bytes_by_role = {
+        "applicant":     make_seal_bytes(row["한글"]) if req.apply_applicant_seal else None,
+        "agent":         make_seal_bytes(agent_name)  if (req.apply_agent_seal and agent_name) else None,
+        "accommodation": None,
+        "guarantor":     None,
+        "guardian":      None,
+        "aggregator":    None,
+    }
+
+    try:
+        import fitz
+        merged_doc = fitz.open()
+        fill_and_append_pdf(template_path, field_values, seal_bytes_by_role, merged_doc)
+        out = io.BytesIO()
+        merged_doc.save(out)
+        merged_doc.close()
+        pdf_bytes = out.getvalue()
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PyMuPDF(fitz) 미설치")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF 생성 실패: {e}")
+
+    kind, data_bytes = _pdf_bytes_to_jpg_or_zip(pdf_bytes, dpi=req.dpi)
+    ymd = today.strftime("%Y%m%d")
+    base_name = f"{ymd}_{row['한글']}_위임장"
+
+    if kind == "jpg":
+        return StreamingResponse(
+            io.BytesIO(data_bytes),
+            media_type="image/jpeg",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}.jpg"'},
+        )
+    else:
+        return StreamingResponse(
+            io.BytesIO(data_bytes),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}.zip"'},
+        )
+
+
 # 기존 /generate 엔드포인트 유지 (하위 호환)
 @router.post("/generate")
 def generate_documents(req: DocGenRequest, user: dict = Depends(get_current_user)):

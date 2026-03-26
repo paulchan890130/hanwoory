@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import auth, tasks, customers, daily, memos, events, board, scan, admin, search, reference, quick_doc
+from backend.routers import auth, tasks, customers, daily, memos, events, board, scan, admin, search, reference, quick_doc, manual
 
 app = FastAPI(
     title="K.ID 출입국업무관리 API",
@@ -60,6 +60,7 @@ app.include_router(admin.router,     prefix="/api/admin",     tags=["관리자"]
 app.include_router(search.router,    prefix="/api/search",    tags=["통합검색"])
 app.include_router(reference.router, prefix="/api/reference", tags=["업무참고"])
 app.include_router(quick_doc.router, prefix="/api/quick-doc", tags=["문서자동작성"])
+app.include_router(manual.router,    prefix="/api/manual",    tags=["메뉴얼검색"])
 
 
 @app.get("/health")

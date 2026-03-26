@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from backend.auth import get_current_user
+from backend.services.ocr_service import parse_passport, parse_arc
 
 router = APIRouter()
 
@@ -56,7 +57,6 @@ async def scan_passport(
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
     _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
     try:
-        from pages.page_scan import parse_passport
         from PIL import Image
         img_bytes = await file.read()
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
@@ -76,7 +76,6 @@ async def scan_arc(
     # 여권은 parse_passport() 그대로 유지 — 분리 운영
     _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
     try:
-        from pages.page_scan import parse_arc
         from PIL import Image
         img_bytes = await file.read()
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")

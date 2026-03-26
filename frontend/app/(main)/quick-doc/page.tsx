@@ -9,8 +9,9 @@ import {
 } from "@/lib/api";
 import {
   FileText, Download, Loader2, Search, X,
-  RotateCcw, User, Home, Shield, Users, UserCheck, Stamp,
+  RotateCcw, User, Home, Shield, Users, UserCheck, Stamp, Zap,
 } from "lucide-react";
+import Link from "next/link";
 
 // ── 색상 상수 ─────────────────────────────────────────────────────────────
 const GOLD = "#F5A623";
@@ -429,6 +430,17 @@ export default function QuickDocPage() {
               <b>{agentInfo.office_name}</b> / {agentInfo.contact_name}
             </span>
           )}
+          <Link
+            href="/quick-doc/quick-poa"
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "5px 10px", borderRadius: 8, border: `1px solid ${GOLD}`,
+              fontSize: 12, background: "#FFFBF0", cursor: "pointer", color: "#92631A",
+              textDecoration: "none", fontWeight: 600,
+            }}
+          >
+            <Zap size={11} /> 위임장 빠른작성
+          </Link>
           {(category || roleIsSet(applicant)) && (
             <button onClick={resetAll}
               style={{

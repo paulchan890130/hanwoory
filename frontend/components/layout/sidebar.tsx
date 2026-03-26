@@ -6,7 +6,7 @@ import { getUser } from "@/lib/auth";
 import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, BookOpen, Search, FileEdit,
-  MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
+  MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2, HelpCircle,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/search",     label: "통합검색",       icon: Search },
   { href: "/memos",      label: "메모",           icon: FileText },
   { href: "/board",      label: "게시판",         icon: MessageSquare },
+  { href: "/manual",     label: "메뉴얼 검색",    icon: HelpCircle },
 ];
 
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: Settings };

@@ -216,6 +216,13 @@ def create_account(
     if find_account(body.login_id.strip()):
         raise HTTPException(status_code=409, detail="이미 존재하는 login_id입니다.")
 
+    # folder_id / customer_sheet_key / work_sheet_key가 이미 제공된 경우에만 즉시 활성화.
+    # 미제공 시 is_active=FALSE → 워크스페이스 생성 후 자동으로 TRUE가 됨.
+    provided_folder = bool((body.folder_id or "").strip())
+    provided_customer = bool((body.customer_sheet_key or "").strip())
+    provided_work = bool((body.work_sheet_key or "").strip())
+    immediate_active = provided_folder and provided_customer and provided_work
+
     account = build_account_dict(
         login_id=body.login_id,
         password_hash=hash_password(body.password),
@@ -231,7 +238,7 @@ def create_account(
         customer_sheet_key=body.customer_sheet_key or "",
         sheet_key=body.sheet_key or "",
         is_admin=bool(body.is_admin),
-        is_active=True,
+        is_active=immediate_active,  # 워크스페이스 키가 모두 있을 때만 즉시 활성화
     )
 
     try:
@@ -256,151 +263,367 @@ def create_workspace(
     user: dict = Depends(require_admin),
 ):
     """
-    신규 테넌트를 위한 Google Drive 워크스페이스 자동 생성:
-    1. Drive 폴더 생성
-    2. 고객 데이터 스프레드시트 복사
-    3. 업무정리 스프레드시트 복사
-    4. Accounts 시트의 해당 계정에 customer_sheet_key / work_sheet_key / folder_id 업데이트
+    테넌트 워크스페이스 생성/재생성 (멱등성 보장).
+
+    단계별 독립 실행:
+      A. Drive 폴더 — 이미 folder_id가 Accounts에 있으면 재사용
+      B. 고객 데이터 시트 복사 — 이미 customer_sheet_key가 있으면 건너뜀
+      C. 업무정리 시트 복사 — 이미 work_sheet_key가 있으면 건너뜀
+      D. Accounts 행 업데이트 — 성공한 ID만 기입, 기존 값 파괴 안 함
+      E. is_active=TRUE — 세 키가 모두 채워졌을 때만 설정
+
+    부분 성공 시 성공한 ID는 저장되며 실패 단계만 재시도 가능.
     """
+    import logging
+    log = logging.getLogger("admin.workspace")
+
+    import config as _cfg
     from config import (
         ACCOUNTS_SHEET_NAME,
         PARENT_DRIVE_FOLDER_ID,
         CUSTOMER_DATA_TEMPLATE_ID,
         WORK_REFERENCE_TEMPLATE_ID,
     )
+    # ── DIAGNOSTIC: prove which config.py the live process is using ──────────
+    import os as _os
+    log.warning(
+        "[workspace:DIAG] pid=%s | config.__file__=%s | "
+        "WORK_REFERENCE_TEMPLATE_ID=%s | CUSTOMER_DATA_TEMPLATE_ID=%s | "
+        "PARENT_DRIVE_FOLDER_ID=%s",
+        _os.getpid(),
+        getattr(_cfg, "__file__", "(unknown)"),
+        WORK_REFERENCE_TEMPLATE_ID,
+        CUSTOMER_DATA_TEMPLATE_ID,
+        PARENT_DRIVE_FOLDER_ID,
+    )
+    # ── END DIAGNOSTIC ────────────────────────────────────────────────────────
+    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
+    from backend.services.accounts_service import ACCOUNTS_SCHEMA
 
-    # ── 기존 워크스페이스 존재 여부 체크 ──
+    login_id = body.login_id.strip()
+    office_name = body.office_name.strip() or login_id
+
+    # ── 현재 계정 상태 로드 ──────────────────────────────────────────────────
+    current_folder_id = ""
+    current_customer_key = ""
+    current_work_key = ""
+    target_record = None
     try:
-        from core.google_sheets import read_data_from_sheet
         existing = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
         for r in existing:
-            if str(r.get("login_id", "")).strip() == body.login_id.strip():
-                if str(r.get("folder_id", "")).strip():
-                    raise HTTPException(
-                        status_code=409,
-                        detail=f"이미 워크스페이스가 존재합니다. folder_id={r['folder_id']}",
-                    )
+            if str(r.get("login_id", "")).strip() == login_id:
+                target_record = r
+                current_folder_id = str(r.get("folder_id", "")).strip()
+                current_customer_key = str(r.get("customer_sheet_key", "")).strip()
+                current_work_key = str(r.get("work_sheet_key", "")).strip()
                 break
-    except HTTPException:
-        raise
-    except Exception:
-        pass  # 체크 실패 시 생성 진행
+        log.info(
+            "[workspace] %s 현재 상태: folder=%s, customer=%s, work=%s",
+            login_id, bool(current_folder_id), bool(current_customer_key), bool(current_work_key),
+        )
+    except Exception as e:
+        log.warning("[workspace] Accounts 상태 조회 실패: %s (계속 진행)", e)
 
-    # ── Drive 서비스 초기화 ──
+    if target_record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"login_id='{login_id}' 계정을 찾을 수 없습니다. 먼저 계정을 생성하세요.",
+        )
+
+    # ── Drive 서비스 초기화 (admin user OAuth — templates live in admin My Drive) ─
+    # Service account cannot copy files it does not own in the admin's My Drive.
+    # Use the pre-existing admin user OAuth token (token.json) instead.
     try:
-        from google.oauth2.service_account import Credentials
         from googleapiclient.discovery import build as _build
+        from core.google_sheets import get_user_credentials
 
         _SCOPES = ["https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_file(
-            _get_service_account_path(),
-            scopes=_SCOPES,
-        )
-        drive = _build("drive", "v3", credentials=creds)
+        _oauth_creds = get_user_credentials(_SCOPES)
+        drive = _build("drive", "v3", credentials=_oauth_creds)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Google Drive 초기화 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"Google Drive 초기화 실패 (OAuth): {e}")
 
+    # ── Drive 스토리지 쿼터 진단 (로그만, 에러 아님) ─────────────────────────
     try:
-        # 0) 사전 확인: 부모 폴더 / 템플릿 접근 가능 여부
-        parent_meta = drive.files().get(
-            fileId=PARENT_DRIVE_FOLDER_ID,
-            fields="id,name,mimeType,driveId",
-            supportsAllDrives=True,
-        ).execute()
-
-        customer_template_meta = drive.files().get(
-            fileId=CUSTOMER_DATA_TEMPLATE_ID,
-            fields="id,name,mimeType,driveId",
-            supportsAllDrives=True,
-        ).execute()
-
-        work_template_meta = drive.files().get(
-            fileId=WORK_REFERENCE_TEMPLATE_ID,
-            fields="id,name,mimeType,driveId",
-            supportsAllDrives=True,
-        ).execute()
-
-        # 1) 폴더 생성
-        folder_meta = {
-            "name": body.login_id.strip(),
-            "mimeType": "application/vnd.google-apps.folder",
-            "parents": [PARENT_DRIVE_FOLDER_ID],
-        }
-        folder = drive.files().create(
-            body=folder_meta,
-            fields="id",
-            supportsAllDrives=True,
-        ).execute()
-        folder_id: str = folder["id"]
-
-        # 2) 고객 데이터 시트 복사
-        customer_copy = drive.files().copy(
-            fileId=CUSTOMER_DATA_TEMPLATE_ID,
-            body={
-                "name": f"고객 데이터 - {body.office_name.strip()}",
-                "parents": [folder_id],
-            },
-            fields="id",
-            supportsAllDrives=True,
-        ).execute()
-        customer_sheet_key: str = customer_copy["id"]
-
-        # 3) 업무정리 시트 복사
-        tasks_copy = drive.files().copy(
-            fileId=WORK_REFERENCE_TEMPLATE_ID,
-            body={
-                "name": f"업무정리 - {body.office_name.strip()}",
-                "parents": [folder_id],
-            },
-            fields="id",
-            supportsAllDrives=True,
-        ).execute()
-        work_sheet_key: str = tasks_copy["id"]
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Drive 워크스페이스 생성 실패: "
-                f"{e} | "
-                f"parent={PARENT_DRIVE_FOLDER_ID}, "
-                f"customer_template={CUSTOMER_DATA_TEMPLATE_ID}, "
-                f"work_template={WORK_REFERENCE_TEMPLATE_ID}"
-            ),
+        about = drive.about().get(fields="user,storageQuota").execute()
+        sa_email = about.get("user", {}).get("emailAddress", "(unknown)")
+        quota = about.get("storageQuota", {})
+        used = int(quota.get("usage", 0))
+        limit = int(quota.get("limit", -1))
+        log.info(
+            "[workspace] Drive 사용자: %s | 사용: %d MB / 한도: %s MB",
+            sa_email,
+            used // (1024 * 1024),
+            str(limit // (1024 * 1024)) if limit > 0 else "unlimited",
         )
+    except Exception as e:
+        log.warning("[workspace] Drive 쿼터 조회 실패: %s", e)
+        sa_email = "(unknown)"
+        quota = {}
 
-    # 4) Accounts 시트 업데이트
-    try:
-        from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
+    # ── 단계별 결과 추적 ─────────────────────────────────────────────────────
+    stages: dict = {
+        "folder_create":   {"status": "skipped", "id": current_folder_id, "error": None},
+        "customer_copy":   {"status": "skipped", "id": current_customer_key, "error": None},
+        "work_copy":       {"status": "skipped", "id": current_work_key, "error": None},
+        "accounts_update": {"status": "pending", "error": None},
+    }
 
-        records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
-        target = None
-        for r in records:
-            if str(r.get("login_id", "")).strip() == body.login_id.strip():
-                target = r
-                break
+    folder_id = current_folder_id
+    customer_sheet_key = current_customer_key
+    work_sheet_key = current_work_key
 
-        if not target:
+    # ── A. 폴더 생성/재사용 ──────────────────────────────────────────────────
+    if folder_id:
+        log.info("[workspace] 폴더 재사용: %s", folder_id)
+        stages["folder_create"]["status"] = "reused"
+    else:
+        log.info("[workspace] 폴더 생성 시작 (parent=%s)", PARENT_DRIVE_FOLDER_ID)
+        try:
+            folder_meta = {
+                "name": login_id,
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [PARENT_DRIVE_FOLDER_ID],
+            }
+            folder = drive.files().create(
+                body=folder_meta,
+                fields="id",
+                supportsAllDrives=True,
+            ).execute()
+            folder_id = folder["id"]
+            stages["folder_create"] = {"status": "created", "id": folder_id, "error": None}
+            log.info("[workspace] 폴더 생성 완료: %s", folder_id)
+        except Exception as e:
+            import traceback
+            err_msg = str(e)
+            stages["folder_create"] = {"status": "failed", "id": "", "error": err_msg}
+            log.error(
+                "[workspace] 폴더 생성 실패 | parent=%s | sa=%s | error=%s\n%s",
+                PARENT_DRIVE_FOLDER_ID, sa_email, err_msg, traceback.format_exc(),
+            )
+            # 폴더 없으면 이후 단계 의미 없음 → 즉시 부분 결과 반환
+            stages["customer_copy"]["status"] = "blocked"
+            stages["work_copy"]["status"] = "blocked"
+            stages["accounts_update"]["status"] = "blocked"
             return {
-                "ok": True,
-                "warning": "계정을 찾지 못해 시트 키를 자동 기입하지 못했습니다. 직접 입력하세요.",
+                "ok": False,
+                "stages": stages,
                 "folder_id": folder_id,
                 "customer_sheet_key": customer_sheet_key,
                 "work_sheet_key": work_sheet_key,
+                "is_active": False,
+                "drive_user": sa_email,
+                "drive_quota": quota,
+                "error": f"폴더 생성 실패: {err_msg}",
             }
 
-        target["customer_sheet_key"] = customer_sheet_key
-        target["work_sheet_key"] = work_sheet_key
-        target["folder_id"] = folder_id
+    # ── shared probe helper (inline) ─────────────────────────────────────────
+    import traceback as _tb
+    import json as _json
 
-        header_list = list(target.keys())
+    def _probe_template(file_id: str, label: str) -> dict:
+        """
+        files.get() the template before attempting a copy.
+        Returns a dict with probe results; never raises.
+        Distinguishes:
+          - not_accessible : files.get() itself failed (404 / 403 at read level)
+          - readable       : files.get() succeeded → check capabilities.canCopy
+          - domain_policy  : error reason contains 'domainPolicy' / 'sharingNotSupported'
+        """
+        result = {"accessible": False, "can_copy": None, "metadata": None, "error": None, "reason": None}
+        try:
+            meta = drive.files().get(
+                fileId=file_id,
+                fields="id,name,mimeType,owners,sharingUser,capabilities,driveId,teamDriveId,parents",
+                supportsAllDrives=True,
+            ).execute()
+            result["accessible"] = True
+            result["metadata"] = {
+                "id":       meta.get("id"),
+                "name":     meta.get("name"),
+                "mimeType": meta.get("mimeType"),
+                "owners":   meta.get("owners"),
+                "driveId":  meta.get("driveId") or meta.get("teamDriveId"),
+                "parents":  meta.get("parents"),
+            }
+            caps = meta.get("capabilities", {})
+            result["can_copy"] = caps.get("canCopy")
+            result["capabilities"] = caps
+            log.warning(
+                "[workspace:PROBE] %s | file_id=%s | accessible=True | can_copy=%s | "
+                "name=%r | mimeType=%s | driveId=%s | sa=%s | dest_folder=%s | caps=%s",
+                label, file_id, caps.get("canCopy"), meta.get("name"), meta.get("mimeType"),
+                meta.get("driveId") or meta.get("teamDriveId") or "(MyDrive)",
+                sa_email, folder_id, _json.dumps(caps),
+            )
+        except Exception as probe_err:
+            raw = str(probe_err)
+            # Extract structured reason from googleapiclient HttpError if present
+            reason = raw
+            try:
+                import googleapiclient.errors as _ge
+                if isinstance(probe_err, _ge.HttpError):
+                    body = _json.loads(probe_err.content.decode())
+                    reason = (
+                        body.get("error", {}).get("errors", [{}])[0].get("reason", raw)
+                        + " | message: "
+                        + body.get("error", {}).get("message", raw)
+                    )
+            except Exception:
+                pass
+            result["error"] = raw
+            result["reason"] = reason
+            log.warning(
+                "[workspace:PROBE] %s | file_id=%s | accessible=False | "
+                "raw_error=%s | reason=%s | sa=%s | dest_folder=%s",
+                label, file_id, raw, reason, sa_email, folder_id,
+            )
+        return result
+
+    # ── B. 고객 데이터 시트 복사/재사용 ─────────────────────────────────────
+    if customer_sheet_key:
+        log.info("[workspace] 고객 데이터 시트 재사용: %s", customer_sheet_key)
+        stages["customer_copy"]["status"] = "reused"
+    else:
+        probe_c = _probe_template(CUSTOMER_DATA_TEMPLATE_ID, "customer_template")
+        stages["customer_copy"]["probe"] = {
+            "accessible": probe_c["accessible"],
+            "can_copy":   probe_c["can_copy"],
+            "reason":     probe_c["reason"],
+            "metadata":   probe_c.get("metadata"),
+        }
+        log.info(
+            "[workspace] 고객 데이터 시트 복사 시작 | template=%s | dest_parent=%s | sa=%s",
+            CUSTOMER_DATA_TEMPLATE_ID, folder_id, sa_email,
+        )
+        try:
+            customer_copy = drive.files().copy(
+                fileId=CUSTOMER_DATA_TEMPLATE_ID,
+                body={
+                    "name": f"고객 데이터 - {office_name}",
+                    "parents": [folder_id],
+                },
+                fields="id",
+                supportsAllDrives=True,
+            ).execute()
+            customer_sheet_key = customer_copy["id"]
+            stages["customer_copy"]["status"] = "created"
+            stages["customer_copy"]["id"] = customer_sheet_key
+            stages["customer_copy"]["error"] = None
+            log.info("[workspace] 고객 데이터 시트 복사 완료: %s", customer_sheet_key)
+        except Exception as e:
+            err_msg = str(e)
+            # Extract raw API reason
+            try:
+                import googleapiclient.errors as _ge
+                if isinstance(e, _ge.HttpError):
+                    body = _json.loads(e.content.decode())
+                    api_reason = (
+                        body.get("error", {}).get("errors", [{}])[0].get("reason", "")
+                        + " | " + body.get("error", {}).get("message", "")
+                    )
+                else:
+                    api_reason = err_msg
+            except Exception:
+                api_reason = err_msg
+            stages["customer_copy"]["status"] = "failed"
+            stages["customer_copy"]["id"] = ""
+            stages["customer_copy"]["error"] = err_msg
+            stages["customer_copy"]["api_reason"] = api_reason
+            log.error(
+                "[workspace] 고객 데이터 시트 복사 실패 | template=%s | dest_parent=%s | "
+                "sa=%s | api_reason=%s | raw=%s\n%s",
+                CUSTOMER_DATA_TEMPLATE_ID, folder_id, sa_email,
+                api_reason, err_msg, _tb.format_exc(),
+            )
+
+    # ── C. 업무정리 시트 복사/재사용 ─────────────────────────────────────────
+    if work_sheet_key:
+        log.info("[workspace] 업무정리 시트 재사용: %s", work_sheet_key)
+        stages["work_copy"]["status"] = "reused"
+    else:
+        probe_w = _probe_template(WORK_REFERENCE_TEMPLATE_ID, "work_template")
+        stages["work_copy"]["probe"] = {
+            "accessible": probe_w["accessible"],
+            "can_copy":   probe_w["can_copy"],
+            "reason":     probe_w["reason"],
+            "metadata":   probe_w.get("metadata"),
+        }
+        log.info(
+            "[workspace] 업무정리 시트 복사 시작 | template=%s | dest_parent=%s | sa=%s",
+            WORK_REFERENCE_TEMPLATE_ID, folder_id, sa_email,
+        )
+        try:
+            tasks_copy = drive.files().copy(
+                fileId=WORK_REFERENCE_TEMPLATE_ID,
+                body={
+                    "name": f"업무정리 - {office_name}",
+                    "parents": [folder_id],
+                },
+                fields="id",
+                supportsAllDrives=True,
+            ).execute()
+            work_sheet_key = tasks_copy["id"]
+            stages["work_copy"]["status"] = "created"
+            stages["work_copy"]["id"] = work_sheet_key
+            stages["work_copy"]["error"] = None
+            log.info("[workspace] 업무정리 시트 복사 완료: %s", work_sheet_key)
+        except Exception as e:
+            err_msg = str(e)
+            try:
+                import googleapiclient.errors as _ge
+                if isinstance(e, _ge.HttpError):
+                    body = _json.loads(e.content.decode())
+                    api_reason = (
+                        body.get("error", {}).get("errors", [{}])[0].get("reason", "")
+                        + " | " + body.get("error", {}).get("message", "")
+                    )
+                else:
+                    api_reason = err_msg
+            except Exception:
+                api_reason = err_msg
+            stages["work_copy"]["status"] = "failed"
+            stages["work_copy"]["id"] = ""
+            stages["work_copy"]["error"] = err_msg
+            stages["work_copy"]["api_reason"] = api_reason
+            log.error(
+                "[workspace] 업무정리 시트 복사 실패 | template=%s | dest_parent=%s | "
+                "sa=%s | api_reason=%s | raw=%s\n%s",
+                WORK_REFERENCE_TEMPLATE_ID, folder_id, sa_email,
+                api_reason, err_msg, _tb.format_exc(),
+            )
+
+    # ── D. Accounts 시트 업데이트 ────────────────────────────────────────────
+    # 세 키가 모두 있을 때만 is_active=TRUE 설정
+    all_ready = bool(folder_id and customer_sheet_key and work_sheet_key)
+
+    try:
+        if folder_id:
+            target_record["folder_id"] = folder_id
+        if customer_sheet_key:
+            target_record["customer_sheet_key"] = customer_sheet_key
+        if work_sheet_key:
+            target_record["work_sheet_key"] = work_sheet_key
+        if all_ready:
+            target_record["is_active"] = "TRUE"
+            log.info("[workspace] %s → is_active=TRUE (모든 키 확보)", login_id)
+
+        # ACCOUNTS_SCHEMA 순서로 header 정렬 (컬럼 위치 오염 방지)
+        header_list = ACCOUNTS_SCHEMA[:]
+        for k in target_record:
+            if k not in header_list:
+                header_list.append(k)
+
         upsert_rows_by_id(
             ACCOUNTS_SHEET_NAME,
             header_list=header_list,
-            records=[target],
+            records=[target_record],
             id_field="login_id",
         )
+        stages["accounts_update"] = {"status": "saved", "error": None}
+        log.info("[workspace] Accounts 업데이트 완료 (is_active=%s)", target_record.get("is_active"))
 
+        # 캐시 초기화
         try:
             import backend.services.tenant_service as _ts
             _ts._TENANT_MAP_CACHE = {}
@@ -409,18 +632,21 @@ def create_workspace(
             pass
 
     except Exception as e:
-        return {
-            "ok": True,
-            "warning": f"워크스페이스는 생성됐지만 Accounts 시트 업데이트 실패: {e}",
-            "folder_id": folder_id,
-            "customer_sheet_key": customer_sheet_key,
-            "work_sheet_key": work_sheet_key,
-        }
+        err_msg = str(e)
+        stages["accounts_update"] = {"status": "failed", "error": err_msg}
+        log.error("[workspace] Accounts 업데이트 실패: %s", err_msg)
 
+    # ── 최종 응답 ────────────────────────────────────────────────────────────
+    any_failed = any(
+        s.get("status") == "failed"
+        for s in stages.values()
+    )
     return {
-        "ok": True,
+        "ok": not any_failed,
+        "stages": stages,
         "folder_id": folder_id,
         "customer_sheet_key": customer_sheet_key,
         "work_sheet_key": work_sheet_key,
-        "message": f"워크스페이스 생성 완료 — 폴더 ID: {folder_id}",
+        "is_active": all_ready,
+        "drive_user": sa_email,
     }

@@ -1,37 +1,86 @@
-# 파이썬 기본
+# ===== Python =====
 __pycache__/
 *.pyc
+*.pyo
 .env
 venv/
 .venv/
 
-# VSCode 설정
+# ===== IDE / editor =====
 .vscode/
+.idea/
 
-# 구글/OAuth 민감 정보
+# ===== Google credentials & OAuth tokens (NEVER commit) =====
 hanwoory-*.json
 client_secret*.json
 token.json
+service_account*.json
 
-# 로컬 데이터/캐시
+# ===== Local data / cache =====
 *.xlsx
 *.xls
 *.csv
 *.zip
 
-# Streamlit 캐시 (있다면)
+# ===== Streamlit (legacy) =====
 .streamlit/
 
-desktop.ini
-**/desktop.ini
-
-node_modules/
-frontend/node_modules/
-.tmp.driveupload/
-.next/
-dist/
-build/
+# ===== Windows junk =====
 desktop.ini
 **/desktop.ini
 Thumbs.db
 **/Thumbs.db
+
+# ===== Node / Next.js =====
+node_modules/
+frontend/node_modules/
+frontend/.next/
+.next/
+dist/
+build/
+frontend/tsconfig.tsbuildinfo
+
+# ===== Drive upload temp =====
+.tmp.driveupload/
+
+# ===== Google Drive shortcut files =====
+*.gsheet
+
+# ===== Local tenant workspace copies (Drive-synced folders) =====
+offices/
+
+# ===== Test/temporary uploads =====
+frontend/public/upload_*.jpeg
+frontend/public/upload_*.jpg
+frontend/public/upload_*.png
+
+# ===== Known junk files accidentally placed in source dirs =====
+core/customer_service.txt
+core/google_sheets.txt
+core/화면 캡처 2026-01-25 132643.jpg
+pages/page_scan 기존.txt
+
+# ===== Local run scripts =====
+*.bat
+*.py.bak
+K.ID 실행.py
+K.ID 실행_개선.py
+*원클릭*.bat
+
+# ===== Personal notes & planning docs =====
+0. 클로드 명령.txt
+0-1. 클로드 답변.txt
+0-9. 권한문제.txt
+25.11.24..txt
+어드민 실행.txt
+추진사항.txt
+텐엔트 해결.txt
+ocr_win_patched3.py
+page_scan을 손보고싶어*
+frontend/app/**/page\ -\ 복사본.txt
+
+# ===== Nested git repos not part of this project =====
+hanwoory/
+
+# ===== Claude Code local settings =====
+.claude/

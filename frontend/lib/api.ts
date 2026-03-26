@@ -345,3 +345,46 @@ export const scanApi = {
   register: (data: Record<string, string>) =>
     api.post<ScanUpsertResult>("/api/scan/register", data),
 };
+
+// ── 메뉴얼 검색 ───────────────────────────────────────────────────────────────
+
+export interface ManualSearchResult {
+  question: string;
+  answer: string;
+}
+
+export const manualApi = {
+  search: (q: string) =>
+    api.get<ManualSearchResult>("/api/manual/search", { params: { q } }),
+};
+
+// ── 위임장 빠른작성 ───────────────────────────────────────────────────────────
+
+export interface QuickPoaRequest {
+  kor_name: string;
+  surname?: string;
+  given?: string;
+  stay_status?: string;
+  reg6?: string;
+  no7?: string;
+  addr?: string;
+  phone1?: string;
+  phone2?: string;
+  phone3?: string;
+  passport?: string;
+  apply_applicant_seal?: boolean;
+  apply_agent_seal?: boolean;
+  dpi?: number;
+  ck_extension?: boolean;
+  ck_registration?: boolean;
+  ck_card?: boolean;
+  ck_adrc?: boolean;
+  ck_change?: boolean;
+  ck_granting?: boolean;
+  ck_ant?: boolean;
+}
+
+export const quickPoaApi = {
+  generate: (data: QuickPoaRequest) =>
+    api.post("/api/quick-doc/quick-poa", data, { responseType: "blob" }),
+};

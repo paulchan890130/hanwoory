@@ -41,11 +41,7 @@ from config import (
     MEMO_SHORT_SHEET_NAME,
 )
 
-try:
-    from config import CUSTOMER_DATA_TEMPLATE_ID, WORK_REFERENCE_TEMPLATE_ID
-except ImportError:
-    CUSTOMER_DATA_TEMPLATE_ID = SHEET_KEY
-    WORK_REFERENCE_TEMPLATE_ID = SHEET_KEY
+from config import CUSTOMER_DATA_TEMPLATE_ID, WORK_REFERENCE_TEMPLATE_ID
 
 # 고객 데이터 워크북에 속하는 시트 이름 집합
 _CUSTOMER_WORKBOOK_SHEETS = {
@@ -137,32 +133,55 @@ def _load_tenant_map() -> dict:
 
 
 def get_customer_sheet_key(tenant_id: str) -> str:
-    """tenant_id에 해당하는 고객 데이터 스프레드시트 ID 반환.
-    TENANT_MODE와 무관하게 항상 Accounts 시트의 customer_sheet_key를 실제로 사용한다.
     """
+    tenant_id에 해당하는 고객 데이터 스프레드시트 ID 반환.
+
+    - DEFAULT_TENANT_ID(한우리): 자기 키 없으면 SHEET_KEY로 폴백 (호환성 유지)
+    - 다른 테넌트: 자기 키 없으면 ValueError 발생 (admin 데이터로 폴백 금지)
+    """
+    import logging
     mapping = _load_tenant_map()
     rec = mapping.get(tenant_id)
     if rec and rec.get("customer"):
         return rec["customer"]
-    # DEFAULT_TENANT_ID 폴백
-    rec = mapping.get(DEFAULT_TENANT_ID)
-    if rec and rec.get("customer"):
-        return rec["customer"]
-    return SHEET_KEY
+
+    if tenant_id == DEFAULT_TENANT_ID:
+        # 기본 테넌트는 마스터 시트로 폴백 허용
+        return SHEET_KEY
+
+    # 다른 테넌트는 워크스페이스가 아직 미생성 → 명시적 에러
+    logging.getLogger("tenant_service").error(
+        "[tenant_service] %s의 customer_sheet_key 없음 — 워크스페이스 미생성 또는 is_active=FALSE", tenant_id,
+    )
+    raise ValueError(
+        f"tenant_id='{tenant_id}' 의 customer_sheet_key가 설정되지 않았습니다. "
+        "관리자 페이지에서 워크스페이스를 먼저 생성하세요."
+    )
 
 
 def get_work_sheet_key(tenant_id: str) -> str:
-    """tenant_id에 해당하는 업무정리 스프레드시트 ID 반환.
-    TENANT_MODE와 무관하게 항상 Accounts 시트의 work_sheet_key를 실제로 사용한다.
     """
+    tenant_id에 해당하는 업무정리 스프레드시트 ID 반환.
+
+    - DEFAULT_TENANT_ID(한우리): 자기 키 없으면 WORK_REFERENCE_TEMPLATE_ID로 폴백
+    - 다른 테넌트: 자기 키 없으면 ValueError 발생 (admin 데이터로 폴백 금지)
+    """
+    import logging
     mapping = _load_tenant_map()
     rec = mapping.get(tenant_id)
     if rec and rec.get("work"):
         return rec["work"]
-    rec = mapping.get(DEFAULT_TENANT_ID)
-    if rec and rec.get("work"):
-        return rec["work"]
-    return WORK_REFERENCE_TEMPLATE_ID
+
+    if tenant_id == DEFAULT_TENANT_ID:
+        return WORK_REFERENCE_TEMPLATE_ID
+
+    logging.getLogger("tenant_service").error(
+        "[tenant_service] %s의 work_sheet_key 없음 — 워크스페이스 미생성 또는 is_active=FALSE", tenant_id,
+    )
+    raise ValueError(
+        f"tenant_id='{tenant_id}' 의 work_sheet_key가 설정되지 않았습니다. "
+        "관리자 페이지에서 워크스페이스를 먼저 생성하세요."
+    )
 
 
 def _resolve_sheet_key(sheet_name: str, tenant_id: str) -> str:

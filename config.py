@@ -18,7 +18,7 @@ else:
     OAUTH_TOKEN_PATH = "/etc/secrets/token.json"
 
 # ===== 드라이브/도장 등 경로 상수 =====
-PARENT_DRIVE_FOLDER_ID = "1IxNxGyXof-NeKdokrZ3vCLeEdHSJZd6g"
+PARENT_DRIVE_FOLDER_ID = "1cSN8I2L_ceG9lJrpZ83voEXvS9REvN4L"  # 사무소 폴더 부모 (offices/)
 CUSTOMER_PARENT_FOLDER_ID = "1vAT3OvELPhosJ99Zg1fJ5hKJEgx7kNlW"  # ✅ 고객폴더 전용 부모 폴더
 
 circle_path = "templates/원형 배경.png"
@@ -29,17 +29,6 @@ seal_size   = 200
 # 기본값: 폴더 기능 비활성화 (Admin이 True로 바꿔서 사용)
 ENABLE_CUSTOMER_FOLDERS = True
 
-# ===== 테넌트 / 로그인 기본 설정 =====
-# 지금은 단일 사무소만 쓰지만, 나중에 멀티테넌트 확장할 때 쓸 플래그
-SESS_LOGGED_IN = "logged_in"
-SESS_USERNAME = "username"
-
-DEFAULT_TENANT_ID = "hanwoory"
-SESS_TENANT_ID = "sess_tenant_id"
-
-SESS_LOGGED_IN = "logged_in"
-SESS_USERNAME = "username"
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ===== 구글 서비스 계정 키 경로 =====
@@ -48,14 +37,17 @@ if platform.system() == "Windows":
 else:
     KEY_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "/etc/secrets/hanwoory-9eaa1a4c54d7.json")
 
-# ===== 업무정리 / 고객데이터 템플릿 =====
-WORK_REFERENCE_TEMPLATE_ID = "1KxZY_VGUfGjo8nWn1d01OVN007uTpbLSnNLX3Jf62nE"
-SHEET_KEY = "1F3sPPsqDre6prOpnGS6qEDrbXC6Chl4KJ8_kcajrgMA"  # 신 업무정리
+# ===== 어드민 마스터 스프레드시트 (Accounts 탭 포함) =====
+# 기준 업무정리 — 어드민 워크스페이스 / Accounts 탭이 이 파일에 있어야 합니다.
+SHEET_KEY = "14ArpDF4b9UZkjUFEpiEQUC59L39yHjZDHTKp9yjnETQ"
+# 어드민 고객 데이터 마스터 (기준 고객 데이터)
+ADMIN_CUSTOMER_SHEET_KEY = "1lWjBjlrsNcwiDZ6aWQvY1Fj1zZcU7d9Lda-I-PlkrN8"
 
 # ===== 테넌트용 템플릿 스프레드시트 ID =====
 # 새 사무실 생성 시, 아래 두 파일을 복사해서 사용한다.
-CUSTOMER_DATA_TEMPLATE_ID  = "1lyQGoWIkSDsPsCdZAoVx8Dba5O1dxfeHusi7Z1ZmUYo"
-WORK_REFERENCE_TEMPLATE_ID = "19sSfYARGnL3H8BM05PnrgFKJeCGEQU28dQG1BvU-flA"
+# ※ 어드민 시트 ID와 절대 혼용하지 말 것.
+CUSTOMER_DATA_TEMPLATE_ID  = "1BzVTyjEq3or9kqbIKdQEQV3owSY-U57j0bcvD98Abl0"  # 신 고객 데이터 (템플릿)
+WORK_REFERENCE_TEMPLATE_ID = "1-0VPVgTXj4WavlSCWdpQ5TEEqUNNUV1twsZ0wrsRlek"   # 신 업무정리 (템플릿)
 
 # --- 계정/테넌트 관련 ---
 ACCOUNTS_SHEET_NAME = "Accounts"

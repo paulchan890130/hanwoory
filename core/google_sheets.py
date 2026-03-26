@@ -65,16 +65,18 @@ from config import (
     MEMO_SHORT_SHEET_NAME,
 )
 
-def debug_print_drive_user():
-    svc = get_drive_service()
-    about = svc.about().get(fields="user, storageQuota").execute()
-    print("현재 API 사용자 이메일:", about["user"]["emailAddress"])
-    print("storageQuota:", about["storageQuota"])
-
 def get_user_credentials(scopes):
     """
-    로컬: token 없으면 브라우저 띄워서 로그인 (InstalledAppFlow)
-    서버(Render): 원칙적으로 사용하지 않음. (서버에서는 서비스계정 사용)
+    관리자 OAuth 자격증명 반환 (로컬/서버 공통).
+
+    - 로컬: token.json 없으면 브라우저 로그인 (InstalledAppFlow).
+    - 서버: token.json에서 로드 후 자동 갱신. 브라우저 로그인 불가.
+
+    ※ My Drive 파일 복사/생성(워크스페이스 프로비저닝)은 서비스 계정이 아닌
+      이 OAuth 자격증명을 사용해야 한다.
+      서비스 계정은 관리자 My Drive 소유 파일에 접근 불가 → 403 또는
+      storageQuotaExceeded 오류가 발생한다. 에러 메시지를 그대로 믿지 말고
+      실행 주체(principal)를 먼저 확인할 것.
     """
     creds = None
 
@@ -83,12 +85,14 @@ def get_user_credentials(scopes):
         creds = UserCredentials.from_authorized_user_file(OAUTH_TOKEN_PATH, scopes)
 
     # ----- 서버 모드 (Render) -----
-    # 서버에서는 지금 이 함수를 직접 쓰지 않고, 서비스 계정(KEY_PATH)만 사용한다.
-    # 혹시라도 잘못 호출되면 바로 에러를 내서 알 수 있게 한다.
+    # token.json을 /etc/secrets/token.json 으로 서버에 배포해야 한다.
+    # 브라우저 재인증은 서버에서 불가능하므로 token.json이 없으면 즉시 실패.
     if RUN_ENV == "server":
         if not creds:
-            raise RuntimeError("서버 모드에서는 get_user_credentials() 대신 서비스계정을 써야 합니다.")
-        # 이미 token.json 이 있고 유효하면 그대로 사용 (호환용)
+            raise RuntimeError(
+                "서버 모드에서 OAuth token.json 없음. "
+                "/etc/secrets/token.json 을 Secret File로 배포하세요."
+            )
         if creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
@@ -127,21 +131,15 @@ def get_user_credentials(scopes):
     return creds
 
 
-def get_drive_service():
-    scopes = ["https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file(KEY_PATH, scopes=scopes)
-    return build("drive", "v3", credentials=creds)
-
+# [DEPRECATED] create_tenant_workspace — DO NOT USE FROM FASTAPI.
+# Execution principal: service account (on server). Cannot copy admin My Drive templates.
+# Active provisioning path: POST /api/admin/workspace in backend/routers/admin.py (OAuth).
 def create_tenant_workspace(tenant_id: str, office_name: str = "") -> dict:
-    """
-    새 사무실(테넌트)을 위해 Drive에 워크스페이스를 만든다.
-    1) PARENT_DRIVE_FOLDER_ID 아래에 tenant_id 이름으로 폴더 생성
-    2) 그 폴더 안에
-       - CUSTOMER_DATA_TEMPLATE_ID 복사 → '{office_name}_고객 데이터'
-       - WORK_REFERENCE_TEMPLATE_ID 복사 → '{office_name}_업무정리'
-    3) 생성된 fileId 들을 dict로 반환
-    """
-    drive = get_drive_service()
+    raise RuntimeError(
+        "create_tenant_workspace() is deprecated. "
+        "Use POST /api/admin/workspace (backend/routers/admin.py) which runs under admin OAuth."
+    )
+    drive = get_drive_service()  # unreachable — kept for reference only
 
     # 1) 폴더 생성
     folder_meta = {
@@ -183,13 +181,15 @@ def create_tenant_workspace(tenant_id: str, office_name: str = "") -> dict:
     }
 
 
+# [DEPRECATED] update_account_workspace — DO NOT USE FROM FASTAPI.
+# Uses st.session_state and st.error (Streamlit-only).
+# Active path: Accounts update is handled inline in backend/routers/admin.py create_workspace().
 def update_account_workspace(login_id: str, workspace: dict) -> bool:
-    """
-    Accounts 시트에서 해당 login_id 행을 찾아
-    folder_id / work_sheet_key / customer_sheet_key 를 채우고,
-    is_active 도 TRUE 로 바꾼다.
-    """
-    from core.google_sheets import read_data_from_sheet, write_data_to_sheet  # 자기 자신이지만, 위쪽에 이미 정의돼 있음
+    raise RuntimeError(
+        "update_account_workspace() is deprecated (Streamlit-only). "
+        "Accounts updates are handled in backend/routers/admin.py."
+    )
+    from core.google_sheets import read_data_from_sheet, write_data_to_sheet  # unreachable
 
     records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
     if not records:
@@ -231,13 +231,16 @@ def update_account_workspace(login_id: str, workspace: dict) -> bool:
     return ok
 
 
+# [DEPRECATED] create_tenant_spreadsheet — DO NOT USE FROM FASTAPI.
+# Copies SHEET_KEY (admin master sheet) as a template, which is wrong.
+# Tenant templates are CUSTOMER_DATA_TEMPLATE_ID and WORK_REFERENCE_TEMPLATE_ID.
+# Active provisioning path: POST /api/admin/workspace in backend/routers/admin.py (OAuth).
 def create_tenant_spreadsheet(tenant_id: str, office_name: str = "") -> str:
-    """
-    기존 SHEET_KEY 스프레드시트를 템플릿 삼아서
-    새 테넌트용 스프레드시트를 하나 복사 생성한다.
-    반환: 새 파일의 sheet_key (스프레드시트 ID)
-    """
-    drive_svc = get_drive_service()
+    raise RuntimeError(
+        "create_tenant_spreadsheet() is deprecated. "
+        "Use POST /api/admin/workspace (backend/routers/admin.py)."
+    )
+    drive_svc = get_drive_service()  # unreachable — kept for reference only
     name = office_name or f"{tenant_id}_출입국업무관리"
 
     body = {"name": name}
@@ -468,17 +471,17 @@ def _get_spreadsheet_cached(sheet_key: str):
 
 def get_drive_service():
     """
-    Google Drive API 서비스 객체 생성.
-    - 서버(Render): 서비스 계정(KEY_PATH) 사용
-    - 로컬: OAuth(user) 사용
+    Google Drive API 서비스 객체 생성 (admin OAuth 우선).
+
+    로컬/서버 모두 admin user OAuth (token.json) 를 사용한다.
+    서비스 계정은 My Drive 소유 파일 복사 불가 → 절대 사용하지 말 것.
+
+    호출처: core/customer_service.py (create_customer_folders — 폴더 생성/목록 전용).
+    워크스페이스 프로비저닝(템플릿 복사)은 이 함수를 사용하지 않고
+    backend/routers/admin.py 에서 직접 get_user_credentials()를 호출한다.
     """
     scopes = ["https://www.googleapis.com/auth/drive"]
-
-    if RUN_ENV == "server":
-        creds = Credentials.from_service_account_file(KEY_PATH, scopes=scopes)
-    else:
-        creds = get_user_credentials(scopes)
-
+    creds = get_user_credentials(scopes)
     return build("drive", "v3", credentials=creds)
 
 
@@ -531,35 +534,15 @@ def get_worksheet(client, sheet_name: str):
     return sh.worksheet(sheet_name)
 
 
+# [DEPRECATED] create_office_files_for_tenant — DO NOT USE FROM FASTAPI.
+# Called only from pages/page_admin_accounts.py (legacy Streamlit — not executed at runtime).
+# Active provisioning path: POST /api/admin/workspace in backend/routers/admin.py (OAuth,
+# with stage-by-stage partial success, Accounts update, and is_active gate).
 def create_office_files_for_tenant(tenant_id: str, office_name: str = "") -> dict:
-    """
-    새 사무소(tenant)를 위해 구글 드라이브에 폴더 1개와 시트 2개를 자동 생성합니다.
-
-    동작 순서:
-      1. PARENT_DRIVE_FOLDER_ID 아래에 전용 폴더를 생성합니다.
-      2. 고객 데이터 템플릿(CUSTOMER_DATA_TEMPLATE_ID)을 복사합니다.
-      3. 업무정리 템플릿(WORK_REFERENCE_TEMPLATE_ID)을 복사합니다.
-
-    기존 구현은 중간 단계에서 예외가 발생하면 다음 단계를 수행하지 않고
-    전체 함수가 실패했습니다. 이 함수는 각 단계에서 발생하는 예외를
-    개별적으로 처리하여 가능한 정보는 최대한 반환하고,
-    에러 메시지는 ``errors`` 키에 누적합니다.
-
-    Args:
-        tenant_id (str): 사무소(테넌트) 식별자. 빈 값이면 공백을 제거한 ``tenant_id`` 를 사용합니다.
-        office_name (str, optional): 사무소 이름. 비어 있으면 ``tenant_id`` 를 사용합니다.
-
-    Returns:
-        dict: 생성된 폴더 및 시트 ID와 오류 메시지(있는 경우)를 포함한 딕셔너리. 형식은 다음과 같습니다.
-
-        ``{
-            "folder_id": "...",
-            "customer_sheet_key": "...",  # 실패 시 빈 문자열
-            "work_sheet_key": "...",      # 실패 시 빈 문자열
-            "errors": "고객데이터 시트 복사 실패: ...; 업무정리 시트 복사 실패: ..."
-        }``
-        ``errors`` 키는 실패가 없을 때는 존재하지 않을 수 있습니다.
-    """
+    raise RuntimeError(
+        "create_office_files_for_tenant() is deprecated. "
+        "Use POST /api/admin/workspace (backend/routers/admin.py)."
+    )
     tenant_id = (tenant_id or "").strip()
     office_name = (office_name or "").strip() or tenant_id
 

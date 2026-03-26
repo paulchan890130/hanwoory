@@ -7,16 +7,152 @@ import { getUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Shield, UserPlus, X, Save,
-  FolderOpen, Loader2, ChevronDown, ChevronRight,
+  FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw,
 } from "lucide-react";
+
+// ── 워크스페이스 단계별 결과 타입 ─────────────────────────────────────────────
+interface WsProbe {
+  accessible: boolean;
+  can_copy: boolean | null;
+  reason: string | null;
+  metadata?: {
+    id?: string;
+    name?: string;
+    mimeType?: string;
+    driveId?: string;
+    owners?: unknown[];
+    parents?: string[];
+  } | null;
+}
+interface WsStage {
+  status: "created" | "reused" | "skipped" | "failed" | "blocked" | "pending" | "saved";
+  id?: string;
+  error?: string | null;
+  api_reason?: string | null;
+  probe?: WsProbe | null;
+}
+interface WsResult {
+  ok: boolean;
+  stages: {
+    folder_create: WsStage;
+    customer_copy: WsStage;
+    work_copy: WsStage;
+    accounts_update: WsStage;
+  };
+  folder_id: string;
+  customer_sheet_key: string;
+  work_sheet_key: string;
+  is_active: boolean;
+  drive_user?: string;
+  error?: string;
+}
+
+function stageLabel(s: WsStage | undefined, label: string): string {
+  if (!s) return `${label}: (unknown)`;
+  const icons: Record<string, string> = {
+    created: "✅", reused: "♻️", skipped: "⏭️",
+    failed: "❌", blocked: "🚫", pending: "⏳", saved: "✅",
+  };
+  const icon = icons[s.status] ?? "❓";
+  const id = s.id ? ` [${s.id.slice(0, 12)}…]` : "";
+  // prefer structured api_reason over raw error string
+  const errText = s.api_reason || s.error || "";
+  const err = errText ? ` — ${errText.slice(0, 120)}` : "";
+  // probe diagnostics (only shown on failure)
+  let probe = "";
+  if (s.probe) {
+    if (!s.probe.accessible) {
+      probe = ` | probe: NOT accessible, reason=${s.probe.reason ?? "(none)"}`;
+    } else {
+      probe = ` | probe: accessible, can_copy=${s.probe.can_copy}, file=${s.probe.metadata?.name ?? "?"}, driveId=${s.probe.metadata?.driveId ?? "MyDrive"}`;
+      if (s.probe.reason) probe += `, reason=${s.probe.reason}`;
+    }
+  }
+  return `${icon} ${label}: ${s.status}${id}${err}${probe}`;
+}
+
+function WsDetailPanel({ result, onClose }: { result: WsResult; onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose} />
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="hw-card w-full max-w-2xl"
+          style={{ maxHeight: "85vh", overflowY: "auto" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-semibold text-sm" style={{ color: "#2D3748" }}>
+              워크스페이스 진단 결과
+            </span>
+            <button onClick={onClose} className="p-1 rounded" style={{ color: "#718096" }}>
+              <X size={14} />
+            </button>
+          </div>
+          <div className="space-y-3">
+            {(["folder_create", "customer_copy", "work_copy", "accounts_update"] as const).map((key) => {
+              const s = result.stages?.[key];
+              if (!s) return null;
+              const failed = s.status === "failed";
+              return (
+                <div
+                  key={key}
+                  className="rounded-lg p-3 text-xs font-mono"
+                  style={{ background: failed ? "#FFF5F5" : "#F7FAFC", border: `1px solid ${failed ? "#FC8181" : "#E2E8F0"}` }}
+                >
+                  <div className="font-semibold mb-1" style={{ color: failed ? "#C53030" : "#2D3748" }}>
+                    {key} — {s.status}
+                  </div>
+                  {s.id && <div style={{ color: "#4A5568" }}>id: {s.id}</div>}
+                  {s.api_reason && <div style={{ color: "#C53030" }}>api_reason: {s.api_reason}</div>}
+                  {s.error && !s.api_reason && <div style={{ color: "#C53030" }}>error: {s.error}</div>}
+                  {s.probe && (
+                    <div className="mt-2 space-y-0.5" style={{ color: "#4A5568" }}>
+                      <div>probe.accessible: <b>{String(s.probe.accessible)}</b></div>
+                      <div>probe.can_copy: <b>{s.probe.can_copy === null ? "null" : String(s.probe.can_copy)}</b></div>
+                      {s.probe.reason && <div style={{ color: "#C53030" }}>probe.reason: {s.probe.reason}</div>}
+                      {s.probe.metadata && (
+                        <>
+                          <div>file.name: {s.probe.metadata.name ?? "(none)"}</div>
+                          <div>file.mimeType: {s.probe.metadata.mimeType ?? "(none)"}</div>
+                          <div>file.driveId: {s.probe.metadata.driveId ?? "(MyDrive)"}</div>
+                          <div>file.owners: {JSON.stringify(s.probe.metadata.owners)}</div>
+                          <div>file.parents: {JSON.stringify(s.probe.metadata.parents)}</div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4">
+            <div className="text-[11px] font-semibold mb-1" style={{ color: "#718096" }}>Raw JSON</div>
+            <pre
+              className="text-[10px] rounded p-2 overflow-x-auto"
+              style={{ background: "#EDF2F7", color: "#2D3748", maxHeight: 240 }}
+            >
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 // ── 신규 계정 생성 모달 ──────────────────────────────────────────────────────
 function CreateAccountModal({
   onClose,
   onCreated,
+  onWsResult,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  onWsResult?: (r: WsResult) => void;
 }) {
   const [form, setForm] = useState({
     login_id: "",
@@ -79,15 +215,25 @@ function CreateAccountModal({
     setWsCreating(true);
     try {
       const res = await adminApi.createWorkspace(form.login_id, form.office_name);
-      const data = res.data;
+      const data = res.data as WsResult;
       setForm((prev) => ({
         ...prev,
         customer_sheet_key: data.customer_sheet_key || prev.customer_sheet_key,
         work_sheet_key: data.work_sheet_key || prev.work_sheet_key,
         folder_id: data.folder_id || prev.folder_id,
       }));
-      if (data.warning) toast.warning(data.warning);
-      else toast.success("워크스페이스 자동 생성 완료");
+      const lines = [
+        stageLabel(data.stages?.folder_create,   "폴더"),
+        stageLabel(data.stages?.customer_copy,   "고객시트"),
+        stageLabel(data.stages?.work_copy,        "업무시트"),
+        stageLabel(data.stages?.accounts_update, "Accounts"),
+        data.drive_user ? `🔑 Drive 계정: ${data.drive_user}` : "",
+      ].filter(Boolean).join("\n");
+      if (data.ok) toast.success(`워크스페이스 완료\n${lines}`);
+      else {
+        onWsResult?.(data);
+        toast.warning("워크스페이스 부분 완료 — 진단 패널 확인");
+      }
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -313,6 +459,7 @@ export default function AdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [detailAcc, setDetailAcc] = useState<Record<string, string> | null>(null);
+  const [wsDetail, setWsDetail] = useState<WsResult | null>(null);
 
   useEffect(() => {
     if (!user?.is_admin) router.replace("/dashboard");
@@ -340,13 +487,23 @@ export default function AdminPage() {
     setWsLoadingId(acc.login_id);
     try {
       const res = await adminApi.createWorkspace(acc.login_id, acc.office_name || acc.login_id);
-      const data = res.data;
-      updateMut.mutate({
-        loginId: acc.login_id,
-        data: { customer_sheet_key: data.customer_sheet_key, work_sheet_key: data.work_sheet_key, folder_id: data.folder_id },
-      });
-      if (data.warning) toast.warning(data.warning);
-      else toast.success(`${acc.login_id} 워크스페이스 생성 완료`);
+      const data = res.data as WsResult;
+      // Accounts 행은 백엔드에서 이미 업데이트됨. 프론트 캐시만 갱신.
+      qc.invalidateQueries({ queryKey: ["admin", "accounts"] });
+
+      const lines = [
+        stageLabel(data.stages?.folder_create,   "폴더"),
+        stageLabel(data.stages?.customer_copy,   "고객시트"),
+        stageLabel(data.stages?.work_copy,        "업무시트"),
+        stageLabel(data.stages?.accounts_update, "Accounts 저장"),
+        data.drive_user ? `🔑 Drive: ${data.drive_user}` : "",
+      ].filter(Boolean).join("\n");
+
+      if (data.ok) toast.success(`${acc.login_id} 완료\n${lines}`);
+      else {
+        setWsDetail(data);
+        toast.warning(`${acc.login_id} 부분 완료 — 진단 패널 확인`);
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "워크스페이스 생성 실패";
       toast.error(msg);
@@ -450,20 +607,52 @@ export default function AdminPage() {
                       <td><InlineEdit field="folder_id" width="w-32" /></td>
                       <td><InlineEdit field="sheet_key" width="w-32" /></td>
                       <td>
-                        {acc.folder_id ? (
-                          <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#C6F6D5", color: "#276749" }}>✅ 생성됨</span>
-                        ) : (
-                          <button
-                            onClick={() => handleRowWorkspace(acc)}
-                            disabled={wsLoadingId === acc.login_id}
-                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
-                            style={{ borderColor: "var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
-                          >
-                            {wsLoadingId === acc.login_id
-                              ? <><Loader2 size={10} className="animate-spin" /> 생성 중</>
-                              : <><FolderOpen size={10} /> 자동 생성</>}
-                          </button>
-                        )}
+                        {(() => {
+                          const hasFolder = !!acc.folder_id;
+                          const hasCustomer = !!acc.customer_sheet_key;
+                          const hasWork = !!acc.work_sheet_key;
+                          const allReady = hasFolder && hasCustomer && hasWork;
+                          const partial = hasFolder && (!hasCustomer || !hasWork);
+                          const isLoading = wsLoadingId === acc.login_id;
+
+                          if (allReady) {
+                            return (
+                              <span
+                                className="text-xs px-2 py-1 rounded-full"
+                                style={{ background: "#C6F6D5", color: "#276749" }}
+                                title={`folder: ${acc.folder_id}\ncustomer: ${acc.customer_sheet_key}\nwork: ${acc.work_sheet_key}`}
+                              >
+                                ✅ 완료
+                              </span>
+                            );
+                          }
+                          return (
+                            <div className="flex flex-col gap-1">
+                              {partial && (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full"
+                                  style={{ background: "#FEFCBF", color: "#744210" }}
+                                  title={`folder: ${acc.folder_id || "(없음)"}\ncustomer: ${acc.customer_sheet_key || "(없음)"}\nwork: ${acc.work_sheet_key || "(없음)"}`}
+                                >
+                                  <AlertTriangle size={9} style={{ display: "inline", marginRight: 2 }} />
+                                  부분 생성
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleRowWorkspace(acc)}
+                                disabled={isLoading}
+                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                                style={{ borderColor: "var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
+                              >
+                                {isLoading
+                                  ? <><Loader2 size={10} className="animate-spin" /> 생성 중</>
+                                  : partial
+                                    ? <><RefreshCw size={10} /> 재시도</>
+                                    : <><FolderOpen size={10} /> 자동 생성</>}
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td>
                         <button
@@ -491,6 +680,7 @@ export default function AdminPage() {
         <CreateAccountModal
           onClose={() => setShowCreate(false)}
           onCreated={() => qc.invalidateQueries({ queryKey: ["admin"] })}
+          onWsResult={(r) => setWsDetail(r)}
         />
       )}
 
@@ -501,6 +691,11 @@ export default function AdminPage() {
           onUpdate={(loginId, data) => updateMut.mutate({ loginId, data })}
           onClose={() => setDetailAcc(null)}
         />
+      )}
+
+      {/* 워크스페이스 진단 패널 */}
+      {wsDetail && (
+        <WsDetailPanel result={wsDetail} onClose={() => setWsDetail(null)} />
       )}
     </div>
   );
