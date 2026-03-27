@@ -1,41 +1,113 @@
-대쉬보드 진행업무 업데이트
-1. 접수 클릭하면 아직도 새로 항 별 저장버튼 뜨고있음
-2. 한번에 몇십건 변경하면
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-[tenant_service] read_sheet 실패 (진행업무): APIError: [429]: Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:796070729841'.
-오류남, 수정사항만 한번에 변경하는데 이해가 안가네
-3. 지난전에 알려준 정렬로직대로 정렬되었는지 모르겠음
-4. 위 오류가 나는만큼 아직 다른곳도 한번에 저장 시 과부하 걸리는곳 없는지 점검 필요
-5. 일일결산에 성명 연동 후 세부내용 입력하여 저장해서 일일결산에 반영되었는데 고객관리 카드에 위임내역에 반영되지 않음
-참고로 위임내역은 계속 늘어나야하며 반영내용은 일일결산 날짜 세부내용, 비고, 금액(입금, 출금, 순이익) 이렇게 입력되어야해
+kid-frontend  |
+kid-frontend  | > kid-frontend@2.0.0 start
+kid-frontend  | > next start
+kid-frontend  |
+kid-frontend  |   ▲ Next.js 14.2.5
+kid-frontend  |   - Local:        http://localhost:3000
+kid-frontend  |
+kid-frontend  |  ✓ Starting...
+kid-frontend  |  ✓ Ready in 332ms
+kid-backend   | INFO:     Started server process [1]
+kid-backend   | INFO:     Waiting for application startup.
+kid-backend   | INFO:     Application startup complete.
+kid-backend   | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+kid-frontend  | Failed to proxy http://localhost:8000/api/auth/login AggregateError [ECONNREFUSED]:
+kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
+kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
+kid-frontend  |   code: 'ECONNREFUSED',
+kid-frontend  |   [errors]: [
+kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '::1',
+kid-frontend  |       port: 8000
+kid-frontend  |     },
+kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '127.0.0.1',
+kid-frontend  |       port: 8000
+kid-frontend  |     }
+kid-frontend  |   ]
+kid-frontend  | }
+kid-frontend  | AggregateError [ECONNREFUSED]:
+kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
+kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
+kid-frontend  |   code: 'ECONNREFUSED',
+kid-frontend  |   [errors]: [
+kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '::1',
+kid-frontend  |       port: 8000
+kid-frontend  |     },
+kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '127.0.0.1',
+kid-frontend  |       port: 8000
+kid-frontend  |     }
+kid-frontend  |   ]
+kid-frontend  | }
+kid-frontend  | Failed to proxy http://localhost:8000/api/auth/login AggregateError [ECONNREFUSED]:
+kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
+kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
+kid-frontend  |   code: 'ECONNREFUSED',
+kid-frontend  |   [errors]: [
+kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '::1',
+kid-frontend  |       port: 8000
+kid-frontend  |     },
+kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '127.0.0.1',
+kid-frontend  |       port: 8000
+kid-frontend  |     }
+kid-frontend  |   ]
+kid-frontend  | }
+kid-frontend  | AggregateError [ECONNREFUSED]:
+kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
+kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
+kid-frontend  |   code: 'ECONNREFUSED',
+kid-frontend  |   [errors]: [
+kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '::1',
+kid-frontend  |       port: 8000
+kid-frontend  |     },
+kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
+kid-frontend  |         at createConnectionError (node:net:1652:14)
+kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
+kid-frontend  |       errno: -111,
+kid-frontend  |       code: 'ECONNREFUSED',
+kid-frontend  |       syscall: 'connect',
+kid-frontend  |       address: '127.0.0.1',
+kid-frontend  |       port: 8000
+kid-frontend  |     }
+kid-frontend  |   ]
+kid-frontend  | }
