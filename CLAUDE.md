@@ -124,12 +124,25 @@ frontend/app/
   (main)/admin/         — Admin: account list + workspace provisioning (admin only)
 ```
 
-All API calls go through `frontend/lib/api.ts`:
-- Attaches `Authorization: Bearer <token>` from `localStorage` on every request
-- Redirects to `/login` on 401
+All API calls go through `frontend/lib/api.ts` (axios):
+- Attaches `Authorization: Bearer <token>` from `localStorage.getItem("access_token")` on every request
+- Removes `access_token` + `user_info` from localStorage and redirects to `/login` on 401
 
-Auth state helpers are in `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLoggedIn`).
+Auth state helpers are in `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLoggedIn`). The `user_info` localStorage key stores the full `UserInfo` object (`login_id`, `tenant_id`, `is_admin`, `office_name`, `access_token`).
+
 Frontend utilities are in `frontend/lib/utils.ts` (`safeInt`, `formatNumber`, `today`, `cn`).
+
+### JWT payload fields
+
+`get_current_user` in `backend/auth.py` extracts these from the token:
+
+| Field | Source claim | Notes |
+|---|---|---|
+| `login_id` | `sub` | User's login ID |
+| `tenant_id` | `tenant_id` | Determines which workbooks to open |
+| `is_admin` | `is_admin` | Boolean — gates `require_admin` routes |
+| `office_name` | `office_name` | Display name |
+| `contact_name` | `contact_name` | Contact person name |
 
 ---
 
@@ -146,9 +159,13 @@ Frontend utilities are in `frontend/lib/utils.ts` (`safeInt`, `formatNumber`, `t
 
 ## Google Sheets access patterns
 
-- **FastAPI context:** use `backend/services/tenant_service.py` — no `st.session_state`, thread-safe gspread singleton with TTL.
+- **FastAPI context:** use `backend/services/tenant_service.py` — no `st.session_state`, thread-safe gspread singleton with TTL. `tenant_id` always comes from the JWT (`get_current_user`), never from session state.
 - **Accounts sheet specifically:** use `backend/services/accounts_service._get_ws()` — opens `SHEET_KEY` and auto-creates `Accounts` tab if missing.
 - **Drive file operations:** use `google.oauth2.service_account.Credentials` + `googleapiclient.discovery.build("drive", "v3", ...)` directly in the router (see `admin.py`).
+
+### Canonical customer sheet columns
+
+`backend/routers/customers.py` defines `_DEFAULT_CUSTOMER_HEADERS` — the authoritative column order used when a new tenant's sheet is empty. Any code that constructs customer rows must follow this order: `고객ID, 한글, 성, 명, 여권, 국적, 성별, 등록증, 번호, 발급일, 만기일, 발급, 만기, 주소, 연, 락, 처, V, 체류자격, 비자종류, 메모, 폴더`.
 
 ---
 
@@ -169,27 +186,20 @@ upsert_sheet(..., [merged], id_field="id")
 
 `model_dump(exclude_unset=True)` returns only fields explicitly present in the request JSON — Pydantic defaults for unset fields are excluded. This prevents a single-field edit from zeroing other columns.
 
-### Frontend inline editing (dashboard)
+### Active task row — unified controlled state (dashboard)
 
-Dashboard task rows use React **uncontrolled inputs** (`defaultValue`) with `onBlur` guards. Always compare before firing an update:
+`ActiveTaskRow` in `dashboard/page.tsx` uses **controlled inputs** (`value` + `onChange`) for every field, not `defaultValue`. All 13+ fields are individual `useState` variables. A single `dirty` boolean tracks whether any field has changed.
+
+- `useEffect` keyed on `task.id` + every field value syncs all state from server on refetch and resets `dirty = false`.
+- Every `onChange` / checkbox toggle calls `mark()` which sets `dirty = true`.
+- A **"저장" button renders only when `dirty === true`** (hidden when clean). It sends all fields in a single `PUT` and then sets `dirty = false`.
+- Stage fields (`reception`, `processing`, `storage`) are ISO timestamp strings. Checkbox toggles update local state only; no API call fires until "저장" is clicked.
+- The trailing underscore on `localStorage_` avoids shadowing the browser global `localStorage`.
 
 ```tsx
-onBlur={(e) => {
-  if (e.target.value !== (task.field ?? "")) onUpdate(task.id, "field", e.target.value);
-}}
+// Only render save button when there are unsaved changes:
+{dirty && <button onClick={handleSave}>저장</button>}
 ```
-
-For numeric fields, compare against `String(safeInt(task[f]) || "")`.
-
-### Stage checkbox pattern (dashboard active tasks)
-
-Stage fields (`reception`, `processing`, `storage`) are ISO timestamp strings stored in Google Sheets. In `ActiveTaskRow`:
-
-- Local React state (`localReception`, `localProcessing`, `localStorage_`) mirrors the server values on mount/refetch via `useEffect`.
-- Checkbox toggles update **local state only** — no API call fires.
-- A "저장" button (always visible, orange when `stageDirty`, gray otherwise) triggers a single `PUT` with all three fields at once.
-- The trailing underscore on `localStorage_` avoids shadowing the browser global `localStorage`.
-- `latestStageTs` returns the most recent non-empty ISO string (lexicographic sort) and is used for D+ day counter display.
 
 ### Dropdown positioning inside overflow containers
 
@@ -213,6 +223,10 @@ const updateDropdownPos = () => {
 ### Flex drawer / panel layout
 
 Drawers that fill the viewport height (`position: fixed; top:0; bottom:0`) must set `minHeight: 0` on any `flex: 1` body child, otherwise the child won't shrink below its content height and `overflow: hidden` on the outer container will clip it. All non-scrolling sections (header, D-Day bar, footer) need `flexShrink: 0`.
+
+### CSS class vs inline style precedence
+
+`flex: 1` in a CSS class overrides an inline `width` style because flex-grow dominates in flex containers. When you need a fixed-width element inside a flex row, use inline `flexShrink: 0` instead of a CSS class that sets `flex: 1`. Grid cells need `minWidth: 0` to prevent overflow past their `1fr` allocation (grid items default to `min-width: auto`).
 
 ### Internal navigation — never `target="_blank"` for same-app routes
 
@@ -251,9 +265,9 @@ These items are complete — do not redo:
 - UX/workflow patch (8 items):
   - Search page input no longer capped at 520px (inline styles, bypasses `.hw-search-bar` CSS class)
   - Customer table uses `table-layout: fixed` + `<colgroup>` for predictable column density
-  - Customer drawer: `minHeight: 0` on body, `flexShrink: 0` on D-Day banner — no vertical clipping
+  - Customer drawer: `minHeight: 0` on body, `flexShrink: 0` on D-Day banner — no vertical clipping; `overflow:"hidden"` removed from outer drawer div; grid cells have `minWidth:0`
   - Planned-task save button always visible (gray = clean, orange = dirty); explicit save only
-  - Active-task stage checkboxes (접수/처리/보관중) use local state + explicit "저장" button — no immediate API call on check
+  - Active-task rows: all fields use controlled state + single row-level "저장" button; button hidden when clean, visible only when dirty
   - Daily page customer name autocomplete uses `position: fixed` dropdown to escape overflow clipping
   - Daily page new-customer modal appends to `위임내역` on save; `POST /api/customers/{id}/delegation-append`
   - OCR button in new-customer modal uses `router.push('/scan')` — no broken `target="_blank"` new window

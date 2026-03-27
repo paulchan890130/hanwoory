@@ -308,7 +308,7 @@ def get_customer_sheet_key_for_tenant(tenant_id: str) -> str:
     - 로컬(TENANT_MODE=False): 기존 SHEET_KEY 사용
     - 서버(TENANT_MODE=True):
       * 해당 테넌트에 customer_sheet_key 가 있으면 그걸 사용
-      * 일반 테넌트는 기본 테넌트(hanwoory)로 폴백하지 않는다
+      * 비기본 테넌트에 키가 없으면 ValueError — 어떤 폴백도 허용하지 않는다
       * 기본 테넌트(hanwoory)는 자기 customer_sheet_key 없으면 SHEET_KEY 로 폴백
     """
     if not TENANT_MODE:
@@ -321,11 +321,12 @@ def get_customer_sheet_key_for_tenant(tenant_id: str) -> str:
     if rec and rec.get("customer"):
         return rec["customer"]
 
-    # 2) 일반 테넌트면, 기본 테넌트로 폴백하지 않고 템플릿(또는 공용)으로 처리
+    # 2) 비기본 테넌트: 키 없으면 템플릿/admin 어디로도 폴백하지 않고 명시적 실패
     if tenant_id != DEFAULT_TENANT_ID:
-        # 최악의 경우라도 admin 고객 데이터(SHEET_KEY)가 아니라,
-        # 템플릿 파일(CUSTOMER_DATA_TEMPLATE_ID)만 쓰도록.
-        return CUSTOMER_DATA_TEMPLATE_ID
+        raise ValueError(
+            f"tenant '{tenant_id}' has no customer_sheet_key in Accounts. "
+            "워크스페이스가 아직 프로비저닝되지 않았거나 is_active가 FALSE입니다."
+        )
 
     # 3) 기본 테넌트(hanwoory)의 폴백
     rec = mapping.get(DEFAULT_TENANT_ID)
@@ -407,7 +408,7 @@ def get_work_sheet_key_for_tenant(tenant_id: str) -> str:
     - 로컬(TENANT_MODE=False): WORK_REFERENCE_TEMPLATE_ID 사용
     - 서버(TENANT_MODE=True):
       * 해당 테넌트에 work_sheet_key가 있으면 그걸 사용
-      * 일반 테넌트는 기본 테넌트(hanwoory)로 폴백하지 않는다
+      * 비기본 테넌트에 키가 없으면 ValueError — 어떤 폴백도 허용하지 않는다
       * 기본 테넌트(hanwoory)는 자기 work_sheet_key 없으면 템플릿으로 폴백
     """
     if not TENANT_MODE:
@@ -420,9 +421,12 @@ def get_work_sheet_key_for_tenant(tenant_id: str) -> str:
     if rec and rec.get("work"):
         return rec["work"]
 
-    # 2) 일반 테넌트면, 한우리로 폴백하지 않고 템플릿 사용
+    # 2) 비기본 테넌트: 키 없으면 템플릿/admin 어디로도 폴백하지 않고 명시적 실패
     if tenant_id != DEFAULT_TENANT_ID:
-        return WORK_REFERENCE_TEMPLATE_ID
+        raise ValueError(
+            f"tenant '{tenant_id}' has no work_sheet_key in Accounts. "
+            "워크스페이스가 아직 프로비저닝되지 않았거나 is_active가 FALSE입니다."
+        )
 
     # 3) 기본 테넌트(hanwoory)의 폴백
     rec = mapping.get(DEFAULT_TENANT_ID)

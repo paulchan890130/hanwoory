@@ -133,6 +133,7 @@ function fmtDate(iso: string): string {
 // ── 진행업무 행 ─────────────────────────────────────────────────────────────────
 function ActiveTaskRow({
   task, onSave, onToggleComplete, onToggleDelete, markedComplete, markedDelete,
+  onProgressToggle, pendingReception, pendingProcessing, pendingStorage,
 }: {
   task: ActiveTask;
   onSave: (id: string, data: Partial<ActiveTask>) => void;
@@ -140,6 +141,10 @@ function ActiveTaskRow({
   onToggleDelete: (id: string) => void;
   markedComplete: boolean;
   markedDelete: boolean;
+  onProgressToggle: (id: string, field: "reception" | "processing" | "storage") => void;
+  pendingReception: string;
+  pendingProcessing: string;
+  pendingStorage: string;
 }) {
   // All editable fields as local controlled state — nothing persists until the row save button is clicked
   const [category, setCategory] = useState(task.category ?? "");
@@ -152,9 +157,6 @@ function ActiveTaskRow({
   const [card, setCard] = useState(String(safeInt(task.card) || ""));
   const [stamp, setStamp] = useState(String(safeInt(task.stamp) || ""));
   const [receivable, setReceivable] = useState(String(safeInt(task.receivable) || ""));
-  const [localReception, setLocalReception] = useState<string>((task.reception as string) || "");
-  const [localProcessing, setLocalProcessing] = useState<string>((task.processing as string) || "");
-  const [localStorage_, setLocalStorage_] = useState<string>((task.storage as string) || "");
   const [dirty, setDirty] = useState(false);
 
   // Sync all local state when server data changes (after save / refetch)
@@ -169,21 +171,14 @@ function ActiveTaskRow({
     setCard(String(safeInt(task.card) || ""));
     setStamp(String(safeInt(task.stamp) || ""));
     setReceivable(String(safeInt(task.receivable) || ""));
-    setLocalReception((task.reception as string) || "");
-    setLocalProcessing((task.processing as string) || "");
-    setLocalStorage_((task.storage as string) || "");
     setDirty(false);
   }, [task.id, task.category, task.date, task.name, task.work, task.details,
-      task.transfer, task.cash, task.card, task.stamp, task.receivable,
-      task.reception, task.processing, task.storage]);
+      task.transfer, task.cash, task.card, task.stamp, task.receivable]);
 
   const mark = () => setDirty(true);
 
   const toggleLocal = (field: "reception" | "processing" | "storage") => {
-    if (field === "reception")   setLocalReception( (p) => p ? "" : new Date().toISOString());
-    else if (field === "processing") setLocalProcessing((p) => p ? "" : new Date().toISOString());
-    else                         setLocalStorage_( (p) => p ? "" : new Date().toISOString());
-    setDirty(true);
+    onProgressToggle(task.id, field);
   };
 
   const handleSave = () => {
@@ -194,15 +189,12 @@ function ActiveTaskRow({
       card: safeInt(card) || 0,
       stamp: safeInt(stamp) || 0,
       receivable: safeInt(receivable) || 0,
-      reception: localReception,
-      processing: localProcessing,
-      storage: localStorage_,
     });
     setDirty(false);
   };
 
-  // Display uses local (pending) state so checkboxes feel responsive
-  const latestTs = [localStorage_, localProcessing, localReception]
+  // Display uses parent-managed pending state so checkboxes feel responsive
+  const latestTs = [pendingStorage, pendingProcessing, pendingReception]
     .filter(Boolean).sort().reverse()[0] ?? "";
   const dp = dPlusFromTs(latestTs);
   const rowBg = markedDelete
@@ -266,22 +258,22 @@ function ActiveTaskRow({
           ) : null}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={!!localReception} onChange={() => toggleLocal("reception")}
+              <input type="checkbox" checked={!!pendingReception} onChange={() => toggleLocal("reception")}
                 style={{ accentColor: "#3182CE", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: localReception ? "#2B6CB0" : "#A0AEC0", fontWeight: localReception ? 700 : 400 }}>접수</span>
-              {localReception && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(localReception)}</span>}
+              <span style={{ fontSize: 10, color: pendingReception ? "#2B6CB0" : "#A0AEC0", fontWeight: pendingReception ? 700 : 400 }}>접수</span>
+              {pendingReception && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingReception)}</span>}
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={!!localProcessing} onChange={() => toggleLocal("processing")}
+              <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
                 style={{ accentColor: "#D69E2E", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: localProcessing ? "#975A16" : "#A0AEC0", fontWeight: localProcessing ? 700 : 400 }}>처리</span>
-              {localProcessing && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(localProcessing)}</span>}
+              <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처리</span>
+              {pendingProcessing && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingProcessing)}</span>}
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={!!localStorage_} onChange={() => toggleLocal("storage")}
+              <input type="checkbox" checked={!!pendingStorage} onChange={() => toggleLocal("storage")}
                 style={{ accentColor: "#9F7AEA", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: localStorage_ ? "#553C9A" : "#A0AEC0", fontWeight: localStorage_ ? 700 : 400 }}>보관중</span>
-              {localStorage_ && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(localStorage_)}</span>}
+              <span style={{ fontSize: 10, color: pendingStorage ? "#553C9A" : "#A0AEC0", fontWeight: pendingStorage ? 700 : 400 }}>보관중</span>
+              {pendingStorage && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingStorage)}</span>}
             </label>
           </div>
           {/* 행 전체 저장 — 변경이 있을 때만 표시 */}
@@ -433,6 +425,8 @@ export default function DashboardPage() {
   const [memoText, setMemoText] = useState("");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
+  // Map of task.id → {reception, processing, storage} — mirrors server state, updated on toggle
+  const [progressPending, setProgressPending] = useState<Map<string, { reception: string; processing: string; storage: string }>>(() => new Map());
   const [calendarDate, setCalendarDate] = useState<string | null>(null);
   const [calendarMemo, setCalendarMemo] = useState("");
   const [showCalModal, setShowCalModal] = useState(false);
@@ -441,6 +435,28 @@ export default function DashboardPage() {
   useEffect(() => {
     if (shortMemo !== undefined) setMemoText(shortMemo as string);
   }, [shortMemo]);
+
+  // Reset progressPending from server data whenever activeTasks refetches
+  useEffect(() => {
+    const next = new Map<string, { reception: string; processing: string; storage: string }>();
+    for (const t of activeTasks as ActiveTask[]) {
+      next.set(t.id, {
+        reception: (t.reception as string) || "",
+        processing: (t.processing as string) || "",
+        storage: (t.storage as string) || "",
+      });
+    }
+    setProgressPending(next);
+  }, [activeTasks]);
+
+  const handleProgressToggle = (id: string, field: "reception" | "processing" | "storage") => {
+    setProgressPending((prev) => {
+      const next = new Map(prev);
+      const cur = next.get(id) ?? { reception: "", processing: "", storage: "" };
+      next.set(id, { ...cur, [field]: cur[field] ? "" : new Date().toISOString() });
+      return next;
+    });
+  };
 
   const saveMemoMut = useMutation({
     mutationFn: (text: string) => memosApi.save("short", text),
@@ -538,11 +554,31 @@ export default function DashboardPage() {
   const handleBatchSave = () => {
     const completeArr = Array.from(completedIds);
     const deleteArr = Array.from(deleteIds).filter((id) => !completedIds.has(id));
-    if (!completeArr.length && !deleteArr.length) { toast.info("선택된 항목이 없습니다."); return; }
+
+    // Collect rows whose progress fields differ from the original server data
+    const progressArr: Array<{ id: string; data: { reception: string; processing: string; storage: string } }> = [];
+    for (const t of activeTasks as ActiveTask[]) {
+      const pending = progressPending.get(t.id);
+      if (!pending) continue;
+      const changed =
+        pending.reception !== ((t.reception as string) || "") ||
+        pending.processing !== ((t.processing as string) || "") ||
+        pending.storage !== ((t.storage as string) || "");
+      if (changed) progressArr.push({ id: t.id, data: pending });
+    }
+
+    if (!completeArr.length && !deleteArr.length && !progressArr.length) {
+      toast.info("선택된 항목이 없습니다.");
+      return;
+    }
     if (completeArr.length && !confirm(`${completeArr.length}건을 완료 처리하시겠습니까?`)) return;
     if (deleteArr.length && !confirm(`${deleteArr.length}건을 삭제하시겠습니까?`)) return;
+
     if (completeArr.length) completeTasksMut.mutate(completeArr);
     if (deleteArr.length) deleteTasksMut.mutate(deleteArr);
+    for (const { id, data } of progressArr) {
+      updateTaskMut.mutate({ id, data });
+    }
   };
 
   const calEvents = Object.entries(events as Record<string, string[]>).flatMap(([date, texts]) =>
@@ -814,6 +850,10 @@ export default function DashboardPage() {
                       }
                       markedComplete={completedIds.has(task.id)}
                       markedDelete={deleteIds.has(task.id)}
+                      onProgressToggle={handleProgressToggle}
+                      pendingReception={progressPending.get(task.id)?.reception ?? (task.reception as string) ?? ""}
+                      pendingProcessing={progressPending.get(task.id)?.processing ?? (task.processing as string) ?? ""}
+                      pendingStorage={progressPending.get(task.id)?.storage ?? (task.storage as string) ?? ""}
                     />
                   ))}
                 </tbody>

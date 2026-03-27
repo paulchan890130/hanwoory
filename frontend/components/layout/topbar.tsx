@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Bell, LogOut, X, Clock, User, ClipboardList, Calendar, FileText, BookOpen, BookMarked } from "lucide-react";
 import { getUser, clearUser } from "@/lib/auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi } from "@/lib/api";
 
 interface TopbarProps {
@@ -26,6 +26,7 @@ function addRecentSearch(q: string) {
 
 export default function Topbar({ leftOffset }: TopbarProps) {
   const router = useRouter();
+  const qc = useQueryClient();
   const user = getUser();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -72,6 +73,7 @@ export default function Topbar({ leftOffset }: TopbarProps) {
   };
 
   const handleLogout = () => {
+    qc.clear();   // wipe ALL cached queries before switching accounts
     clearUser();
     router.replace("/login");
   };

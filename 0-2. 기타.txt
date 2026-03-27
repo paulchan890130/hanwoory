@@ -1,3 +1,33 @@
-1. 최상단 통합검색 빈간이 잘려서 보이고 고객 통합검색과 신규고객 추가 버튼이 겹쳐있어
-3. 고객관리에서 고객 클릭하면 나오는 칸도 잘려 칸 잘리는 것들 칸 넓이를 줄이던지 안잘리게해줘
-칸들 너비 사진 첨부할테니 봐봐 몇번말해도 왜 안될까
+1. 어드민에서 로그아웃 후 텐엔트로 로그인하면 최초화면이 어드민계정 로그인 시 로드되었던 데이터가 로드된 후 바뀜, 이때 개인정보 노출 우려가 있음 
+2. 텐엔트 계정 로그아웃 후 어드민 계정으로 로그인하니 어드민계정 데이터 로드 안되고 이전 텐엔트계정으로 계쏙 연결되어 있음 
+(.venv) PS C:\Users\윤찬\K.ID soft> python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+INFO:     Will watch for changes in these directories: ['C:\\Users\\윤찬\\K.ID soft']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [40216] using WatchFiles
+INFO:     Started server process [10616]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:63299 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55558 - "GET /api/tasks/active HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55553 - "GET /api/customers/expiry-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55561 - "GET /api/tasks/planned HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55560 - "GET /api/memos/short HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55562 - "GET /api/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62284 - "GET /api/memos/short HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62285 - "GET /api/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62282 - "GET /api/tasks/active HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62283 - "GET /api/tasks/planned HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49274 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63359 - "GET /api/customers/expiry-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63365 - "GET /api/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63367 - "GET /api/tasks/planned HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63366 - "GET /api/memos/short HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63364 - "GET /api/tasks/active HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51999 - "GET /api/customers HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62802 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62276 - "GET /api/admin/accounts HTTP/1.1" 200 OK
+
+
+
+
+3. 접수, 처리, 보관중 3가지 체크박스에 업무 진행도에 따라 체크하니 각 항에 접수, 처리, 보관중 통합으로 저장버튼이 표시되고 항별 저장을 누르지 않고 다중 클릭 후 '선택 처리' 버튼 누르니 '선택된 항목이 없습니다.' 메시지 뜨고있음 내가 원하는건 접수, 처리, 보관중 을 항별로 저장하는게 아니라 접수, 처리, 보관중 + 여러개의 항을 다수 변경하는 로직을 원하는 것임

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearUser, getUser } from "@/lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import {
   Home, Users, DollarSign, ClipboardList, FileText,
@@ -23,9 +24,11 @@ const NAV_ITEMS = [
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const qc = useQueryClient();
   const user = getUser();
 
   const handleLogout = () => {
+    qc.clear();   // wipe ALL cached queries before switching accounts
     clearUser();
     router.replace("/login");
   };
