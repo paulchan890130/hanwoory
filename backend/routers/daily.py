@@ -45,6 +45,62 @@ _ACTIVE_HEADER = [
 ]
 
 
+def _append_delegation_to_customer(rec: dict, tenant_id: str) -> None:
+    """일일결산 저장 후 고객 '위임내역' 컬럼에 한 줄 추가 (append only).
+    현금출금 카테고리 및 이름이 비어있는 경우는 건너뜀.
+    고객 조회는 한글이름(name 필드) 정확 매칭."""
+    from config import CUSTOMER_SHEET_NAME
+
+    category = str(rec.get("category", "")).strip()
+    name     = str(rec.get("name",     "")).strip()
+    if category == "현금출금" or not name:
+        return
+
+    date = str(rec.get("date", "")).strip()
+    task = str(rec.get("task", "")).strip()
+
+    # packed memo → 사용자 노트 추출: [KID]...[/KID] 뒤 텍스트
+    memo      = str(rec.get("memo", "")) or ""
+    user_note = ""
+    if "[/KID]" in memo:
+        user_note = memo[memo.index("[/KID]") + 6:].strip()
+    elif "[KID]" not in memo:
+        user_note = memo.strip()
+
+    deposit    = _safe_int(rec.get("income_cash", 0)) + _safe_int(rec.get("income_etc", 0))
+    withdrawal = (_safe_int(rec.get("exp_cash", 0)) + _safe_int(rec.get("exp_etc", 0))
+                  + _safe_int(rec.get("cash_out", 0)))
+    net_profit = deposit - withdrawal
+
+    parts = [p for p in [date, category, task] if p]
+    amt_parts: list = []
+    if deposit:               amt_parts.append(f"입금 {deposit:,}")
+    if withdrawal:            amt_parts.append(f"출금 {withdrawal:,}")
+    if deposit or withdrawal: amt_parts.append(f"순수익 {net_profit:,}")
+
+    entry = " ".join(parts)
+    if amt_parts:
+        entry += f" ({', '.join(amt_parts)})"
+    if user_note:
+        entry += f" [{user_note}]"
+    if not entry.strip():
+        return
+
+    # 고객 시트에서 한글이름으로 조회
+    records = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+    if not records:
+        return
+
+    header_list = list(records[0].keys())
+    target = next((r for r in records if str(r.get("한글", "")).strip() == name), None)
+    if not target:
+        return  # 매칭 없으면 조용히 건너뜀
+
+    existing = str(target.get("위임내역", "")).strip()
+    target["위임내역"] = (existing + "\n" + entry).strip() if existing else entry
+    upsert_sheet(CUSTOMER_SHEET_NAME, tenant_id, header_list, [target], id_field="고객ID")
+
+
 def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     """page_daily.py apply_daily_to_active_tasks 와 동일한 로직.
     현금출금 제외한 모든 일일결산 저장 시 호출."""
@@ -141,6 +197,11 @@ def add_entry(entry: DailyEntry, user: dict = Depends(get_current_user)):
         _apply_daily_to_active(rec, user["tenant_id"])
     except Exception as _e:
         print(f"[daily] apply_daily_to_active 실패: {_e}")
+    # 일일결산 저장 후 고객 위임내역에 이력 추가
+    try:
+        _append_delegation_to_customer(rec, user["tenant_id"])
+    except Exception as _e:
+        print(f"[daily] append_delegation_to_customer 실패: {_e}")
     return rec
 
 

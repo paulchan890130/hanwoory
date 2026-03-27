@@ -100,16 +100,47 @@ export default function DailyPage() {
     queryFn: () => dailyApi.getMonthlySummary(prev3Months[2].year, prev3Months[2].month).then((r) => r.data),
   });
 
+  // Day of month from selected date — used to clamp prior-month averages to same cutoff
+  const viewDay = useMemo(() => parseInt(date.slice(8, 10), 10), [date]);
+
+  // Cumulative net for current month up to (and including) selected date
+  const cumulativeNet = useMemo(() => {
+    const es = (monthlySummary as any)?.entries as any[] | undefined;
+    if (!es) return null;
+    const filtered = es.filter((e) => (e.date || "") <= date);
+    const inc  = filtered.reduce((s, e) => s + safeInt(e.income_cash) + safeInt(e.income_etc), 0);
+    const exp  = filtered.reduce((s, e) => s + safeInt(e.exp_cash)    + safeInt(e.exp_etc),    0);
+    const cout = filtered.reduce((s, e) => s + safeInt(e.cash_out), 0);
+    return { net: inc - exp, totalInc: inc, totalExp: exp + cout };
+  }, [monthlySummary, date]);
+
+  // Helper: sum a month's entries up to the same day-of-month cutoff
+  const netUpToDay = (mData: any, day: number) => {
+    const es = mData?.entries as any[] | undefined;
+    if (!es) return { net: safeInt(mData?.net_income), incCash: 0, incEtc: 0, expCash: 0, expEtc: 0 };
+    const cutoff = String(day).padStart(2, "0");
+    const filtered = es.filter((e) => (String(e.date || "").slice(8, 10) || "99") <= cutoff);
+    return {
+      net:     filtered.reduce((s, e) => s + safeInt(e.income_cash) + safeInt(e.income_etc) - safeInt(e.exp_cash) - safeInt(e.exp_etc), 0),
+      incCash: filtered.reduce((s, e) => s + safeInt(e.income_cash), 0),
+      incEtc:  filtered.reduce((s, e) => s + safeInt(e.income_etc),  0),
+      expCash: filtered.reduce((s, e) => s + safeInt(e.exp_cash),    0),
+      expEtc:  filtered.reduce((s, e) => s + safeInt(e.exp_etc),     0),
+    };
+  };
+
   const avg3 = useMemo(() => {
     const months = [m1, m2, m3].filter(Boolean);
     if (!months.length) return null;
-    const avgIncome = Math.round(months.reduce((s, m: any) => s + safeInt(m?.net_income), 0) / months.length);
-    const avgInCash = Math.round(months.reduce((s, m: any) => s + safeInt(m?.income_cash), 0) / months.length);
-    const avgInEtc  = Math.round(months.reduce((s, m: any) => s + safeInt(m?.income_etc), 0) / months.length);
-    const avgExCash = Math.round(months.reduce((s, m: any) => s + safeInt(m?.exp_cash), 0) / months.length);
-    const avgExEtc  = Math.round(months.reduce((s, m: any) => s + safeInt(m?.exp_etc), 0) / months.length);
+    const summed = months.map((m) => netUpToDay(m, viewDay));
+    const avgIncome = Math.round(summed.reduce((s, m) => s + m.net,     0) / summed.length);
+    const avgInCash = Math.round(summed.reduce((s, m) => s + m.incCash, 0) / summed.length);
+    const avgInEtc  = Math.round(summed.reduce((s, m) => s + m.incEtc,  0) / summed.length);
+    const avgExCash = Math.round(summed.reduce((s, m) => s + m.expCash, 0) / summed.length);
+    const avgExEtc  = Math.round(summed.reduce((s, m) => s + m.expEtc,  0) / summed.length);
     return { avgIncome, avgInCash, avgInEtc, avgExCash, avgExEtc };
-  }, [m1, m2, m3]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [m1, m2, m3, viewDay]);
 
   // ── 고객 자동완성 ──
   const [customerSuggestions, setCustomerSuggestions] = useState<Record<string, string>[]>([]);
@@ -172,22 +203,8 @@ export default function DailyPage() {
 
   const addMut = useMutation({
     mutationFn: (entry: Partial<DailyEntry>) => dailyApi.addEntry(entry),
-    onSuccess: async (_, vars) => {
-      // 고객이 연결된 경우 위임내역 append
-      if (selectedCustomerId && newCategory !== "현금출금") {
-        const parts = [vars.date, vars.category, vars.task || newName].filter(Boolean);
-        const incAmt = (vars.income_cash || 0) + (vars.income_etc || 0);
-        const expAmt = (vars.exp_cash || 0) + (vars.exp_etc || 0);
-        const amtParts: string[] = [];
-        if (incAmt) amtParts.push(`수입 ${formatNumber(incAmt)}`);
-        if (expAmt) amtParts.push(`지출 ${formatNumber(expAmt)}`);
-        const entryText = amtParts.length
-          ? `${parts.join(" ")} (${amtParts.join(", ")})`
-          : parts.join(" ");
-        try {
-          await customersApi.appendDelegation(selectedCustomerId, entryText);
-        } catch { /* 위임내역 append 실패는 결산 추가를 막지 않음 */ }
-      }
+    onSuccess: () => {
+      // 위임내역 append는 backend add_entry에서 처리 (daily.py _append_delegation_to_customer)
       toast.success("추가됨");
       qc.invalidateQueries({ queryKey: ["daily", "entries"] });
       // 입력 초기화
@@ -288,21 +305,21 @@ export default function DailyPage() {
   const startEdit = useCallback((entry: DailyEntry) => {
     const meta = unpackMemo(entry.memo || "");
     const isCashOut = entry.category === "현금출금" || safeInt(entry.cash_out) > 0;
-    let incAmt = "", e1Amt = "", e2Amt = "";
+
+    // Compute display-oriented amounts (same logic as the view rendering).
+    // Store these into the flat fields the edit inputs read/write so they load correctly.
+    let incDisplay = 0, e1Display = 0, e2Display = 0;
     if (!isCashOut) {
-      incAmt = String(meta.inc === "현금" ? safeInt(entry.income_cash) : safeInt(entry.income_etc)) || "";
-      const expTotal = safeInt(entry.exp_cash) + safeInt(entry.exp_etc);
+      incDisplay = meta.inc === "현금" ? safeInt(entry.income_cash) : safeInt(entry.income_etc);
       if (meta.e1 === "현금" && meta.e2 !== "현금") {
-        e1Amt = String(safeInt(entry.exp_cash));
-        e2Amt = String(safeInt(entry.exp_etc));
+        e1Display = safeInt(entry.exp_cash); e2Display = safeInt(entry.exp_etc);
       } else if (meta.e1 !== "현금" && meta.e2 === "현금") {
-        e1Amt = String(safeInt(entry.exp_etc));
-        e2Amt = String(safeInt(entry.exp_cash));
+        e1Display = safeInt(entry.exp_etc);  e2Display = safeInt(entry.exp_cash);
       } else {
-        e1Amt = String(expTotal);
-        e2Amt = "";
+        e1Display = safeInt(entry.exp_cash) + safeInt(entry.exp_etc); e2Display = 0;
       }
     }
+
     setEditId(entry.id);
     setEditValues({
       ...entry,
@@ -310,10 +327,12 @@ export default function DailyPage() {
       e1_type: meta.e1,
       e2_type: meta.e2,
       user_memo: meta.user,
-      income_cash: safeInt(entry.income_cash),
-      income_etc: safeInt(entry.income_etc),
-      exp_cash: safeInt(entry.exp_cash),
-      exp_etc: safeInt(entry.exp_etc),
+      // income_cash holds the single display amount for income (type-resolved)
+      income_cash: incDisplay,
+      income_etc: 0,
+      // exp_cash = e1 display amount, exp_etc = e2 display amount (position-mapped)
+      exp_cash: e1Display,
+      exp_etc: e2Display,
       cash_out: safeInt(entry.cash_out),
     });
   }, []);
@@ -322,7 +341,9 @@ export default function DailyPage() {
   const saveEdit = useCallback(() => {
     if (!editId) return;
     const isCashOut = editValues.category === "현금출금";
+    // income_cash now holds the single display amount (set by startEdit + onChange)
     const incAmt = safeInt(editValues.income_cash);
+    // exp_cash = e1 display amount, exp_etc = e2 display amount
     const e1Amt  = safeInt(editValues.exp_cash);
     const e2Amt  = safeInt(editValues.exp_etc);
 
@@ -330,10 +351,13 @@ export default function DailyPage() {
     if (isCashOut) {
       cash_out = safeInt(editValues.cash_out);
     } else {
+      // Route income by type — same as handleAdd
       if (editValues.inc_type === "현금") income_cash = incAmt;
       else income_etc = incAmt;
-      exp_cash = e1Amt; // 이미 분리 저장된 값 그대로
-      exp_etc  = e2Amt;
+      // Route each expense amount by its type — same as handleAdd
+      if ((editValues.e1_type as string) === "현금") exp_cash += e1Amt; else exp_etc += e1Amt;
+      if ((editValues.e2_type as string) === "현금") exp_cash += e2Amt;
+      else if (editValues.e2_type) exp_etc += e2Amt;
     }
 
     const memo = isCashOut
@@ -396,17 +420,17 @@ export default function DailyPage() {
 
       {/* ── 요약 카드 ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "12px" }}>
-        {/* 이번달 누적 순수익 카드 */}
+        {/* 이번달 누적 순수익 카드 (선택 날짜까지만) */}
         <div className="hw-card" style={{ padding: "16px" }}>
-          <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 4 }}>이번달 누적 순수익</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: safeInt((monthlySummary as any)?.net_income) >= 0 ? "#276749" : "#C53030" }}>
-            {formatNumber(safeInt((monthlySummary as any)?.net_income))}
+          <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 4 }}>
+            {viewMonth}월 누적 순수익 (1일~{date.slice(8)}일)
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: (cumulativeNet?.net ?? 0) >= 0 ? "#276749" : "#C53030" }}>
+            {formatNumber(cumulativeNet?.net ?? 0)}
           </div>
           <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 4 }}>
-            {monthlySummary ? (
-              <>
-                수입 {formatNumber(safeInt((monthlySummary as any)?.income_cash) + safeInt((monthlySummary as any)?.income_etc))} / 지출 {formatNumber(safeInt((monthlySummary as any)?.exp_cash) + safeInt((monthlySummary as any)?.exp_etc) + safeInt((monthlySummary as any)?.cash_out))}
-              </>
+            {cumulativeNet ? (
+              <>수입 {formatNumber(cumulativeNet.totalInc)} / 지출 {formatNumber(cumulativeNet.totalExp)}</>
             ) : null}
           </div>
         </div>

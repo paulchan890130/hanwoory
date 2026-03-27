@@ -11,6 +11,7 @@ from backend.auth import get_current_user
 from backend.models import (
     ActiveTask, PlannedTask, CompletedTask,
     CompleteTasksRequest, DeleteTasksRequest,
+    BatchProgressRequest,
 )
 from backend.services.tenant_service import read_sheet, upsert_sheet, delete_from_sheet
 
@@ -103,6 +104,31 @@ def update_active_task(task_id: str, task: ActiveTask, user: dict = Depends(get_
     merged = {**existing, **changes}
     upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, [merged], id_field="id")
     return merged
+
+
+@router.patch("/active/batch-progress")
+def batch_update_active_progress(req: BatchProgressRequest, user: dict = Depends(get_current_user)):
+    """진행업무 접수/처리/보관중 일괄 업데이트.
+    1회 read + 1회 write로 Google Sheets 429 quota 방어."""
+    ACTIVE, *_ = _sheet_names()
+    tenant_id = user["tenant_id"]
+    all_tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
+    by_id = {r.get("id"): r for r in all_tasks if r.get("id")}
+
+    changed = []
+    for upd in req.updates:
+        row = by_id.get(upd.id)
+        if row is None:
+            continue
+        row["reception"]  = upd.reception
+        row["processing"] = upd.processing
+        row["storage"]    = upd.storage
+        changed.append(row)
+
+    if changed:
+        upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, changed, id_field="id")
+
+    return {"updated": len(changed)}
 
 
 @router.delete("/active")

@@ -9,6 +9,158 @@ import { Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
 
 const newId = () => crypto.randomUUID();
 
+// ── 진행업무 행 (Dashboard와 동일한 controlled state + dirty/save 패턴) ──────────
+function fmtDate(iso: string): string { return iso ? iso.slice(5, 10).replace("-", "/") : ""; }
+function dPlusFromTs(ts: string): number {
+  if (!ts) return 0;
+  const start = new Date(ts.slice(0, 10));
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
+}
+
+function ActiveTaskRow({
+  task, onSave, onToggleComplete, onToggleDelete, markedComplete, markedDelete,
+  onProgressToggle, pendingReception, pendingProcessing, pendingStorage,
+}: {
+  task: ActiveTask;
+  onSave: (id: string, data: Partial<ActiveTask>) => void;
+  onToggleComplete: (id: string) => void;
+  onToggleDelete: (id: string) => void;
+  markedComplete: boolean;
+  markedDelete: boolean;
+  onProgressToggle: (id: string, field: "reception" | "processing" | "storage") => void;
+  pendingReception: string;
+  pendingProcessing: string;
+  pendingStorage: string;
+}) {
+  const [category,   setCategory]   = useState(task.category   ?? "");
+  const [date,       setDate]       = useState(task.date        ?? "");
+  const [name,       setName]       = useState(task.name        ?? "");
+  const [work,       setWork]       = useState(task.work        ?? "");
+  const [details,    setDetails]    = useState(task.details     ?? "");
+  const [transfer,   setTransfer]   = useState(String(safeInt(task.transfer)   || ""));
+  const [cash,       setCash]       = useState(String(safeInt(task.cash)       || ""));
+  const [card,       setCard]       = useState(String(safeInt(task.card)       || ""));
+  const [stamp,      setStamp]      = useState(String(safeInt(task.stamp)      || ""));
+  const [receivable, setReceivable] = useState(String(safeInt(task.receivable) || ""));
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setCategory(task.category   ?? "");
+    setDate(task.date           ?? "");
+    setName(task.name           ?? "");
+    setWork(task.work           ?? "");
+    setDetails(task.details     ?? "");
+    setTransfer(String(safeInt(task.transfer)   || ""));
+    setCash(String(safeInt(task.cash)           || ""));
+    setCard(String(safeInt(task.card)           || ""));
+    setStamp(String(safeInt(task.stamp)         || ""));
+    setReceivable(String(safeInt(task.receivable) || ""));
+    setDirty(false);
+  }, [task.id, task.category, task.date, task.name, task.work, task.details,
+      task.transfer, task.cash, task.card, task.stamp, task.receivable]);
+
+  const mark = () => setDirty(true);
+
+  const handleSave = () => {
+    onSave(task.id, {
+      category, date: normalizeDate(date), name, work, details,
+      transfer: safeInt(transfer) || 0,
+      cash:     safeInt(cash)     || 0,
+      card:     safeInt(card)     || 0,
+      stamp:    safeInt(stamp)    || 0,
+      receivable: safeInt(receivable) || 0,
+    });
+    setDirty(false);
+  };
+
+  const latestTs = [pendingStorage, pendingProcessing, pendingReception]
+    .filter(Boolean).sort().reverse()[0] ?? "";
+  const dp = dPlusFromTs(latestTs);
+  const rowBg = markedDelete
+    ? "rgba(229,62,62,0.06)"
+    : markedComplete
+    ? "rgba(72,187,120,0.08)"
+    : undefined;
+
+  const inp: React.CSSProperties = { width: "100%", padding: "3px 5px", fontSize: 12, border: "1px solid transparent", borderRadius: 4, background: "transparent", outline: "none", boxSizing: "border-box" };
+  const inpFocus = "hover:border-gray-200 focus:border-blue-300 focus:bg-white";
+
+  return (
+    <tr style={{ background: rowBg }}>
+      <td><input className={`hw-table-input ${inpFocus}`} style={inp} value={category}   onChange={(e) => { setCategory(e.target.value);   mark(); }} /></td>
+      <td style={{ whiteSpace: "nowrap" }}><input className="hw-table-input" style={inp} value={date}      onChange={(e) => { setDate(e.target.value);       mark(); }} /></td>
+      <td><input className="hw-table-input" style={inp} value={name}      onChange={(e) => { setName(e.target.value);       mark(); }} /></td>
+      <td style={{ minWidth: 110 }}><input className="hw-table-input" style={inp} value={work}      onChange={(e) => { setWork(e.target.value);       mark(); }} /></td>
+      <td style={{ minWidth: 130 }}><input className="hw-table-input" style={inp} value={details}   onChange={(e) => { setDetails(e.target.value);    mark(); }} /></td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input" style={{ ...inp, textAlign: "right" }}
+          value={transfer} placeholder="이체" onChange={(e) => { setTransfer(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input" style={{ ...inp, textAlign: "right" }}
+          value={cash} placeholder="현금" onChange={(e) => { setCash(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input" style={{ ...inp, textAlign: "right" }}
+          value={card} placeholder="카드" onChange={(e) => { setCard(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input" style={{ ...inp, textAlign: "right" }}
+          value={stamp} placeholder="인지" onChange={(e) => { setStamp(e.target.value); mark(); }} />
+      </td>
+      <td style={{ textAlign: "right", width: 56 }}>
+        <input type="text" inputMode="numeric" className="hw-table-input" style={{ ...inp, textAlign: "right" }}
+          value={receivable} placeholder="미수" onChange={(e) => { setReceivable(e.target.value); mark(); }} />
+      </td>
+      {/* 필드 저장 버튼 — progress와 분리된 전용 열 */}
+      <td style={{ textAlign: "center", width: 36, verticalAlign: "middle" }}>
+        {dirty && (
+          <button onClick={handleSave}
+            style={{ padding: "2px 7px", fontSize: 9, fontWeight: 700, background: "#F5A623", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap" }}>
+            저장
+          </button>
+        )}
+      </td>
+      {/* 접수 / 처리 / 보관중 — 선택 처리로만 저장 */}
+      <td style={{ minWidth: 160, verticalAlign: "middle" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {latestTs && <span style={{ fontSize: 10, fontWeight: 700, color: "#718096" }}>D+{dp}</span>}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+            {([
+              { field: "reception",  label: "접수",  color: "#3182CE", onColor: "#2B6CB0", ts: pendingReception },
+              { field: "processing", label: "처리",  color: "#D69E2E", onColor: "#975A16", ts: pendingProcessing },
+              { field: "storage",    label: "보관중", color: "#9F7AEA", onColor: "#553C9A", ts: pendingStorage },
+            ] as const).map(({ field, label, color, onColor, ts }) => (
+              <label key={field} style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+                <input type="checkbox" checked={!!ts}
+                  onChange={() => onProgressToggle(task.id, field)}
+                  style={{ accentColor: color, width: 11, height: 11 }} />
+                <span style={{ fontSize: 10, color: ts ? onColor : "#A0AEC0", fontWeight: ts ? 700 : 400 }}>{label}</span>
+                {ts && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(ts)}</span>}
+              </label>
+            ))}
+          </div>
+        </div>
+      </td>
+      <td style={{ textAlign: "center", width: 44 }}>
+        <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, cursor: "pointer" }}>
+          <input type="checkbox" checked={markedComplete} onChange={() => onToggleComplete(task.id)}
+            style={{ accentColor: "#38A169" }} />
+          <span style={{ fontSize: 9, color: "#38A169" }}>완료✅</span>
+        </label>
+      </td>
+      <td style={{ textAlign: "center", width: 44 }}>
+        <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, cursor: "pointer" }}>
+          <input type="checkbox" checked={markedDelete} onChange={() => onToggleDelete(task.id)}
+            style={{ accentColor: "#E53E3E" }} />
+          <span style={{ fontSize: 9, color: "#E53E3E" }}>삭제❌</span>
+        </label>
+      </td>
+    </tr>
+  );
+}
+
 const TABS = ["진행업무", "예정업무", "완료업무"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -127,6 +279,15 @@ export default function TasksPage() {
       tasksApi.updateActive(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks", "active"] }),
   });
+  const batchProgressMut = useMutation({
+    mutationFn: (updates: { id: string; reception: string; processing: string; storage: string }[]) =>
+      tasksApi.batchProgress(updates),
+    onSuccess: (_, updates) => {
+      toast.success(`${updates.length}건 진행상태 저장됨`);
+      qc.invalidateQueries({ queryKey: ["tasks", "active"] });
+    },
+    onError: () => toast.error("진행상태 저장 실패"),
+  });
   const addActive = useMutation({
     mutationFn: (task: Partial<ActiveTask>) => tasksApi.addActive(task),
     onSuccess: () => {
@@ -210,9 +371,9 @@ export default function TasksPage() {
       return;
     }
 
-    // Save progress changes immediately
-    for (const { id, data } of progressArr) {
-      updateActive.mutate({ id, data });
+    // Single batch call — 1 read + 1 write regardless of how many rows changed
+    if (progressArr.length) {
+      batchProgressMut.mutate(progressArr.map(({ id, data }) => ({ id, ...data })));
     }
 
     if (comArr.length) {
@@ -329,122 +490,40 @@ export default function TasksPage() {
                       <th className="text-right w-14">카드</th>
                       <th className="text-right w-14">인지</th>
                       <th className="text-right w-14">미수</th>
-                      <th className="text-center w-8">접수</th>
-                      <th className="text-center w-8">처리</th>
-                      <th className="text-center w-8">보관</th>
-                      <th className="text-center w-10">완료✅</th>
-                      <th className="text-center w-10">삭제❌</th>
+                      <th style={{ width: 36 }}></th>
+                      <th style={{ width: 160 }}>접수/처리/보관중</th>
+                      <th style={{ textAlign: "center", width: 44 }}>완료✅</th>
+                      <th style={{ textAlign: "center", width: 44 }}>삭제❌</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(active as ActiveTask[]).map((task) => {
-                      const rowBg = deleteIds.has(task.id)
-                        ? "rgba(229,62,62,0.06)"
-                        : completedIds.has(task.id)
-                        ? "rgba(72,187,120,0.08)"
-                        : undefined;
-                      const prog = progressPending.get(task.id) ?? { reception: "", processing: "", storage: "" };
-                      return (
-                        <tr key={task.id} style={{ background: rowBg }}>
-                          <td>
-                            <input
-                              className="hw-table-input"
-                              defaultValue={task.category}
-                              onBlur={(e) =>
-                                updateActive.mutate({ id: task.id, data: { category: e.target.value } })
-                              }
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className="hw-table-input"
-                              defaultValue={task.date}
-                              onBlur={(e) =>
-                                updateActive.mutate({ id: task.id, data: { date: normalizeDate(e.target.value) } })
-                              }
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className="hw-table-input"
-                              defaultValue={task.name}
-                              onBlur={(e) =>
-                                updateActive.mutate({ id: task.id, data: { name: e.target.value } })
-                              }
-                            />
-                          </td>
-                          <td className="min-w-[120px]">
-                            <input
-                              className="hw-table-input"
-                              defaultValue={task.work}
-                              onBlur={(e) =>
-                                updateActive.mutate({ id: task.id, data: { work: e.target.value } })
-                              }
-                            />
-                          </td>
-                          <td className="min-w-[140px]">
-                            <input
-                              className="hw-table-input"
-                              defaultValue={task.details}
-                              onBlur={(e) =>
-                                updateActive.mutate({ id: task.id, data: { details: e.target.value } })
-                              }
-                            />
-                          </td>
-                          {(["transfer", "cash", "card", "stamp", "receivable"] as const).map((f) => (
-                            <td key={f} className="text-right w-14">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="hw-table-input text-right"
-                                defaultValue={safeInt(task[f]) || ""}
-                                onBlur={(e) =>
-                                  updateActive.mutate({ id: task.id, data: { [f]: e.target.value } })
-                                }
-                              />
-                            </td>
-                          ))}
-                          {(["reception", "processing", "storage"] as const).map((f) => (
-                            <td key={f} className="text-center w-8">
-                              <input
-                                type="checkbox"
-                                checked={!!prog[f]}
-                                onChange={() => handleProgressToggle(task.id, f)}
-                                style={{ accentColor: "#3182CE" }}
-                              />
-                            </td>
-                          ))}
-                          <td className="text-center w-10">
-                            <input
-                              type="checkbox"
-                              checked={completedIds.has(task.id)}
-                              onChange={() =>
-                                setCompletedIds((prev) => {
-                                  const n = new Set(prev);
-                                  n.has(task.id) ? n.delete(task.id) : n.add(task.id);
-                                  return n;
-                                })
-                              }
-                              style={{ accentColor: "#38A169" }}
-                            />
-                          </td>
-                          <td className="text-center w-10">
-                            <input
-                              type="checkbox"
-                              checked={deleteIds.has(task.id)}
-                              onChange={() =>
-                                setDeleteIds((prev) => {
-                                  const n = new Set(prev);
-                                  n.has(task.id) ? n.delete(task.id) : n.add(task.id);
-                                  return n;
-                                })
-                              }
-                              style={{ accentColor: "#E53E3E" }}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {(active as ActiveTask[]).map((task) => (
+                      <ActiveTaskRow
+                        key={task.id}
+                        task={task}
+                        onSave={(id, data) => updateActive.mutate({ id, data })}
+                        onToggleComplete={(id) =>
+                          setCompletedIds((prev) => {
+                            const n = new Set(prev);
+                            n.has(id) ? n.delete(id) : n.add(id);
+                            return n;
+                          })
+                        }
+                        onToggleDelete={(id) =>
+                          setDeleteIds((prev) => {
+                            const n = new Set(prev);
+                            n.has(id) ? n.delete(id) : n.add(id);
+                            return n;
+                          })
+                        }
+                        markedComplete={completedIds.has(task.id)}
+                        markedDelete={deleteIds.has(task.id)}
+                        onProgressToggle={handleProgressToggle}
+                        pendingReception={progressPending.get(task.id)?.reception ?? (task.reception as string) ?? ""}
+                        pendingProcessing={progressPending.get(task.id)?.processing ?? (task.processing as string) ?? ""}
+                        pendingStorage={progressPending.get(task.id)?.storage ?? (task.storage as string) ?? ""}
+                      />
+                    ))}
                   </tbody>
                 </table>
               </div>

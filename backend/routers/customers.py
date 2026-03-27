@@ -252,6 +252,10 @@ def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_cur
     if not target:
         raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
 
+    # 위임내역 컬럼이 시트에 없으면 header_list에 추가 (신규 테넌트 대응)
+    if "위임내역" not in header_list:
+        header_list.append("위임내역")
+
     existing = str(target.get("위임내역", "")).strip()
     target["위임내역"] = (existing + "\n" + entry).strip() if existing else entry
 

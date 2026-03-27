@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: kid-backend
+    ports:
+      - "8000:8000"
+    environment:
+      HANWOORY_ENV: server
+      ALLOWED_ORIGINS: http://localhost:3000
+      JWT_SECRET_KEY: change-this-secret
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: kid-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped

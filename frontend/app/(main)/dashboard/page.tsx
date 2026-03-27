@@ -250,8 +250,24 @@ function ActiveTaskRow({
           style={{ textAlign: "right" }} value={receivable} placeholder="미수"
           onChange={(e) => { setReceivable(e.target.value); mark(); }} />
       </td>
-      {/* 접수 / 처리 / 보관중 — 가로 배치 + 행 전체 저장 버튼 */}
-      <td style={{ minWidth: 200, verticalAlign: "middle" }}>
+      {/* 필드 저장 버튼 — progress 체크박스와 완전히 분리된 전용 열 */}
+      <td style={{ textAlign: "center", width: 36, verticalAlign: "middle" }}>
+        {dirty && (
+          <button
+            onClick={handleSave}
+            style={{
+              padding: "2px 7px", fontSize: 9, fontWeight: 700,
+              background: "#F5A623", color: "#fff",
+              border: "none", borderRadius: 4, cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            저장
+          </button>
+        )}
+      </td>
+      {/* 접수 / 처리 / 보관중 — 가로 배치, 저장 버튼 없음 (선택 처리로만 저장) */}
+      <td style={{ minWidth: 160, verticalAlign: "middle" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {latestTs ? (
             <span style={{ fontSize: 10, fontWeight: 700, color: "#718096" }}>D+{dp}</span>
@@ -276,20 +292,6 @@ function ActiveTaskRow({
               {pendingStorage && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingStorage)}</span>}
             </label>
           </div>
-          {/* 행 전체 저장 — 변경이 있을 때만 표시 */}
-          {dirty && (
-            <button
-              onClick={handleSave}
-              style={{
-                marginTop: 1, padding: "2px 7px", fontSize: 9, fontWeight: 700,
-                background: "#F5A623", color: "#fff",
-                border: "none", borderRadius: 4, cursor: "pointer",
-                whiteSpace: "nowrap", alignSelf: "flex-start",
-              }}
-            >
-              저장
-            </button>
-          )}
         </div>
       </td>
       {/* 완료 체크박스 */}
@@ -493,6 +495,16 @@ export default function DashboardPage() {
     },
   });
 
+  const batchProgressMut = useMutation({
+    mutationFn: (updates: { id: string; reception: string; processing: string; storage: string }[]) =>
+      tasksApi.batchProgress(updates),
+    onSuccess: (_, updates) => {
+      toast.success(`${updates.length}건 진행상태 저장됨`);
+      qc.invalidateQueries({ queryKey: ["tasks", "active"] });
+    },
+    onError: () => toast.error("진행상태 저장 실패"),
+  });
+
   const deleteTasksMut = useMutation({
     mutationFn: (ids: string[]) => tasksApi.deleteActive(ids),
     onSuccess: (_, ids) => {
@@ -580,8 +592,9 @@ export default function DashboardPage() {
 
     if (completeArr.length) completeTasksMut.mutate(completeArr);
     if (deleteArr.length) deleteTasksMut.mutate(deleteArr);
-    for (const { id, data } of progressArr) {
-      updateTaskMut.mutate({ id, data });
+    // Single batch call — 1 read + 1 write regardless of how many rows changed
+    if (progressArr.length) {
+      batchProgressMut.mutate(progressArr.map(({ id, data }) => ({ id, ...data })));
     }
   };
 
@@ -838,6 +851,7 @@ export default function DashboardPage() {
                     <th style={{ textAlign: "right", width: 56 }}>카드</th>
                     <th style={{ textAlign: "right", width: 56 }}>인지</th>
                     <th style={{ textAlign: "right", width: 56 }}>미수</th>
+                    <th style={{ width: 36 }}></th>
                     <th style={{ width: 150 }}>접수/처리/보관중</th>
                     <th style={{ textAlign: "center", width: 44 }}>완료✅</th>
                     <th style={{ textAlign: "center", width: 44 }}>삭제❌</th>

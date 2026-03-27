@@ -4,6 +4,31 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import io, datetime
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+
+
+def _file_to_pil(img_bytes: bytes, content_type: str = ""):
+    """Convert uploaded file bytes → PIL RGB Image.
+    Tries PIL directly first; falls back to PyMuPDF (fitz) for PDF files."""
+    from PIL import Image
+    # Fast path: plain image
+    if not content_type.startswith("application/pdf"):
+        try:
+            return Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        except Exception:
+            pass
+    # PDF path: render first page at 200 dpi
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(stream=img_bytes, filetype="pdf")
+        if doc.page_count == 0:
+            raise ValueError("PDF에 페이지가 없습니다.")
+        page = doc[0]
+        pix = page.get_pixmap(dpi=200)
+        return Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    except ImportError:
+        raise ValueError("PyMuPDF(fitz)가 설치되지 않아 PDF를 처리할 수 없습니다.")
+    except Exception as e:
+        raise ValueError(f"PDF 변환 실패: {e}")
 from pydantic import BaseModel
 from typing import Optional
 from backend.auth import get_current_user
@@ -57,9 +82,8 @@ async def scan_passport(
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
     _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
     try:
-        from PIL import Image
         img_bytes = await file.read()
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        img = _file_to_pil(img_bytes, file.content_type or "")
         result = parse_passport(img)
         return result or {"error": "파싱 실패 - MRZ를 인식하지 못했습니다."}
     except Exception as e:
@@ -76,9 +100,8 @@ async def scan_arc(
     # 여권은 parse_passport() 그대로 유지 — 분리 운영
     _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
     try:
-        from PIL import Image
         img_bytes = await file.read()
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        img = _file_to_pil(img_bytes, file.content_type or "")
         result = parse_arc(img, fast=True)
         return result or {"error": "파싱 실패"}
     except Exception as e:

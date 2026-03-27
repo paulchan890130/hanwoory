@@ -180,6 +180,19 @@ export default function ScanPage() {
     runArcOcr(f);
   };
 
+  // 스캔 폼 전체 초기화 (다음 고객 스캔을 위해)
+  const resetAll = () => {
+    setPassportFile(null);
+    setPassportPreview(null);
+    setArcFile(null);
+    setArcPreview(null);
+    set성(""); set명(""); set국적(""); set성별(""); set여권(""); set여권발급(""); set여권만기("");
+    set한글(""); set등록증(""); set번호(""); set발급일(""); set만기일(""); set주소("");
+    set연("010"); set락(""); set처(""); setV("");
+    if (passportInputRef.current) passportInputRef.current.value = "";
+    if (arcInputRef.current) arcInputRef.current.value = "";
+  };
+
   // 저장
   const registerMut = useMutation({
     mutationFn: (data: Record<string, string>) =>
@@ -188,6 +201,7 @@ export default function ScanPage() {
       const { status, message } = res.data;
       toast.success(status === "updated" ? `✅ ${message}` : `🆕 ${message}`);
       qc.invalidateQueries({ queryKey: ["customers"] });
+      resetAll();
     },
     onError: () => toast.error("고객 등록/업데이트 실패"),
   });
@@ -224,13 +238,12 @@ export default function ScanPage() {
     border: `2px dashed ${hasFile ? "var(--hw-gold)" : "#CBD5E0"}`,
     borderRadius: 8,
     padding: "10px 14px",
-    textAlign: "center",
     cursor: "pointer",
     background: "#fff",
     minHeight: 52,
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
   });
 
   return (
@@ -276,8 +289,9 @@ export default function ScanPage() {
                 {passportLoading ? "⏳ OCR 인식 중..." : `✅ ${passportFile.name}`}
               </span>
             ) : (
-              <span style={{ fontSize: 12, color: "#A0AEC0", display: "flex", alignItems: "center", gap: 4 }}>
-                <Upload size={13} /> 클릭하거나 드래그
+              <span style={{ fontSize: 12, color: "#718096", display: "flex", alignItems: "center", gap: 4 }}>
+                <Upload size={13} style={{ flexShrink: 0 }} />
+                여권 이미지를 업로드 하세요.(필수)
               </span>
             )}
           </div>
@@ -313,8 +327,9 @@ export default function ScanPage() {
                 {arcLoading ? "⏳ OCR 인식 중..." : `✅ ${arcFile.name}`}
               </span>
             ) : (
-              <span style={{ fontSize: 12, color: "#A0AEC0", display: "flex", alignItems: "center", gap: 4 }}>
-                <Upload size={13} /> 클릭하거나 드래그
+              <span style={{ fontSize: 12, color: "#718096", display: "flex", alignItems: "center", gap: 4 }}>
+                <Upload size={13} style={{ flexShrink: 0 }} />
+                등록증 이미지를 업로드 하세요.(선택)
               </span>
             )}
           </div>
@@ -328,18 +343,28 @@ export default function ScanPage() {
         <div className="hw-card" style={{ padding: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#4A5568" }}>여권 이미지</div>
           {passportPreview ? (
-            <img
-              src={passportPreview}
-              alt="여권"
-              style={{ width: "100%", borderRadius: 8, objectFit: "contain" }}
-            />
+            passportFile?.type === "application/pdf" ? (
+              <iframe
+                src={passportPreview}
+                style={{ width: "100%", minHeight: 320, border: "none", borderRadius: 8 }}
+                title="여권 PDF 미리보기"
+              />
+            ) : (
+              <img
+                src={passportPreview}
+                alt="여권"
+                style={{ width: "100%", borderRadius: 8, objectFit: "contain" }}
+              />
+            )
           ) : (
             <div style={{
-              minHeight: 220,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "#F7FAFC", borderRadius: 8, color: "#A0AEC0", fontSize: 13,
+              minHeight: 220, padding: "0 12px",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+              background: "#F7FAFC", borderRadius: 8,
             }}>
-              여권 이미지를 업로드하세요.
+              <span style={{ fontSize: 13, color: "#A0AEC0", flexShrink: 0 }}>여권 이미지 예시(업로드 필수)</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/passport-sample.jpg" alt="여권 예시" style={{ height: 160, width: "auto", objectFit: "contain", borderRadius: 6, opacity: 0.55, flexShrink: 1, maxWidth: "60%" }} />
             </div>
           )}
         </div>
@@ -393,20 +418,30 @@ export default function ScanPage() {
       {/* Row 2: 등록증 이미지 (7) + 등록증 정보 (3) */}
       <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: 16, alignItems: "center" }}>
         <div className="hw-card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#4A5568" }}>등록증 / 스티커 이미지</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#4A5568" }}>등록증 이미지</div>
           {arcPreview ? (
-            <img
-              src={arcPreview}
-              alt="등록증"
-              style={{ width: "100%", borderRadius: 8, objectFit: "contain" }}
-            />
+            arcFile?.type === "application/pdf" ? (
+              <iframe
+                src={arcPreview}
+                style={{ width: "100%", minHeight: 320, border: "none", borderRadius: 8 }}
+                title="등록증 PDF 미리보기"
+              />
+            ) : (
+              <img
+                src={arcPreview}
+                alt="등록증"
+                style={{ width: "100%", borderRadius: 8, objectFit: "contain" }}
+              />
+            )
           ) : (
             <div style={{
-              minHeight: 220,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "#F7FAFC", borderRadius: 8, color: "#A0AEC0", fontSize: 13,
+              minHeight: 220, padding: "0 12px",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+              background: "#F7FAFC", borderRadius: 8,
             }}>
-              등록증/스티커 이미지를 업로드하지 않아도 됩니다.
+              <span style={{ fontSize: 13, color: "#A0AEC0", flexShrink: 0 }}>등록증 이미지 예시(업로드 선택)</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/arc-sample.jpg" alt="등록증 예시" style={{ height: 160, width: "auto", objectFit: "contain", borderRadius: 6, opacity: 0.55, flexShrink: 1, maxWidth: "60%" }} />
             </div>
           )}
         </div>

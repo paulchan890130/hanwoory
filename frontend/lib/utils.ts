@@ -38,7 +38,8 @@ export function today(): string {
  */
 export function normalizeDate(v: string): string {
   if (!v) return v;
-  const s = v.trim();
+  // Strip trailing dots/slashes before matching (handles "0000.00.00.")
+  const s = v.trim().replace(/[./]+$/, "");
   // YYYYMMDD → YYYY-MM-DD
   if (/^\d{8}$/.test(s)) {
     return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;

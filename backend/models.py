@@ -76,6 +76,15 @@ class CompleteTasksRequest(BaseModel):
 class DeleteTasksRequest(BaseModel):
     task_ids: List[str]
 
+class ProgressUpdate(BaseModel):
+    id: str
+    reception: str = ""
+    processing: str = ""
+    storage: str = ""
+
+class BatchProgressRequest(BaseModel):
+    updates: List[ProgressUpdate]
+
 
 # ── 결산 ─────────────────────────────────────────────────────────────────────
 class DailyEntry(BaseModel):

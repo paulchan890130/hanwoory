@@ -90,20 +90,27 @@ def create_post(post: BoardPost, user: dict = Depends(get_current_user)):
 def update_post(post_id: str, post: BoardPost, user: dict = Depends(get_current_user)):
     upsert, _ = _write()
     BOARD, _ = _sheet()
-    # 기존 글 조회해서 작성자 확인
+    # 기존 글 조회해서 작성자 확인 + 서버 필드 보존
     read = _read()
     posts = read(BOARD, default_if_empty=[]) or []
     existing = next((p for p in posts if p.get("id") == post_id), None)
-    if existing:
-        is_own = existing.get("author_login") == user.get("login_id")
-        is_admin = user.get("is_admin", False)
-        if not (is_own or is_admin):
-            raise HTTPException(status_code=403, detail="수정 권한 없음")
-    post.id         = post_id
-    post.updated_at = datetime.datetime.now().isoformat()
+    if not existing:
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    is_own = existing.get("author_login") == user.get("login_id")
+    if not (is_own or user.get("is_admin", False)):
+        raise HTTPException(status_code=403, detail="수정 권한 없음")
+    # Partial update: start from existing row, only override user-editable fields
+    rec = {k: str(existing.get(k, "")) for k in POST_HEADER}
+    for f in ("title", "content", "category"):
+        val = getattr(post, f, None)
+        if val is not None:
+            rec[f] = str(val)
+    rec["id"]         = post_id
+    rec["updated_at"] = datetime.datetime.now().isoformat()
     if not user.get("is_admin", False):
-        post.is_notice = ""
-    rec = {k: ("" if v is None else str(v)) for k, v in post.model_dump().items()}
+        rec["is_notice"] = ""
+    elif post.is_notice is not None:
+        rec["is_notice"] = str(post.is_notice)
     upsert(BOARD, header_list=POST_HEADER, records=[rec], id_field="id")
     return rec
 

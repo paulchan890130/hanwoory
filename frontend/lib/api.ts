@@ -151,6 +151,9 @@ export const tasksApi = {
   getCompleted: () => api.get<CompletedTask[]>("/api/tasks/completed"),
   updateCompleted: (id: string, task: Partial<CompletedTask>) => api.put(`/api/tasks/completed/${id}`, task),
   deleteCompleted: (ids: string[]) => api.delete("/api/tasks/completed", { data: { task_ids: ids } }),
+
+  batchProgress: (updates: { id: string; reception: string; processing: string; storage: string }[]) =>
+    api.patch("/api/tasks/active/batch-progress", { updates }),
 };
 
 // 고객
