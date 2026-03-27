@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { tasksApi, type ActiveTask, type PlannedTask, type CompletedTask } from "@/lib/api";
-import { today, safeInt, formatNumber } from "@/lib/utils";
+import { today, safeInt, formatNumber, normalizeDate } from "@/lib/utils";
 import { Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
 
 const newId = () => crypto.randomUUID();
@@ -69,6 +69,9 @@ export default function TasksPage() {
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
+  type ProgressEntry = { reception: string; processing: string; storage: string };
+  const [progressPending, setProgressPending] = useState<Map<string, ProgressEntry>>(new Map());
+
   // URL param: tab=active&action=new
   useEffect(() => {
     const t = searchParams.get("tab");
@@ -93,6 +96,22 @@ export default function TasksPage() {
     queryKey: ["tasks", "active"],
     queryFn: () => tasksApi.getActive().then((r) => r.data),
   });
+
+  // Seed progressPending from server on every refetch
+  useEffect(() => {
+    setProgressPending(new Map(
+      (active as ActiveTask[]).map((t) => [
+        t.id,
+        {
+          reception: (t.reception as string) || "",
+          processing: (t.processing as string) || "",
+          storage: (t.storage as string) || "",
+        },
+      ])
+    ));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
   const { data: planned = [] } = useQuery({
     queryKey: ["tasks", "planned"],
     queryFn: () => tasksApi.getPlanned().then((r) => r.data),
@@ -160,15 +179,47 @@ export default function TasksPage() {
     },
   });
 
+  const handleProgressToggle = (id: string, field: "reception" | "processing" | "storage") => {
+    const now = new Date().toISOString();
+    setProgressPending((prev) => {
+      const next = new Map(prev);
+      const cur = next.get(id) ?? { reception: "", processing: "", storage: "" };
+      next.set(id, { ...cur, [field]: cur[field] ? "" : now });
+      return next;
+    });
+  };
+
   const handleBatch = () => {
     const comArr = Array.from(completedIds);
     const delArr = Array.from(deleteIds).filter((id) => !completedIds.has(id));
+
+    // Collect pending progress changes
+    const progressArr: Array<{ id: string; data: { reception: string; processing: string; storage: string } }> = [];
+    for (const t of active as ActiveTask[]) {
+      const pending = progressPending.get(t.id);
+      if (!pending) continue;
+      const changed =
+        pending.reception !== ((t.reception as string) || "") ||
+        pending.processing !== ((t.processing as string) || "") ||
+        pending.storage !== ((t.storage as string) || "");
+      if (changed) progressArr.push({ id: t.id, data: pending });
+    }
+
+    if (!comArr.length && !delArr.length && !progressArr.length) {
+      toast.info("선택된 항목이 없습니다.");
+      return;
+    }
+
+    // Save progress changes immediately
+    for (const { id, data } of progressArr) {
+      updateActive.mutate({ id, data });
+    }
+
     if (comArr.length) {
       setShowCompleteModal(true);
       return;
     }
     if (delArr.length) deleteActiveMut.mutate(delArr);
-    if (!comArr.length && !delArr.length) toast.info("선택된 항목이 없습니다.");
   };
 
   const confirmComplete = () => {
@@ -177,6 +228,15 @@ export default function TasksPage() {
     if (comArr.length) completeMany.mutate(comArr);
     if (delArr.length) deleteActiveMut.mutate(delArr);
   };
+
+  const hasProgressChanges = (active as ActiveTask[]).some((t) => {
+    const pending = progressPending.get(t.id);
+    return pending && (
+      pending.reception !== ((t.reception as string) || "") ||
+      pending.processing !== ((t.processing as string) || "") ||
+      pending.storage !== ((t.storage as string) || "")
+    );
+  });
 
   return (
     <div className="space-y-5">
@@ -195,14 +255,15 @@ export default function TasksPage() {
               >
                 <Plus size={13} /> 업무 추가
               </button>
-              {(completedIds.size > 0 || deleteIds.size > 0) && (
+              {(completedIds.size > 0 || deleteIds.size > 0 || hasProgressChanges) && (
                 <button
                   onClick={handleBatch}
                   disabled={completeMany.isPending || deleteActiveMut.isPending}
                   className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50"
                   style={{ background: "#38A169" }}
                 >
-                  <CheckCircle size={13} /> 선택 처리 ({completedIds.size + deleteIds.size}건)
+                  <CheckCircle size={13} /> 선택 처리
+                  {(completedIds.size + deleteIds.size) > 0 && ` (${completedIds.size + deleteIds.size}건)`}
                 </button>
               )}
             </>
@@ -255,7 +316,7 @@ export default function TasksPage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="hw-table min-w-[900px]">
+                <table className="hw-table min-w-[1080px]">
                   <thead>
                     <tr>
                       <th className="text-left">분류</th>
@@ -268,59 +329,67 @@ export default function TasksPage() {
                       <th className="text-right w-14">카드</th>
                       <th className="text-right w-14">인지</th>
                       <th className="text-right w-14">미수</th>
-                      <th className="text-center w-10">처리</th>
+                      <th className="text-center w-8">접수</th>
+                      <th className="text-center w-8">처리</th>
+                      <th className="text-center w-8">보관</th>
                       <th className="text-center w-10">완료✅</th>
                       <th className="text-center w-10">삭제❌</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(active as ActiveTask[]).map((task) => {
-                      const isProc =
-                        task.processed === true ||
-                        String(task.processed).toLowerCase() === "true";
                       const rowBg = deleteIds.has(task.id)
                         ? "rgba(229,62,62,0.06)"
                         : completedIds.has(task.id)
                         ? "rgba(72,187,120,0.08)"
                         : undefined;
+                      const prog = progressPending.get(task.id) ?? { reception: "", processing: "", storage: "" };
                       return (
                         <tr key={task.id} style={{ background: rowBg }}>
-                          {(["category", "date", "name"] as const).map((f) => (
-                            <td key={f}>
-                              <input
-                                className="hw-table-input"
-                                defaultValue={task[f]}
-                                onBlur={(e) =>
-                                  updateActive.mutate({ id: task.id, data: { [f]: e.target.value } })
-                                }
-                              />
-                            </td>
-                          ))}
+                          <td>
+                            <input
+                              className="hw-table-input"
+                              defaultValue={task.category}
+                              onBlur={(e) =>
+                                updateActive.mutate({ id: task.id, data: { category: e.target.value } })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="hw-table-input"
+                              defaultValue={task.date}
+                              onBlur={(e) =>
+                                updateActive.mutate({ id: task.id, data: { date: normalizeDate(e.target.value) } })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="hw-table-input"
+                              defaultValue={task.name}
+                              onBlur={(e) =>
+                                updateActive.mutate({ id: task.id, data: { name: e.target.value } })
+                              }
+                            />
+                          </td>
                           <td className="min-w-[120px]">
-                            {isProc ? (
-                              <span style={{ color: "#3182CE", fontWeight: 500 }}>{task.work}</span>
-                            ) : (
-                              <input
-                                className="hw-table-input"
-                                defaultValue={task.work}
-                                onBlur={(e) =>
-                                  updateActive.mutate({ id: task.id, data: { work: e.target.value } })
-                                }
-                              />
-                            )}
+                            <input
+                              className="hw-table-input"
+                              defaultValue={task.work}
+                              onBlur={(e) =>
+                                updateActive.mutate({ id: task.id, data: { work: e.target.value } })
+                              }
+                            />
                           </td>
                           <td className="min-w-[140px]">
-                            {isProc ? (
-                              <span style={{ color: "#3182CE" }}>{task.details}</span>
-                            ) : (
-                              <input
-                                className="hw-table-input"
-                                defaultValue={task.details}
-                                onBlur={(e) =>
-                                  updateActive.mutate({ id: task.id, data: { details: e.target.value } })
-                                }
-                              />
-                            )}
+                            <input
+                              className="hw-table-input"
+                              defaultValue={task.details}
+                              onBlur={(e) =>
+                                updateActive.mutate({ id: task.id, data: { details: e.target.value } })
+                              }
+                            />
                           </td>
                           {(["transfer", "cash", "card", "stamp", "receivable"] as const).map((f) => (
                             <td key={f} className="text-right w-14">
@@ -335,16 +404,16 @@ export default function TasksPage() {
                               />
                             </td>
                           ))}
-                          <td className="text-center w-10">
-                            <input
-                              type="checkbox"
-                              checked={isProc}
-                              onChange={() =>
-                                updateActive.mutate({ id: task.id, data: { processed: !isProc } })
-                              }
-                              style={{ accentColor: "#3182CE" }}
-                            />
-                          </td>
+                          {(["reception", "processing", "storage"] as const).map((f) => (
+                            <td key={f} className="text-center w-8">
+                              <input
+                                type="checkbox"
+                                checked={!!prog[f]}
+                                onChange={() => handleProgressToggle(task.id, f)}
+                                style={{ accentColor: "#3182CE" }}
+                              />
+                            </td>
+                          ))}
                           <td className="text-center w-10">
                             <input
                               type="checkbox"
@@ -429,7 +498,7 @@ export default function TasksPage() {
                         className="hw-table-input"
                         defaultValue={task.date}
                         onBlur={(e) =>
-                          updatePlanned.mutate({ id: task.id, data: { date: e.target.value } })
+                          updatePlanned.mutate({ id: task.id, data: { date: normalizeDate(e.target.value) } })
                         }
                       />
                     </td>

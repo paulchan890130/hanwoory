@@ -31,3 +31,21 @@ export function formatDate(d: Date | string): string {
 export function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** Normalize user-entered date strings to YYYY-MM-DD.
+ *  Accepts: YYYYMMDD, YYYY.MM.DD, YYYY/MM/DD, YYYY-MM-DD.
+ *  Returns the input unchanged if it doesn't match any known pattern.
+ */
+export function normalizeDate(v: string): string {
+  if (!v) return v;
+  const s = v.trim();
+  // YYYYMMDD → YYYY-MM-DD
+  if (/^\d{8}$/.test(s)) {
+    return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  }
+  // YYYY.MM.DD or YYYY/MM/DD → YYYY-MM-DD
+  if (/^\d{4}[./]\d{2}[./]\d{2}$/.test(s)) {
+    return s.replace(/[./]/g, "-");
+  }
+  return s;
+}

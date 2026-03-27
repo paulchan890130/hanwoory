@@ -673,3 +673,13 @@ input[type="number"]::-webkit-outer-spin-button {
   font-size: 11px !important;
   border-radius: 3px !important;
 }
+/* Day-header weekday coloring (replaces dayHeaderContent JSX) */
+.fc .fc-col-header-cell .fc-col-header-cell-cushion          { color: #4A5568; font-weight: 700; font-size: 12px; }
+.fc .fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion { color: #DC2626; }
+.fc .fc-col-header-cell.fc-day-sat .fc-col-header-cell-cushion { color: #2563EB; }
+/* Day-cell number coloring (replaces dayCellContent JSX — driven by dayCellClassNames) */
+.fc .fc-daygrid-day .fc-daygrid-day-number                  { color: #2D3748; font-weight: 400; }
+.fc .fc-daygrid-day.cal-sun .fc-daygrid-day-number          { color: #DC2626; font-weight: 700; }
+.fc .fc-daygrid-day.cal-sat .fc-daygrid-day-number          { color: #2563EB; font-weight: 700; }
+.fc .fc-daygrid-day.cal-kr-holiday .fc-daygrid-day-number   { color: #DC2626; font-weight: 700; }
+.fc .fc-daygrid-day.cal-cn-holiday .fc-daygrid-day-number   { color: #2563EB; font-weight: 700; }

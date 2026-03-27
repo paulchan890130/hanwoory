@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -394,6 +394,10 @@ function PlannedTaskRow({
   );
 }
 
+// Stable constants — defined outside the component so their identity never changes
+const CAL_PLUGINS = [dayGridPlugin, interactionPlugin];
+const CAL_HEADER_TOOLBAR = { left: "prev", center: "title", right: "next" } as const;
+
 // ── 메인 대시보드 ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const qc = useQueryClient();
@@ -581,9 +585,52 @@ export default function DashboardPage() {
     }
   };
 
-  const calEvents = Object.entries(events as Record<string, string[]>).flatMap(([date, texts]) =>
-    texts.map((text, i) => ({ id: `${date}-${i}`, title: text, date }))
+  const calEvents = useMemo(
+    () =>
+      Object.entries(events as Record<string, string[]>).flatMap(([date, texts]) =>
+        texts.map((text, i) => ({ id: `${date}-${i}`, title: text, date }))
+      ),
+    [events]
   );
+
+  const handleCalEventClick = useCallback(
+    (info: { event: { startStr: string } }) => {
+      const dateStr = info.event.startStr;
+      const existing = (events as Record<string, string[]>)[dateStr] || [];
+      setCalendarDate(dateStr);
+      setCalendarMemo(existing.join("\n"));
+      setCalModalIsEdit(existing.length > 0);
+      setShowCalModal(true);
+    },
+    [events]
+  );
+
+  const handleCalDateClick = useCallback(
+    (info: { dateStr: string }) => {
+      const existing = (events as Record<string, string[]>)[info.dateStr] || [];
+      setCalendarDate(info.dateStr);
+      setCalendarMemo(existing.join("\n"));
+      setCalModalIsEdit(existing.length > 0);
+      setShowCalModal(true);
+    },
+    [events]
+  );
+
+  const handleEventDidMount = useCallback((arg: { el: HTMLElement }) => {
+    arg.el.style.cursor = "pointer";
+  }, []);
+
+  // Returns class names only (no JSX) — avoids ContentInjector custom-rendering loop
+  const handleDayCellClassNames = useCallback((info: { date: Date }) => {
+    const d = info.date;
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const dow = d.getDay();
+    if (KR_HOLIDAYS.has(dateStr)) return ["cal-kr-holiday"];
+    if (CN_HOLIDAYS.has(dateStr)) return ["cal-cn-holiday"];
+    if (dow === 0) return ["cal-sun"];
+    if (dow === 6) return ["cal-sat"];
+    return [];
+  }, []);
 
   const periodOrder: Record<string, number> = { "장기🟢": 0, "중기🟡": 1, "단기🔴": 2, "완료✅": 3, "보류⏹️": 4 };
   const sortedPlanned = [...(plannedTasks as PlannedTask[])].sort((a, b) => {
@@ -633,59 +680,19 @@ export default function DashboardPage() {
               </div>
             </div>
             <FullCalendar
-              plugins={[dayGridPlugin, interactionPlugin]}
+              plugins={CAL_PLUGINS}
               initialView="dayGridMonth"
               locale="ko"
               aspectRatio={1.4}
               expandRows={true}
               events={calEvents}
-              // 한 날짜에 최소 두 줄 이상의 일정을 표시
               dayMaxEvents={2}
-              // 일정 텍스트를 클릭해도 메모 창이 열리도록 추가
-              eventClick={(info) => {
-                const dateStr = info.event.startStr;
-                const existing = (events as Record<string, string[]>)[dateStr] || [];
-                setCalendarDate(dateStr);
-                setCalendarMemo(existing.join("\n"));
-                setCalModalIsEdit(existing.length > 0);
-                setShowCalModal(true);
-              }}
-              // 클릭 가능한 부분에 마우스 커서를 손 모양으로 표시
-              eventDidMount={(arg) => {
-                arg.el.style.cursor = "pointer";
-              }}
-              headerToolbar={{ left: "prev", center: "title", right: "next" }}
-              dateClick={(info) => {
-                const existing = (events as Record<string, string[]>)[info.dateStr] || [];
-                setCalendarDate(info.dateStr);
-                setCalendarMemo(existing.join("\n"));
-                setCalModalIsEdit(existing.length > 0);
-                setShowCalModal(true);
-              }}
+              eventClick={handleCalEventClick}
+              eventDidMount={handleEventDidMount}
+              headerToolbar={CAL_HEADER_TOOLBAR}
+              dateClick={handleCalDateClick}
               eventColor="var(--hw-gold)"
-              dayHeaderContent={(info) => {
-                const dow = info.dow; // 0=일, 6=토
-                const color = dow === 0 ? "#DC2626" : dow === 6 ? "#2563EB" : "#4A5568";
-                return <span style={{ color, fontWeight: 700, fontSize: 12 }}>{info.text}</span>;
-              }}
-              dayCellContent={(info) => {
-                const d = info.date;
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-                const dow = d.getDay();
-                const isCN = CN_HOLIDAYS.has(dateStr);
-                const isKR = KR_HOLIDAYS.has(dateStr);
-                let color = "#2D3748";
-                if (isKR) color = "#DC2626";
-                else if (isCN) color = "#2563EB";
-                else if (dow === 0) color = "#DC2626";
-                else if (dow === 6) color = "#2563EB";
-                const isBold = isCN || isKR || dow === 0 || dow === 6;
-                return (
-                  <span style={{ color, fontWeight: isBold ? 700 : 400 }}>
-                    {info.dayNumberText}
-                  </span>
-                );
-              }}
+              dayCellClassNames={handleDayCellClassNames}
             />
           </div>
 

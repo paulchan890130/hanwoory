@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { customersApi } from "@/lib/api";
 import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink } from "lucide-react";
+import { normalizeDate } from "@/lib/utils";
 
 // ── 만기 D-Day 계산 ────────────────────────────────────────────────────────────
 function parseDateStr(s: string): Date | null {
@@ -277,9 +278,12 @@ export default function CustomersPage() {
     onError: () => toast.error("삭제 실패"),
   });
 
+  const DATE_FIELDS = ["발급일", "만기일", "발급", "만기"];
   const handleSave = (form: Record<string, string>) => {
-    if (isNewMode) { addMut.mutate(form); }
-    else { const id = form["고객ID"] || selectedCustomer?.["고객ID"] || ""; updateMut.mutate({ id, data: form }); }
+    const normalized = { ...form };
+    DATE_FIELDS.forEach((f) => { if (normalized[f]) normalized[f] = normalizeDate(normalized[f]); });
+    if (isNewMode) { addMut.mutate(normalized); }
+    else { const id = normalized["고객ID"] || selectedCustomer?.["고객ID"] || ""; updateMut.mutate({ id, data: normalized }); }
   };
 
   return (
