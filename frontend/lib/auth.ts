@@ -17,12 +17,15 @@ export function setUser(user: UserInfo): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("user_info", JSON.stringify(user));
   localStorage.setItem("access_token", user.access_token);
+  // Presence cookie for middleware route guard (not httpOnly — set from JS)
+  document.cookie = "kid_auth=1; path=/; SameSite=Lax";
 }
 
 export function clearUser(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("user_info");
   localStorage.removeItem("access_token");
+  document.cookie = "kid_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
 }
 
 export function isLoggedIn(): boolean {

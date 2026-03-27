@@ -4,7 +4,7 @@
  */
 import axios from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const BASE_URL = "";
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -30,6 +30,7 @@ api.interceptors.response.use(
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
         localStorage.removeItem("user_info");
+        document.cookie = "kid_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         window.location.href = "/login";
       }
     }
