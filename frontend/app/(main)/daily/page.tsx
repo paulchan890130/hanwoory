@@ -701,8 +701,7 @@ export default function DailyPage() {
                                 value={safeInt(ev.income_cash) + safeInt(ev.income_etc) || ""}
                                 onChange={(e) => {
                                   const v = safeInt(e.target.value);
-                                  if (ev.inc_type === "현금") setEditValues((p) => ({ ...p, income_cash: v, income_etc: 0 }));
-                                  else setEditValues((p) => ({ ...p, income_etc: v, income_cash: 0 }));
+                                  setEditValues((p) => ({ ...p, income_cash: v, income_etc: 0 }));
                                 }} />
                             </div>
                           </td>

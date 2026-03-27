@@ -184,11 +184,11 @@ function ActiveTaskRow({
   const handleSave = () => {
     onSave(task.id, {
       category, date, name, work, details,
-      transfer: safeInt(transfer) || 0,
-      cash: safeInt(cash) || 0,
-      card: safeInt(card) || 0,
-      stamp: safeInt(stamp) || 0,
-      receivable: safeInt(receivable) || 0,
+      transfer: String(safeInt(transfer) || 0),
+      cash: String(safeInt(cash) || 0),
+      card: String(safeInt(card) || 0),
+      stamp: String(safeInt(stamp) || 0),
+      receivable: String(safeInt(receivable) || 0),
     });
     setDirty(false);
   };

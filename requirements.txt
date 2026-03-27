@@ -12,4 +12,7 @@ pymupdf
 streamlit-calendar
 holidays
 streamlit-aggrid
-
+fastapi
+uvicorn[standard]
+python-multipart
+python-jose[cryptography]
