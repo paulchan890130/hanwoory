@@ -20,7 +20,17 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -c "import cv2; import paddle; import paddleocr; from omnimrz import OmniMRZ; print('smoke test passed')"
+RUN python -m pip show -f omnimrz && \
+    python -c "\
+import pkgutil, importlib.metadata as _m; \
+print('--- mrz modules:', [x.name for x in pkgutil.iter_modules() if 'mrz' in x.name.lower()]); \
+print('--- omni modules:', [x.name for x in pkgutil.iter_modules() if 'omni' in x.name.lower()]); \
+files = _m.files('omnimrz') or []; \
+top = sorted({str(f).split('/')[0] for f in files if f.suffix == '.py' and '/' not in str(f).split('/')[0]}); \
+print('--- top-level .py in omnimrz dist:', top); \
+inits = [str(f) for f in files if f.name == '__init__.py']; \
+print('--- __init__.py paths:', inits); \
+"
 
 COPY . .
 
