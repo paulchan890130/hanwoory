@@ -141,7 +141,8 @@ async def scan_passport(
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
     import logging, traceback
     _log = logging.getLogger("scan.passport")
-    return {"debug": "passport-route-entered"}
+    img_bytes = await file.read()
+    return {"debug": "passport-file-read-ok", "bytes": len(img_bytes), "content_type": file.content_type}
 
 
 @router.post("/arc")
@@ -154,7 +155,8 @@ async def scan_arc(
     _log = logging.getLogger("scan.arc")
     # A안: fast=True 고정 (OCR 조합 최대 2회, 처리시간 단축)
     # 여권은 parse_passport() 그대로 유지 — 분리 운영
-    return {"debug": "arc-route-entered"}
+    img_bytes = await file.read()
+    return {"debug": "arc-file-read-ok", "bytes": len(img_bytes), "content_type": file.content_type}
 
 
 # ── upsert 요청 스키마 ────────────────────────────────────────────────────────
