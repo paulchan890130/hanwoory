@@ -7,7 +7,6 @@ matplotlib
 PyPDF2
 Pillow
 pytesseract
-git+https://github.com/AzwadFawadHasan/OmniMRZ.git
 paddleocr
 paddlepaddle
 requests
