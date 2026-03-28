@@ -39,8 +39,46 @@ router = APIRouter()
 
 # ── Tesseract 초기화 ──────────────────────────────────────────────────────────
 
+_TESSERACT_INITIALIZED = False
+
+
+def _find_linux_tessdata() -> str:
+    """Return the system tessdata directory on Linux (contains eng/kor/osd)."""
+    candidates = [
+        "/usr/share/tesseract-ocr/5/tessdata",
+        "/usr/share/tesseract-ocr/4/tessdata",
+        "/usr/share/tessdata",
+        "/usr/local/share/tessdata",
+    ]
+    for p in candidates:
+        if os.path.isdir(p) and any(
+            f.endswith(".traineddata") for f in os.listdir(p)
+        ):
+            return p
+    # Last resort: ask tesseract itself
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            ["tesseract", "--print-parameters", "tessedit"],
+            stderr=subprocess.STDOUT, text=True
+        )
+        for line in out.splitlines():
+            if "tessdata" in line.lower() and os.sep in line:
+                parts = line.split()
+                for part in parts:
+                    if "tessdata" in part and os.path.isdir(part):
+                        return part
+    except Exception:
+        pass
+    return candidates[0]  # fallback — may not exist but won't hide eng/kor
+
+
 def _ensure_tesseract():
+    global _TESSERACT_INITIALIZED
     import platform
+    import logging
+    _log = logging.getLogger("scan.tesseract")
+
     try:
         import pytesseract
 
@@ -52,7 +90,6 @@ def _ensure_tesseract():
             TESSERACT_ROOT = r"C:\Program Files\Tesseract-OCR"
             pytesseract.pytesseract.tesseract_cmd = os.path.join(TESSERACT_ROOT, "tesseract.exe")
             sys_tessdata = os.path.join(TESSERACT_ROOT, "tessdata")
-            # ocrb.traineddata가 시스템 tessdata에 없으면 프로젝트 tessdata에서 복사
             ocrb_sys = os.path.join(sys_tessdata, "ocrb.traineddata")
             ocrb_proj = os.path.join(project_tessdata, "ocrb.traineddata")
             if not os.path.exists(ocrb_sys) and os.path.exists(ocrb_proj):
@@ -64,8 +101,30 @@ def _ensure_tesseract():
             os.environ["TESSDATA_PREFIX"] = sys_tessdata + os.sep
         else:
             pytesseract.pytesseract.tesseract_cmd = "tesseract"
-            # Linux: 프로젝트 tessdata를 TESSDATA_PREFIX로 설정
-            os.environ["TESSDATA_PREFIX"] = project_tessdata + os.sep
+            # Linux: use the SYSTEM tessdata so eng/kor/osd remain visible.
+            # Copy ocrb.traineddata into system tessdata if not already there.
+            sys_tessdata = _find_linux_tessdata()
+            ocrb_proj = os.path.join(project_tessdata, "ocrb.traineddata")
+            ocrb_sys = os.path.join(sys_tessdata, "ocrb.traineddata")
+            if os.path.exists(ocrb_proj) and not os.path.exists(ocrb_sys):
+                try:
+                    import shutil
+                    shutil.copy2(ocrb_proj, ocrb_sys)
+                except Exception as copy_err:
+                    _log.warning("ocrb copy failed (%s) — OCR may lack ocrb lang", copy_err)
+            os.environ["TESSDATA_PREFIX"] = sys_tessdata + os.sep
+
+        # Log tessdata state once at startup
+        if not _TESSERACT_INITIALIZED:
+            _TESSERACT_INITIALIZED = True
+            prefix = os.environ.get("TESSDATA_PREFIX", "<unset>")
+            try:
+                langs = pytesseract.get_languages(config="")
+            except Exception:
+                langs = ["<failed to list>"]
+            _log.warning(
+                "[OCR] TESSDATA_PREFIX=%s  available_langs=%s", prefix, langs
+            )
 
         return pytesseract
     except ImportError:

@@ -27,10 +27,17 @@ npm run lint     # ESLint
 
 **Required env files:**
 - Root `.env` — `JWT_SECRET_KEY`, `HANWOORY_ENV` (`local`/`server`), `ALLOWED_ORIGINS`
-- `frontend/.env.local` — `NEXT_PUBLIC_API_URL=http://localhost:8000`
+- `frontend/.env.local` — not required for local dev (axios uses relative `""` base URL; Next.js proxy handles routing)
 - Google service account key at `config.KEY_PATH` (Windows: `C:\Users\66885\Documents\...\hanwoory-9eaa1a4c54d7.json`, Linux: `/etc/secrets/hanwoory-9eaa1a4c54d7.json`)
 
 **Tesseract OCR** must be installed separately for `backend/routers/scan.py` to work.
+
+**Docker** (from repo root):
+```bash
+docker compose build --no-cache frontend   # must rebuild after next.config.js changes
+docker compose up -d
+```
+`API_URL=http://backend:8000` is passed as a build arg to the frontend builder stage so that `next.config.js` rewrites bake in the correct Docker-internal hostname. Changing this value requires a full frontend rebuild — runtime env injection is too late because Next.js bakes rewrites into `.next/routes-manifest.json` at build time.
 
 ---
 
@@ -41,7 +48,7 @@ npm run lint     # ESLint
                   (proxy via next.config.js)
 ```
 
-`next.config.js` proxies all `/api/*` requests to FastAPI, so the frontend only ever calls relative `/api/...` URLs via `frontend/lib/api.ts`.
+`next.config.js` proxies all `/api/*` requests to FastAPI, so the frontend only ever calls relative `/api/...` URLs via `frontend/lib/api.ts`. `api.ts` uses `baseURL: ""` (hardcoded) — never add a `NEXT_PUBLIC_API_URL` env var; it was removed because it caused confusion with the Docker build-arg `API_URL` used by the proxy layer.
 
 ### Backend layout
 
@@ -126,9 +133,15 @@ frontend/app/
 
 All API calls go through `frontend/lib/api.ts` (axios):
 - Attaches `Authorization: Bearer <token>` from `localStorage.getItem("access_token")` on every request
-- Removes `access_token` + `user_info` from localStorage and redirects to `/login` on 401
+- On 401: clears `access_token`, `user_info` from localStorage, clears `kid_auth` cookie, redirects to `/login`
 
 Auth state helpers are in `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLoggedIn`). The `user_info` localStorage key stores the full `UserInfo` object (`login_id`, `tenant_id`, `is_admin`, `office_name`, `access_token`).
+
+**Auth guard — two layers:**
+1. **`frontend/middleware.ts` (Edge, first layer):** checks for `kid_auth` cookie; redirects to `/login` before the page renders if absent. Cannot read localStorage — uses a presence cookie set by `setUser()` and cleared by `clearUser()`.
+2. **`(main)/layout.tsx` (client, second layer):** `useEffect` checks `isLoggedIn()` via localStorage; keeps `ready=false` (blank div, not app content) until auth confirmed; calls `router.replace("/login")` if not logged in.
+
+Public routes: `/login`, `/_next/*`, `/api/*`, static assets. Everything else requires the `kid_auth` cookie. The cookie is not httpOnly — it is a presence signal only; real auth is the JWT validated by FastAPI on every request.
 
 Frontend utilities are in `frontend/lib/utils.ts` (`safeInt`, `formatNumber`, `today`, `cn`).
 
@@ -252,6 +265,19 @@ After clearing or modifying `.next/` (or after dependency changes), delete the f
 
 ---
 
+## Docker build architecture
+
+```
+Dockerfile.frontend (multi-stage):
+  deps    — npm install only
+  builder — receives ARG API_URL → ENV API_URL → npm run build (rewrites baked here)
+  runner  — copies .next/ from builder, runs npm start
+```
+
+`docker-compose.yml` passes `build.args.API_URL: http://backend:8000` to the builder stage AND sets it in `environment:` for the runner (belt-and-suspenders). The critical one is the build arg — the runtime env has no effect on already-built rewrites.
+
+---
+
 ## Migration status
 
 These items are complete — do not redo:
@@ -271,3 +297,5 @@ These items are complete — do not redo:
   - Daily page customer name autocomplete uses `position: fixed` dropdown to escape overflow clipping
   - Daily page new-customer modal appends to `위임내역` on save; `POST /api/customers/{id}/delegation-append`
   - OCR button in new-customer modal uses `router.push('/scan')` — no broken `target="_blank"` new window
+- Docker inter-container routing fixed: `API_URL` build arg in `Dockerfile.frontend` + `docker-compose.yml`; `api.ts` now uses hardcoded `baseURL: ""`
+- Route auth guard: `frontend/middleware.ts` (cookie-based Edge guard) + `kid_auth` cookie lifecycle in `auth.ts`
