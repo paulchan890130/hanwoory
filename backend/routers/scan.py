@@ -142,8 +142,14 @@ async def scan_passport(
     import logging, traceback
     _log = logging.getLogger("scan.passport")
     img_bytes = await file.read()
-    img = _file_to_pil(img_bytes, file.content_type or "")
-    result = parse_passport(img)
+    try:
+        img = _file_to_pil(img_bytes, file.content_type or "")
+    except Exception as exc:
+        return {"debug": "passport-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
+    try:
+        result = parse_passport(img)
+    except Exception as exc:
+        return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
     return {"debug": "passport-parse-done", "result": result}
 
 
@@ -158,8 +164,14 @@ async def scan_arc(
     # A안: fast=True 고정 (OCR 조합 최대 2회, 처리시간 단축)
     # 여권은 parse_passport() 그대로 유지 — 분리 운영
     img_bytes = await file.read()
-    img = _file_to_pil(img_bytes, file.content_type or "")
-    result = parse_arc(img, fast=True)
+    try:
+        img = _file_to_pil(img_bytes, file.content_type or "")
+    except Exception as exc:
+        return {"debug": "arc-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
+    try:
+        result = parse_arc(img, fast=True)
+    except Exception as exc:
+        return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
     return {"debug": "arc-parse-done", "result": result}
 
 
