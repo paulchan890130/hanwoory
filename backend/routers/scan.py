@@ -139,23 +139,31 @@ async def scan_passport(
     user: dict = Depends(get_current_user),
 ):
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
-    import logging, traceback
+    import logging, traceback as _tb
     _log = logging.getLogger("scan.passport")
-    img_bytes = await file.read()
     try:
-        img = _file_to_pil(img_bytes, file.content_type or "")
+        img_bytes = await file.read()
+        try:
+            img = _file_to_pil(img_bytes, file.content_type or "")
+        except Exception as exc:
+            return {"debug": "passport-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
+        try:
+            result = parse_passport(img)
+        except Exception as exc:
+            return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
+        return {
+            "debug": "passport-parse-done",
+            "result": result,
+            "raw_L1": result.pop("_raw_L1", None) if result else None,
+            "raw_L2": result.pop("_raw_L2", None) if result else None,
+        }
     except Exception as exc:
-        return {"debug": "passport-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-    try:
-        result = parse_passport(img)
-    except Exception as exc:
-        return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-    return {
-        "debug": "passport-parse-done",
-        "result": result,
-        "raw_L1": result.pop("_raw_L1", None) if result else None,
-        "raw_L2": result.pop("_raw_L2", None) if result else None,
-    }
+        return {
+            "debug": "passport-route-exception",
+            "error_type": exc.__class__.__name__,
+            "error_message": str(exc),
+            "traceback": _tb.format_exc()[-2000:],
+        }
 
 
 @router.post("/arc")

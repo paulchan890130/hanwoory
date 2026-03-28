@@ -489,15 +489,22 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
 
         L1_fix = doc2 + rem
         name_block = L1_fix[5:] if len(L1_fix) > 5 else ""
-        sep = "<<" if "<<" in name_block else ("<" if "<" in name_block else None)
-        if sep:
-            sur, given = name_block.split(sep, 1)
-            sur = sur.replace("<", " ").strip()
-            given = given.replace("<", " ").strip()
+        # Split on the FIRST run of one-or-more '<' in the name zone.
+        # Preferring '<<' causes failures when the OCR-degraded separator is a single '<'
+        # (e.g. true MRZ 'WU<<LINHU' → noisy read 'WUS<LINHUS<<<'; splitting on the later
+        # '<<' filler swallows both tokens into surname and leaves given name empty).
+        m_sep = re.search(r"<+", name_block)
+        if m_sep:
+            sur_raw = name_block[:m_sep.start()].replace("<", " ").strip()
+            after_sep = name_block[m_sep.end():]
+            m_nxt = re.search(r"<+", after_sep)
+            given_raw = (after_sep[:m_nxt.start()] if m_nxt else after_sep).replace("<", " ").strip()
+            sur = re.sub(r"\s+", " ", sur_raw).strip()
+            given = re.sub(r"\s+", " ", given_raw).strip()
             if sur and not re.search(r"\d", sur):
-                out["성"] = re.sub(r"\s+", " ", sur).strip()
+                out["성"] = sur
             if given and not re.search(r"\d", given):
-                out["명"] = re.sub(r"\s+", " ", given).strip()
+                out["명"] = given
 
     pn = re.sub(r"[^A-Z0-9]", "", L2[0:9])
     if pn:
@@ -1000,6 +1007,30 @@ def _looks_like_korean_address(s: str) -> bool:
     return True
 
 
+def _dedup_address(addr: str) -> str:
+    """Remove duplicate address when OCR reads the same block twice.
+    Detects: '경기도 시흥시 A ... 경기도 시흥시 A ...' → '경기도 시흥시 A ...'
+    Trigger: same province/city marker appears a second time at least 8 chars
+    after the first and at least 1/3 into the string."""
+    if not addr or len(addr) < 16:
+        return addr
+    _prov = r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)"
+    m1 = re.search(_prov, addr)
+    if not m1:
+        return addr
+    search_from = m1.end() + 8
+    if search_from >= len(addr):
+        return addr
+    m2 = re.search(_prov, addr[search_from:])
+    if not m2:
+        return addr
+    cut_pos = search_from + m2.start()
+    if cut_pos < len(addr) // 3:
+        return addr  # second marker too early — not a duplication pattern
+    candidate = addr[:cut_pos].strip(" ,")
+    return candidate if len(candidate) >= 8 else addr
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 7) 등록증 파서 (원본 그대로 — st.session_state 사용 없음)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1278,13 +1309,17 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
 
     best_text, best_sc, best_deg = "", -1, 0
     for deg in (0, 90, 270):
-        im = bot.rotate(deg, expand=True)
+        im = bot.rotate(deg, expand=True) if deg else bot
         t1 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 6")
         t2 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 4")
         t = t1 + "\n" + t2
         sc = _kor_count(t)
         if sc > best_sc:
             best_sc, best_text, best_deg = sc, t, deg
+        # fast mode: ARC cards are nearly always right-side-up on a flatbed scanner.
+        # Skip 90°/270° rotations when deg=0 already yields enough Korean content.
+        if fast and best_sc >= 15:
+            break
     tn_bot = best_text
 
     expiry = _pick_labeled_date(
@@ -1530,5 +1565,9 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         out["등록증"] = front_from_passport
     elif out.get("등록증") and not _valid_yymmdd6(out.get("등록증", "")):
         out.pop("등록증", None)
+
+    # Remove duplicated address text (OCR artefact: same block read twice)
+    if out.get("주소"):
+        out["주소"] = _dedup_address(out["주소"])
 
     return out
