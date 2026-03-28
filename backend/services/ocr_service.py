@@ -803,9 +803,11 @@ def parse_passport(img, fast: bool = False):
                 return txt
         return ""
 
-    # fast=True: only try upright+inverted rotations and a minimal band set.
-    # Worst-case budget: 2 rotations × (1 priority + 1 edge) × 2 Tesseract calls × 1s ≈ 8s.
-    # fast=False: full search (90°/270° + 3 priority + 3 edge + 5 fallback) for local/debug use.
+    # fast=True (server mode): rotations=(0,180), all 3 priority bands, top-2 edge windows.
+    #   Worst-case budget: 2 × (3+2) × 2 calls × 1s = 20s — fits under the 25s route timeout.
+    #   The single-band / single-edge previous fast mode was too narrow: one edge window often
+    #   picked the photo region instead of the MRZ zone, leaving passport1/2 with empty result.
+    # fast=False (full search): 4 rotations + 3 edge + 5 fallback — for local/debug use only.
     rotations = (0, 180) if fast else (0, 90, 270, 180)
     best_L1, best_L2, best_score = None, None, -1
     best_meta = {}
@@ -822,17 +824,18 @@ def parse_passport(img, fast: bool = False):
         joined = ""
         w, h = imr_body.size
 
-        # Priority-0: tight bottom strips covering the MRZ zone.
-        # fast: one band (bottom 20%) — sufficient for standard placements.
-        # full: three bands (16/20/24%) — covers slight crop variation.
-        pct_list = (20,) if fast else (16, 20, 24)
+        # Priority-0: three bottom strips covering the MRZ zone (16/20/24% from bottom).
+        # All three are used in both fast and full mode; they're cheap and cover slight
+        # crop-margin variation that would otherwise cause the MRZ to fall outside a single band.
         priority_bands = []
-        for _pct in pct_list:
+        for _pct in (16, 20, 24):
             _y0 = int(h * (1.0 - _pct / 100.0))
             priority_bands.append((f"bottom{_pct}%_pri", imr_body.crop((0, _y0, w, h))))
 
-        # Edge-density windows: fast uses top-1 only; full uses top-3.
-        top_k = 1 if fast else 3
+        # Edge-density windows: fast uses top-2; full uses top-3.
+        # top-2 keeps the time budget tight while covering the case where the photo region
+        # scores highest in edge density and the MRZ is the second-highest window.
+        top_k = 2 if fast else 3
         bands = list(_mrz_windows_by_edge_density(imr_body, top_k=top_k))
         band_iters = []
         for i, (y0, y1) in enumerate(bands, start=1):
@@ -899,10 +902,19 @@ def parse_passport(img, fast: bool = False):
         if best_score >= 7:
             break
 
-    # best_meta는 Streamlit UI용 디버그 정보 — FastAPI 환경에서는 사용 안 함
-    _ = best_meta
-
     if not best_L1 or not best_L2:
+        # Return compact debug so production can distinguish:
+        # best_score == -1  → no candidate text was extracted at all (image/OCR failure)
+        # best_score >= 0   → candidate text found but check-digit score below threshold
+        if best_score >= 0 and best_meta:
+            return {
+                "_no_mrz": True,
+                "_best_score": best_score,
+                "_best_band": best_meta.get("band", ""),
+                "_best_rot": best_meta.get("rot"),
+                "_best_L1_head": (best_meta.get("L1") or "")[:40],
+                "_best_L2_head": (best_meta.get("L2") or "")[:40],
+            }
         return {}
 
     out = _parse_mrz_pair(best_L1, best_L2)
@@ -1102,28 +1114,41 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         t_top = ""
     tn_top = t_top
 
+    def _valid_arc_back7(s: str) -> bool:
+        """Korean Alien Registration back-7 first digit must be 5–8 (foreign national codes).
+        1–4 = Korean nationals; 5–8 = foreign residents. Rejects OCR noise like '1096860'."""
+        return len(s) == 7 and s[0] in "56789"  # 9 included for newer provisional codes
+
     def _collect_front_num_candidates(front_img: Image.Image, base_text: str):
         cand = []
         dense_chunks = []
         try:
             w, h = front_img.size
+            # Three ROIs covering different card designs:
+            #   pair_line:   upper area — original ARC blue/pink cards put number near top
+            #   mid_number:  middle area — yellow-design and newer cards put number ~35-58% height
+            #   front_only:  lower-left — 6-digit front stamp area on some older layouts
             rois = {
-                "pair_line":  front_img.crop((int(w * 0.40), int(h * 0.05), int(w * 0.92), int(h * 0.24))),
-                "front_only": front_img.crop((int(w * 0.08), int(h * 0.70), int(w * 0.40), int(h * 0.93))),
+                "pair_line":   front_img.crop((int(w * 0.35), int(h * 0.05), int(w * 0.92), int(h * 0.26))),
+                "mid_number":  front_img.crop((int(w * 0.30), int(h * 0.33), int(w * 0.92), int(h * 0.58))),
+                "front_only":  front_img.crop((int(w * 0.08), int(h * 0.68), int(w * 0.42), int(h * 0.93))),
             }
+            # ROI priority weights: mid_number > pair_line > front_only
+            roi_weights = {"pair_line": 8, "mid_number": 10, "front_only": 4}
             for src_name, roi in rois.items():
                 txt = _ocr_digits_line(roi)
                 dense = re.sub(r"(?<=\d)\s+(?=\d)", "", txt or "")
                 if dense:
                     dense_chunks.append(dense)
 
+                w_bonus = roi_weights.get(src_name, 4)
                 for m in re.finditer(r"(?<!\d)(\d{6})\D{0,8}(\d{7})(?!\d)", dense):
                     front, back = m.group(1), m.group(2)
-                    score = 0
+                    if not _valid_arc_back7(back):
+                        continue  # back 7 fails foreign-code validation — skip
+                    score = w_bonus
                     if _valid_yymmdd6(front):
                         score += 10
-                    if src_name == "pair_line":
-                        score += 8
                     if "-" in m.group(0) or "—" in m.group(0) or "–" in m.group(0):
                         score += 2
                     cand.append(("pair", score, front, back, src_name))
@@ -1132,12 +1157,15 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                     front = m.group(1)
                     if not _valid_yymmdd6(front):
                         continue
-                    score = 12 if src_name == "front_only" else 5
+                    score = 12 if src_name == "front_only" else w_bonus - 2
                     cand.append(("front", score, front, "", src_name))
 
                 for m in re.finditer(r"(?<!\d)(\d{7})(?!\d)", dense):
                     back = m.group(1)
-                    score = 6 if src_name == "pair_line" else 2
+                    if not _valid_arc_back7(back):
+                        continue  # reject any lone 7-digit that fails foreign-code check
+                    # Lone back-7 only accepted from pair_line/mid_number with modest score
+                    score = 5 if src_name in ("pair_line", "mid_number") else 1
                     cand.append(("back", score, "", back, src_name))
         except Exception:
             pass
@@ -1286,22 +1314,18 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
 
     def _extract_name_from_roi(img, text_top: str) -> str:
         """
-        Deterministic Korean name extraction from ARC front card.
-        Priority order — return as soon as any level succeeds:
-          1. Parenthesised name found in name-line ROI OCR  → strongest: localised + structured
-          2. Parenthesised name found in full-card OCR text → full-scan match
-          3. Label-adjacent name in full-card OCR text      → "성명 홍길동" pattern
-          4. Return ""                                       → never guess from broad token pool
-
-        The broad token-pool fallback (previously last resort) is intentionally removed:
-        it picked noise tokens like "애냐찌"/"아베" with the same confidence as real names.
-        Returning "" is safer than returning wrong text.
+        Korean name extraction from ARC front card. Priority order:
+          1. Parenthesised name in name-line ROI OCR  — localised + structured
+          2. Parenthesised name in full-card OCR text — full-scan match
+          3. Label-adjacent name in full-card OCR text — "성명 홍길동" pattern
+          4. Best Korean token within the name-line ROI only — geometrically constrained local
+          5. Return ""                                 — never guess from full-card token pool
         """
+        roi_texts = []  # collect for level-4 fallback
         try:
             w, h = img.size
-            # ROI right boundary is 0.95 (not 0.70): the parenthesised Korean name follows
-            # the English name on the same line, placing it at ≈74–80% card width for a
-            # typical 9-char name. The old 0.70 cut it off entirely.
+            # ROI right boundary 0.95: parenthesised Korean name follows the English name on
+            # the same line and starts at ≈74–80% card width for typical 9-char names.
             rois = [
                 img.crop((int(w * 0.26), int(h * 0.25), int(w * 0.95), int(h * 0.46))),
                 img.crop((int(w * 0.22), int(h * 0.20), int(w * 0.95), int(h * 0.53))),
@@ -1315,8 +1339,9 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                 except Exception:
                     pass
                 for psm in (7, 6):
-                    txt = _ocr(g, lang="kor", config=f"--oem 3 --psm {psm}")
-                    m = re.search(r"\(([가-힣]{2,4})\)", txt or "")
+                    txt = _ocr(g, lang="kor", config=f"--oem 3 --psm {psm}") or ""
+                    roi_texts.append(txt)
+                    m = re.search(r"\(([가-힣]{2,4})\)", txt)
                     if m:
                         cand = m.group(1)
                         if cand not in _NAME_BAN and not cand.endswith("출"):
@@ -1337,6 +1362,21 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             cand = m3.group(2)
             if cand not in _NAME_BAN and not cand.endswith("출"):
                 return cand
+
+        # Level 4: local ROI token fallback.
+        # ONLY tokens from within the name-line ROI — geometrically constrained to the
+        # name area. NOT full-card text. Prefers 3-char tokens (most Korean names).
+        # This is structurally different from the old broad full-card token pool.
+        roi_pool: list[tuple[int, str]] = []
+        for txt in roi_texts:
+            for tok in re.findall(r"[가-힣]{2,4}", txt):
+                tok = _normalize_hangul_name(tok)
+                if tok and tok not in _NAME_BAN and not tok.endswith("출"):
+                    priority = 1 if len(tok) == 3 else 0  # 3-char names most common
+                    roi_pool.append((priority, tok))
+        if roi_pool:
+            roi_pool.sort(key=lambda x: x[0], reverse=True)
+            return roi_pool[0][1]
 
         return ""
 
@@ -1429,22 +1469,42 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         s = _clean_addr_line(s)
         if _is_junk_addr_line(s):
             return -1.0
-        has_lvl  = bool(re.search(r"(도|시|군|구)", s))
-        has_road = bool(re.search(r"(로|길|번길|대로)", s))
-        has_num  = bool(re.search(r"\d", s))
-        has_unit = bool(re.search(r"(동|호|층|#\d+)", s))
+        has_lvl   = bool(re.search(r"(도|시|군|구)", s))
+        has_road  = bool(re.search(r"(로|길|번길|대로)", s))
+        has_num   = bool(re.search(r"\d", s))
+        has_unit  = bool(re.search(r"(동|호|층|#\d+)", s))
+        province_re = r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)"
+        has_province = bool(re.search(province_re, s))
         score = 0.0
         score += _kor_count(s) * 2.0
         score += 6.0 if has_lvl else 0.0
         score += 9.0 if has_road else 0.0
         score += 4.0 if has_num else 0.0
         score += 3.0 if has_unit else 0.0
-        score += 6.0 if re.search(r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", s) else 0.0
+        score += 6.0 if has_province else 0.0
         score += min(len(s), 60) / 12.0
+        # Province/city near the start of the string — strong structural signal
+        if re.match(r"^.{0,10}" + province_re, s):
+            score += 4.0
+        # Full structure: province + road + number + unit all present
+        if has_province and has_road and has_num and has_unit:
+            score += 6.0
+        # No road but has admin-level word — slightly suspicious
+        if has_lvl and not has_road:
+            score -= 4.0
         if len(s) < 8:
             score -= 5.0
-        if re.match(r"^\d{1,4}[.\-/]\d{1,2}[.\-/]\d{1,2}", s):
-            score -= 6.0
+        # Line starts with a date pattern (YYYY.MM.DD or YY.MM.DD etc.)
+        if re.match(r"^\d{2,4}[.\-/]\d{1,2}[.\-/]\d{1,2}", s):
+            score -= 12.0
+        # Line contains 2 or more date-like fragments anywhere
+        date_frags = re.findall(r"\d{1,4}[.\-/]\d{1,2}[.\-/]\d{1,2}", s)
+        if len(date_frags) >= 2:
+            score -= 8.0
+        # Punctuation-density penalty: >20% of chars are punctuation/special
+        punct_chars = sum(1 for c in s if not c.isalnum() and c not in (" ", "·"))
+        if len(s) > 0 and punct_chars / len(s) > 0.20:
+            score -= 8.0
         return score
 
     def _merge_addr_lines(lines: list) -> list:
