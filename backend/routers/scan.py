@@ -143,7 +143,8 @@ async def scan_passport(
     _log = logging.getLogger("scan.passport")
     img_bytes = await file.read()
     img = _file_to_pil(img_bytes, file.content_type or "")
-    return {"debug": "passport-file-to-pil-ok", "size": [img.width, img.height], "content_type": file.content_type}
+    result = parse_passport(img)
+    return {"debug": "passport-parse-done", "result": result}
 
 
 @router.post("/arc")
@@ -158,7 +159,8 @@ async def scan_arc(
     # 여권은 parse_passport() 그대로 유지 — 분리 운영
     img_bytes = await file.read()
     img = _file_to_pil(img_bytes, file.content_type or "")
-    return {"debug": "arc-file-to-pil-ok", "size": [img.width, img.height], "content_type": file.content_type}
+    result = parse_arc(img, fast=True)
+    return {"debug": "arc-parse-done", "result": result}
 
 
 # ── upsert 요청 스키마 ────────────────────────────────────────────────────────
