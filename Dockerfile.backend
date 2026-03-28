@@ -12,6 +12,7 @@ RUN apt-get update && \
         libgl1 \
         libgomp1 \
         poppler-utils \
+        git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -19,12 +20,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -c "\
-import cv2; \
-import paddle; \
-import paddleocr; \
-from omnimrz import OmniMRZ; \
-print('smoke test passed')"
+RUN python -c "import cv2; import paddle; import paddleocr; from omnimrz import OmniMRZ; print('smoke test passed')"
 
 COPY . .
 

@@ -1,46 +1,39 @@
-여권1
-Internal Server Error
-여권2
-{"debug":"passport-parse-done","result":{},"raw_L1":null,"raw_L2":null}
-여권3
-    "debug": "passport-parse-done",
-    "result": {
-        "성": "WU",
-        "명": "LINHU",
-        "성별": "남",
-        "국가": "CHN",
-        "국적": "CHN",
-        "여권": "EQ8922978",
-        "발급": "2026-02-11",
-        "만기": "2036-02-10",
-        "생년월일": "1974-06-28"
-    },
-    "raw_L1": "POCHNWUS<LINHUS<<<C<K6KEKKKKE<<<<<<<<<<<<<<<",
-    "raw_L2": "EQ89229787CHN7406287M3602106MO0CMBNGLLKCA972"
-등록증 1
-Internal Server Error
-등록증2
-{
-    "debug": "arc-parse-done",
-    "result": {
-        "번호": "6760193",
-        "발급일": "2023-11-02",
-        "만기일": "2026-10-29",
-        "주소": "2023711.27 형도 시 고 9불로130 은 아아아 20 오시 들"
-    }
-}
-등록증3
-{
-    "debug": "arc-parse-done",
-    "result": {
-        "번호": "1096860",
-        "한글": "고동운",
-        "만기일": "2026-06-17",
-        "주소": "경기도 앤산시 단원구 신질즘앙로4길 111.109호신길동)"
-    }
-}
-
-
-1. 여권1, 2 안되는 문제 시급, 속도도 개선 필요해 너무 느려
-2. 등록증3 샘플 추가함 등록증 뒷번호 말도안되게 나오는데 
-3. 등록증1의 한글이름 추출 못하는게 이해안간다
+#10 38.53 Installing collected packages: pytz, python-decouple, python-bidi, py-cpuinfo, websockets, wcwidth, watchdog, uvloop, urllib3, uritemplate, ujson, tzdata, typing-extensions, tqdm, tornado, toml, tenacity, smmap, six, shellingham, safetensors, ruamel.yaml, rpds-py, PyYAML, python-multipart, python-dotenv, pypdfium2, PyPDF2, pyparsing, pymupdf, pygments, pycryptodome, pycparser, pyclipper, pyasn1, pyarrow, psutil, protobuf, Pillow, packaging, oauthlib, numpy, networkx, narwhals, mdurl, MarkupSafe, kiwisolver, imagesize, idna, httptools, hf-xet, h11, future, fsspec, fonttools, filelock, cycler, crc32c, colorlog, click, charset_normalizer, chardet, certifi, cachetools, blinker, attrs, annotated-types, annotated-doc, uvicorn, typing-inspection, shapely, scipy, rsa, requests, referencing, python-dateutil, pytesseract, pydantic-core, pyasn1-modules, proto-plus, prettytable, opt_einsum, opencv-python, opencv-contrib-python, markdown-it-py, jinja2, httplib2, httpcore, googleapis-common-protos, gitdb, ecdsa, contourpy, cffi, bce-python-sdk, anyio, watchfiles, starlette, ScreenshotScanner, rich, requests-oauthlib, python-jose, pydeck, pydantic, pandas, modelscope, matplotlib, jsonschema-specifications, httpx, holidays, gitpython, cryptography, aistudio-sdk, typer, paddlepaddle, jsonschema, google-auth, fastapi, huggingface-hub, google-auth-oauthlib, google-auth-httplib2, google-api-core, altair, streamlit, paddlex, gspread, google-api-python-client, streamlit-calendar, streamlit-aggrid, paddleocr, omnimrz
+Menu
+#10 111.1 Successfully installed MarkupSafe-3.0.3 Pillow-12.1.1 PyPDF2-3.0.1 PyYAML-6.0.2 ScreenshotScanner-0.1.2 aistudio-sdk-0.3.8 altair-6.0.0 annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.13.0 attrs-26.1.0 bce-python-sdk-0.9.67 blinker-1.9.0 cachetools-7.0.5 certifi-2026.2.25 cffi-2.0.0 chardet-7.4.0.post1 charset_normalizer-3.4.6 click-8.3.1 colorlog-6.10.1 contourpy-1.3.3 crc32c-2.8 cryptography-46.0.6 cycler-0.12.1 ecdsa-0.19.2 fastapi-0.135.2 filelock-3.25.2 fonttools-4.62.1 fsspec-2026.3.0 future-1.0.0 gitdb-4.0.12 gitpython-3.1.46 google-api-core-2.30.0 google-api-python-client-2.193.0 google-auth-2.49.1 google-auth-httplib2-0.3.0 google-auth-oauthlib-1.3.0 googleapis-common-protos-1.73.1 gspread-6.2.1 h11-0.16.0 hf-xet-1.4.2 holidays-0.93 httpcore-1.0.9 httplib2-0.31.2 httptools-0.7.1 httpx-0.28.1 huggingface-hub-1.8.0 idna-3.11 imagesize-2.0.0 jinja2-3.1.6 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 kiwisolver-1.5.0 markdown-it-py-4.0.0 matplotlib-3.10.8 mdurl-0.1.2 modelscope-1.35.3 narwhals-2.18.1 networkx-3.6.1 numpy-2.4.3 oauthlib-3.3.1 omnimrz-0.2.1 opencv-contrib-python-4.10.0.84 opencv-python-4.13.0.92 opt_einsum-3.3.0 packaging-26.0 paddleocr-3.4.0 paddlepaddle-3.3.1 paddlex-3.4.3 pandas-2.3.3 prettytable-3.17.0 proto-plus-1.27.2 protobuf-6.33.6 psutil-7.2.2 py-cpuinfo-9.0.0 pyarrow-23.0.1 pyasn1-0.6.3 pyasn1-modules-0.4.2 pyclipper-1.4.0 pycparser-3.0 pycryptodome-3.23.0 pydantic-2.12.5 pydantic-core-2.41.5 pydeck-0.9.1 pygments-2.19.2 pymupdf-1.27.2.2 pyparsing-3.3.2 pypdfium2-5.6.0 pytesseract-0.3.13 python-bidi-0.6.7 python-dateutil-2.9.0.post0 python-decouple-3.8 python-dotenv-1.2.2 python-jose-3.5.0 python-multipart-0.0.22 pytz-2026.1.post1 referencing-0.37.0 requests-2.33.0 requests-oauthlib-2.0.0 rich-14.3.3 rpds-py-0.30.0 rsa-4.9.1 ruamel.yaml-0.19.1 safetensors-0.7.0 scipy-1.17.1 shapely-2.1.2 shellingham-1.5.4 six-1.17.0 smmap-5.0.3 starlette-1.0.0 streamlit-1.55.0 streamlit-aggrid-1.2.1.post2 streamlit-calendar-1.4.0 tenacity-9.1.4 toml-0.10.2 tornado-6.5.5 tqdm-4.67.3 typer-0.24.1 typing-extensions-4.15.0 typing-inspection-0.4.2 tzdata-2025.3 ujson-5.12.0 uritemplate-4.2.0 urllib3-2.6.3 uvicorn-0.42.0 uvloop-0.22.1 watchdog-6.0.0 watchfiles-1.1.1 wcwidth-0.6.0 websockets-16.0
+#10 111.1 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#10 111.3 
+#10 111.3 [notice] A new release of pip is available: 24.0 -> 26.0.1
+#10 111.3 [notice] To update, run: pip install --upgrade pip
+#10 DONE 113.7s
+#11 [6/7] RUN python -c "import cv2; import paddle; import paddleocr; from omnimrz import OmniMRZ; print('smoke test passed')"
+#11 2.281 /usr/local/lib/python3.11/site-packages/paddle/utils/cpp_extension/extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+#11 2.281   warnings.warn(warning_message)
+#11 3.991 Checking connectivity to the model hosters, this may take a while. To bypass this check, set `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK` to `True`.
+#11 8.351 [2026-03-28 14:11:42,917] [    INFO] font_manager.py:1639 - generated new fontManager
+#11 9.841 Traceback (most recent call last):
+#11 9.841   File "<string>", line 1, in <module>
+#11 9.841 ModuleNotFoundError: No module named 'omnimrz'
+#11 ERROR: process "/bin/sh -c python -c \"import cv2; import paddle; import paddleocr; from omnimrz import OmniMRZ; print('smoke test passed')\"" did not complete successfully: exit code: 1
+------
+ > [6/7] RUN python -c "import cv2; import paddle; import paddleocr; from omnimrz import OmniMRZ; print('smoke test passed')":
+2.281 /usr/local/lib/python3.11/site-packages/paddle/utils/cpp_extension/extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+2.281   warnings.warn(warning_message)
+3.991 Checking connectivity to the model hosters, this may take a while. To bypass this check, set `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK` to `True`.
+8.351 [2026-03-28 14:11:42,917] [    INFO] font_manager.py:1639 - generated new fontManager
+9.841 Traceback (most recent call last):
+9.841   File "<string>", line 1, in <module>
+9.841 ModuleNotFoundError: No module named 'omnimrz'
+------
+Dockerfile.backend:22
+--------------------
+  21 |     
+  22 | >>> RUN python -c "\
+  23 | >>> import cv2; \
+  24 | >>> import paddle; \
+  25 | >>> import paddleocr; \
+  26 | >>> from omnimrz import OmniMRZ; \
+  27 | >>> print('smoke test passed')"
+  28 |     
+--------------------
+error: failed to solve: process "/bin/sh -c python -c \"import cv2; import paddle; import paddleocr; from omnimrz import OmniMRZ; print('smoke test passed')\"" did not complete successfully: exit code: 1
