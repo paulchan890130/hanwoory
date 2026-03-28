@@ -139,14 +139,35 @@ async def scan_passport(
     user: dict = Depends(get_current_user),
 ):
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
-    _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
+    import logging, traceback
+    _log = logging.getLogger("scan.passport")
+    _ensure_tesseract()
     try:
         img_bytes = await file.read()
-        img = _file_to_pil(img_bytes, file.content_type or "")
+        _log.warning(
+            "[OCR][passport] file=%r content_type=%r bytes=%d",
+            file.filename, file.content_type, len(img_bytes),
+        )
+        try:
+            img = _file_to_pil(img_bytes, file.content_type or "")
+            _log.warning("[OCR][passport] PIL ok  size=%s mode=%s", img.size, img.mode)
+        except Exception as pil_err:
+            _log.error("[OCR][passport] _file_to_pil FAILED: %s\n%s",
+                       pil_err, traceback.format_exc())
+            raise
         result = parse_passport(img)
+        _log.warning(
+            "[OCR][passport] parser result: empty=%s has_error=%s keys=%s",
+            not result,
+            bool(result and result.get("error")),
+            list(result.keys()) if result else [],
+        )
         return result or {"error": "파싱 실패 - MRZ를 인식하지 못했습니다."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR 오류: {str(e)}")
+        _log.error("[OCR][passport] EXCEPTION %s: %s\n%s",
+                   type(e).__name__, e, traceback.format_exc())
+        raise HTTPException(status_code=500,
+                            detail=f"OCR 오류 [{type(e).__name__}]: {e}")
 
 
 @router.post("/arc")
@@ -155,16 +176,37 @@ async def scan_arc(
     user: dict = Depends(get_current_user),
 ):
     """외국인등록증 이미지 → 정보 추출"""
+    import logging, traceback
+    _log = logging.getLogger("scan.arc")
     # A안: fast=True 고정 (OCR 조합 최대 2회, 처리시간 단축)
     # 여권은 parse_passport() 그대로 유지 — 분리 운영
-    _ensure_tesseract()   # ← Tesseract 경로 + tessdata 경로 설정
+    _ensure_tesseract()
     try:
         img_bytes = await file.read()
-        img = _file_to_pil(img_bytes, file.content_type or "")
+        _log.warning(
+            "[OCR][arc] file=%r content_type=%r bytes=%d",
+            file.filename, file.content_type, len(img_bytes),
+        )
+        try:
+            img = _file_to_pil(img_bytes, file.content_type or "")
+            _log.warning("[OCR][arc] PIL ok  size=%s mode=%s", img.size, img.mode)
+        except Exception as pil_err:
+            _log.error("[OCR][arc] _file_to_pil FAILED: %s\n%s",
+                       pil_err, traceback.format_exc())
+            raise
         result = parse_arc(img, fast=True)
+        _log.warning(
+            "[OCR][arc] parser result: empty=%s has_error=%s keys=%s",
+            not result,
+            bool(result and result.get("error")),
+            list(result.keys()) if result else [],
+        )
         return result or {"error": "파싱 실패"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR 오류: {str(e)}")
+        _log.error("[OCR][arc] EXCEPTION %s: %s\n%s",
+                   type(e).__name__, e, traceback.format_exc())
+        raise HTTPException(status_code=500,
+                            detail=f"OCR 오류 [{type(e).__name__}]: {e}")
 
 
 # ── upsert 요청 스키마 ────────────────────────────────────────────────────────
