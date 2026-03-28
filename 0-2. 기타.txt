@@ -1,22 +1,44 @@
-● All 4 changes are clean. Summary of what was applied:
+등록증1
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "740121",
+        "번호": "5100039",
+        "한글": "방문취",
+        "만기일": "2025-04-09",
+        "주소": "경기도 시총시 큰슬로56번길 9-"
+    }
+}
+등록증2
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "번호": "6760193",
+        "발급일": "2023-11-02",
+        "한글": "바서",
+        "만기일": "2026-10-29",
+        "주소": "경기도. 시총 가 .12.05 4008긴 2070. 202오 녁"
+    }
+}
+여권1, 여권2
+응답 : Internal Server Error	미리보기 : Internal Server Error
+여권3
+{
+    "debug": "passport-parse-done",
+    "result": {
+        "성": "WU",
+        "명": "LINHU",
+        "성별": "남",
+        "국가": "CHN",
+        "국적": "CHN",
+        "여권": "EQ8922978",
+        "발급": "2026-02-11",
+        "만기": "2036-02-10",
+        "생년월일": "1974-06-28"
+    },
+    "raw_L1": "POCHNWU<<LINHU<<<<<<<<<<<<<<<<<<<<<<EKEKK<<<",
+    "raw_L2": "EQ89229787CHN7406287M3602106MOOCMBNGLLKCA972"
+}
 
-  ---
-  A. Frontend stale ARC state (scan/page.tsx:146-151)
-  Changed all 6 ARC field assignments from truthy-only if (d.xxx) setXxx(d.xxx) to unconditional setXxx(d.xxx ?? ""). A
-  new scan that omits a field now clears the previous value instead of leaving stale data.
-
-  B. Passport trailing S/C cleanup (ocr_service.py)
-  - Added _strip_mrz_trail(name) at line 952: strips single trailing S or C only when result would still be ≥2 chars.
-  PIAOS → PIAO, JINDANC → JINDAN.
-  - Applied at lines 504-505, after whitespace normalization but before the digit guard.
-
-  D1. ARC back rotation metric (ocr_service.py)
-  - Added _kor_word_score(s) at line 944: counts sum of lengths of 3+ char Korean sequences. Test evidence: wrong
-  rotation scores 6-12, correct rotation scores 93-115.
-  - Rotation loop now uses _kor_word_score(t) instead of _kor_count(t).
-  - Fast-break threshold changed from >= 15 (raw char count, too easily hit by garbled deg=0) to >= 40 (word score, only
-   correct orientation clears this).
-
-  C. Passport1 500 error — no code change needed; the outer try/except wrapper returning
-  {"debug":"passport-route-exception",...} was already applied last session. If it's still returning 500 on Render, it's
-   a stale deployment — needs a redeploy.
+1. 여권 mzr위치 좌표를 여권3을 기준으로 특정해놓은거아냐? 좀 틀어지거나 위치 다르면 아예 못읽는데
+2. 등록증은 주소는 좀 좋아졌고 한글성명을 너무 못뽑는다

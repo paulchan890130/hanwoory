@@ -57,10 +57,14 @@ _NAME_BAN = {
     "외국", "국내", "거소", "신고", "증", "재외동포", "재외동", "외동포",
     "재외", "동포", "국적", "주소", "발급", "발급일", "발급일자",
     "만기", "체류", "자격", "종류", "성명", "이름", "사력",
-    # Added: common card-label OCR noise found in benchmark
+    # Common card-label OCR noise found in benchmark
     "국가", "지역", "발금", "발금일", "발금일자", "체류자", "체류파", "제류자",
     "발급원", "받큼일", "소신고", "겁소고", "재위동", "재외등", "체등자", "체륭자",
     "개류자", "력재외", "송영지",
+    # Visa-status label fragments that OCR mistakes for names.
+    # "방문취" = first 3 chars of 방문취업(H-2); "방문취업", "방문취" both must be banned.
+    "방문취", "방문취업", "바서", "취업", "취업가", "비전문",
+    "재외동", "동포비", "전문직",
 }
 
 
@@ -805,8 +809,15 @@ def parse_passport(img):
 
     for rot in rotations:
         imr = img.rotate(rot, expand=True) if rot else img
+        # Re-crop to passport body AFTER each rotation.
+        # Reasons: (1) the initial _crop_to_content_bbox may have left scanner whitespace if the
+        # background is dark or the passport is centered in a large scan; (2) rotate(expand=True)
+        # adds black-fill padding whose size depends on the image aspect ratio, shifting all body
+        # percentages. Re-cropping here makes every % calculation relative to the actual
+        # document edges rather than to the rotated+padded canvas.
+        imr_body = _crop_to_content_bbox(imr)
         joined = ""
-        w, h = imr.size
+        w, h = imr_body.size
 
         # Priority-0: tight bottom strips covering the MRZ zone (bottom 16–24%).
         # These are tried BEFORE edge-density windows because MRZ is always in
@@ -814,13 +825,13 @@ def parse_passport(img):
         priority_bands = []
         for _pct in (16, 20, 24):
             _y0 = int(h * (1.0 - _pct / 100.0))
-            priority_bands.append((f"bottom{_pct}%_pri", imr.crop((0, _y0, w, h))))
+            priority_bands.append((f"bottom{_pct}%_pri", imr_body.crop((0, _y0, w, h))))
 
-        bands = list(_mrz_windows_by_edge_density(imr, top_k=3))
+        bands = list(_mrz_windows_by_edge_density(imr_body, top_k=3))
         band_iters = []
         for i, (y0, y1) in enumerate(bands, start=1):
             label = f"edge#{i} {int(100*y0/h)}-{int(100*y1/h)}%"
-            band_iters.append((label, imr.crop((0, y0, w, y1))))
+            band_iters.append((label, imr_body.crop((0, y0, w, y1))))
 
         fallback_added = False
 
@@ -856,7 +867,7 @@ def parse_passport(img):
 
         if best_score < 7 and not fallback_added:
             fallback_added = True
-            for label, band in _iter_mrz_candidate_bands(imr):
+            for label, band in _iter_mrz_candidate_bands(imr_body):
                 if label.startswith("edge#"):
                     continue
                 txt = _tess_string(
@@ -1270,9 +1281,13 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         cands = []
         try:
             w, h = img.size
+            # Right boundary extended to 0.95: on a standard ARC card the parenthesized Korean
+            # name "(홍길동)" follows the English name on the same line. The English name can
+            # span ~35–75% of card width, putting the opening paren at ≈74–80%. The old
+            # boundary of 0.70 cut off before it. 0.95 is safe — right card margin is ~5%.
             rois = [
-                img.crop((int(w * 0.26), int(h * 0.28), int(w * 0.70), int(h * 0.50))),
-                img.crop((int(w * 0.22), int(h * 0.24), int(w * 0.74), int(h * 0.54))),
+                img.crop((int(w * 0.26), int(h * 0.25), int(w * 0.95), int(h * 0.46))),
+                img.crop((int(w * 0.22), int(h * 0.20), int(w * 0.95), int(h * 0.53))),
             ]
             for idx, roi in enumerate(rois):
                 g = ImageOps.grayscale(roi)
@@ -1284,6 +1299,13 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                     pass
                 for psm in (7, 6):
                     txt = _ocr(g, lang="kor", config=f"--oem 3 --psm {psm}")
+                    # Check for parenthesised Korean name in ROI text first.
+                    # This is the strongest possible signal — return immediately on match.
+                    m_roi = re.search(r"\(([가-힣]{2,4})\)", txt or "")
+                    if m_roi:
+                        cand = m_roi.group(1)
+                        if cand not in _NAME_BAN and not cand.endswith("출"):
+                            return cand
                     for tok in re.findall(r"[가-힣]{2,4}", txt or ""):
                         tok = _normalize_hangul_name(tok)
                         if tok:
@@ -1294,8 +1316,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         except Exception:
             pass
 
-        # Parentheses pattern "(홍길동)" is the most reliable ARC name signal — return immediately.
-        # Score-pool approach let ROI noise (score ≤ 13) beat a correct parentheses match (score 5).
+        # Full-card OCR parentheses fallback — "(홍길동)" from the complete top-half OCR.
         text_name = _extract_kor_name_strict(text_top)
         if text_name:
             return text_name
