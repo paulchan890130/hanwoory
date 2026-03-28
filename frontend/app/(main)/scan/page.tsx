@@ -100,7 +100,7 @@ export default function ScanPage() {
       const res = await api.post<PassportOcr>("/api/scan/passport", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const d = res.data;
+      const d = (res.data as any).result ?? res.data;
       if (d.error) {
         toast.error(d.error);
       } else {
@@ -137,7 +137,7 @@ export default function ScanPage() {
       const res = await api.post<ArcOcr>("/api/scan/arc", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const d = res.data;
+      const d = (res.data as any).result ?? res.data;
       if (d.error) {
         toast.error(d.error);
       } else {
