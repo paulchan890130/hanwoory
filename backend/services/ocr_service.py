@@ -782,22 +782,103 @@ def _iter_mrz_candidate_bands(im: Image.Image):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5) 여권 파서 (st.session_state 제거 — 디버그 로그를 로컬 리스트로 대체)
+# 5) 여권 파서
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _passport_tess_mrz(img: Image.Image) -> dict | None:
+    """
+    Tesseract + ocrb 기반 여권 MRZ 파서 (빠른 경로, ~1-3s).
+
+    _iter_mrz_candidate_bands / _prep_mrz / _tess_string / find_best_mrz_pair_from_text /
+    _parse_mrz_pair 를 활용하는 기존 MRZ 파이프라인.
+
+    반환: 파싱 성공(여권번호 확보) 시 표준 필드 dict, 실패 시 None.
+    """
+    if pytesseract is None:
+        return None
+
+    best_parsed: dict | None = None
+    best_sc = -1
+
+    for _, band in _iter_mrz_candidate_bands(img):
+        prep = _prep_mrz(band)
+        for lang in ("ocrb", "eng"):
+            txt = _tess_string(prep, lang, "--oem 3 --psm 6", timeout_s=5)
+            if not txt:
+                continue
+            L1, L2, sc = find_best_mrz_pair_from_text(txt)
+            if sc > best_sc:
+                parsed = _parse_mrz_pair(L1, L2) if (L1 and L2) else {}
+                if parsed.get("여권"):
+                    # 여권번호까지 확보된 경우만 최적 후보로 채택
+                    best_sc = sc
+                    best_parsed = parsed
+                elif sc > best_sc:
+                    # 여권번호 없어도 score 갱신은 유지 (다른 밴드 탐색 우선순위용)
+                    best_sc = sc
+            if best_parsed and best_sc >= 8:
+                break  # 충분히 높은 score + 여권번호 확보 → 조기 종료
+        if best_parsed and best_sc >= 8:
+            break
+
+    if not best_parsed:
+        return None
+
+    nat = best_parsed.get("국가", "") or best_parsed.get("국적", "")
+    return {
+        "성":       best_parsed.get("성", ""),
+        "명":       best_parsed.get("명", ""),
+        "성별":     best_parsed.get("성별", ""),
+        "국가":     nat,
+        "국적":     nat,
+        "여권":     best_parsed.get("여권", ""),
+        "발급":     best_parsed.get("발급", ""),
+        "만기":     best_parsed.get("만기", ""),
+        "생년월일": best_parsed.get("생년월일", ""),
+        "_raw_L1":  None,
+        "_raw_L2":  None,
+    }
+
+
+def _omni_mrz_from_data(data: dict) -> dict:
+    """OmniMRZ parsed_data.data → 표준 필드 dict."""
+    surname     = (data.get("surname")        or "").replace("<", "").strip()
+    given_names = (data.get("given_names")    or "").replace("<", " ").strip()
+    gender      = (data.get("gender")         or "").strip()
+    country     = (data.get("issuing_country") or "").strip()
+    nationality = (data.get("nationality")    or country).strip()
+    doc_number  = (data.get("document_number") or "").replace("<", "").strip()
+    expiry      = (data.get("expiry_date")    or "").strip()
+    dob         = (data.get("date_of_birth")  or "").strip()
+    return {
+        "성":       surname,
+        "명":       given_names,
+        "성별":     gender,
+        "국가":     country,
+        "국적":     nationality,
+        "여권":     doc_number,
+        "발급":     "",
+        "만기":     expiry,
+        "생년월일": dob,
+        "_raw_L1":  None,
+        "_raw_L2":  None,
+    }
+
 
 def parse_passport(img, fast: bool = False):
     """
-    여권 MRZ(TD3) 전용 파서 — OmniMRZ (PaddleOCR) 기반.
+    여권 MRZ(TD3) 파서.
 
-    OmniMRZ automatically locates and OCRs the MRZ using PaddleOCR.
-    No Tesseract required for passport parsing.
+    전략 (Render 타임아웃 대응):
+    1. Tesseract+ocrb MRZ (항상 즉시 실행, ~1-3s) — 성공 시 바로 반환.
+    2. OmniMRZ (PaddleOCR) — 이미 로딩된 경우에만 시도(비블로킹).
+       모델 미로딩 상태에서는 완전히 건너뜀 (20-40s 콜드스타트 회피).
 
     Input:  PIL.Image (RGB)
     Output: dict with keys 성, 명, 성별, 국가, 국적, 여권, 발급, 만기, 생년월일
             or {"_no_mrz": True, ...} on failure.
 
-    발급 (issue date): MRZ TD3 does not encode the issue date — this field
-    is always returned as "" and must be filled manually if needed.
+    발급 (issue date): MRZ TD3 미포함 — 항상 "" 반환.
     """
     if img is None:
         return {}
@@ -815,7 +896,21 @@ def parse_passport(img, fast: bool = False):
     if scale < 1.0:
         img = img.resize((int(w0 * scale), int(h0 * scale)), resample=_PILImage.BILINEAR)
 
-    # ── OmniMRZ call ──────────────────────────────────────────────────────────
+    # ── 1차: Tesseract MRZ (빠른 경로, ~1-3s) ─────────────────────────────────
+    tess_result = _passport_tess_mrz(img)
+    if tess_result:
+        return tess_result
+
+    # ── 2차: OmniMRZ — 이미 로딩된 경우에만 (비블로킹 체크) ───────────────────
+    # _omni_mrz_instance 는 모듈 레벨 변수; Python GIL로 읽기는 atomic.
+    # None이면 아직 프리웜 중이거나 실패 — 블로킹 없이 완전 스킵.
+    if _omni_mrz_instance is None:
+        return {
+            "_no_mrz": True,
+            "_best_score": -1,
+            "_rescue_band": "tess_no_mrz_omni_not_loaded",
+            "_rescue_band_alen": 0,
+        }
 
     try:
         omni = _get_omni_mrz()
@@ -823,10 +918,6 @@ def parse_passport(img, fast: bool = False):
         return {"_no_mrz": True, "_parse_error": f"OmniMRZ init failed: {exc}"}
 
     def _try_omni(pil_img):
-        """
-        PIL Image → numpy RGB array → OmniMRZ.process().
-        Returns parsed_data.data dict on success, None on failure.
-        """
         try:
             import numpy as _np
             arr = _np.array(pil_img.convert("RGB"))
@@ -839,10 +930,7 @@ def parse_passport(img, fast: bool = False):
         except Exception:
             return None
 
-    # Try 0° first, then rotations.
-    # OmniMRZ handles minor skew internally but not 90°/180° cardinal rotations.
-    # fast=True: try 0° + 180° only (two most common scan orientations, ≤ ~4 s each).
-    # fast=False: try all four rotations.
+    # OmniMRZ: 0° → 180° (fast=True) 또는 전방향 (fast=False)
     data = _try_omni(img)
     if data is None:
         rotations = (180,) if fast else (180, 90, 270)
@@ -859,54 +947,7 @@ def parse_passport(img, fast: bool = False):
             "_rescue_band_alen": 0,
         }
 
-    # ── Map OmniMRZ fields → response schema ──────────────────────────────────
-    # OmniMRZ returns dates as ISO YYYY-MM-DD strings — no conversion needed.
-    # Field mapping:
-    #   surname       → 성   (family name, already without filler '<')
-    #   given_names   → 명   (given names, space-separated)
-    #   gender        → 성별
-    #   issuing_country → 국가
-    #   nationality   → 국적
-    #   document_number → 여권
-    #   expiry_date   → 만기  (ISO YYYY-MM-DD)
-    #   date_of_birth → 생년월일 (ISO YYYY-MM-DD)
-    #
-    # MRZ TD3 Line2 layout (ICAO 9303):
-    #   pos 0–8   document number
-    #   pos 9     check digit
-    #   pos 10–12 nationality
-    #   pos 13–18 DOB (YYMMDD)
-    #   pos 19    check digit
-    #   pos 20    sex
-    #   pos 21–26 expiry (YYMMDD)
-    #   pos 27    check digit
-    #   pos 28–41 personal number / optional data
-    #   pos 42    check digit
-    #   pos 43    composite check digit
-    # Issue date is NOT present anywhere in MRZ — 발급 is always "".
-
-    surname     = (data.get("surname")          or "").replace("<", "").strip()
-    given_names = (data.get("given_names")       or "").replace("<", " ").strip()
-    gender      = (data.get("gender")            or "").strip()
-    country     = (data.get("issuing_country")   or "").strip()
-    nationality = (data.get("nationality")       or country).strip()
-    doc_number  = (data.get("document_number")   or "").replace("<", "").strip()
-    expiry      = (data.get("expiry_date")        or "").strip()
-    dob         = (data.get("date_of_birth")      or "").strip()
-
-    return {
-        "성":       surname,
-        "명":       given_names,
-        "성별":     gender,
-        "국가":     country,
-        "국적":     nationality,
-        "여권":     doc_number,
-        "발급":     "",   # not in MRZ — leave empty, fill manually if needed
-        "만기":     expiry,
-        "생년월일": dob,
-        "_raw_L1":  None,
-        "_raw_L2":  None,
-    }
+    return _omni_mrz_from_data(data)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -154,18 +154,16 @@ async def scan_passport(
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
     import logging, traceback as _tb
     _log = logging.getLogger("scan.passport")
-    _ensure_tesseract()  # set TESSDATA_PREFIX + tesseract_cmd before any OCR call
     try:
+        _ensure_tesseract()  # TESSDATA_PREFIX + tesseract_cmd 설정 (Tesseract MRZ 경로에 필요)
         img_bytes = await file.read()
         try:
             img = _file_to_pil(img_bytes, file.content_type or "")
         except Exception as exc:
             return {"debug": "passport-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
 
-        # Reject immediately if another OCR job is running.
-        # wait_for cancels the coroutine but NOT the underlying thread — so a timed-out
-        # passport job keeps its PaddleOCR thread alive. Without this guard the next
-        # request would overlap and push RAM over the Render instance limit → worker kill.
+        # Tesseract MRZ 경로가 추가되어 대부분의 요청은 1-3s 내 완료.
+        # OmniMRZ는 이미 로딩된 경우에만 보조로 시도하므로 콜드 스타트 블로킹 없음.
         sem = _ocr_sem()
         if sem.locked():
             return {
@@ -176,19 +174,18 @@ async def scan_passport(
 
         async with sem:
             try:
-                # 60s budget: PaddleOCR model load on a cold worker can take 20-40s.
-                # With prewarm this should not be needed, but kept as a hard safety net.
-                # Temporary — reduce back to 30s once prewarm proves stable on Render.
                 result = await asyncio.wait_for(
                     asyncio.to_thread(parse_passport, img, True),
-                    timeout=60.0,
+                    timeout=25.0,
                 )
             except asyncio.TimeoutError:
                 return {
                     "debug": "passport-timeout",
                     "error_type": "TimeoutError",
-                    "error_message": "passport OCR exceeded 60s server time budget",
+                    "error_message": "passport OCR exceeded 25s server time budget",
                 }
+            except asyncio.CancelledError:
+                raise  # 요청 취소는 재전파 (FastAPI가 정상 종료 처리)
             except Exception as exc:
                 return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
             return {
@@ -197,6 +194,8 @@ async def scan_passport(
                 "raw_L1": result.pop("_raw_L1", None) if result else None,
                 "raw_L2": result.pop("_raw_L2", None) if result else None,
             }
+    except asyncio.CancelledError:
+        raise
     except Exception as exc:
         return {
             "debug": "passport-route-exception",
@@ -214,16 +213,14 @@ async def scan_arc(
     """외국인등록증 이미지 → 정보 추출"""
     import logging, traceback as _tb
     _log = logging.getLogger("scan.arc")
-    _ensure_tesseract()  # set TESSDATA_PREFIX + tesseract_cmd before any OCR call
     try:
+        _ensure_tesseract()  # TESSDATA_PREFIX + tesseract_cmd 설정
         img_bytes = await file.read()
         try:
             img = _file_to_pil(img_bytes, file.content_type or "")
         except Exception as exc:
             return {"debug": "arc-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
 
-        # Same concurrency guard as passport route — prevents overlapping OCR threads
-        # from pushing the Render worker over its memory limit.
         sem = _ocr_sem()
         if sem.locked():
             return {
@@ -236,17 +233,21 @@ async def scan_arc(
             try:
                 result = await asyncio.wait_for(
                     asyncio.to_thread(parse_arc, img, True),
-                    timeout=30.0,
+                    timeout=25.0,
                 )
             except asyncio.TimeoutError:
                 return {
                     "debug": "arc-timeout",
                     "error_type": "TimeoutError",
-                    "error_message": "ARC OCR exceeded 30s server time budget",
+                    "error_message": "ARC OCR exceeded 25s server time budget",
                 }
+            except asyncio.CancelledError:
+                raise  # 요청 취소는 재전파
             except Exception as exc:
                 return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
             return {"debug": "arc-parse-done", "result": result}
+    except asyncio.CancelledError:
+        raise
     except Exception as exc:
         return {
             "debug": "arc-route-exception",

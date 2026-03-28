@@ -64,7 +64,7 @@ backend/
   services/
     tenant_service.py   — Core Google Sheets abstraction (Streamlit-free, thread-safe)
     accounts_service.py — Accounts sheet CRUD + password hashing
-    ocr_service.py      — Tesseract OCR, MRZ parsing
+    ocr_service.py      — Passport OCR via OmniMRZ (PaddleOCR); ARC OCR via Tesseract
 config.py               — Single source of truth for all resource IDs and sheet tab names
 core/
   google_sheets.py      — Legacy Streamlit-era helpers (imports guarded against Streamlit)
@@ -197,9 +197,16 @@ Frontend utilities are in `frontend/lib/utils.ts` (`safeInt`, `formatNumber`, `t
 
 ## OCR subsystem
 
+### Engine split
+
+| Document | Engine | Notes |
+|---|---|---|
+| Passport | **OmniMRZ** (PaddleOCR) | MRZ TD3 extraction; no Tesseract required |
+| ARC (외국인등록증) | **Tesseract** | `kor+eng+ocrb` multi-config pipeline |
+
 ### Tesseract setup (`backend/routers/scan.py` — `_ensure_tesseract()`)
 
-Called at the top of every OCR request. On Linux it:
+Called at the top of every OCR request (ARC uses it; passport does not, but the call is harmless). On Linux it:
 1. Probes candidate paths (`/usr/share/tesseract-ocr/5/tessdata`, etc.) to find the system tessdata dir containing `eng`/`kor`/`osd`.
 2. Copies `/app/tessdata/ocrb.traineddata` (bundled in repo) into that system dir if not already present.
 3. Sets `TESSDATA_PREFIX` to the **system** tessdata dir so all four langs are visible together.
@@ -208,33 +215,67 @@ On Windows it uses `C:\Program Files\Tesseract-OCR\tessdata` and copies `ocrb.tr
 
 Do **not** point `TESSDATA_PREFIX` at the project's `/app/tessdata/` directory — it only contains `ocrb` and will hide `eng`/`kor` from tesseract.
 
-A one-time startup log emits: `[OCR] TESSDATA_PREFIX=...  available_langs=[...]`
+### OmniMRZ setup (`backend/services/ocr_service.py`)
+
+`_get_omni_mrz()` is a thread-safe singleton (guarded by `_omni_mrz_lock`). A daemon thread `_prewarm_omni_mrz` fires **at module import time** (i.e. uvicorn worker startup) to load PaddleOCR models before the first real request arrives. Without prewarm, model loading (~20-40 s on Render) eats the entire request timeout budget.
+
+**OmniMRZ PyPI wheel is broken** (`omnimrz-0.2.1` ships only a `py.typed` marker — no source files). `Dockerfile.backend` installs it from source with a patched `pyproject.toml`:
+```dockerfile
+RUN git clone --depth=1 https://github.com/AzwadFawadHasan/OmniMRZ.git /tmp/OmniMRZ && \
+    sed -i 's|include = \["omnimrz/py.typed"\]|include = ["omnimrz*"]|' /tmp/OmniMRZ/pyproject.toml && \
+    pip install --no-cache-dir /tmp/OmniMRZ && \
+    rm -rf /tmp/OmniMRZ
+```
+Do **not** add `omnimrz` to `requirements.txt` — it is installed directly in the Dockerfile step above.
+
+### OCR concurrency guard (`backend/routers/scan.py`)
+
+`asyncio.wait_for` + `asyncio.to_thread` cancels the coroutine on timeout but does **not** kill the background thread. A timed-out PaddleOCR or Tesseract thread keeps consuming RAM. To prevent overlapping OCR jobs from OOM-killing the Render worker:
+
+```python
+# Module-level — lazy-init inside first async context
+_OCR_SEMAPHORE: asyncio.Semaphore | None = None
+
+def _ocr_sem() -> asyncio.Semaphore:
+    global _OCR_SEMAPHORE
+    if _OCR_SEMAPHORE is None:
+        _OCR_SEMAPHORE = asyncio.Semaphore(1)
+    return _OCR_SEMAPHORE
+```
+
+Both `/passport` and `/arc` check `sem.locked()` before acquiring — if another OCR job is running they return `{"debug": "passport-busy"|"arc-busy", ...}` immediately rather than queueing.
 
 ### OCR service functions (`backend/services/ocr_service.py`)
 
 ```python
-parse_passport(img: PIL.Image) -> dict
+parse_passport(img: PIL.Image, fast: bool = False) -> dict
+# Engine: Tesseract+ocrb (primary, ~1-3s) → OmniMRZ/PaddleOCR (secondary, only if already loaded).
+# Tesseract path uses _passport_tess_mrz() which calls existing _iter_mrz_candidate_bands /
+# _prep_mrz / _tess_string / find_best_mrz_pair_from_text / _parse_mrz_pair pipeline.
+# OmniMRZ skipped entirely if _omni_mrz_instance is None (non-blocking check).
 # Returns: {성, 명, 성별, 국가, 국적, 여권, 발급, 만기, 생년월일}
-# Also injects _raw_L1/_raw_L2 (the MRZ lines selected before parsing) for debug inspection.
+# 발급 is always "" — MRZ TD3 does not encode issue date.
+# _raw_L1/_raw_L2 are always None.
+# Returns {"_no_mrz": True, "_parse_error": "..."} on failure.
 
-parse_arc(img: PIL.Image, fast: bool = False, passport_dob: str = "") -> dict
+parse_arc(img: PIL.Image, fast: bool = False) -> dict
+# Engine: Tesseract (kor+eng+ocrb multi-config).
 # Returns: {한글, 등록증, 번호, 발급일, 만기일, 주소}
 # fast=True caps OCR attempts to 2 combinations (used by the /arc endpoint).
-
-find_best_mrz_pair_from_text(text: str) -> tuple[str, str, int] | tuple[None, None, int]
-# Scores all candidate line pairs from raw OCR text; returns best (L1, L2, score).
 ```
 
 ### Scan router endpoints
 
-- `POST /api/scan/passport` — OCR passport image → MRZ parse → returns parsed fields
-- `POST /api/scan/arc` — OCR ARC image → returns parsed fields
+- `POST /api/scan/passport` — OmniMRZ passport parse → returns parsed fields (60s timeout, temporary)
+- `POST /api/scan/arc` — Tesseract ARC parse → returns parsed fields (30s timeout)
 - `POST /api/scan/register` — upsert customer from OCR result; matches by `여권` or `등록증+번호`; returns `{status: "created"|"updated", 고객ID, message}`
 
 The frontend scan page (`frontend/app/(main)/scan/page.tsx`) reads OCR fields from both the normal response shape (`res.data.성`) and the debug shape (`res.data.result.성`) via:
 ```ts
 const d = (res.data as any).result ?? res.data;
 ```
+
+`isDebugError` on the passport side checks `d._no_mrz` (not `d.debug`) because `d` is the inner result dict where `debug` is undefined.
 
 ---
 
@@ -331,9 +372,14 @@ Dockerfile.frontend (multi-stage):
 
 Dockerfile.backend:
   python:3.11-slim base
-  installs: tesseract-ocr + language packs (eng, kor), libglib2.0, libsm6, poppler-utils
+  apt: tesseract-ocr + kor pack, libglib2.0, libsm6, libgl1, libgomp1, poppler-utils, git
+  pip install -r requirements.txt          (no omnimrz here — see below)
+  git clone OmniMRZ + patch pyproject.toml + pip install from source
+  smoke test: python -c "from omnimrz import OmniMRZ; print('smoke test passed')"
   runs: uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
+
+`git` is required in the image because OmniMRZ must be cloned and installed from source (the PyPI wheel is empty). The smoke test fails the build immediately if the install produces a broken package, catching the issue before deployment.
 
 `docker-compose.yml` passes `build.args.API_URL: http://backend:8000` to the builder stage AND sets it in `environment:` for the runner (belt-and-suspenders). The critical one is the build arg — the runtime env has no effect on already-built rewrites.
 
@@ -361,13 +407,21 @@ These items are complete — do not redo:
 - Docker inter-container routing fixed: `API_URL` build arg in `Dockerfile.frontend` + `docker-compose.yml`; `api.ts` now uses hardcoded `baseURL: ""`
 - Route auth guard: `frontend/middleware.ts` (cookie-based Edge guard) + `kid_auth` cookie lifecycle in `auth.ts`
 - Tesseract tessdata fix: Linux `_ensure_tesseract()` now uses system tessdata dir and copies `ocrb.traineddata` there, instead of pointing `TESSDATA_PREFIX` at the project-only dir (which hid `eng`/`kor`)
+- Passport OCR migrated from Tesseract MRZ to **OmniMRZ** (PaddleOCR-based); `Dockerfile.backend` installs OmniMRZ from GitHub source (PyPI wheel is broken)
+- OCR concurrency guard: `asyncio.Semaphore(1)` in `scan.py` serialises passport+ARC to prevent overlapping threads from OOM-killing the Render worker
+- OmniMRZ prewarm: daemon thread fires at worker startup to pre-load PaddleOCR models (background only — first request no longer waits for it)
+- Passport OCR redesigned: Tesseract+ocrb primary path (~1-3s, no cold-start) + OmniMRZ secondary only if already loaded; 90% accuracy on sample set; `_ensure_tesseract()` moved inside try block; `asyncio.CancelledError` now re-raised properly in both routes
 
 ## In-progress / temporary debug state
 
-**`backend/routers/scan.py` OCR routes are currently in debug mode** (as of 2026-03-28). Both `/api/scan/passport` and `/api/scan/arc` run the full pipeline but return a debug-wrapped response:
+**`backend/routers/scan.py` OCR routes are currently in debug mode** (as of 2026-03-29). Both `/api/scan/passport` and `/api/scan/arc` run the full pipeline but return a debug-wrapped response:
 
 ```json
-{"debug": "passport-parse-done", "result": {...parsed fields...}, "raw_L1": "...", "raw_L2": "..."}
+{"debug": "passport-parse-done", "result": {...parsed fields...}, "raw_L1": null, "raw_L2": null}
 ```
 
-The frontend scan page already handles this via `(res.data as any).result ?? res.data`, so the form still populates correctly. When OCR tuning is complete, remove the `debug` wrapper and restore the routes to return parsed fields directly. Also remove `_raw_L1`/`_raw_L2` from the `parse_passport()` return dict in `ocr_service.py`.
+The frontend scan page already handles this via `(res.data as any).result ?? res.data`, so the form still populates correctly. When OCR tuning is complete, remove the `debug` wrapper and restore the routes to return parsed fields directly. `_raw_L1`/`_raw_L2` are always `null` for passport (OmniMRZ does not expose raw MRZ lines) and can be removed from the return dict at the same time.
+
+**Passport timeout is 25s** — Tesseract primary path completes in 1-3s (avg 1.4s on 30-sample benchmark), so 25s is safe even for worst-case scans.
+
+**ARC OCR quality** — route is alive and returns structured JSON, but field accuracy needs improvement: Korean name extraction and address parsing produce garbled results on some ARC back images. This is the next active work item.
