@@ -862,6 +862,8 @@ def parse_passport(img):
         "발급":     out.get("발급", ""),
         "만기":     out.get("만기", ""),
         "생년월일": out.get("생년월일", ""),
+        "_raw_L1":  best_L1,
+        "_raw_L2":  best_L2,
     }
 
 

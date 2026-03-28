@@ -150,7 +150,12 @@ async def scan_passport(
         result = parse_passport(img)
     except Exception as exc:
         return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-    return {"debug": "passport-parse-done", "result": result}
+    return {
+        "debug": "passport-parse-done",
+        "result": result,
+        "raw_L1": result.pop("_raw_L1", None) if result else None,
+        "raw_L2": result.pop("_raw_L2", None) if result else None,
+    }
 
 
 @router.post("/arc")
