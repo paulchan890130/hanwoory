@@ -103,12 +103,17 @@ export default function ScanPage() {
       const raw = res.data as any;
       const d = raw.result ?? raw;
       const isDebugError =
+        d._no_mrz ||
         d.error_message ||
         d.debug === "passport-timeout" ||
         d.debug === "passport-parse-exception" ||
         d.debug === "passport-route-exception";
       if (d.error || isDebugError) {
-        toast.error(d.error_message ?? d.error ?? "여권 OCR 오류");
+        toast.error(
+          d._no_mrz
+            ? "MRZ를 찾지 못했습니다"
+            : (d.error_message ?? d.error ?? "여권 OCR 오류")
+        );
       } else {
         if (d.성) set성(d.성);
         if (d.명) set명(d.명);
