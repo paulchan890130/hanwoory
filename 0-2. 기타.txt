@@ -1,21 +1,8 @@
 여권1
 {
-    "debug": "passport-parse-done",
-    "result": {
-        "_no_mrz": true,
-        "_parse_error": "OmniMRZ init failed: No module named 'omnimrz'"
-    },
-    "raw_L1": null,
-    "raw_L2": null
+    "debug": "passport-timeout",
+    "error_type": "TimeoutError",
+    "error_message": "passport OCR exceeded 25s server time budget"
 }
 등록증1
-{
-    "debug": "arc-parse-done",
-    "result": {
-        "등록증": "740121",
-        "번호": "5100039",
-        "한글": "내여디",
-        "만기일": "2025-04-09",
-        "주소": "20240422 자 도시태가 이 1 더"
-    }
-}
+Internal Server Error

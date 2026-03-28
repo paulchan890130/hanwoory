@@ -31,14 +31,32 @@ except Exception:
 
 # OmniMRZ singleton — PaddleOCR model is loaded on first access.
 # Cached at module level so each uvicorn worker loads models once.
+import threading as _threading
+
 _omni_mrz_instance = None
+_omni_mrz_lock = _threading.Lock()  # serialise init so prewarm and first real request don't race
+
 
 def _get_omni_mrz():
     global _omni_mrz_instance
-    if _omni_mrz_instance is None:
-        from omnimrz import OmniMRZ  # type: ignore[import]
-        _omni_mrz_instance = OmniMRZ()
+    with _omni_mrz_lock:
+        if _omni_mrz_instance is None:
+            from omnimrz import OmniMRZ  # type: ignore[import]
+            _omni_mrz_instance = OmniMRZ()
     return _omni_mrz_instance
+
+
+def _prewarm_omni_mrz() -> None:
+    """Pre-load PaddleOCR models at worker startup so first-request cold-start is avoided."""
+    try:
+        _get_omni_mrz()
+    except Exception:
+        pass
+
+
+# Fire prewarm immediately when the module is imported (i.e. at uvicorn worker startup).
+# By the time the first real passport request arrives, models should already be in memory.
+_threading.Thread(target=_prewarm_omni_mrz, daemon=True).start()
 
 
 # ── ARC 옵션 ────────────────────────────────────────────────────────────────

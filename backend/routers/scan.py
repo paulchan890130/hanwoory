@@ -2,7 +2,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import io, datetime
+import io, datetime, asyncio
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 
 
@@ -35,6 +35,19 @@ from backend.auth import get_current_user
 from backend.services.ocr_service import parse_passport, parse_arc
 
 router = APIRouter()
+
+# ── OCR concurrency guard ─────────────────────────────────────────────────────
+# Semaphore(1) serialises passport and ARC OCR so a lingering background thread
+# from a timed-out request cannot overlap with the next request and OOM the worker.
+# asyncio.Semaphore must be created inside an event loop; init lazily on first call.
+_OCR_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _ocr_sem() -> asyncio.Semaphore:
+    global _OCR_SEMAPHORE
+    if _OCR_SEMAPHORE is None:
+        _OCR_SEMAPHORE = asyncio.Semaphore(1)
+    return _OCR_SEMAPHORE
 
 
 # ── Tesseract 초기화 ──────────────────────────────────────────────────────────
@@ -139,7 +152,7 @@ async def scan_passport(
     user: dict = Depends(get_current_user),
 ):
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
-    import logging, traceback as _tb, asyncio
+    import logging, traceback as _tb
     _log = logging.getLogger("scan.passport")
     _ensure_tesseract()  # set TESSDATA_PREFIX + tesseract_cmd before any OCR call
     try:
@@ -148,29 +161,42 @@ async def scan_passport(
             img = _file_to_pil(img_bytes, file.content_type or "")
         except Exception as exc:
             return {"debug": "passport-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-        try:
-            # Run CPU-bound Tesseract in a thread so the event loop stays unblocked.
-            # Hard timeout: if the OCR budget is exhausted on a very hard sample, return
-            # structured JSON instead of letting the worker be killed by the proxy (Render
-            # kills workers at ~30s, producing a generic 502/504 that surfaces as 500).
-            result = await asyncio.wait_for(
-                asyncio.to_thread(parse_passport, img, True),
-                timeout=25.0,
-            )
-        except asyncio.TimeoutError:
+
+        # Reject immediately if another OCR job is running.
+        # wait_for cancels the coroutine but NOT the underlying thread — so a timed-out
+        # passport job keeps its PaddleOCR thread alive. Without this guard the next
+        # request would overlap and push RAM over the Render instance limit → worker kill.
+        sem = _ocr_sem()
+        if sem.locked():
             return {
-                "debug": "passport-timeout",
-                "error_type": "TimeoutError",
-                "error_message": "passport OCR exceeded 25s server time budget",
+                "debug": "passport-busy",
+                "error_type": "Busy",
+                "error_message": "OCR is currently processing another request. Please retry in a moment.",
             }
-        except Exception as exc:
-            return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
-        return {
-            "debug": "passport-parse-done",
-            "result": result,
-            "raw_L1": result.pop("_raw_L1", None) if result else None,
-            "raw_L2": result.pop("_raw_L2", None) if result else None,
-        }
+
+        async with sem:
+            try:
+                # 60s budget: PaddleOCR model load on a cold worker can take 20-40s.
+                # With prewarm this should not be needed, but kept as a hard safety net.
+                # Temporary — reduce back to 30s once prewarm proves stable on Render.
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(parse_passport, img, True),
+                    timeout=60.0,
+                )
+            except asyncio.TimeoutError:
+                return {
+                    "debug": "passport-timeout",
+                    "error_type": "TimeoutError",
+                    "error_message": "passport OCR exceeded 60s server time budget",
+                }
+            except Exception as exc:
+                return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
+            return {
+                "debug": "passport-parse-done",
+                "result": result,
+                "raw_L1": result.pop("_raw_L1", None) if result else None,
+                "raw_L2": result.pop("_raw_L2", None) if result else None,
+            }
     except Exception as exc:
         return {
             "debug": "passport-route-exception",
@@ -186,32 +212,41 @@ async def scan_arc(
     user: dict = Depends(get_current_user),
 ):
     """외국인등록증 이미지 → 정보 추출"""
-    import logging, traceback as _tb, asyncio
+    import logging, traceback as _tb
     _log = logging.getLogger("scan.arc")
     _ensure_tesseract()  # set TESSDATA_PREFIX + tesseract_cmd before any OCR call
-    # parse_arc is CPU-bound (Tesseract). Run in a thread so the event loop stays
-    # unblocked. Without asyncio.to_thread the synchronous call blocked all concurrent
-    # requests and caused Render's proxy to kill the worker (~30 s timeout → 500).
     try:
         img_bytes = await file.read()
         try:
             img = _file_to_pil(img_bytes, file.content_type or "")
         except Exception as exc:
             return {"debug": "arc-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-        try:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(parse_arc, img, True),
-                timeout=30.0,
-            )
-        except asyncio.TimeoutError:
+
+        # Same concurrency guard as passport route — prevents overlapping OCR threads
+        # from pushing the Render worker over its memory limit.
+        sem = _ocr_sem()
+        if sem.locked():
             return {
-                "debug": "arc-timeout",
-                "error_type": "TimeoutError",
-                "error_message": "ARC OCR exceeded 30s server time budget",
+                "debug": "arc-busy",
+                "error_type": "Busy",
+                "error_message": "OCR is currently processing another request. Please retry in a moment.",
             }
-        except Exception as exc:
-            return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
-        return {"debug": "arc-parse-done", "result": result}
+
+        async with sem:
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(parse_arc, img, True),
+                    timeout=30.0,
+                )
+            except asyncio.TimeoutError:
+                return {
+                    "debug": "arc-timeout",
+                    "error_type": "TimeoutError",
+                    "error_message": "ARC OCR exceeded 30s server time budget",
+                }
+            except Exception as exc:
+                return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
+            return {"debug": "arc-parse-done", "result": result}
     except Exception as exc:
         return {
             "debug": "arc-route-exception",
