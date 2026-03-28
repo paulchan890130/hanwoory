@@ -756,7 +756,7 @@ def _iter_mrz_candidate_bands(im: Image.Image):
 # 5) 여권 파서 (st.session_state 제거 — 디버그 로그를 로컬 리스트로 대체)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def parse_passport(img):
+def parse_passport(img, fast: bool = False):
     """
     여권 MRZ(TD3) 전용 파서.
     원본: pages/page_scan.py::parse_passport()
@@ -803,7 +803,10 @@ def parse_passport(img):
                 return txt
         return ""
 
-    rotations = (0, 90, 270, 180)
+    # fast=True: only try upright+inverted rotations and a minimal band set.
+    # Worst-case budget: 2 rotations × (1 priority + 1 edge) × 2 Tesseract calls × 1s ≈ 8s.
+    # fast=False: full search (90°/270° + 3 priority + 3 edge + 5 fallback) for local/debug use.
+    rotations = (0, 180) if fast else (0, 90, 270, 180)
     best_L1, best_L2, best_score = None, None, -1
     best_meta = {}
 
@@ -819,15 +822,18 @@ def parse_passport(img):
         joined = ""
         w, h = imr_body.size
 
-        # Priority-0: tight bottom strips covering the MRZ zone (bottom 16–24%).
-        # These are tried BEFORE edge-density windows because MRZ is always in
-        # the bottom portion of an upright/inverted passport image.
+        # Priority-0: tight bottom strips covering the MRZ zone.
+        # fast: one band (bottom 20%) — sufficient for standard placements.
+        # full: three bands (16/20/24%) — covers slight crop variation.
+        pct_list = (20,) if fast else (16, 20, 24)
         priority_bands = []
-        for _pct in (16, 20, 24):
+        for _pct in pct_list:
             _y0 = int(h * (1.0 - _pct / 100.0))
             priority_bands.append((f"bottom{_pct}%_pri", imr_body.crop((0, _y0, w, h))))
 
-        bands = list(_mrz_windows_by_edge_density(imr_body, top_k=3))
+        # Edge-density windows: fast uses top-1 only; full uses top-3.
+        top_k = 1 if fast else 3
+        bands = list(_mrz_windows_by_edge_density(imr_body, top_k=top_k))
         band_iters = []
         for i, (y0, y1) in enumerate(bands, start=1):
             label = f"edge#{i} {int(100*y0/h)}-{int(100*y1/h)}%"
@@ -865,7 +871,8 @@ def parse_passport(img):
             if best_score >= 7:
                 break
 
-        if best_score < 7 and not fallback_added:
+        # Fast mode skips fallback bands entirely — they add up to 10s on hard samples.
+        if not fast and best_score < 7 and not fallback_added:
             fallback_added = True
             for label, band in _iter_mrz_candidate_bands(imr_body):
                 if label.startswith("edge#"):
@@ -1278,18 +1285,28 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         return best
 
     def _extract_name_from_roi(img, text_top: str) -> str:
-        cands = []
+        """
+        Deterministic Korean name extraction from ARC front card.
+        Priority order — return as soon as any level succeeds:
+          1. Parenthesised name found in name-line ROI OCR  → strongest: localised + structured
+          2. Parenthesised name found in full-card OCR text → full-scan match
+          3. Label-adjacent name in full-card OCR text      → "성명 홍길동" pattern
+          4. Return ""                                       → never guess from broad token pool
+
+        The broad token-pool fallback (previously last resort) is intentionally removed:
+        it picked noise tokens like "애냐찌"/"아베" with the same confidence as real names.
+        Returning "" is safer than returning wrong text.
+        """
         try:
             w, h = img.size
-            # Right boundary extended to 0.95: on a standard ARC card the parenthesized Korean
-            # name "(홍길동)" follows the English name on the same line. The English name can
-            # span ~35–75% of card width, putting the opening paren at ≈74–80%. The old
-            # boundary of 0.70 cut off before it. 0.95 is safe — right card margin is ~5%.
+            # ROI right boundary is 0.95 (not 0.70): the parenthesised Korean name follows
+            # the English name on the same line, placing it at ≈74–80% card width for a
+            # typical 9-char name. The old 0.70 cut it off entirely.
             rois = [
                 img.crop((int(w * 0.26), int(h * 0.25), int(w * 0.95), int(h * 0.46))),
                 img.crop((int(w * 0.22), int(h * 0.20), int(w * 0.95), int(h * 0.53))),
             ]
-            for idx, roi in enumerate(rois):
+            for roi in rois:
                 g = ImageOps.grayscale(roi)
                 g = ImageOps.autocontrast(g)
                 g = g.resize((max(1, g.width * 2), max(1, g.height * 2)), resample=_PILImage.LANCZOS)
@@ -1299,49 +1316,29 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                     pass
                 for psm in (7, 6):
                     txt = _ocr(g, lang="kor", config=f"--oem 3 --psm {psm}")
-                    # Check for parenthesised Korean name in ROI text first.
-                    # This is the strongest possible signal — return immediately on match.
-                    m_roi = re.search(r"\(([가-힣]{2,4})\)", txt or "")
-                    if m_roi:
-                        cand = m_roi.group(1)
+                    m = re.search(r"\(([가-힣]{2,4})\)", txt or "")
+                    if m:
+                        cand = m.group(1)
                         if cand not in _NAME_BAN and not cand.endswith("출"):
-                            return cand
-                    for tok in re.findall(r"[가-힣]{2,4}", txt or ""):
-                        tok = _normalize_hangul_name(tok)
-                        if tok:
-                            score = 10 - idx
-                            if len(tok) in (3, 4):
-                                score += 3
-                            cands.append((score, tok))
+                            return cand  # Level 1: ROI parentheses match
         except Exception:
             pass
 
-        # Full-card OCR parentheses fallback — "(홍길동)" from the complete top-half OCR.
-        text_name = _extract_kor_name_strict(text_top)
-        if text_name:
-            return text_name
+        # Level 2: parenthesised name in full-card OCR text
+        m2 = re.search(r"\(([가-힣]{2,4})\)", text_top or "")
+        if m2:
+            cand = m2.group(1)
+            if cand not in _NAME_BAN and not cand.endswith("출"):
+                return cand
 
-        bad = {
-            "방문취", "거주따", "매확청", "사격", "재태서", "외국", "국내", "거소", "신고", "주소",
-            "체류", "만기", "발급", "번호", "등록", "증명", "유효", "취업", "가능",
-            # Added: card-label OCR noise patterns found in benchmark
-            "소신고", "국가", "지역", "발금일", "체류자", "체류파", "제류자",
-            "인천출", "수원출", "안산출", "시흥출", "화성출", "부평출", "성남출",
-            "재위동", "재외등", "겁소고",
-        }
-        # Also discard any token that ends with "출" (city+immigration-office abbreviation)
-        # or starts with "발금" (OCR garble of 발급)
-        score_map = {}
-        for sc, tok in cands:
-            if tok in bad:
-                continue
-            if tok.endswith("출") or tok.startswith("발금"):
-                continue
-            score_map[tok] = score_map.get(tok, 0) + sc
+        # Level 3: "성명 홍길동" label-adjacent name in full-card OCR text
+        m3 = re.search(r"(성명|이름)\s*[:\-]?\s*([가-힣]{2,4})", text_top or "")
+        if m3:
+            cand = m3.group(2)
+            if cand not in _NAME_BAN and not cand.endswith("출"):
+                return cand
 
-        if not score_map:
-            return ""
-        return sorted(score_map.items(), key=lambda kv: (kv[1], len(kv[0]), kv[0]), reverse=True)[0][0]
+        return ""
 
     name_ko = _extract_name_from_roi(top, t_top)
     if name_ko:
@@ -1533,73 +1530,57 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             return True
         return False
 
-    addr = _best_addr_latest(tn_bot)
-
-    if _looks_weak_address(addr):
-        addr2 = _best_addr_latest(t_top + "\n" + tn_bot)
-        if addr2 and not _looks_weak_address(addr2):
-            addr = addr2
-
-    if _looks_weak_address(addr):
+    # Dynamic address-region detection on correctly-oriented back card.
+    # Strategy: scan three overlapping horizontal strips at different heights.
+    # Each strip is OCR'd independently; address candidates (individual lines +
+    # adjacent merged pairs) are extracted from each strip and scored by Korean
+    # address structure (province/city/road markers, numbers, unit markers).
+    # The best-scoring candidate across all strips wins.
+    #
+    # This avoids the "broad OCR + cleanup" failure mode: full-back OCR mixes
+    # the address with serial numbers, dates, and fine-print, degrading OCR quality.
+    # Focused strip OCR gives Tesseract a cleaner layout to work with.
+    # The three strip y-ranges are wide enough to cover address placement variation
+    # across ARC card generations — NOT a fixed hardcoded box.
+    _rot_back = bot.rotate(best_deg, expand=True) if best_deg else bot
+    _rb_w, _rb_h = _rot_back.size
+    addr = ""
+    _addr_best_sc = -1.0
+    for _y0r, _y1r in ((0.12, 0.58), (0.34, 0.80), (0.54, 0.96)):
         try:
-            rot_bot = bot.rotate(best_deg, expand=True)
-            rw, rh = rot_bot.size
-            addr_roi = rot_bot.crop((
-                int(rw * 0.18),
-                int(rh * 0.34),
-                int(rw * 0.92),
-                int(rh * 0.80),
+            _strip = _rot_back.crop((
+                int(_rb_w * 0.03), int(_rb_h * _y0r),
+                int(_rb_w * 0.97), int(_rb_h * _y1r),
             ))
-            addr_txt = _ocr(ImageOps.grayscale(addr_roi), lang="kor", config="--oem 3 --psm 6")
-            addr_retry = _best_addr_latest(addr_txt)
-            if addr_retry and not _looks_weak_address(addr_retry):
-                addr = addr_retry
+            _g = ImageOps.autocontrast(ImageOps.grayscale(_strip))
+            _stxt = _ocr(_g, lang="kor", config="--oem 3 --psm 6")
+            if not _stxt:
+                continue
+            # Build address candidates from line groups in this strip
+            _raw_lines = [re.sub(r"\s+", " ", _l).strip()
+                          for _l in _stxt.splitlines() if _l.strip()]
+            _region = _extract_addr_region("\n".join(_raw_lines))
+            _merged = _merge_addr_lines(_region)
+            # Also try adjacent line pairs to handle wrapped addresses
+            for _i in range(len(_region) - 1):
+                _merged.append((_region[_i] + " " + _region[_i + 1]).strip())
+            for _raw in _merged:
+                _c = _clean_addr_line(_raw)
+                _sc = _addr_score(_c)
+                if _sc > _addr_best_sc:
+                    _addr_best_sc, addr = _sc, _c
         except Exception:
             pass
 
-    # For right-side-up backs (best_deg=0, new-format cards), the 국내거소 section
-    # sits in the bottom ~50-98% of the card — the standard 34-80% ROI can miss it.
-    if _looks_weak_address(addr) and best_deg == 0:
-        try:
-            rw, rh = bot.size
-            addr_roi2 = bot.crop((
-                int(rw * 0.08),
-                int(rh * 0.50),
-                int(rw * 0.96),
-                int(rh * 0.98),
-            ))
-            addr_txt2 = _ocr(ImageOps.grayscale(addr_roi2), lang="kor", config="--oem 3 --psm 6")
-            addr_retry2 = _best_addr_latest(addr_txt2)
-            if addr_retry2 and not _looks_weak_address(addr_retry2):
-                addr = addr_retry2
-        except Exception:
-            pass
+    # Fallback: full-back OCR text already computed by the rotation loop.
+    # Less clean than strip OCR but covers edge cases missed by the strips.
+    if _looks_weak_address(addr):
+        _fb = _best_addr_latest(tn_bot)
+        if not _looks_weak_address(_fb):
+            addr = _fb
 
     if addr and _kor_count(addr) >= 3 and len(addr) >= 6:
         out["주소"] = addr
-    else:
-        lines_all = [l.strip() for l in (t_top + "\n" + tn_bot).splitlines() if l.strip()]
-        cand_lines = _merge_addr_lines(lines_all)
-        pair_lines = []
-        for i, l in enumerate(lines_all[:-1]):
-            pair_lines.append((l + " " + lines_all[i + 1]).strip())
-        cand_lines.extend(_merge_addr_lines(pair_lines))
-        best_line = ""
-        best_score = -1.0
-        for l in cand_lines:
-            c = _clean_addr_line(l)
-            if _kor_count(c) < 3:
-                continue
-            if not re.search(r"(도|시|군|구|로|길|번길|대로)", c):
-                continue
-            sc = _addr_score(c)
-            if re.search(r"^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", c):
-                sc += 4.0
-            if sc > best_score:
-                best_score = sc
-                best_line = c
-        if best_line:
-            out["주소"] = best_line
 
     # 여권 DOB가 있으면 등록증 앞번호는 여권 기준 우선
     front_from_passport = dob_to_arc_front(passport_dob)

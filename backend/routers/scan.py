@@ -139,7 +139,7 @@ async def scan_passport(
     user: dict = Depends(get_current_user),
 ):
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
-    import logging, traceback as _tb
+    import logging, traceback as _tb, asyncio
     _log = logging.getLogger("scan.passport")
     try:
         img_bytes = await file.read()
@@ -148,9 +148,22 @@ async def scan_passport(
         except Exception as exc:
             return {"debug": "passport-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
         try:
-            result = parse_passport(img)
+            # Run CPU-bound Tesseract in a thread so the event loop stays unblocked.
+            # Hard timeout: if the OCR budget is exhausted on a very hard sample, return
+            # structured JSON instead of letting the worker be killed by the proxy (Render
+            # kills workers at ~30s, producing a generic 502/504 that surfaces as 500).
+            result = await asyncio.wait_for(
+                asyncio.to_thread(parse_passport, img, True),
+                timeout=25.0,
+            )
+        except asyncio.TimeoutError:
+            return {
+                "debug": "passport-timeout",
+                "error_type": "TimeoutError",
+                "error_message": "passport OCR exceeded 25s server time budget",
+            }
         except Exception as exc:
-            return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
+            return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
         return {
             "debug": "passport-parse-done",
             "result": result,
