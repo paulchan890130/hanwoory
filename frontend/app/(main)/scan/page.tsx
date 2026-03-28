@@ -141,21 +141,14 @@ export default function ScanPage() {
       if (d.error) {
         toast.error(d.error);
       } else {
-        // ── [INSTRUMENT] OCR result vs current state ──────────────────────────
-        console.log("[SCAN][FE][OCR-ARC] OCR result 만기일 from server:", JSON.stringify(d.만기일));
-        // NOTE: set만기일 below runs AFTER this OCR call resolves.
-        // If the user edited 만기일 while OCR was loading, this WILL overwrite it.
-        // ─────────────────────────────────────────────────────────────────────
-        if (d.한글) set한글(d.한글);
-        if (d.등록증) set등록증(d.등록증);
-        if (d.번호) set번호(d.번호);
-        if (d.발급일) set발급일(d.발급일);
-        if (d.만기일) {
-          console.log("[SCAN][FE][OCR-ARC] set만기일 called with:", d.만기일,
-            "— this OVERWRITES any user edit made during OCR loading");
-          set만기일(d.만기일);
-        }
-        if (d.주소) set주소(d.주소);
+        // Always assign all ARC fields from OCR result, including empty strings.
+        // Truthy-only (if d.xxx) would leave previous scan's values when a new scan omits a field.
+        set한글(d.한글 ?? "");
+        set등록증(d.등록증 ?? "");
+        set번호(d.번호 ?? "");
+        set발급일(d.발급일 ?? "");
+        set만기일(d.만기일 ?? "");
+        set주소(d.주소 ?? "");
         toast.success("등록증 OCR 완료");
       }
     } catch (err: unknown) {

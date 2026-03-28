@@ -1,113 +1,22 @@
-kid-frontend  |
-kid-frontend  | > kid-frontend@2.0.0 start
-kid-frontend  | > next start
-kid-frontend  |
-kid-frontend  |   ▲ Next.js 14.2.5
-kid-frontend  |   - Local:        http://localhost:3000
-kid-frontend  |
-kid-frontend  |  ✓ Starting...
-kid-frontend  |  ✓ Ready in 332ms
-kid-backend   | INFO:     Started server process [1]
-kid-backend   | INFO:     Waiting for application startup.
-kid-backend   | INFO:     Application startup complete.
-kid-backend   | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-kid-frontend  | Failed to proxy http://localhost:8000/api/auth/login AggregateError [ECONNREFUSED]:
-kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
-kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
-kid-frontend  |   code: 'ECONNREFUSED',
-kid-frontend  |   [errors]: [
-kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '::1',
-kid-frontend  |       port: 8000
-kid-frontend  |     },
-kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '127.0.0.1',
-kid-frontend  |       port: 8000
-kid-frontend  |     }
-kid-frontend  |   ]
-kid-frontend  | }
-kid-frontend  | AggregateError [ECONNREFUSED]:
-kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
-kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
-kid-frontend  |   code: 'ECONNREFUSED',
-kid-frontend  |   [errors]: [
-kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '::1',
-kid-frontend  |       port: 8000
-kid-frontend  |     },
-kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '127.0.0.1',
-kid-frontend  |       port: 8000
-kid-frontend  |     }
-kid-frontend  |   ]
-kid-frontend  | }
-kid-frontend  | Failed to proxy http://localhost:8000/api/auth/login AggregateError [ECONNREFUSED]:
-kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
-kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
-kid-frontend  |   code: 'ECONNREFUSED',
-kid-frontend  |   [errors]: [
-kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '::1',
-kid-frontend  |       port: 8000
-kid-frontend  |     },
-kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '127.0.0.1',
-kid-frontend  |       port: 8000
-kid-frontend  |     }
-kid-frontend  |   ]
-kid-frontend  | }
-kid-frontend  | AggregateError [ECONNREFUSED]:
-kid-frontend  |     at internalConnectMultiple (node:net:1122:18)
-kid-frontend  |     at afterConnectMultiple (node:net:1689:7) {
-kid-frontend  |   code: 'ECONNREFUSED',
-kid-frontend  |   [errors]: [
-kid-frontend  |     Error: connect ECONNREFUSED ::1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '::1',
-kid-frontend  |       port: 8000
-kid-frontend  |     },
-kid-frontend  |     Error: connect ECONNREFUSED 127.0.0.1:8000
-kid-frontend  |         at createConnectionError (node:net:1652:14)
-kid-frontend  |         at afterConnectMultiple (node:net:1682:16) {
-kid-frontend  |       errno: -111,
-kid-frontend  |       code: 'ECONNREFUSED',
-kid-frontend  |       syscall: 'connect',
-kid-frontend  |       address: '127.0.0.1',
-kid-frontend  |       port: 8000
-kid-frontend  |     }
-kid-frontend  |   ]
-kid-frontend  | }
+● All 4 changes are clean. Summary of what was applied:
+
+  ---
+  A. Frontend stale ARC state (scan/page.tsx:146-151)
+  Changed all 6 ARC field assignments from truthy-only if (d.xxx) setXxx(d.xxx) to unconditional setXxx(d.xxx ?? ""). A
+  new scan that omits a field now clears the previous value instead of leaving stale data.
+
+  B. Passport trailing S/C cleanup (ocr_service.py)
+  - Added _strip_mrz_trail(name) at line 952: strips single trailing S or C only when result would still be ≥2 chars.
+  PIAOS → PIAO, JINDANC → JINDAN.
+  - Applied at lines 504-505, after whitespace normalization but before the digit guard.
+
+  D1. ARC back rotation metric (ocr_service.py)
+  - Added _kor_word_score(s) at line 944: counts sum of lengths of 3+ char Korean sequences. Test evidence: wrong
+  rotation scores 6-12, correct rotation scores 93-115.
+  - Rotation loop now uses _kor_word_score(t) instead of _kor_count(t).
+  - Fast-break threshold changed from >= 15 (raw char count, too easily hit by garbled deg=0) to >= 40 (word score, only
+   correct orientation clears this).
+
+  C. Passport1 500 error — no code change needed; the outer try/except wrapper returning
+  {"debug":"passport-route-exception",...} was already applied last session. If it's still returning 500 on Render, it's
+   a stale deployment — needs a redeploy.

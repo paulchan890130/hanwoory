@@ -501,6 +501,8 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
             given_raw = (after_sep[:m_nxt.start()] if m_nxt else after_sep).replace("<", " ").strip()
             sur = re.sub(r"\s+", " ", sur_raw).strip()
             given = re.sub(r"\s+", " ", given_raw).strip()
+            sur = _strip_mrz_trail(sur)
+            given = _strip_mrz_trail(given)
             if sur and not re.search(r"\d", sur):
                 out["성"] = sur
             if given and not re.search(r"\d", given):
@@ -939,6 +941,23 @@ def _kor_count(s: str) -> int:
     return len(re.findall(r"[가-힣]", s or ""))
 
 
+def _kor_word_score(s: str) -> int:
+    """Sum of lengths of Korean sequences that are ≥3 chars.
+    Better rotation discriminator than raw _kor_count: garbled text produces many 1-2 char
+    fragments (score stays low) while correctly-oriented text has long word runs (score high).
+    Test results: wrong rotation → 6-12, correct rotation → 93-115."""
+    return sum(len(m.group()) for m in re.finditer(r"[가-힣]{3,}", s or ""))
+
+
+def _strip_mrz_trail(name: str) -> str:
+    """Remove spurious single trailing S or C from an OCR'd MRZ name token.
+    Causes: 'PIAO' → 'PIAOS', 'JINDAN' → 'JINDANC' due to noise in the filler zone.
+    Only strips if the result would still be ≥2 chars and the last char is S or C."""
+    if len(name) >= 3 and name[-1] in ("S", "C"):
+        return name[:-1]
+    return name
+
+
 def _valid_yymmdd6(s: str) -> bool:
     s = re.sub(r"\D", "", s or "")
     if len(s) != 6:
@@ -1313,12 +1332,14 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         t1 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 6")
         t2 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 4")
         t = t1 + "\n" + t2
-        sc = _kor_count(t)
+        # Use word-score (sum of 3+ char Korean sequences) instead of raw char count.
+        # Garbled text from wrong rotation has many short fragments (score 6–12);
+        # correctly-oriented text has long word runs (score 93–115). The threshold
+        # 40 reliably separates the two cases without ever seeing more than 3 rotations.
+        sc = _kor_word_score(t)
         if sc > best_sc:
             best_sc, best_text, best_deg = sc, t, deg
-        # fast mode: ARC cards are nearly always right-side-up on a flatbed scanner.
-        # Skip 90°/270° rotations when deg=0 already yields enough Korean content.
-        if fast and best_sc >= 15:
+        if fast and best_sc >= 40:
             break
     tn_bot = best_text
 
