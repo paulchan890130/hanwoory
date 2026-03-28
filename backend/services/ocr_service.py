@@ -429,9 +429,28 @@ def _mrz_score_td3(L1: str, L2: str) -> int:
     return score
 
 
+def _clean_mrz_k_runs(s: str, min_run: int = 5) -> str:
+    """Replace runs of ≥5 identical non-< alpha chars with < (scanner background noise)."""
+    if not s:
+        return s
+    result = []
+    i = 0
+    while i < len(s):
+        c = s[i]
+        run = 1
+        while i + run < len(s) and s[i + run] == c:
+            run += 1
+        if c != '<' and c.isalpha() and run >= min_run:
+            result.extend(['<'] * run)
+        else:
+            result.extend([c] * run)
+        i += run
+    return ''.join(result)
+
+
 def find_best_mrz_pair_from_text(text: str):
     lines = [l for l in (text or "").splitlines() if l.strip()]
-    norms = [_normalize_mrz_line(l) for l in lines]
+    norms = [_clean_mrz_k_runs(_normalize_mrz_line(l)) for l in lines]
     best = (None, None, -1)
     n = len(norms)
     for i in range(n):
@@ -491,7 +510,7 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
     b = re.sub(r"[^0-9]", "", L2[13:19])
     if len(b) == 6:
         yy, mm, dd = int(b[:2]), int(b[2:4]), int(b[4:6])
-        yy += 2000 if yy < 80 else 1900
+        yy += 2000 if yy < 30 else 1900  # DOB: <30 → 2000s (children), ≥30 → 1900s (adults)
         try:
             out["생년월일"] = _dt(yy, mm, dd).strftime("%Y-%m-%d")
         except Exception:
@@ -778,17 +797,25 @@ def parse_passport(img):
     for rot in rotations:
         imr = img.rotate(rot, expand=True) if rot else img
         joined = ""
+        w, h = imr.size
+
+        # Priority-0: tight bottom strips covering the MRZ zone (bottom 16–24%).
+        # These are tried BEFORE edge-density windows because MRZ is always in
+        # the bottom portion of an upright/inverted passport image.
+        priority_bands = []
+        for _pct in (16, 20, 24):
+            _y0 = int(h * (1.0 - _pct / 100.0))
+            priority_bands.append((f"bottom{_pct}%_pri", imr.crop((0, _y0, w, h))))
 
         bands = list(_mrz_windows_by_edge_density(imr, top_k=3))
         band_iters = []
-        w, h = imr.size
         for i, (y0, y1) in enumerate(bands, start=1):
             label = f"edge#{i} {int(100*y0/h)}-{int(100*y1/h)}%"
             band_iters.append((label, imr.crop((0, y0, w, y1))))
 
         fallback_added = False
 
-        for label, band in band_iters:
+        for label, band in priority_bands + band_iters:
             txt = _tess_string(
                 _prep_mrz(band),
                 lang="ocrb+eng",

@@ -39,6 +39,8 @@ docker compose up -d
 ```
 `API_URL=http://backend:8000` is passed as a build arg to the frontend builder stage so that `next.config.js` rewrites bake in the correct Docker-internal hostname. Changing this value requires a full frontend rebuild — runtime env injection is too late because Next.js bakes rewrites into `.next/routes-manifest.json` at build time.
 
+There are **no automated tests** in this project (no pytest, no jest/vitest). Verification is done manually via the running app or the Swagger UI.
+
 ---
 
 ## Architecture
@@ -95,7 +97,9 @@ Exception: `DEFAULT_TENANT_ID` (`"hanwoory"`) falls back to `SHEET_KEY` / `WORK_
 4. Writes `folder_id`, `customer_sheet_key`, `work_sheet_key` into Accounts
 5. Sets `is_active=TRUE` only when all three are present
 
-Each stage is independent. Existing values are never overwritten with empty strings (partial success is preserved).
+Each stage is independent. Existing values are never overwritten with empty strings (partial success is preserved). The endpoint is idempotent — re-running it skips stages where values already exist.
+
+`POST /api/admin/bootstrap` creates the **first admin account only** (no auth required, idempotent — fails if any account already exists). Use this to seed a fresh deployment.
 
 ### Key resource IDs (all in `config.py`)
 
@@ -145,6 +149,15 @@ Public routes: `/login`, `/_next/*`, `/api/*`, static assets. Everything else re
 
 Frontend utilities are in `frontend/lib/utils.ts` (`safeInt`, `formatNumber`, `today`, `cn`).
 
+### Key frontend dependencies
+
+- **@tanstack/react-query** — data fetching / cache
+- **@fullcalendar/react** — calendar on dashboard
+- **@radix-ui/*** — headless UI primitives (dialog, dropdown, tabs, checkbox, select, etc.)
+- **sonner** — toast notifications (`toast.success`, `toast.error`)
+- **react-hook-form + zod** — form validation
+- **axios** — HTTP client (all calls via `frontend/lib/api.ts`)
+
 ### JWT payload fields
 
 `get_current_user` in `backend/auth.py` extracts these from the token:
@@ -179,6 +192,49 @@ Frontend utilities are in `frontend/lib/utils.ts` (`safeInt`, `formatNumber`, `t
 ### Canonical customer sheet columns
 
 `backend/routers/customers.py` defines `_DEFAULT_CUSTOMER_HEADERS` — the authoritative column order used when a new tenant's sheet is empty. Any code that constructs customer rows must follow this order: `고객ID, 한글, 성, 명, 여권, 국적, 성별, 등록증, 번호, 발급일, 만기일, 발급, 만기, 주소, 연, 락, 처, V, 체류자격, 비자종류, 메모, 폴더`.
+
+---
+
+## OCR subsystem
+
+### Tesseract setup (`backend/routers/scan.py` — `_ensure_tesseract()`)
+
+Called at the top of every OCR request. On Linux it:
+1. Probes candidate paths (`/usr/share/tesseract-ocr/5/tessdata`, etc.) to find the system tessdata dir containing `eng`/`kor`/`osd`.
+2. Copies `/app/tessdata/ocrb.traineddata` (bundled in repo) into that system dir if not already present.
+3. Sets `TESSDATA_PREFIX` to the **system** tessdata dir so all four langs are visible together.
+
+On Windows it uses `C:\Program Files\Tesseract-OCR\tessdata` and copies `ocrb.traineddata` there the same way.
+
+Do **not** point `TESSDATA_PREFIX` at the project's `/app/tessdata/` directory — it only contains `ocrb` and will hide `eng`/`kor` from tesseract.
+
+A one-time startup log emits: `[OCR] TESSDATA_PREFIX=...  available_langs=[...]`
+
+### OCR service functions (`backend/services/ocr_service.py`)
+
+```python
+parse_passport(img: PIL.Image) -> dict
+# Returns: {성, 명, 성별, 국가, 국적, 여권, 발급, 만기, 생년월일}
+# Also injects _raw_L1/_raw_L2 (the MRZ lines selected before parsing) for debug inspection.
+
+parse_arc(img: PIL.Image, fast: bool = False, passport_dob: str = "") -> dict
+# Returns: {한글, 등록증, 번호, 발급일, 만기일, 주소}
+# fast=True caps OCR attempts to 2 combinations (used by the /arc endpoint).
+
+find_best_mrz_pair_from_text(text: str) -> tuple[str, str, int] | tuple[None, None, int]
+# Scores all candidate line pairs from raw OCR text; returns best (L1, L2, score).
+```
+
+### Scan router endpoints
+
+- `POST /api/scan/passport` — OCR passport image → MRZ parse → returns parsed fields
+- `POST /api/scan/arc` — OCR ARC image → returns parsed fields
+- `POST /api/scan/register` — upsert customer from OCR result; matches by `여권` or `등록증+번호`; returns `{status: "created"|"updated", 고객ID, message}`
+
+The frontend scan page (`frontend/app/(main)/scan/page.tsx`) reads OCR fields from both the normal response shape (`res.data.성`) and the debug shape (`res.data.result.성`) via:
+```ts
+const d = (res.data as any).result ?? res.data;
+```
 
 ---
 
@@ -272,6 +328,11 @@ Dockerfile.frontend (multi-stage):
   deps    — npm install only
   builder — receives ARG API_URL → ENV API_URL → npm run build (rewrites baked here)
   runner  — copies .next/ from builder, runs npm start
+
+Dockerfile.backend:
+  python:3.11-slim base
+  installs: tesseract-ocr + language packs (eng, kor), libglib2.0, libsm6, poppler-utils
+  runs: uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 `docker-compose.yml` passes `build.args.API_URL: http://backend:8000` to the builder stage AND sets it in `environment:` for the runner (belt-and-suspenders). The critical one is the build arg — the runtime env has no effect on already-built rewrites.
@@ -299,3 +360,14 @@ These items are complete — do not redo:
   - OCR button in new-customer modal uses `router.push('/scan')` — no broken `target="_blank"` new window
 - Docker inter-container routing fixed: `API_URL` build arg in `Dockerfile.frontend` + `docker-compose.yml`; `api.ts` now uses hardcoded `baseURL: ""`
 - Route auth guard: `frontend/middleware.ts` (cookie-based Edge guard) + `kid_auth` cookie lifecycle in `auth.ts`
+- Tesseract tessdata fix: Linux `_ensure_tesseract()` now uses system tessdata dir and copies `ocrb.traineddata` there, instead of pointing `TESSDATA_PREFIX` at the project-only dir (which hid `eng`/`kor`)
+
+## In-progress / temporary debug state
+
+**`backend/routers/scan.py` OCR routes are currently in debug mode** (as of 2026-03-28). Both `/api/scan/passport` and `/api/scan/arc` run the full pipeline but return a debug-wrapped response:
+
+```json
+{"debug": "passport-parse-done", "result": {...parsed fields...}, "raw_L1": "...", "raw_L2": "..."}
+```
+
+The frontend scan page already handles this via `(res.data as any).result ?? res.data`, so the form still populates correctly. When OCR tuning is complete, remove the `debug` wrapper and restore the routes to return parsed fields directly. Also remove `_raw_L1`/`_raw_L2` from the `parse_passport()` return dict in `ocr_service.py`.
