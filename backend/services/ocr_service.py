@@ -811,6 +811,11 @@ def parse_passport(img, fast: bool = False):
     rotations = (0, 180) if fast else (0, 90, 270, 180)
     best_L1, best_L2, best_score = None, None, -1
     best_meta = {}
+    # Rescue-pass tracking: the band that produced the most MRZ-charset content,
+    # regardless of MRZ score. Used by the line-split rescue after the main loop.
+    _rescue_band_img: "Image.Image | None" = None
+    _rescue_band_label = ""
+    _rescue_band_alen = 0  # count of [A-Z0-9<] chars in best band's OCR text
 
     for rot in rotations:
         imr = img.rotate(rot, expand=True) if rot else img
@@ -862,6 +867,14 @@ def parse_passport(img, fast: bool = False):
             # 디버그 로그 (Streamlit UI 미사용 환경에서는 무시됨)
             _debug_log.append({"rot": rot, "band": label, "text_head": (txt or "")[:120]})
 
+            # Track the band with the most MRZ-charset content for the rescue pass.
+            # We store the band IMAGE here so the rescue can OCR it line-by-line.
+            _alen = sum(1 for c in (txt or "") if c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<")
+            if _alen > _rescue_band_alen:
+                _rescue_band_alen = _alen
+                _rescue_band_img = band
+                _rescue_band_label = f"{rot}deg/{label}"
+
             if (txt or "").strip():
                 joined += "\n" + txt
 
@@ -902,20 +915,65 @@ def parse_passport(img, fast: bool = False):
         if best_score >= 7:
             break
 
+    # ── Task B: line-split rescue on the single best-content band ─────────────
+    # If all bands failed, take the band with the most MRZ-charset content,
+    # add a white border, split it into upper/lower halves, OCR each half with
+    # single-line modes (PSM 13 then PSM 7), and score the resulting pair.
+    # Cost: 2 halves × up to 3 calls × 1s = ≤6s extra. Total budget stays ≤25s.
+    if best_score < 7 and _rescue_band_img is not None:
+        try:
+            _cfg_wl = "--oem 1 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ<0123456789"
+            _rb = ImageOps.expand(_rescue_band_img, border=4, fill=255)
+            _rw, _rh = _rb.size
+            _top_half = _rb.crop((0, 0, _rw, max(1, _rh // 2)))
+            _bot_half = _rb.crop((0, max(0, _rh // 2), _rw, _rh))
+
+            def _ocr_line_half(half_img: "Image.Image") -> str:
+                _proc = _prep_mrz(half_img)
+                for _psm in (13, 7):
+                    _t = _tess_string(_proc, lang="ocrb+eng",
+                                      config=f"--psm {_psm} {_cfg_wl}", timeout_s=1)
+                    if (_t or "").strip():
+                        return _t
+                    _t = _tess_string(_proc, lang="eng",
+                                      config=f"--psm {_psm} {_cfg_wl}", timeout_s=1)
+                    if (_t or "").strip():
+                        return _t
+                return ""
+
+            _lt = _ocr_line_half(_top_half)
+            _lb = _ocr_line_half(_bot_half)
+            _rescue_txt = (_lt or "") + "\n" + (_lb or "")
+            if _rescue_txt.strip():
+                _rL1, _rL2, _rsc = find_best_mrz_pair_from_text(_rescue_txt)
+                if _rsc > best_score:
+                    best_score = _rsc
+                    best_L1, best_L2 = _rL1, _rL2
+                    best_meta = {
+                        "rot": "rescue",
+                        "band": _rescue_band_label,
+                        "score": _rsc,
+                        "L1": _rL1,
+                        "L2": _rL2,
+                    }
+        except Exception:
+            pass
+
     if not best_L1 or not best_L2:
         # Return compact debug so production can distinguish:
-        # best_score == -1  → no candidate text was extracted at all (image/OCR failure)
-        # best_score >= 0   → candidate text found but check-digit score below threshold
-        if best_score >= 0 and best_meta:
-            return {
-                "_no_mrz": True,
-                "_best_score": best_score,
-                "_best_band": best_meta.get("band", ""),
-                "_best_rot": best_meta.get("rot"),
-                "_best_L1_head": (best_meta.get("L1") or "")[:40],
-                "_best_L2_head": (best_meta.get("L2") or "")[:40],
-            }
-        return {}
+        # _rescue_band_alen == 0  → OCR produced nothing at all (image/rotation problem)
+        # best_score == -1        → OCR produced text but never formed a TD3-candidate pair
+        # best_score >= 0         → candidate pair found but check-digit score too low
+        return {
+            "_no_mrz": True,
+            "_best_score": best_score,
+            "_best_band": best_meta.get("band", "") if best_meta else "",
+            "_best_rot": best_meta.get("rot") if best_meta else None,
+            "_best_L1_head": (best_meta.get("L1") or "")[:40] if best_meta else "",
+            "_best_L2_head": (best_meta.get("L2") or "")[:40] if best_meta else "",
+            "_rescue_band": _rescue_band_label,
+            "_rescue_band_alen": _rescue_band_alen,
+        }
 
     out = _parse_mrz_pair(best_L1, best_L2)
     return {
@@ -1187,7 +1245,8 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             if _valid_yymmdd6(front):
                 cand.append(("front", 2, front, "", "top_text"))
         for m in re.finditer(r"(?<!\d)(\d{7})(?!\d)", dense_all):
-            cand.append(("back", 1, "", m.group(1), "top_text"))
+            if _valid_arc_back7(m.group(1)):  # same foreign-code rule as ROI paths
+                cand.append(("back", 1, "", m.group(1), "top_text"))
 
         return cand, "\n".join([t for t in dense_chunks if t])
 
@@ -1219,7 +1278,9 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             best_back = pair_for_front[0][2]
 
     if best_front and not best_back:
-        cands7 = [m for m in re.finditer(r"(?<!\d)(\d{7})(?!\d)", t_dense)]
+        # Only consider 7-digit candidates that pass the foreign-code check.
+        cands7 = [m for m in re.finditer(r"(?<!\d)(\d{7})(?!\d)", t_dense)
+                  if _valid_arc_back7(m.group(1))]
         if cands7:
             idx6 = t_dense.find(best_front)
             if idx6 >= 0:
@@ -1236,7 +1297,8 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             s = m.group(0)
             if len(s) == 13:
                 front, back = s[:6], s[6:]
-                if _valid_yymmdd6(front):
+                # Both halves must be independently valid — reject Korean-national back-7.
+                if _valid_yymmdd6(front) and _valid_arc_back7(back):
                     if not best_front:
                         best_front = front
                     if not best_back:
@@ -1346,6 +1408,16 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                         cand = m.group(1)
                         if cand not in _NAME_BAN and not cand.endswith("출"):
                             return cand  # Level 1: ROI parentheses match
+                    # kor+eng improves segmentation on bilingual lines
+                    # (English name + Korean name in parentheses on the same line).
+                    txt2 = _ocr(g, lang="kor+eng", config=f"--oem 3 --psm {psm}") or ""
+                    if txt2 and txt2 != txt:
+                        roi_texts.append(txt2)
+                        m2 = re.search(r"\(([가-힣]{2,4})\)", txt2)
+                        if m2:
+                            cand2 = m2.group(1)
+                            if cand2 not in _NAME_BAN and not cand2.endswith("출"):
+                                return cand2  # Level 1b: ROI parens via kor+eng
         except Exception:
             pass
 
