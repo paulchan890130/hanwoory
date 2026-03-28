@@ -7,6 +7,9 @@ matplotlib
 PyPDF2
 Pillow
 pytesseract
+omnimrz
+paddleocr
+paddlepaddle
 requests
 pymupdf
 streamlit-calendar

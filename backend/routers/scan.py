@@ -141,6 +141,7 @@ async def scan_passport(
     """여권 이미지 → MRZ 파싱 → 고객 정보 추출"""
     import logging, traceback as _tb, asyncio
     _log = logging.getLogger("scan.passport")
+    _ensure_tesseract()  # set TESSDATA_PREFIX + tesseract_cmd before any OCR call
     try:
         img_bytes = await file.read()
         try:
@@ -185,20 +186,39 @@ async def scan_arc(
     user: dict = Depends(get_current_user),
 ):
     """외국인등록증 이미지 → 정보 추출"""
-    import logging, traceback
+    import logging, traceback as _tb, asyncio
     _log = logging.getLogger("scan.arc")
-    # A안: fast=True 고정 (OCR 조합 최대 2회, 처리시간 단축)
-    # 여권은 parse_passport() 그대로 유지 — 분리 운영
-    img_bytes = await file.read()
+    _ensure_tesseract()  # set TESSDATA_PREFIX + tesseract_cmd before any OCR call
+    # parse_arc is CPU-bound (Tesseract). Run in a thread so the event loop stays
+    # unblocked. Without asyncio.to_thread the synchronous call blocked all concurrent
+    # requests and caused Render's proxy to kill the worker (~30 s timeout → 500).
     try:
-        img = _file_to_pil(img_bytes, file.content_type or "")
+        img_bytes = await file.read()
+        try:
+            img = _file_to_pil(img_bytes, file.content_type or "")
+        except Exception as exc:
+            return {"debug": "arc-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(parse_arc, img, True),
+                timeout=30.0,
+            )
+        except asyncio.TimeoutError:
+            return {
+                "debug": "arc-timeout",
+                "error_type": "TimeoutError",
+                "error_message": "ARC OCR exceeded 30s server time budget",
+            }
+        except Exception as exc:
+            return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
+        return {"debug": "arc-parse-done", "result": result}
     except Exception as exc:
-        return {"debug": "arc-file-to-pil-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-    try:
-        result = parse_arc(img, fast=True)
-    except Exception as exc:
-        return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc)}
-    return {"debug": "arc-parse-done", "result": result}
+        return {
+            "debug": "arc-route-exception",
+            "error_type": exc.__class__.__name__,
+            "error_message": str(exc),
+            "traceback": _tb.format_exc()[-2000:],
+        }
 
 
 # ── upsert 요청 스키마 ────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 여권1
-{"debug":"passport-parse-done","result":{},"raw_L1":null,"raw_L2":null}
+Internal Server Error
 여권2
 {"debug":"passport-parse-done","result":{},"raw_L1":null,"raw_L2":null}
 여권3
@@ -18,14 +18,7 @@
     "raw_L1": "POCHNWUS<LINHUS<<<C<K6KEKKKKE<<<<<<<<<<<<<<<",
     "raw_L2": "EQ89229787CHN7406287M3602106MO0CMBNGLLKCA972"
 등록증 1
-    "debug": "arc-parse-done",
-    "result": {
-        "등록증": "740121",
-        "번호": "5100039",
-        "만기일": "2025-04-09",
-        "주소": "20240422 자 도시태가 이 1 더"
-    }
-}
+Internal Server Error
 등록증2
 {
     "debug": "arc-parse-done",

@@ -29,6 +29,17 @@ try:
 except Exception:
     pytesseract = None
 
+# OmniMRZ singleton — PaddleOCR model is loaded on first access.
+# Cached at module level so each uvicorn worker loads models once.
+_omni_mrz_instance = None
+
+def _get_omni_mrz():
+    global _omni_mrz_instance
+    if _omni_mrz_instance is None:
+        from omnimrz import OmniMRZ  # type: ignore[import]
+        _omni_mrz_instance = OmniMRZ()
+    return _omni_mrz_instance
+
 
 # ── ARC 옵션 ────────────────────────────────────────────────────────────────
 ARC_REMOVE_PAREN = True   # 주소에서 (신길동) 같은 괄호표기 제거
@@ -758,236 +769,125 @@ def _iter_mrz_candidate_bands(im: Image.Image):
 
 def parse_passport(img, fast: bool = False):
     """
-    여권 MRZ(TD3) 전용 파서.
-    원본: pages/page_scan.py::parse_passport()
-    변경: st.session_state 디버그 기록 4곳 → 로컬 리스트 _debug_log 로 교체.
-    반환값 형식 동일.
+    여권 MRZ(TD3) 전용 파서 — OmniMRZ (PaddleOCR) 기반.
+
+    OmniMRZ automatically locates and OCRs the MRZ using PaddleOCR.
+    No Tesseract required for passport parsing.
+
+    Input:  PIL.Image (RGB)
+    Output: dict with keys 성, 명, 성별, 국가, 국적, 여권, 발급, 만기, 생년월일
+            or {"_no_mrz": True, ...} on failure.
+
+    발급 (issue date): MRZ TD3 does not encode the issue date — this field
+    is always returned as "" and must be filled manually if needed.
     """
     if img is None:
         return {}
 
-    # 디버그 로그 (FastAPI 환경에서는 사용되지 않음, Streamlit UI 용도만)
-    _debug_log = []
+    # ── Preprocessing ─────────────────────────────────────────────────────────
 
-    # 0) EXIF 방향 보정
     try:
         img = ImageOps.exif_transpose(img)
     except Exception:
         pass
 
-    # 1) 성능 보호: 너무 큰 이미지는 축소
     max_side = 1600
     w0, h0 = img.size
     scale = max_side / float(max(w0, h0))
     if scale < 1.0:
         img = img.resize((int(w0 * scale), int(h0 * scale)), resample=_PILImage.BILINEAR)
 
-    # 2) 여백 제거
+    # ── OmniMRZ call ──────────────────────────────────────────────────────────
+
     try:
-        img = _crop_to_content_bbox(img, pad_ratio=0.03)  # type: ignore[call-arg]
-    except TypeError:
-        img = _crop_to_content_bbox(img)
+        omni = _get_omni_mrz()
+    except Exception as exc:
+        return {"_no_mrz": True, "_parse_error": f"OmniMRZ init failed: {exc}"}
 
-    def _ocr_mrz_band(band_img: Image.Image) -> str:
+    def _try_omni(pil_img):
+        """
+        PIL Image → numpy RGB array → OmniMRZ.process().
+        Returns parsed_data.data dict on success, None on failure.
+        """
         try:
-            proc = _prep_mrz(band_img)
+            import numpy as _np
+            arr = _np.array(pil_img.convert("RGB"))
+            result = omni.process(arr)
+            status = result.get("extraction", {}).get("status", "")
+            if not status.startswith("SUCCESS"):
+                return None
+            data = result.get("parsed_data", {}).get("data")
+            return data if data else None
         except Exception:
-            proc = _binarize_soft(band_img)
-        cfg_common = "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ<0123456789"
-        for psm in (6, 7):
-            txt = _tess_string(proc, lang="ocrb+eng", config=f"--oem 1 --psm {psm} {cfg_common}", timeout_s=2)
-            if (txt or "").strip():
-                return txt
-            txt = _tess_string(proc, lang="eng", config=f"--oem 1 --psm {psm} {cfg_common}", timeout_s=2)
-            if (txt or "").strip():
-                return txt
-        return ""
+            return None
 
-    # fast=True (server mode): rotations=(0,180), all 3 priority bands, top-2 edge windows.
-    #   Worst-case budget: 2 × (3+2) × 2 calls × 1s = 20s — fits under the 25s route timeout.
-    #   The single-band / single-edge previous fast mode was too narrow: one edge window often
-    #   picked the photo region instead of the MRZ zone, leaving passport1/2 with empty result.
-    # fast=False (full search): 4 rotations + 3 edge + 5 fallback — for local/debug use only.
-    rotations = (0, 180) if fast else (0, 90, 270, 180)
-    best_L1, best_L2, best_score = None, None, -1
-    best_meta = {}
-    # Rescue-pass tracking: the band that produced the most MRZ-charset content,
-    # regardless of MRZ score. Used by the line-split rescue after the main loop.
-    _rescue_band_img: "Image.Image | None" = None
-    _rescue_band_label = ""
-    _rescue_band_alen = 0  # count of [A-Z0-9<] chars in best band's OCR text
-
-    for rot in rotations:
-        imr = img.rotate(rot, expand=True) if rot else img
-        # Re-crop to passport body AFTER each rotation.
-        # Reasons: (1) the initial _crop_to_content_bbox may have left scanner whitespace if the
-        # background is dark or the passport is centered in a large scan; (2) rotate(expand=True)
-        # adds black-fill padding whose size depends on the image aspect ratio, shifting all body
-        # percentages. Re-cropping here makes every % calculation relative to the actual
-        # document edges rather than to the rotated+padded canvas.
-        imr_body = _crop_to_content_bbox(imr)
-        joined = ""
-        w, h = imr_body.size
-
-        # Priority-0: three bottom strips covering the MRZ zone (16/20/24% from bottom).
-        # All three are used in both fast and full mode; they're cheap and cover slight
-        # crop-margin variation that would otherwise cause the MRZ to fall outside a single band.
-        priority_bands = []
-        for _pct in (16, 20, 24):
-            _y0 = int(h * (1.0 - _pct / 100.0))
-            priority_bands.append((f"bottom{_pct}%_pri", imr_body.crop((0, _y0, w, h))))
-
-        # Edge-density windows: fast uses top-2; full uses top-3.
-        # top-2 keeps the time budget tight while covering the case where the photo region
-        # scores highest in edge density and the MRZ is the second-highest window.
-        top_k = 2 if fast else 3
-        bands = list(_mrz_windows_by_edge_density(imr_body, top_k=top_k))
-        band_iters = []
-        for i, (y0, y1) in enumerate(bands, start=1):
-            label = f"edge#{i} {int(100*y0/h)}-{int(100*y1/h)}%"
-            band_iters.append((label, imr_body.crop((0, y0, w, y1))))
-
-        fallback_added = False
-
-        for label, band in priority_bands + band_iters:
-            txt = _tess_string(
-                _prep_mrz(band),
-                lang="ocrb+eng",
-                config="--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ<0123456789",
-                timeout_s=1,
-            )
-            if not (txt or "").strip():
-                txt = _tess_string(
-                    _prep_mrz(band),
-                    lang="ocrb+eng",
-                    config="--oem 1 --psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ<0123456789",
-                    timeout_s=1,
-                )
-
-            # 디버그 로그 (Streamlit UI 미사용 환경에서는 무시됨)
-            _debug_log.append({"rot": rot, "band": label, "text_head": (txt or "")[:120]})
-
-            # Track the band with the most MRZ-charset content for the rescue pass.
-            # We store the band IMAGE here so the rescue can OCR it line-by-line.
-            _alen = sum(1 for c in (txt or "") if c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<")
-            if _alen > _rescue_band_alen:
-                _rescue_band_alen = _alen
-                _rescue_band_img = band
-                _rescue_band_label = f"{rot}deg/{label}"
-
-            if (txt or "").strip():
-                joined += "\n" + txt
-
-            L1, L2, sc = find_best_mrz_pair_from_text(joined)
-            if sc > best_score:
-                best_score = sc
-                best_L1, best_L2 = L1, L2
-                best_meta = {"rot": rot, "band": label, "score": sc, "L1": L1, "L2": L2}
-
-            if best_score >= 7:
+    # Try 0° first, then rotations.
+    # OmniMRZ handles minor skew internally but not 90°/180° cardinal rotations.
+    # fast=True: try 0° + 180° only (two most common scan orientations, ≤ ~4 s each).
+    # fast=False: try all four rotations.
+    data = _try_omni(img)
+    if data is None:
+        rotations = (180,) if fast else (180, 90, 270)
+        for rot in rotations:
+            data = _try_omni(img.rotate(rot, expand=True))
+            if data is not None:
                 break
 
-        # Fast mode skips fallback bands entirely — they add up to 10s on hard samples.
-        if not fast and best_score < 7 and not fallback_added:
-            fallback_added = True
-            for label, band in _iter_mrz_candidate_bands(imr_body):
-                if label.startswith("edge#"):
-                    continue
-                txt = _tess_string(
-                    _prep_mrz(band),
-                    lang="ocrb+eng",
-                    config="--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ<0123456789",
-                    timeout_s=1,
-                )
-                _debug_log.append({"rot": rot, "band": label, "text_head": (txt or "")[:120]})
-                if (txt or "").strip():
-                    joined += "\n" + txt
-
-                L1, L2, sc = find_best_mrz_pair_from_text(joined)
-                if sc > best_score:
-                    best_score = sc
-                    best_L1, best_L2 = L1, L2
-                    best_meta = {"rot": rot, "band": label, "score": sc, "L1": L1, "L2": L2}
-
-                if best_score >= 7:
-                    break
-
-        if best_score >= 7:
-            break
-
-    # ── Task B: line-split rescue on the single best-content band ─────────────
-    # If all bands failed, take the band with the most MRZ-charset content,
-    # add a white border, split it into upper/lower halves, OCR each half with
-    # single-line modes (PSM 13 then PSM 7), and score the resulting pair.
-    # Cost: 2 halves × up to 3 calls × 1s = ≤6s extra. Total budget stays ≤25s.
-    if best_score < 7 and _rescue_band_img is not None:
-        try:
-            _cfg_wl = "--oem 1 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ<0123456789"
-            _rb = ImageOps.expand(_rescue_band_img, border=4, fill=255)
-            _rw, _rh = _rb.size
-            _top_half = _rb.crop((0, 0, _rw, max(1, _rh // 2)))
-            _bot_half = _rb.crop((0, max(0, _rh // 2), _rw, _rh))
-
-            def _ocr_line_half(half_img: "Image.Image") -> str:
-                _proc = _prep_mrz(half_img)
-                for _psm in (13, 7):
-                    _t = _tess_string(_proc, lang="ocrb+eng",
-                                      config=f"--psm {_psm} {_cfg_wl}", timeout_s=1)
-                    if (_t or "").strip():
-                        return _t
-                    _t = _tess_string(_proc, lang="eng",
-                                      config=f"--psm {_psm} {_cfg_wl}", timeout_s=1)
-                    if (_t or "").strip():
-                        return _t
-                return ""
-
-            _lt = _ocr_line_half(_top_half)
-            _lb = _ocr_line_half(_bot_half)
-            _rescue_txt = (_lt or "") + "\n" + (_lb or "")
-            if _rescue_txt.strip():
-                _rL1, _rL2, _rsc = find_best_mrz_pair_from_text(_rescue_txt)
-                if _rsc > best_score:
-                    best_score = _rsc
-                    best_L1, best_L2 = _rL1, _rL2
-                    best_meta = {
-                        "rot": "rescue",
-                        "band": _rescue_band_label,
-                        "score": _rsc,
-                        "L1": _rL1,
-                        "L2": _rL2,
-                    }
-        except Exception:
-            pass
-
-    if not best_L1 or not best_L2:
-        # Return compact debug so production can distinguish:
-        # _rescue_band_alen == 0  → OCR produced nothing at all (image/rotation problem)
-        # best_score == -1        → OCR produced text but never formed a TD3-candidate pair
-        # best_score >= 0         → candidate pair found but check-digit score too low
+    if data is None:
         return {
             "_no_mrz": True,
-            "_best_score": best_score,
-            "_best_band": best_meta.get("band", "") if best_meta else "",
-            "_best_rot": best_meta.get("rot") if best_meta else None,
-            "_best_L1_head": (best_meta.get("L1") or "")[:40] if best_meta else "",
-            "_best_L2_head": (best_meta.get("L2") or "")[:40] if best_meta else "",
-            "_rescue_band": _rescue_band_label,
-            "_rescue_band_alen": _rescue_band_alen,
+            "_best_score": -1,
+            "_rescue_band": "omnimrz_no_mrz",
+            "_rescue_band_alen": 0,
         }
 
-    out = _parse_mrz_pair(best_L1, best_L2)
+    # ── Map OmniMRZ fields → response schema ──────────────────────────────────
+    # OmniMRZ returns dates as ISO YYYY-MM-DD strings — no conversion needed.
+    # Field mapping:
+    #   surname       → 성   (family name, already without filler '<')
+    #   given_names   → 명   (given names, space-separated)
+    #   gender        → 성별
+    #   issuing_country → 국가
+    #   nationality   → 국적
+    #   document_number → 여권
+    #   expiry_date   → 만기  (ISO YYYY-MM-DD)
+    #   date_of_birth → 생년월일 (ISO YYYY-MM-DD)
+    #
+    # MRZ TD3 Line2 layout (ICAO 9303):
+    #   pos 0–8   document number
+    #   pos 9     check digit
+    #   pos 10–12 nationality
+    #   pos 13–18 DOB (YYMMDD)
+    #   pos 19    check digit
+    #   pos 20    sex
+    #   pos 21–26 expiry (YYMMDD)
+    #   pos 27    check digit
+    #   pos 28–41 personal number / optional data
+    #   pos 42    check digit
+    #   pos 43    composite check digit
+    # Issue date is NOT present anywhere in MRZ — 발급 is always "".
+
+    surname     = (data.get("surname")          or "").replace("<", "").strip()
+    given_names = (data.get("given_names")       or "").replace("<", " ").strip()
+    gender      = (data.get("gender")            or "").strip()
+    country     = (data.get("issuing_country")   or "").strip()
+    nationality = (data.get("nationality")       or country).strip()
+    doc_number  = (data.get("document_number")   or "").replace("<", "").strip()
+    expiry      = (data.get("expiry_date")        or "").strip()
+    dob         = (data.get("date_of_birth")      or "").strip()
+
     return {
-        "성":       out.get("성", ""),
-        "명":       out.get("명", ""),
-        "성별":     out.get("성별", ""),
-        "국가":     out.get("국가", ""),
-        "국적":     out.get("국가", ""),
-        "여권":     out.get("여권", ""),
-        "발급":     out.get("발급", ""),
-        "만기":     out.get("만기", ""),
-        "생년월일": out.get("생년월일", ""),
-        "_raw_L1":  best_L1,
-        "_raw_L2":  best_L2,
+        "성":       surname,
+        "명":       given_names,
+        "성별":     gender,
+        "국가":     country,
+        "국적":     nationality,
+        "여권":     doc_number,
+        "발급":     "",   # not in MRZ — leave empty, fill manually if needed
+        "만기":     expiry,
+        "생년월일": dob,
+        "_raw_L1":  None,
+        "_raw_L2":  None,
     }
 
 

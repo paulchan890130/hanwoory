@@ -149,8 +149,18 @@ export default function ScanPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       const d = (res.data as any).result ?? res.data;
-      if (d.error) {
-        toast.error(d.error);
+      const isArcError =
+        d.error ||
+        d.error_message ||
+        d.debug === "arc-timeout" ||
+        d.debug === "arc-parse-exception" ||
+        d.debug === "arc-route-exception";
+      if (isArcError) {
+        toast.error(
+          d.debug === "arc-timeout"
+            ? "등록증 OCR 시간 초과"
+            : (d.error_message ?? d.error ?? "등록증 OCR 오류")
+        );
       } else {
         // Always assign all ARC fields from OCR result, including empty strings.
         // Truthy-only (if d.xxx) would leave previous scan's values when a new scan omits a field.
