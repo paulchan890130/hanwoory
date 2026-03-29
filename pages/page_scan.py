@@ -1930,12 +1930,36 @@ def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = '')
         except Exception:
             pass
 
-        # 최우선: text_top에서 괄호 안 한글 이름 (예: LI FENZI(이분자))
-        # 압도적 우선순위(50)를 주어 ROI 토큰 점수를 무조건 이긴다
+        # 0순위: text_top 괄호 이름 (예: LI FENZI(이분자)) → 압도적 우선순위
         paren_m = re.search(r'\(([가-힣]{2,4})\)', text_top or '')
         if paren_m and paren_m.group(1) not in _NAME_BAN:
             cands.append((50, paren_m.group(1)))
         else:
+            # 1순위: 소형 카드 대응 — 앞면을 800px 기준으로 업스케일 후 kor+eng 재OCR
+            # 소형 카드에서는 t_top 자체에 (괄호이름)이 없을 수 있으므로 재시도
+            try:
+                _w_fi, _h_fi = img.size
+                _up_fi = max(1, min(4, 800 // max(_w_fi, 1)))
+                if _up_fi >= 2:
+                    _big_fi = img.resize(
+                        (_w_fi * _up_fi, _h_fi * _up_fi), resample=_PILImage.LANCZOS
+                    )
+                    _g_fi = ImageOps.autocontrast(ImageOps.grayscale(_big_fi))
+                    try:
+                        _g_fi = _g_fi.filter(ImageFilter.SHARPEN)
+                    except Exception:
+                        pass
+                    _t_fi = _ocr(_g_fi, lang="kor+eng", config="--oem 3 --psm 6")
+                    _pm_fi = re.search(r'\(([가-힣]{2,4})\)', _t_fi or '')
+                    if _pm_fi and _pm_fi.group(1) not in _NAME_BAN:
+                        cands.append((45, _pm_fi.group(1)))
+                    elif _t_fi:
+                        _n_fi = _extract_kor_name_strict(_t_fi)
+                        if _n_fi:
+                            cands.append((8, _n_fi))
+            except Exception:
+                pass
+            # 2순위: text_top 라벨 기반
             text_name = _extract_kor_name_strict(text_top)
             if text_name:
                 cands.append((5, text_name))
@@ -1960,42 +1984,45 @@ def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = '')
     if name_ko:
         out["한글"] = name_ko
 
-    # 하단(만기/주소)
+    # ───────── 뒷면: 소형 카드 대응 고해상도 회전 탐지 + 주소 테이블 추출 ─────────
+    # 핵심 변경: bot 이미지를 먼저 업스케일 후 회전 탐지 → 주소 섹션 전용 크롭 OCR
+    _bw0, _bh0 = bot.size
+    _bot_up = max(1, min(4, 1200 // max(_bw0, _bh0, 1)))
+    bot_big = (
+        bot.resize((_bw0 * _bot_up, _bh0 * _bot_up), resample=_PILImage.LANCZOS)
+        if _bot_up > 1 else bot
+    )
+
+    # 회전 탐지: PSM 6 단일 패스 × 3 (PSM 4 제거 → 3 calls 절약)
     best_text, best_sc, best_deg = "", -1, 0
     for deg in (0, 90, 270):
-        im = bot.rotate(deg, expand=True)
-        t1 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 6")
-        t2 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 4")
-        t = (t1 + "\n" + t2)
-        sc = _kor_count(t)
-        if sc > best_sc:
-            best_sc, best_text, best_deg = sc, t, deg
+        _im_r = bot_big.rotate(deg, expand=True)
+        _g_r = ImageOps.autocontrast(ImageOps.grayscale(_im_r))
+        _t_r = _ocr(_g_r, lang="kor", config="--oem 3 --psm 6")
+        _sc_r = _kor_count(_t_r)
+        if _sc_r > best_sc:
+            best_sc, best_text, best_deg = _sc_r, _t_r, deg
     tn_bot = best_text
 
-    # 🔚 만기일: 하단에서 발견된 "모든 날짜" 중 가장 늦은 날짜를 선택
+    # 만기일: 뒷면 전체 텍스트에서 가장 늦은 날짜
     expiry = _pick_labeled_date(
         tn_bot,
         r"(만기|유효|until|expiry|expiration|valid\s*until|까지)"
     )
     ds_bot = _find_all_dates(tn_bot)
-
-    # 발급일(issued)과 같은 날짜는 후보에서 제거
     if issued and issued in ds_bot:
         try:
             ds_bot.remove(issued)
         except ValueError:
             pass
-
-    # 라벨로 잡은 만기일이 있으면 후보에 포함
     if expiry:
         ds_bot.append(expiry)
-
     if ds_bot:
         ds_bot = sorted(set(ds_bot))
-        out["만기일"] = ds_bot[-1]   # 👉 가장 늦은 날짜 = 최종 만기일
+        out["만기일"] = ds_bot[-1]
 
-    # 주소
-        # ───────── 주소(국내거소) 추출 ─────────
+    # ── 주소: 체류지 테이블 기반 추출 ─────────────────────────────────────────
+
     def _clean_addr_line(s: str) -> str:
         s = (s or "").replace("|", " ").replace("｜", " ")
         s = re.sub(
@@ -2008,224 +2035,162 @@ def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = '')
         if ARC_REMOVE_PAREN:
             s = re.sub(r'\((?![^)]*(동|호|층))[^)]*\)', ' ', s)
         s = re.sub(r'\s{2,}', ' ', s).strip(' ,')
-
         m = re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s)
         if m:
             s = s[m.start():].strip()
-
         s = re.sub(r'^(서투시|서투시흘일고|시흥시흘일고|자버르지|자버영로|자9버영로)+\s*', '', s)
         s = re.sub(r'(군서로)\s*(\d+)\s*번길', r'\1\2번길', s)
         s = re.sub(r'(새말로)\s*(\d+)', r'\1 \2', s)
         s = re.sub(r'(\d)\s*호', r'\1호', s)
         s = re.sub(r'(\d)\s*동', r'\1동', s)
-        s = re.sub(r'\s*,\s*', ', ', s)
         s = re.sub(r'\s{2,}', ' ', s).strip(' ,')
-
         if not _looks_like_korean_address(s):
             return ""
         return s
 
     def _is_addr_stop_line(s: str) -> bool:
-        s = (s or "").strip()
-        return bool(re.search(r'(유효|유호|취업가능|민원안내|하이코리아|일련번호)', s))
+        return bool(re.search(r'(유효|유호|취업가능|민원안내|하이코리아|일련번호)', (s or "")))
 
-    def _is_addr_header_line(s: str) -> bool:
-        s = (s or "").strip()
-        return bool(re.search(r'(국내거소|체류지|신고일|신고월)', s))
-
-    def _is_junk_addr_line(s: str) -> bool:
-        s = (s or '').strip()
+    def _addr_score_back(s: str) -> float:
+        """뒷면 주소 후보 선택용 점수."""
         if not s:
-            return True
-        if _ADDR_BAN_RE.search(s):
-            return True
-        if re.fullmatch(r'[\(\)\.\-/#\s]+', s):
-            return True
-        if _kor_count(s) < 2 and len(re.sub(r'[^\d]', '', s)) >= 6:
-            return True
-        return False
-
-    def _addr_score(s: str) -> float:
-        s = _clean_addr_line(s)
-        if _is_junk_addr_line(s):
             return -1.0
-
-        has_lvl  = bool(re.search(r'(도|시|군|구)', s))
-        has_road = bool(re.search(r'(로|길|번길|대로)', s))
-        has_num  = bool(re.search(r'\d', s))
-        has_unit = bool(re.search(r'(동|호|층|#\d+)', s))
-
-        score = 0.0
-        score += _kor_count(s) * 2.0
-        score += 6.0 if has_lvl else 0.0
-        score += 9.0 if has_road else 0.0
-        score += 4.0 if has_num else 0.0
-        score += 3.0 if has_unit else 0.0
-        score += 6.0 if re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s) else 0.0
+        if _ADDR_BAN_RE.search(s):
+            return -1.0
+        score = _kor_count(s) * 2.0
+        score += 6.0 if re.search(r'[가-힣]{1,6}[시군구](?:\s|$|\d)', s) else 0.0
+        score += 9.0 if re.search(r'[가-힣]{2,8}(?:대로|번길|로|길)(?:\s|$|\d)', s) else 0.0
+        score += 4.0 if re.search(r'\d', s) else 0.0
+        score += 3.0 if re.search(r'(동|호|층|#\d+)', s) else 0.0
+        score += 6.0 if re.search(
+            r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s
+        ) else 0.0
         score += min(len(s), 60) / 12.0
-
         if len(s) < 8:
             score -= 5.0
-        if re.match(r'^\d{1,4}[.\-/]\d{1,2}[.\-/]\d{1,2}', s):
-            score -= 6.0
-
         return score
 
-    def _merge_addr_lines(lines: list[str]) -> list[str]:
-        merged = []
-        i = 0
-        while i < len(lines):
-            cur = (lines[i] or "").strip()
-            nxt = (lines[i + 1] or "").strip() if i + 1 < len(lines) else ""
+    _DATE_ROW_RE = re.compile(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})')
 
-            combined = cur
-            if nxt:
-                cur_has_date = bool(re.search(r'\d{1,4}[.\-/]\d{1,2}[.\-/]\d{1,2}', cur))
-                cur_has_addr = bool(re.search(r'(도|시|군|구|로|길|번길|대로)', cur))
-                nxt_is_cont = bool(re.match(r'^[\s:;,.~\-]*(\(?[가-힣0-9]|길|로|번길|대로|동|호|층)', nxt))
-                nxt_header = _is_addr_header_line(nxt)
-                nxt_stop = _is_addr_stop_line(nxt)
-
-                if cur_has_date and nxt_is_cont and not nxt_header and not nxt_stop:
-                    combined = cur + " " + nxt
-                    i += 1
-                elif cur_has_addr and nxt_is_cont and not nxt_header and not nxt_stop:
-                    combined = cur + " " + nxt
-                    i += 1
-
-            merged.append(combined)
-            i += 1
-
-        return merged
-
-    def _extract_addr_region(text: str) -> list[str]:
-        lines = [re.sub(r'\s+', ' ', l).strip() for l in (text or "").splitlines() if l.strip()]
-        if not lines:
-            return []
-
-        start_idx = 0
+    def _extract_addr_section(text: str) -> list:
+        """
+        체류지(Address) 헤더 이후 라인 목록 반환.
+        헤더를 찾지 못하면 전체 라인 반환.
+        """
+        lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+        start = 0
         for i, l in enumerate(lines):
-            if re.search(r'(국내거소|체류지)', l):
-                start_idx = i + 1
+            if re.search(r'체류지|Address|국내거소', l, re.I):
+                start = i + 1
                 break
-
-        region = []
-        for l in lines[start_idx:]:
+        result = []
+        for l in lines[start:]:
             if _is_addr_stop_line(l):
                 break
-            region.append(l)
+            result.append(l)
+        return result if result else lines
 
-        return region if region else lines
+    def _parse_dated_addr_rows(lines: list) -> list:
+        """
+        날짜로 시작하는 행을 기준으로 (datetime, cleaned_addr) 쌍 추출.
+        다음 날짜 행 전까지 연속 행을 주소에 병합.
+        최신 날짜 우선 정렬.
+        """
+        rows = []
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            dm = _DATE_ROW_RE.match(line)
+            if dm:
+                try:
+                    row_dt = _dt(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)))
+                except ValueError:
+                    i += 1
+                    continue
+                parts = [line[dm.end():].strip()]
+                j = i + 1
+                while j < len(lines):
+                    nxt = lines[j].strip()
+                    if _DATE_ROW_RE.match(nxt) or _is_addr_stop_line(nxt):
+                        break
+                    if nxt and not _ADDR_BAN_RE.search(nxt):
+                        parts.append(nxt)
+                    j += 1
+                addr_raw = " ".join(p for p in parts if p)
+                addr_c = _clean_addr_line(addr_raw)
+                if addr_c:
+                    rows.append((row_dt, addr_c))
+                i = j
+            else:
+                i += 1
+        rows.sort(key=lambda x: x[0], reverse=True)
+        return rows
 
-    def _best_addr_latest(text: str) -> str:
-        lines = _extract_addr_region(text)
-        lines = _merge_addr_lines(lines)
+    # uprighted 고해상도 뒷면 준비
+    rot_bot_big = bot_big.rotate(best_deg, expand=True)
+    _rbw, _rbh = rot_bot_big.size
 
-        best_addr = ""
-        best_date = None
-        best_sc = -1.0
+    # 체류지 헤더 위치 추정 → 주소 섹션 Y 시작점 계산
+    _lines_tb = [l.strip() for l in tn_bot.splitlines() if l.strip()]
+    _hdr_frac = 0.28  # 기본값: 뒷면 상단 28%부터 주소 섹션 시작
+    for _hi, _hl in enumerate(_lines_tb):
+        if re.search(r'체류지|Address|국내거소', _hl, re.I):
+            _hdr_frac = max(0.18, min(0.70, (_hi + 1) / max(len(_lines_tb), 1)))
+            break
 
-        for raw in lines:
-            if _ADDR_BAN_RE.search(raw):
-                continue
+    # 주소 섹션 크롭 → 전용 OCR (1 call)
+    _addr_y0 = int(_rbh * _hdr_frac)
+    addr_crop_img = rot_bot_big.crop((int(_rbw * 0.02), _addr_y0, int(_rbw * 0.98), _rbh))
+    _g_addr = ImageOps.autocontrast(ImageOps.grayscale(addr_crop_img))
+    addr_crop_txt = _ocr(_g_addr, lang="kor", config="--oem 3 --psm 6")
 
-            m = re.search(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})', raw)
-            if not m:
-                continue
+    # 1차: 주소 섹션 전용 OCR → dated rows 파싱
+    _sec_lines_hi = _extract_addr_section(addr_crop_txt)
+    dated_rows = _parse_dated_addr_rows(_sec_lines_hi)
 
-            try:
-                y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-                dt = _dt(y, mo, d)
-            except ValueError:
-                continue
-
-            c = _clean_addr_line(raw)
-            sc = _addr_score(c)
-            if sc < 0:
-                continue
-
-            if (best_date is None) or (dt > best_date) or (dt == best_date and sc > best_sc):
-                best_date, best_sc, best_addr = dt, sc, c
-
-        if best_addr:
-            return best_addr
-
-        best_addr2 = ""
-        best_sc2 = -1.0
-        for raw in lines:
-            c = _clean_addr_line(raw)
-            sc = _addr_score(c)
-            if sc > best_sc2:
-                best_addr2, best_sc2 = c, sc
-
-        return best_addr2
-
-    def _looks_weak_address(addr: str) -> bool:
-        addr = (addr or "").strip()
-        if not addr:
-            return True
-        if _kor_count(addr) < 5:
-            return True
-        if not re.search(r'(도|시|군|구|로|길|번길|대로)', addr):
-            return True
-        return False
-
-    addr = _best_addr_latest(tn_bot)
-
-    if _looks_weak_address(addr):
-        addr2 = _best_addr_latest(t_top + "\n" + tn_bot)
-        if addr2 and not _looks_weak_address(addr2):
-            addr = addr2
-
-    if _looks_weak_address(addr):
-        try:
-            # 뒷면을 uprighted 상태에서 주소 박스 영역만 크롭하여 전용 OCR
-            # (2× 확대 후 OCR → 소형 카드 샘플에서 주소 인식률 향상)
-            rot_bot = bot.rotate(best_deg, expand=True)
-            rw, rh = rot_bot.size
-            addr_roi = rot_bot.crop((
-                int(rw * 0.05),
-                int(rh * 0.30),
-                int(rw * 0.95),
-                int(rh * 0.90),
-            ))
-            addr_roi_g = ImageOps.grayscale(addr_roi)
-            addr_roi_g = addr_roi_g.resize(
-                (max(1, addr_roi_g.width * 2), max(1, addr_roi_g.height * 2)),
-                resample=_PILImage.LANCZOS,
-            )
-            addr_txt = _ocr(addr_roi_g, lang="kor", config="--oem 3 --psm 6")
-            addr_retry = _best_addr_latest(addr_txt)
-            if addr_retry and not _looks_weak_address(addr_retry):
-                addr = addr_retry
-        except Exception:
-            pass
-
-    if _is_valid_address_candidate(addr):
-        out["주소"] = _apply_hierarchical_region_normalization(addr)
+    # 2차 fallback: 회전 탐지 전체 텍스트에서 재시도
+    if not dated_rows:
+        _sec_lines_lo = _extract_addr_section(tn_bot)
+        dated_rows = _parse_dated_addr_rows(_sec_lines_lo)
     else:
-        lines_all = [l.strip() for l in (t_top + "\n" + tn_bot).splitlines() if l.strip()]
-        cand_lines = _merge_addr_lines(lines_all)
-        pair_lines = []
-        for i, l in enumerate(lines_all[:-1]):
-            pair_lines.append((l + ' ' + lines_all[i + 1]).strip())
-        cand_lines.extend(_merge_addr_lines(pair_lines))
-        best_line = ""
-        best_score = -1.0
-        for l in cand_lines:
-            c = _clean_addr_line(l)
-            if _kor_count(c) < 3:
+        _sec_lines_lo = []
+
+    # 디버그 정보 (기존 debug 패널 → arc JSON에 포함됨)
+    _arc_dbg = {
+        "back_deg": best_deg,
+        "bot_upscale": _bot_up,
+        "hdr_frac": round(_hdr_frac, 2),
+        "addr_crop_preview": (addr_crop_txt or "")[:500],
+        "dated_rows": [(str(dt.date()), a) for dt, a in dated_rows],
+    }
+
+    # 최신 유효 주소 선택
+    final_addr = ""
+    for _row_dt, _row_addr in dated_rows:
+        if _is_valid_address_candidate(_row_addr):
+            final_addr = _row_addr
+            _arc_dbg["selected"] = (str(_row_dt.date()), _row_addr)
+            break
+
+    # 3차 fallback: dated rows 없거나 모두 invalid → 섹션 라인 score 기반 선택
+    if not final_addr:
+        _cand_lines = _sec_lines_hi or _sec_lines_lo
+        _best_sc_fb = -1.0
+        for _fb_l in _cand_lines:
+            _fb_c = _clean_addr_line(_fb_l)
+            if not _is_valid_address_candidate(_fb_c):
                 continue
-            if not re.search(r'(도|시|군|구|로|길|번길|대로)', c):
-                continue
-            sc = _addr_score(c)
-            if re.search(r'^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', c):
-                sc += 4.0
-            if sc > best_score:
-                best_score = sc
-                best_line = c
-        if _is_valid_address_candidate(best_line):
-            out["주소"] = _apply_hierarchical_region_normalization(best_line)
+            _fb_sc = _addr_score_back(_fb_c)
+            if _fb_sc > _best_sc_fb:
+                _best_sc_fb = _fb_sc
+                final_addr = _fb_c
+        if final_addr:
+            _arc_dbg["selected"] = ("score_fallback", final_addr)
+
+    out["_arc_debug"] = _arc_dbg
+
+    if final_addr:
+        out["주소"] = _apply_hierarchical_region_normalization(final_addr)
 
 
 
