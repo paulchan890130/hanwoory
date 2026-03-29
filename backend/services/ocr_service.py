@@ -14,6 +14,7 @@ FastAPI 백엔드에서 독립적으로 실행 가능한 형태로 추출.
 
 import os
 import re
+import math as _math
 import platform
 from datetime import datetime as _dt, timedelta as _td
 
@@ -1003,19 +1004,33 @@ def _looks_like_korean_address(s: str) -> bool:
     s = (s or "").strip()
     if not s:
         return False
-    # Province check is a plus but OCR often garbles province names;
-    # require at least a city/district/road-level component.
     has_province = bool(re.search(
         r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", s
     ))
-    has_road = bool(re.search(r"(시|군|구|로|길|번길|대로)", s))
-    if not has_road:
+    # Require a word-ending token, not a bare syllable inside an unrelated word.
+    # e.g. "군구" contains "구" but not "[가-힣]+구(\s|$|\d)" → correctly rejected.
+    has_admin = bool(re.search(r'[가-힣]{1,6}[시군구](?:\s|$|\d)', s))
+    has_road  = bool(re.search(r'[가-힣]{2,8}(?:대로|번길|로|길)(?:\s|$|\d)', s))
+    if not (has_admin or has_road):
         return False
-    # Without a province marker, require at least one number (street number) to
-    # avoid accepting bare noise like "민원시".
     if not has_province and not re.search(r"\d", s):
         return False
     return True
+
+
+# Strong final-save gate: BOTH admin-unit AND road-name word-ending tokens required.
+_ADDR_ADMIN_TOKEN_RE = re.compile(r'[가-힣]{1,6}[시군구](?:\s|$|\d)')
+_ADDR_ROAD_TOKEN_RE  = re.compile(r'[가-힣]{2,8}(?:대로|번길|로|길)(?:\s|$|\d)')
+
+
+def _is_valid_address_candidate(s: str) -> bool:
+    """Reject any candidate that doesn't structurally look like a Korean address."""
+    s = (s or '').strip()
+    if not s or _kor_count(s) < 5 or len(s) < 8:
+        return False
+    if not re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s):
+        return False
+    return bool(_ADDR_ADMIN_TOKEN_RE.search(s)) and bool(_ADDR_ROAD_TOKEN_RE.search(s))
 
 
 def _dedup_address(addr: str) -> str:
@@ -1040,6 +1055,279 @@ def _dedup_address(addr: str) -> str:
         return addr  # second marker too early — not a duplication pattern
     candidate = addr[:cut_pos].strip(" ,")
     return candidate if len(candidate) >= 8 else addr
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8) GEOMETRY HELPERS — ARC 카드 deskew + 뒷면 테이블 방향 결정
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _card_tilt_from_top_edge(img: Image.Image) -> tuple[float, tuple | None]:
+    """
+    흰 배경 위 ARC 카드의 기울기를 상단 엣지 픽셀 선형 피팅으로 추정.
+    Returns (tilt_deg, card_bbox_or_None).
+      tilt_deg > 0: 오른쪽이 아래(CW 기울기) → PIL.rotate(+tilt) 로 보정.
+    """
+    if np is None or img is None:
+        return 0.0, None
+    try:
+        w, h = img.size
+        sc = min(1.0, 800 / max(w, h))
+        work = img.resize((int(w * sc), int(h * sc)), resample=_PILImage.BILINEAR) if sc < 1.0 else img
+        sw, sh = work.size
+        arr  = np.asarray(ImageOps.grayscale(work))
+        dark = arr < 200
+
+        cx0, cx1 = int(sw * 0.10), int(sw * 0.90)
+        half_h   = int(sh * 0.50)
+        step     = max(1, (cx1 - cx0) // 60)
+        cols_used: list[float] = []
+        top_rows:  list[float] = []
+        for c in range(cx0, cx1, step):
+            idxs = np.where(dark[:half_h, c])[0]
+            if len(idxs):
+                cols_used.append(float(c))
+                top_rows.append(float(idxs[0]))
+
+        if len(cols_used) < 10:
+            return 0.0, None
+
+        ra  = np.array(top_rows)
+        med = float(np.median(ra))
+        std = float(np.std(ra))
+        if std > 1:
+            mask = np.abs(ra - med) <= 2.5 * std
+            if mask.sum() >= 8:
+                cols_used = [c for c, m in zip(cols_used, mask) if m]
+                top_rows  = [r for r, m in zip(top_rows,  mask) if m]
+        if len(cols_used) < 5:
+            return 0.0, None
+
+        # row = slope * col + intercept
+        # slope > 0 → 오른쪽이 아래 → CW 기울기
+        slope, _ = np.polyfit(np.array(cols_used), np.array(top_rows), 1)
+        tilt = float(_math.degrees(_math.atan(float(slope))))
+
+        ys, xs = np.where(dark)
+        bbox = (int(xs.min() / sc), int(ys.min() / sc),
+                int(xs.max() / sc), int(ys.max() / sc)) if len(ys) else None
+        return tilt, bbox
+    except Exception:
+        return 0.0, None
+
+
+def _deskew_card_image(img: Image.Image) -> tuple[Image.Image, float, tuple | None]:
+    """
+    ARC 카드 1회 deskew. |tilt| ∈ (0.3°, 10°) 일 때만 보정 적용.
+    Returns (corrected_img, angle_applied_deg, card_bbox).
+      angle_applied > 0 → CCW 회전으로 CW 기울기 보정.
+    """
+    tilt, bbox = _card_tilt_from_top_edge(img)
+    if abs(tilt) < 0.3 or abs(tilt) > 10.0:
+        return img, 0.0, bbox
+    # tilt > 0 → CW 기울기 → CCW(PIL rotate +) 로 보정
+    corrected = img.rotate(
+        tilt, expand=False, resample=_PILImage.BILINEAR,
+        fillcolor=(255, 255, 255),
+    )
+    return corrected, tilt, bbox
+
+
+def _geometry_orient_back(bot: Image.Image) -> tuple[Image.Image, dict]:
+    """
+    등록증 뒷면 geometry-first 방향 결정.
+
+    알고리즘:
+      1. 다크픽셀 맵에서 내부(15%-85%) 영역의 컬럼/행 밀도를 계산.
+      2. 가장 강한 수직선(컬럼 밀도 피크)과 수평선(행 밀도 피크)을 찾는다.
+      3. 두 강도를 비교 → 수직 우세면 0°/180°, 수평 우세면 90°/270°.
+      4. 위치 비율로 두 후보 중 하나 선택 (spec: 0.30–0.43 = 좁은쪽, 0.57–0.70 = 반대).
+      5. 전체 해상도 이미지에 coarse 회전 적용.
+      6. 보정 후 이미지에서 다시 디바이더 컬럼 탐지 → 기울기 측정 → fine deskew.
+
+    Returns (oriented_image, debug_dict).
+    """
+    dbg: dict = {}
+    if np is None or bot is None:
+        return bot, dbg
+    try:
+        w0, h0 = bot.size
+        sc = min(1.0, 800 / max(w0, h0))
+        work = bot.resize((int(w0 * sc), int(h0 * sc)), resample=_PILImage.BILINEAR) if sc < 1.0 else bot
+        sw, sh = work.size
+
+        arr  = np.asarray(ImageOps.grayscale(work))
+        dark = (arr < 160).astype(np.float32)
+
+        # 내부 영역 [15%, 85%]
+        mx0, mx1 = int(sw * 0.15), int(sw * 0.85)
+        my0, my1 = int(sh * 0.15), int(sh * 0.85)
+        interior = dark[my0:my1, mx0:mx1]
+        iw = mx1 - mx0
+        ih = my1 - my0
+
+        def _sm(a: np.ndarray, k: int = 5) -> np.ndarray:
+            return np.convolve(a, np.ones(k) / k, mode='same') if len(a) > k else a
+
+        col_sm = _sm(interior.mean(axis=0))
+        row_sm = _sm(interior.mean(axis=1))
+
+        vs0, vs1 = int(iw * 0.20), int(iw * 0.80)
+        hs0, hs1 = int(ih * 0.20), int(ih * 0.80)
+
+        v_rel  = int(np.argmax(col_sm[vs0:vs1])) + vs0
+        v_abs  = v_rel + mx0
+        v_frac = v_abs / sw
+        v_str  = float(col_sm[v_rel])
+
+        h_rel  = int(np.argmax(row_sm[hs0:hs1])) + hs0
+        h_abs  = h_rel + my0
+        h_frac = h_abs / sh
+        h_str  = float(row_sm[h_rel])
+
+        dbg.update({
+            "v_line_frac": round(v_frac, 3), "v_line_strength": round(v_str, 3),
+            "h_line_frac": round(h_frac, 3), "h_line_strength": round(h_str, 3),
+        })
+
+        # 스펙 범위보다 약간 넓게 (edge case 흡수)
+        LO, HI   = 0.30, 0.43
+        LO2, HI2 = 0.57, 0.70
+
+        is_vert = v_str >= h_str * 0.75
+        coarse, confidence = 0, "ok"
+
+        if is_vert:
+            if   LO  <= v_frac <= HI:  coarse = 0
+            elif LO2 <= v_frac <= HI2: coarse = 180
+            else: confidence = "low_v"
+        else:
+            # 수평 디바이더 → 카드가 90° 또는 270° 회전된 상태
+            if   LO  <= h_frac <= HI:  coarse = 90    # PIL CCW 90° → 올바른 방향
+            elif LO2 <= h_frac <= HI2: coarse = 270
+            else: confidence = "low_h"
+
+        dbg.update({
+            "coarse_rotation":     coarse,
+            "coarse_confidence":   confidence,
+            "is_vertical_divider": is_vert,
+        })
+
+        oriented = bot.rotate(coarse, expand=True) if coarse else bot
+
+        # ── Fine deskew ──────────────────────────────────────────────────────
+        fine_angle  = 0.0
+        divider_frac = v_frac
+        try:
+            ow, oh = oriented.size
+            sc2 = min(1.0, 800 / max(ow, oh))
+            w2 = oriented.resize((int(ow * sc2), int(oh * sc2)), resample=_PILImage.BILINEAR) if sc2 < 1.0 else oriented
+            sw2, sh2 = w2.size
+            d2  = (np.asarray(ImageOps.grayscale(w2)) < 160).astype(np.float32)
+
+            mx2 = int(sw2 * 0.15)
+            my2 = int(sh2 * 0.15)
+            int2 = d2[my2:sh2 - my2, mx2:sw2 - mx2]
+            iw2  = (sw2 - mx2) - mx2
+
+            cd2_sm = _sm(int2.mean(axis=0))
+            dv0, dv1 = int(iw2 * 0.20), int(iw2 * 0.80)
+            dr = int(np.argmax(cd2_sm[dv0:dv1])) + dv0
+            da = dr + mx2
+            divider_frac = da / sw2
+
+            # ±3px 밴드 안의 다크픽셀 → 기울기 측정
+            bl = max(0, da - 3)
+            br = min(sw2, da + 4)
+            band = d2[my2:sh2 - my2, bl:br]
+            ys2, xs2 = np.where(band > 0.5)
+
+            if len(ys2) >= 12:
+                # col = slope * row + intercept;  완벽히 수직이면 slope ≈ 0
+                # slope > 0 → 디바이더가 CW로 기울어짐 → 카드가 CCW 기울기
+                # → CW 보정 = PIL.rotate(-fine_angle)
+                slope2, _ = np.polyfit(
+                    (ys2 + my2).astype(float),
+                    (xs2 + bl ).astype(float),
+                    1,
+                )
+                fine_angle = float(_math.degrees(_math.atan(float(slope2))))
+                dbg["divider_slope"] = round(float(slope2), 4)
+
+                if 0.3 <= abs(fine_angle) <= 8.0:
+                    oriented = oriented.rotate(
+                        -fine_angle, expand=False,
+                        resample=_PILImage.BILINEAR,
+                        fillcolor=(255, 255, 255),
+                    )
+        except Exception as _fe:
+            dbg["fine_deskew_error"] = str(_fe)
+
+        dbg.update({
+            "fine_deskew_angle": round(fine_angle, 2),
+            "divider_frac":      round(divider_frac, 3),
+            "back_card_bbox":    (0, 0, w0, h0),
+        })
+        return oriented, dbg
+
+    except Exception as e:
+        return bot, {"back_geom_error": str(e)}
+
+
+def _similarity_correct_address(addr: str) -> str:
+    """
+    OCR이 뭉개진 광역시도 명칭을 계층적 유사도로 보정.
+    Level 1: 광역시도 (17개 고정 목록, difflib)
+    Level 2: 주소 전체를 그대로 유지하고 첫 토큰만 교체.
+    무거운 전국 퍼지 검색은 하지 않는다.
+    """
+    if not addr:
+        return addr
+    try:
+        from difflib import get_close_matches as _gcm
+
+        _L1 = [
+            "서울특별시", "부산광역시", "대구광역시", "인천광역시",
+            "광주광역시", "대전광역시", "울산광역시", "세종특별자치시",
+            "경기도", "강원특별자치도", "충청북도", "충청남도",
+            "전북특별자치도", "전라남도", "경상북도", "경상남도",
+            "제주특별자치도",
+        ]
+        _L1_SHORT: dict[str, str] = {
+            "서울": "서울특별시",  "부산": "부산광역시",  "대구": "대구광역시",
+            "인천": "인천광역시",  "광주": "광주광역시",  "대전": "대전광역시",
+            "울산": "울산광역시",  "세종": "세종특별자치시",
+            "경기": "경기도",      "강원": "강원특별자치도",
+            "충북": "충청북도",    "충남": "충청남도",
+            "전북": "전북특별자치도", "전남": "전라남도",
+            "경북": "경상북도",    "경남": "경상남도",   "제주": "제주특별자치도",
+            # 구형 명칭
+            "강원도": "강원특별자치도", "전라북도": "전북특별자치도",
+            "제주도": "제주특별자치도",
+        }
+
+        tokens = addr.split()
+        if not tokens:
+            return addr
+
+        t0 = tokens[0]
+        corrected_l1 = None
+        if t0 in _L1_SHORT:
+            corrected_l1 = _L1_SHORT[t0]
+        elif t0 not in _L1:
+            if 2 <= len(t0) <= 8:
+                m = _gcm(t0, _L1 + list(_L1_SHORT.keys()), n=1, cutoff=0.62)
+                if m:
+                    best = m[0]
+                    corrected_l1 = _L1_SHORT.get(best, best if best in _L1 else None)
+        else:
+            corrected_l1 = t0
+
+        if corrected_l1 and corrected_l1 != t0:
+            tokens[0] = corrected_l1
+            addr = " ".join(tokens)
+    except Exception:
+        pass
+    return addr
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1068,6 +1356,13 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             )
 
     top, bot = _split_arc_front_back(img)
+
+    # ── 앞면 deskew (geometry-first) ─────────────────────────────────────────
+    top, _front_deskew_angle, _front_bbox = _deskew_card_image(top)
+    _debug_geom: dict = {
+        "front_deskew_angle": round(_front_deskew_angle, 2),
+        "front_card_bbox":    _front_bbox,
+    }
 
     try:
         # fast=True: 1회(kor+eng, psm=6)만 시도 — 호출 수 2→1로 감소
@@ -1380,22 +1675,14 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     if name_ko:
         out["한글"] = name_ko
 
-    best_text, best_sc, best_deg = "", -1, 0
-    # fast 모드: 0° 단일 호출(psm=6 only). 등록증 뒷면은 대부분 정방향이므로 충분.
-    rot_list = (0,) if fast else (0, 90, 270)
-    for deg in rot_list:
-        im = bot.rotate(deg, expand=True) if deg else bot
-        t1 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 6")
-        t = t1
-        if not fast:
-            t2 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 4")
-            t = t1 + "\n" + t2
-        sc = _kor_word_score(t)
-        if sc > best_sc:
-            best_sc, best_text, best_deg = sc, t, deg
-        if fast and best_sc >= 40:
-            break
-    tn_bot = best_text
+    # ── 뒷면 geometry-first 방향 결정 (OCR 회전 투표 제거) ────────────────────
+    _rot_back, _back_geom_dbg = _geometry_orient_back(bot)
+    _debug_geom.update(_back_geom_dbg)
+    # 방향 확정된 뒷면 전체 OCR (날짜 추출 + 주소 fallback 용)
+    _rb_gray = ImageOps.autocontrast(ImageOps.grayscale(_rot_back))
+    tn_bot = _ocr(_rb_gray, lang="kor", config="--oem 3 --psm 6")
+    if not fast:
+        tn_bot += "\n" + _ocr(_rb_gray, lang="kor", config="--oem 3 --psm 4")
 
     expiry = _pick_labeled_date(
         tn_bot,
@@ -1586,47 +1873,72 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             return True
         return False
 
-    # Dynamic address-region detection on correctly-oriented back card.
-    # Strategy: scan three overlapping horizontal strips at different heights.
-    # Each strip is OCR'd independently; address candidates (individual lines +
-    # adjacent merged pairs) are extracted from each strip and scored by Korean
-    # address structure (province/city/road markers, numbers, unit markers).
-    # The best-scoring candidate across all strips wins.
-    #
-    # This avoids the "broad OCR + cleanup" failure mode: full-back OCR mixes
-    # the address with serial numbers, dates, and fine-print, degrading OCR quality.
-    # Focused strip OCR gives Tesseract a cleaner layout to work with.
-    # The three strip y-ranges are wide enough to cover address placement variation
-    # across ARC card generations — NOT a fixed hardcoded box.
-    _rot_back = bot.rotate(best_deg, expand=True) if best_deg else bot
+    # ── 컬럼 기반 OCR — 기하학적으로 방향이 확정된 뒷면 ─────────────────────
+    # 디바이더를 기준으로 좌(날짜) / 우(주소) 컬럼 분리 + 상단 헤더 별도 OCR.
     _rb_w, _rb_h = _rot_back.size
+    _div_frac = float(_back_geom_dbg.get("divider_frac", 0.37))
+    _div_x    = int(_rb_w * _div_frac)
+
+    # 상단 헤더 (만기일/체류상태 등)
+    _upper_crop = _rot_back.crop((0, 0, _rb_w, int(_rb_h * 0.15)))
+    # 좌측 좁은 컬럼 (날짜)
+    _left_crop  = _rot_back.crop((
+        int(_rb_w * 0.01),
+        int(_rb_h * 0.10),
+        min(_div_x + int(_rb_w * 0.02), int(_rb_w * 0.48)),
+        int(_rb_h * 0.92),
+    ))
+    # 우측 넓은 컬럼 (주소) — 디바이더 쪽 2% overlap
+    _right_crop = _rot_back.crop((
+        max(_div_x - int(_rb_w * 0.02), int(_rb_w * 0.30)),
+        int(_rb_h * 0.10),
+        int(_rb_w * 0.99),
+        int(_rb_h * 0.92),
+    ))
+
+    _debug_geom.update({
+        "left_col_bbox":          (int(_rb_w * 0.01), int(_rb_h * 0.10),
+                                    min(_div_x + int(_rb_w * 0.02), int(_rb_w * 0.48)),
+                                    int(_rb_h * 0.92)),
+        "right_col_bbox":         (max(_div_x - int(_rb_w * 0.02), int(_rb_w * 0.30)),
+                                    int(_rb_h * 0.10), int(_rb_w * 0.99), int(_rb_h * 0.92)),
+        "upper_date_region_bbox": (0, 0, _rb_w, int(_rb_h * 0.15)),
+        "divider_x_px":           _div_x,
+    })
+
+    def _oprep(im: Image.Image) -> Image.Image:
+        return ImageOps.autocontrast(ImageOps.grayscale(im))
+
+    _upper_txt = _ocr(_oprep(_upper_crop), lang="kor", config="--oem 3 --psm 6")
+    _left_txt  = _ocr(_oprep(_left_crop),  lang="kor", config="--oem 3 --psm 6")
+    _right_txt = _ocr(_oprep(_right_crop), lang="kor", config="--oem 3 --psm 6")
+
+    _debug_geom.update({
+        "raw_upper_text": _upper_txt,
+        "raw_left_text":  _left_txt,
+        "raw_right_text": _right_txt,
+    })
+
+    # 날짜 추출 보강: 상단·좌측 텍스트를 tn_bot 앞에 추가
+    tn_bot = (_upper_txt or "") + "\n" + (_left_txt or "") + "\n" + tn_bot
+
+    # 주소: 우측 넓은 컬럼만 사용
     addr = ""
     _addr_best_sc = -1.0
-    for _y0r, _y1r in ((0.12, 0.58), (0.34, 0.80), (0.54, 0.96)):
-        try:
-            _strip = _rot_back.crop((
-                int(_rb_w * 0.03), int(_rb_h * _y0r),
-                int(_rb_w * 0.97), int(_rb_h * _y1r),
-            ))
-            _g = ImageOps.autocontrast(ImageOps.grayscale(_strip))
-            _stxt = _ocr(_g, lang="kor", config="--oem 3 --psm 6")
-            if not _stxt:
-                continue
-            # Build address candidates from line groups in this strip
-            _raw_lines = [re.sub(r"\s+", " ", _l).strip()
-                          for _l in _stxt.splitlines() if _l.strip()]
-            _region = _extract_addr_region("\n".join(_raw_lines))
-            _merged = _merge_addr_lines(_region)
-            # Also try adjacent line pairs to handle wrapped addresses
-            for _i in range(len(_region) - 1):
-                _merged.append((_region[_i] + " " + _region[_i + 1]).strip())
-            for _raw in _merged:
-                _c = _clean_addr_line(_raw)
-                _sc = _addr_score(_c)
-                if _sc > _addr_best_sc:
-                    _addr_best_sc, addr = _sc, _c
-        except Exception:
-            pass
+    try:
+        _raw_lines = [re.sub(r"\s+", " ", _l).strip()
+                      for _l in (_right_txt or "").splitlines() if _l.strip()]
+        _region = _extract_addr_region("\n".join(_raw_lines))
+        _merged = _merge_addr_lines(_region)
+        for _i in range(len(_region) - 1):
+            _merged.append((_region[_i] + " " + _region[_i + 1]).strip())
+        for _raw in _merged:
+            _c = _clean_addr_line(_raw)
+            _sc = _addr_score(_c)
+            if _sc > _addr_best_sc:
+                _addr_best_sc, addr = _sc, _c
+    except Exception:
+        pass
 
     # Fallback: full-back OCR text already computed by the rotation loop.
     # Less clean than strip OCR but covers edge cases missed by the strips.
@@ -1649,6 +1961,15 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     if out.get("주소"):
         out["주소"] = _dedup_address(out["주소"])
 
+    # Level 1 광역시도 유사도 보정 (OCR 오자 복원)
+    if out.get("주소"):
+        _addr_before_sim = out["주소"]
+        out["주소"] = _similarity_correct_address(out["주소"])
+        _debug_geom["similarity_correction"] = (
+            f"{_addr_before_sim!r} → {out['주소']!r}"
+            if _addr_before_sim != out["주소"] else "no_change"
+        )
+
     # DB-based address correction: correct OCR mis-reads in road/dong names
     if out.get("주소"):
         try:
@@ -1657,4 +1978,5 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         except Exception:
             pass
 
+    out["_debug_geometry"] = _debug_geom
     return out

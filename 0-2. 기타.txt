@@ -1,8 +1,211 @@
-여권1
-{
-    "debug": "passport-timeout",
-    "error_type": "TimeoutError",
-    "error_message": "passport OCR exceeded 25s server time budget"
-}
-등록증1
-Internal Server Error
+You are patching the existing scan/OCR logic in the repository. Do not redesign the UI. Do not change the returned field names. Do not introduce heavy new dependencies or a new external service.
+
+Repository:
+- paulchan890130/hanwoory
+
+Primary target:
+- pages/page_scan.py
+
+This is the final direction. Follow it exactly.
+
+==================================================
+CORE DECISION
+==================================================
+
+We are no longer doing OCR-first rotation selection for ARC cards.
+
+Final strategy:
+
+FRONT SIDE
+- Use the card outer rectangle to do one deskew correction first.
+- Then keep the existing ROI-based OCR flow as much as possible.
+
+BACK SIDE
+1. Use the largest inner table + its vertical divider to determine coarse 90-degree orientation.
+2. Then use the divider angle to do fine deskew.
+3. Do NOT use projection-profile fallback.
+4. For address extraction, use similarity-based typo correction after OCR.
+
+Important:
+- Human correction is still expected.
+- A blank value is better than garbage text.
+- Stability matters more than clever heuristics.
+
+==================================================
+A. FRONT SIDE RULE
+==================================================
+
+Implement this for the ARC front card:
+
+1. Detect the outer card rectangle.
+2. Correct coarse orientation if needed.
+3. Apply one deskew correction using the outer rectangle angle so the card becomes horizontally/vertically aligned.
+4. After that, keep the existing ROI OCR logic for:
+   - front 6 digits
+   - Korean name
+   - issue date
+   - any other already working fields
+
+Do NOT redesign the front-side OCR flow beyond this.
+Goal:
+- improve OCR by feeding a properly deskewed front card into the current ROI logic
+- especially help front number, issue date, and parenthesized Hangul name
+
+If deskew confidence is low:
+- fall back to the original front image instead of forcing a bad correction
+
+==================================================
+B. BACK SIDE RULE
+==================================================
+
+This is the main redesign.
+
+Step 1: find the back-side largest inner table
+- On the ARC back side, detect the largest inner rectangular table.
+- This is the primary address/date table.
+- Do not rely on OCR text to find it.
+
+Step 2: use the table divider for 90-degree orientation
+- Inside that largest table, detect the long vertical divider line.
+- Use that divider to determine the coarse orientation among:
+  - 0
+  - 90
+  - 180
+  - 270
+- The correct orientation should make the divider vertical and positioned near the left-side narrow column.
+
+Practical divider-position rule:
+- The divider is not exactly 2:3.
+- Treat the correct left-column ratio roughly as 0.32 ~ 0.39 of the table width.
+- The opposite reversed case will look like 0.61 ~ 0.68.
+- Use ranges, not a single exact ratio.
+
+Step 3: fine deskew using divider angle
+- After coarse orientation is decided, use the divider angle itself to do fine deskew.
+- Example:
+  - if coarse orientation is 90 degrees
+  - and the divider is still tilted by +1.8 degrees
+  - rotate accordingly so the divider becomes truly vertical
+
+Important:
+- Do NOT use projection profile fallback.
+- Only use:
+  - largest table
+  - divider position
+  - divider angle
+for orientation and deskew.
+
+==================================================
+C. BACK SIDE OCR AFTER GEOMETRY
+==================================================
+
+Once the back side is correctly oriented and deskewed:
+
+1. Split the largest table into:
+   - left narrow date column
+   - right wide address column
+
+2. OCR them separately:
+   - left column: date-focused OCR
+   - right column: address-focused OCR
+
+3. If there is a useful upper date/status region above the large table, OCR that separately too.
+   - But do not create a separate permanent “green-card-only” logic.
+   - Permanent resident cards are rare and expiry is not important enough to justify a separate branch.
+
+Important:
+- No separate dedicated permanent-resident-card logic.
+- Keep one common back-side geometry-first flow.
+
+==================================================
+D. ADDRESS EXTRACTION RULE
+==================================================
+
+Address extraction must work like this:
+
+1. OCR the right wide address column only.
+2. Do lightweight cleanup.
+3. Then apply typo correction using similarity-based normalization.
+
+Important:
+- Similarity is allowed for correcting OCR typos.
+- This should be hierarchical and cheap, not a full fuzzy search over all Korean addresses.
+
+Use this order:
+1. Level 1 region similarity
+   - ex: 경기도, 서울특별시, 인천광역시, etc.
+2. Level 2 city/district similarity
+   - scoped under the selected Level 1 parent when possible
+3. then keep existing road/address scoring logic as needed
+
+Important constraints:
+- Do NOT fuzzy-match the full national road-name database.
+- Do NOT do a heavy nationwide fuzzy search.
+- Similarity should only be used for:
+  - top-level region correction
+  - city/district correction
+  - lightweight OCR typo recovery
+
+Also:
+- If Level 1 is weak, Level 2 may help infer the parent.
+- If the final address is weak, return empty string instead of garbage.
+
+==================================================
+E. WHAT TO KEEP / WHAT TO REMOVE
+==================================================
+
+Keep:
+- current card split logic if useful
+- current front ROI OCR as baseline
+- current final safety philosophy (“better blank than garbage”)
+- current number extraction logic that is already working
+- current minimal gender-aware repair for back 7 digits if it is isolated and safe
+
+Remove or stop relying on:
+- OCR-first rotation voting for ARC back
+- text quantity / Hangul count to choose back orientation
+- projection-profile fallback
+- brittle back-side logic that depends on OCR header detection before geometry is fixed
+
+==================================================
+F. DEBUG REQUIREMENT
+==================================================
+
+Add temporary debug info in parse_arc() so we can verify geometry logic.
+
+Include debug fields such as:
+- front_card_bbox
+- front_deskew_angle
+- back_card_bbox
+- largest_table_bbox
+- divider_line_bbox or divider line endpoints
+- coarse_orientation
+- fine_deskew_angle
+- left_col_bbox
+- right_col_bbox
+- upper_date_region_bbox if used
+- raw OCR text for each cropped region
+- final address normalization steps
+
+Do not redesign the UI.
+Just expose the debug data through the existing debug JSON flow.
+
+==================================================
+G. DELIVERY REQUIREMENT
+==================================================
+
+Before finalizing:
+1. Inspect the current pages/page_scan.py completely.
+2. Patch only what is needed.
+3. Provide:
+   - exact functions to add or modify
+   - copy-paste-ready code blocks or a focused diff
+4. Explain briefly why each change is necessary.
+5. Keep the patch practical and minimal, but do not preserve broken OCR-first back-side rotation logic.
+
+Final objective:
+- ARC front: outer-rectangle deskew once, then existing ROI OCR
+- ARC back: largest table + divider for coarse orientation, divider-angle fine deskew, then cropped OCR
+- address typos: correct with similarity-based normalization
+- no projection-profile fallback
+- no separate permanent-resident-card logic
