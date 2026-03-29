@@ -1649,4 +1649,12 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     if out.get("주소"):
         out["주소"] = _dedup_address(out["주소"])
 
+    # DB-based address correction: correct OCR mis-reads in road/dong names
+    if out.get("주소"):
+        try:
+            from .addr_service import correct_address as _correct_addr
+            out["주소"] = _correct_addr(out["주소"])
+        except Exception:
+            pass
+
     return out
