@@ -1348,7 +1348,311 @@ def _looks_like_korean_address(s: str) -> bool:
         return False
     return True
 
-def parse_arc(img, fast: bool = False, passport_dob: str = ''):
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 계층적 행정구역 정규화 (Level1 시도 / Level2 시군구)
+# ──────────────────────────────────────────────────────────────────────────────
+
+LEVEL1_REGIONS = [
+    "서울특별시", "부산광역시", "대구광역시", "인천광역시",
+    "광주광역시", "대전광역시", "울산광역시", "세종특별자치시",
+    "경기도", "강원특별자치도", "충청북도", "충청남도",
+    "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도",
+]
+
+# OCR 오인식 → 정규 시도명 보정 (보수적, 자주 나타나는 오류만)
+LEVEL1_ALIASES: dict[str, str] = {
+    "서울특발시": "서울특별시",
+    "서울룩별시": "서울특별시",
+    "서올특별시": "서울특별시",
+    "경기두":     "경기도",
+    "경기로":     "경기도",
+    "강원도":     "강원특별자치도",
+    "전라북도":   "전북특별자치도",
+    "전북도":     "전북특별자치도",
+    "제주도":     "제주특별자치도",
+}
+
+LEVEL2_BY_PARENT: dict[str, list[str]] = {
+    "서울특별시": [
+        "종로구","중구","용산구","성동구","광진구","동대문구","중랑구",
+        "성북구","강북구","도봉구","노원구","은평구","서대문구","마포구",
+        "양천구","강서구","구로구","금천구","영등포구","동작구","관악구",
+        "서초구","강남구","송파구","강동구",
+    ],
+    "부산광역시": [
+        "중구","서구","동구","영도구","부산진구","동래구","남구",
+        "북구","해운대구","사하구","금정구","강서구","연제구",
+        "수영구","사상구","기장군",
+    ],
+    "대구광역시": ["중구","동구","서구","남구","북구","수성구","달서구","달성군","군위군"],
+    "인천광역시": [
+        "중구","동구","미추홀구","연수구","남동구","부평구",
+        "계양구","서구","강화군","옹진군",
+    ],
+    "광주광역시": ["동구","서구","남구","북구","광산구"],
+    "대전광역시": ["동구","중구","서구","유성구","대덕구"],
+    "울산광역시": ["중구","남구","동구","북구","울주군"],
+    "세종특별자치시": [],
+    "경기도": [
+        "수원시","고양시","용인시","성남시","부천시","안산시","화성시",
+        "남양주시","평택시","안양시","의정부시","파주시","시흥시",
+        "김포시","광주시","광명시","군포시","하남시","오산시","이천시",
+        "안성시","구리시","의왕시","포천시","양주시","여주시",
+        "과천시","동두천시","가평군","양평군","연천군",
+    ],
+    "강원특별자치도": [
+        "춘천시","원주시","강릉시","동해시","태백시","속초시","삼척시",
+        "홍천군","횡성군","영월군","평창군","정선군",
+        "철원군","화천군","양구군","인제군","고성군","양양군",
+    ],
+    "충청북도": [
+        "청주시","충주시","제천시","보은군","옥천군","영동군",
+        "증평군","진천군","괴산군","음성군","단양군",
+    ],
+    "충청남도": [
+        "천안시","공주시","보령시","아산시","서산시","논산시",
+        "계룡시","당진시","금산군","부여군","서천군","청양군",
+        "홍성군","예산군","태안군",
+    ],
+    "전북특별자치도": [
+        "전주시","군산시","익산시","정읍시","남원시","김제시",
+        "완주군","진안군","무주군","장수군","임실군","순창군","고창군","부안군",
+    ],
+    "전라남도": [
+        "목포시","여수시","순천시","나주시","광양시","담양군",
+        "곡성군","구례군","고흥군","보성군","화순군","장흥군",
+        "강진군","해남군","영암군","무안군","함평군","영광군",
+        "장성군","완도군","진도군","신안군",
+    ],
+    "경상북도": [
+        "포항시","경주시","김천시","안동시","구미시","영주시",
+        "영천시","상주시","문경시","경산시","의성군","청송군",
+        "영양군","영덕군","청도군","고령군","성주군","칠곡군",
+        "예천군","봉화군","울진군","울릉군",
+    ],
+    "경상남도": [
+        "창원시","진주시","통영시","사천시","김해시","밀양시",
+        "거제시","양산시","의령군","함안군","창녕군","고성군",
+        "남해군","하동군","산청군","함양군","거창군","합천군",
+    ],
+    "제주특별자치도": ["제주시","서귀포시"],
+}
+
+# 상위 시도 확정 후에만 적용하는 Level2 OCR 오인식 보정
+LEVEL2_ALIASES_BY_PARENT: dict[str, dict[str, str]] = {
+    "서울특별시": {
+        "강남기": "강남구", "강남가": "강남구",
+        "서초기": "서초구", "마프구": "마포구",
+        "은평기": "은평구",
+    },
+    "경기도": {
+        "시흥기": "시흥시", "수원기": "수원시",
+        "부천기": "부천시", "안산기": "안산시",
+    },
+}
+
+
+def _normalize_level1_region(text: str) -> tuple[str, float]:
+    """Level1 시도명 탐색. 반환: (정규화_시도명, 신뢰도 0~1)"""
+    for lvl1 in LEVEL1_REGIONS:
+        if lvl1 in text:
+            return lvl1, 1.0
+    for alias, canonical in LEVEL1_ALIASES.items():
+        if alias in text:
+            return canonical, 0.8
+    short_map = {
+        "서울": "서울특별시", "부산": "부산광역시", "대구": "대구광역시",
+        "인천": "인천광역시", "광주": "광주광역시", "대전": "대전광역시",
+        "울산": "울산광역시", "세종": "세종특별자치시", "경기": "경기도",
+        "강원": "강원특별자치도", "충북": "충청북도", "충남": "충청남도",
+        "전북": "전북특별자치도", "전남": "전라남도",
+        "경북": "경상북도", "경남": "경상남도", "제주": "제주특별자치도",
+    }
+    for short, canonical in short_map.items():
+        if text.startswith(short):
+            return canonical, 0.6
+    return "", 0.0
+
+
+def _normalize_level2_region(text: str, parent: str) -> tuple[str, float]:
+    """Level1 확정 후 해당 parent의 Level2 목록에서만 시군구 탐색."""
+    children = LEVEL2_BY_PARENT.get(parent, [])
+    for child in children:
+        if child in text:
+            return child, 1.0
+    aliases = LEVEL2_ALIASES_BY_PARENT.get(parent, {})
+    for alias, canonical in aliases.items():
+        if alias in text:
+            return canonical, 0.8
+    return "", 0.0
+
+
+def _apply_hierarchical_region_normalization(addr: str) -> str:
+    """
+    추출된 주소 문자열에 Level1/Level2 계층 정규화 적용.
+    신뢰도가 낮으면 원본 반환 (안전 최우선).
+    """
+    if not addr:
+        return addr
+    lvl1, conf1 = _normalize_level1_region(addr)
+    if not lvl1 or conf1 < 0.6:
+        return addr  # 시도 불명확 → 손대지 않음
+    result = addr
+    # Level1 alias 보정 (alias로 잡힌 경우만 교체)
+    if conf1 == 0.8:
+        for alias, canonical in LEVEL1_ALIASES.items():
+            if alias in result:
+                result = result.replace(alias, canonical, 1)
+                break
+    # Level2: 올바른 명칭이 이미 있으면 건드리지 않음
+    _, conf2 = _normalize_level2_region(result, lvl1)
+    if conf2 < 0.8:
+        aliases2 = LEVEL2_ALIASES_BY_PARENT.get(lvl1, {})
+        for alias, canonical in aliases2.items():
+            if alias in result:
+                result = result.replace(alias, canonical, 1)
+                break
+    return result
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 한글 이름 성씨 우선 정규화
+# ──────────────────────────────────────────────────────────────────────────────
+
+KOREAN_SURNAMES_1 = frozenset([
+    "김","이","박","최","정","강","조","윤","장","임",
+    "한","오","서","신","권","황","안","송","전","홍",
+    "유","고","문","양","손","배","백","허","남","심",
+    "노","하","곽","성","차","주","우","구","민","진",
+    "지","엄","채","원","천","방","공","현","함","변",
+    "염","여","추","도","소","석","선","설","마","길",
+    "연","위","표","명","기","반","왕","금","옥","육",
+    "인","맹","제","모",
+])
+
+KOREAN_SURNAMES_2 = frozenset([
+    "남궁","황보","제갈","사공","선우","서문","독고","동방","어금","망절",
+])
+
+KOREAN_NAME_BAN_EXTRA = frozenset([
+    "국적","주소","발급","만기","체류","자격","종류","성명","이름",
+    "외국","국내","거소","신고","등록","증명","유효","취업","가능",
+    "방문취","거주따","재외동포","재외","동포",
+])
+
+
+def _split_korean_name_by_surname(name: str) -> tuple[str, str, float]:
+    """
+    한글 이름에서 성씨를 분리.
+    반환: (성씨, 이름부분, 신뢰도)  1.0=2글자성씨 / 0.9=1글자성씨 / 0.0=미발견
+    """
+    name = re.sub(r'[^가-힣]', '', name or '')
+    if len(name) < 2:
+        return '', '', 0.0
+    if len(name) >= 3:
+        if name[:2] in KOREAN_SURNAMES_2:
+            return name[:2], name[2:], 1.0
+    if name[0] in KOREAN_SURNAMES_1:
+        return name[0], name[1:], 0.9
+    return '', '', 0.0
+
+
+def _score_korean_name_candidate(name: str, source_text: str = '') -> float:
+    """한글 이름 후보의 타당성 점수 (0.0~1.0)."""
+    name = re.sub(r'[^가-힣]', '', name or '')
+    if not name or len(name) < 2 or len(name) > 4:
+        return 0.0
+    if name in KOREAN_NAME_BAN_EXTRA:
+        return 0.0
+    score = 0.0
+    _, _, conf = _split_korean_name_by_surname(name)
+    score += 0.5 if conf >= 1.0 else (0.4 if conf >= 0.9 else 0.1)
+    score += 0.3 if len(name) in (3, 4) else 0.1
+    if source_text:
+        for lbl in ('성명', '이름'):
+            pos = source_text.find(lbl)
+            if pos != -1:
+                npos = source_text.find(name)
+                if npos != -1 and abs(npos - pos) < 30:
+                    score += 0.2
+                    break
+        if re.search(r'\(' + re.escape(name) + r'\)', source_text):
+            score += 0.3
+    return min(score, 1.0)
+
+
+def _normalize_korean_name_candidate(name: str, source_text: str = '') -> str:
+    """
+    OCR 이름 후보를 성씨 우선으로 정규화.
+    신뢰도 낮으면 원본 반환, 금지어면 빈 문자열 반환.
+    """
+    if not name:
+        return name
+    cleaned = re.sub(r'[^가-힣]', '', name)
+    if not cleaned or len(cleaned) < 2:
+        return name
+    if cleaned in KOREAN_NAME_BAN_EXTRA:
+        return ''
+    _, _, conf = _split_korean_name_by_surname(cleaned)
+    if conf < 0.9:
+        sc = _score_korean_name_candidate(cleaned, source_text)
+        if sc < 0.2:
+            return ''
+    return cleaned
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 외국인 등록번호 뒷자리 성별 일관성 보정
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _validate_foreigner_back_digit(back7: str, gender: str = '') -> float:
+    """
+    외국인 등록번호 뒷자리 첫 번째 숫자의 성별 일관성 점수.
+    1.0=일치 / 0.0=불일치 / 0.5=판단불가
+    규칙(사용자 제공): 남→5 또는 7 / 여→6 또는 8
+    """
+    if not back7:
+        return 0.5
+    first = back7[0]
+    if gender in ('남', 'M', 'm'):
+        if first in ('5', '7'):
+            return 1.0
+        if first in ('6', '8'):
+            return 0.0
+    elif gender in ('여', 'F', 'f'):
+        if first in ('6', '8'):
+            return 1.0
+        if first in ('5', '7'):
+            return 0.0
+    return 0.5
+
+
+def _repair_foreigner_back_digit(back7: str, gender: str = '') -> str:
+    """
+    뒷자리 7자리 첫 번째 숫자를 성별 일관성 기준으로 최소 보정.
+    - 나머지 6자리가 모두 숫자일 때만 시도.
+    - 5↔6, 7↔8 전환만 허용 (보수적 OCR 오인식 쌍).
+    - 신뢰도 낮으면 원본 반환.
+    """
+    if not back7 or not gender:
+        return back7
+    if len(back7) < 7 or not re.fullmatch(r'\d{6}', back7[1:]):
+        return back7  # 나머지 6자리 불안정 → 손대지 않음
+    if _validate_foreigner_back_digit(back7, gender) >= 1.0:
+        return back7  # 이미 올바름
+    if _validate_foreigner_back_digit(back7, gender) == 0.0:
+        if gender in ('남', 'M', 'm'):
+            sub = {'6': '5', '8': '7'}
+        else:
+            sub = {'5': '6', '7': '8'}
+        new_first = sub.get(back7[0], '')
+        if new_first:
+            return new_first + back7[1:]
+    return back7
+
+
+def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = ''):
     """
     등록증 이미지 파서.
     - fast=True  이면:
@@ -1508,6 +1812,9 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ''):
     if best_front:
         out['등록증'] = best_front
     if best_back:
+        # 성별 일관성 보정: 뒷자리 첫 번째 숫자가 성별과 맞지 않으면 최소 보정 (5↔6, 7↔8)
+        if gender:
+            best_back = _repair_foreigner_back_digit(best_back, gender)
         out['번호'] = best_back
 
     # 발급일
@@ -1618,6 +1925,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ''):
 
     # --- 이름 추출 ---
     name_ko = _extract_name_from_roi(top, t_top)
+    name_ko = _normalize_korean_name_candidate(name_ko, t_top)
     if name_ko:
         out["한글"] = name_ko
 
@@ -1856,7 +2164,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ''):
             pass
 
     if addr and _kor_count(addr) >= 3 and len(addr) >= 6:
-        out["주소"] = addr
+        out["주소"] = _apply_hierarchical_region_normalization(addr)
     else:
         lines_all = [l.strip() for l in (t_top + "\n" + tn_bot).splitlines() if l.strip()]
         cand_lines = _merge_addr_lines(lines_all)
@@ -1879,7 +2187,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ''):
                 best_score = sc
                 best_line = c
         if best_line:
-            out["주소"] = best_line
+            out["주소"] = _apply_hierarchical_region_normalization(best_line)
 
 
 
@@ -1972,7 +2280,7 @@ def render():
     img_a = None
     if arc_file:
         img_a = open_image_safe(arc_file)
-        parsed_arc = parse_arc(img_a, fast=fast_arc, passport_dob=(parsed_passport.get("생년월일") or ""))
+        parsed_arc = parse_arc(img_a, fast=fast_arc, passport_dob=(parsed_passport.get("생년월일") or ""), gender=(parsed_passport.get("성별") or ""))
 
     if show_debug:
         with st.expander("🧪 OCR 원문(베스트 설정)", expanded=False):
