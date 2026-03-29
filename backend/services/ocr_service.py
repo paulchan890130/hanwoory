@@ -1686,6 +1686,27 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     # ── 뒷면 geometry-first 방향 결정 (OCR 회전 투표 제거) ────────────────────
     _rot_back, _back_geom_dbg = _geometry_orient_back(bot)
     _debug_geom.update(_back_geom_dbg)
+
+    # 기하학적 신뢰도 낮을 때 OCR 기반 0°/180° 보완 (low_v / low_h)
+    # geometry 가 ambiguous 하면 현재 방향과 +180° 회전 결과를 각 1회 OCR 비교
+    if _back_geom_dbg.get("coarse_confidence") in ("low_v", "low_h") and not fast:
+        _ambig_cur_gray = ImageOps.autocontrast(ImageOps.grayscale(_rot_back))
+        _s0 = _kor_word_score(_ocr(_ambig_cur_gray, lang="kor", config="--oem 3 --psm 6"))
+        _alt_deg = (_back_geom_dbg.get("coarse_rotation", 0) + 180) % 360
+        _alt_back = bot.rotate(_alt_deg, expand=True)
+        _s1 = _kor_word_score(_ocr(
+            ImageOps.autocontrast(ImageOps.grayscale(_alt_back)),
+            lang="kor", config="--oem 3 --psm 6",
+        ))
+        _debug_geom.update({
+            "ambig_score_current": _s0,
+            "ambig_score_alt":     _s1,
+            "ambig_alt_rotation":  _alt_deg,
+            "ambig_winner":        "alt" if _s1 > _s0 else "current",
+        })
+        if _s1 > _s0:
+            _rot_back = _alt_back
+
     # 방향 확정된 뒷면 전체 OCR (날짜 추출 + 주소 fallback 용)
     _rb_gray = ImageOps.autocontrast(ImageOps.grayscale(_rot_back))
     tn_bot = _ocr(_rb_gray, lang="kor", config="--oem 3 --psm 6")
@@ -1925,11 +1946,12 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
 
     _upper_txt = _ocr(_oprep(_upper_crop), lang="kor", config="--oem 3 --psm 6")
     _left_txt  = _ocr(_oprep(_left_crop),  lang="kor", config="--oem 3 --psm 6")
-    # 주소 컬럼: psm=6 (균일 블록) + psm=4 (단일 컬럼) 병행, 긴 결과 우선
+    # 주소 컬럼: psm=6 (균일 블록) + psm=4 (단일 컬럼) 병행, Korean word score 기준 선택
+    # kor+eng 대신 kor만 사용 — eng 혼합 시 영문자 잡음이 더 길어져 최선 선택을 방해함
     _right_prep = _oprep(_right_crop)
     _right_t6   = _ocr(_right_prep, lang="kor", config="--oem 3 --psm 6")
-    _right_t4   = _ocr(_right_prep, lang="kor+eng", config="--oem 3 --psm 4")
-    _right_txt  = _right_t6 if len(_right_t6.strip()) >= len(_right_t4.strip()) else _right_t4
+    _right_t4   = _ocr(_right_prep, lang="kor", config="--oem 3 --psm 4")
+    _right_txt  = max([_right_t6, _right_t4], key=_kor_word_score)
 
     _debug_geom.update({
         "raw_upper_text": _upper_txt,
@@ -1965,7 +1987,9 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         if not _looks_weak_address(_fb):
             addr = _fb
 
-    if addr and _kor_count(addr) >= 3 and len(addr) >= 6:
+    # Strict gate: province + admin-unit(시군구) + road-name 모두 있어야 저장
+    # "blank is better than garbage" — 구조 미달 주소는 버린다
+    if addr and _is_valid_address_candidate(addr):
         out["주소"] = addr
 
     # 여권 DOB가 있으면 등록증 앞번호는 여권 기준 우선

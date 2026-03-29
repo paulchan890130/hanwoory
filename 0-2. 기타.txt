@@ -1,211 +1,173 @@
-You are patching the existing scan/OCR logic in the repository. Do not redesign the UI. Do not change the returned field names. Do not introduce heavy new dependencies or a new external service.
-
-Repository:
-- paulchan890130/hanwoory
-
-Primary target:
-- pages/page_scan.py
-
-This is the final direction. Follow it exactly.
-
-==================================================
-CORE DECISION
-==================================================
-
-We are no longer doing OCR-first rotation selection for ARC cards.
-
-Final strategy:
-
-FRONT SIDE
-- Use the card outer rectangle to do one deskew correction first.
-- Then keep the existing ROI-based OCR flow as much as possible.
-
-BACK SIDE
-1. Use the largest inner table + its vertical divider to determine coarse 90-degree orientation.
-2. Then use the divider angle to do fine deskew.
-3. Do NOT use projection-profile fallback.
-4. For address extraction, use similarity-based typo correction after OCR.
-
-Important:
-- Human correction is still expected.
-- A blank value is better than garbage text.
-- Stability matters more than clever heuristics.
-
-==================================================
-A. FRONT SIDE RULE
-==================================================
-
-Implement this for the ARC front card:
-
-1. Detect the outer card rectangle.
-2. Correct coarse orientation if needed.
-3. Apply one deskew correction using the outer rectangle angle so the card becomes horizontally/vertically aligned.
-4. After that, keep the existing ROI OCR logic for:
-   - front 6 digits
-   - Korean name
-   - issue date
-   - any other already working fields
-
-Do NOT redesign the front-side OCR flow beyond this.
-Goal:
-- improve OCR by feeding a properly deskewed front card into the current ROI logic
-- especially help front number, issue date, and parenthesized Hangul name
-
-If deskew confidence is low:
-- fall back to the original front image instead of forcing a bad correction
-
-==================================================
-B. BACK SIDE RULE
-==================================================
-
-This is the main redesign.
-
-Step 1: find the back-side largest inner table
-- On the ARC back side, detect the largest inner rectangular table.
-- This is the primary address/date table.
-- Do not rely on OCR text to find it.
-
-Step 2: use the table divider for 90-degree orientation
-- Inside that largest table, detect the long vertical divider line.
-- Use that divider to determine the coarse orientation among:
-  - 0
-  - 90
-  - 180
-  - 270
-- The correct orientation should make the divider vertical and positioned near the left-side narrow column.
-
-Practical divider-position rule:
-- The divider is not exactly 2:3.
-- Treat the correct left-column ratio roughly as 0.32 ~ 0.39 of the table width.
-- The opposite reversed case will look like 0.61 ~ 0.68.
-- Use ranges, not a single exact ratio.
-
-Step 3: fine deskew using divider angle
-- After coarse orientation is decided, use the divider angle itself to do fine deskew.
-- Example:
-  - if coarse orientation is 90 degrees
-  - and the divider is still tilted by +1.8 degrees
-  - rotate accordingly so the divider becomes truly vertical
-
-Important:
-- Do NOT use projection profile fallback.
-- Only use:
-  - largest table
-  - divider position
-  - divider angle
-for orientation and deskew.
-
-==================================================
-C. BACK SIDE OCR AFTER GEOMETRY
-==================================================
-
-Once the back side is correctly oriented and deskewed:
-
-1. Split the largest table into:
-   - left narrow date column
-   - right wide address column
-
-2. OCR them separately:
-   - left column: date-focused OCR
-   - right column: address-focused OCR
-
-3. If there is a useful upper date/status region above the large table, OCR that separately too.
-   - But do not create a separate permanent “green-card-only” logic.
-   - Permanent resident cards are rare and expiry is not important enough to justify a separate branch.
-
-Important:
-- No separate dedicated permanent-resident-card logic.
-- Keep one common back-side geometry-first flow.
-
-==================================================
-D. ADDRESS EXTRACTION RULE
-==================================================
-
-Address extraction must work like this:
-
-1. OCR the right wide address column only.
-2. Do lightweight cleanup.
-3. Then apply typo correction using similarity-based normalization.
-
-Important:
-- Similarity is allowed for correcting OCR typos.
-- This should be hierarchical and cheap, not a full fuzzy search over all Korean addresses.
-
-Use this order:
-1. Level 1 region similarity
-   - ex: 경기도, 서울특별시, 인천광역시, etc.
-2. Level 2 city/district similarity
-   - scoped under the selected Level 1 parent when possible
-3. then keep existing road/address scoring logic as needed
-
-Important constraints:
-- Do NOT fuzzy-match the full national road-name database.
-- Do NOT do a heavy nationwide fuzzy search.
-- Similarity should only be used for:
-  - top-level region correction
-  - city/district correction
-  - lightweight OCR typo recovery
-
-Also:
-- If Level 1 is weak, Level 2 may help infer the parent.
-- If the final address is weak, return empty string instead of garbage.
-
-==================================================
-E. WHAT TO KEEP / WHAT TO REMOVE
-==================================================
-
-Keep:
-- current card split logic if useful
-- current front ROI OCR as baseline
-- current final safety philosophy (“better blank than garbage”)
-- current number extraction logic that is already working
-- current minimal gender-aware repair for back 7 digits if it is isolated and safe
-
-Remove or stop relying on:
-- OCR-first rotation voting for ARC back
-- text quantity / Hangul count to choose back orientation
-- projection-profile fallback
-- brittle back-side logic that depends on OCR header detection before geometry is fixed
-
-==================================================
-F. DEBUG REQUIREMENT
-==================================================
-
-Add temporary debug info in parse_arc() so we can verify geometry logic.
-
-Include debug fields such as:
-- front_card_bbox
-- front_deskew_angle
-- back_card_bbox
-- largest_table_bbox
-- divider_line_bbox or divider line endpoints
-- coarse_orientation
-- fine_deskew_angle
-- left_col_bbox
-- right_col_bbox
-- upper_date_region_bbox if used
-- raw OCR text for each cropped region
-- final address normalization steps
-
-Do not redesign the UI.
-Just expose the debug data through the existing debug JSON flow.
-
-==================================================
-G. DELIVERY REQUIREMENT
-==================================================
-
-Before finalizing:
-1. Inspect the current pages/page_scan.py completely.
-2. Patch only what is needed.
-3. Provide:
-   - exact functions to add or modify
-   - copy-paste-ready code blocks or a focused diff
-4. Explain briefly why each change is necessary.
-5. Keep the patch practical and minimal, but do not preserve broken OCR-first back-side rotation logic.
-
-Final objective:
-- ARC front: outer-rectangle deskew once, then existing ROI OCR
-- ARC back: largest table + divider for coarse orientation, divider-angle fine deskew, then cropped OCR
-- address typos: correct with similarity-based normalization
-- no projection-profile fallback
-- no separate permanent-resident-card logic
+등록증 (4)
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "820523",
+        "번호": "6820190",
+        "발급일": "2019-01-09",
+        "한글": "전복",
+        "_debug_geometry": {
+            "front_deskew_angle": -0.91,
+            "front_card_bbox": [
+                17,
+                25,
+                475,
+                323
+            ],
+            "v_line_frac": 0.312,
+            "v_line_strength": 0.311,
+            "h_line_frac": 0.598,
+            "h_line_strength": 0.124,
+            "coarse_rotation": 0,
+            "coarse_confidence": "ok",
+            "is_vertical_divider": true,
+            "divider_slope": 0.0007,
+            "fine_deskew_angle": 0.04,
+            "divider_frac": 0.312,
+            "back_card_bbox": [
+                0,
+                0,
+                464,
+                259
+            ],
+            "left_col_bbox": [
+                4,
+                25,
+                153,
+                238
+            ],
+            "right_col_bbox": [
+                139,
+                25,
+                459,
+                238
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                464,
+                38
+            ],
+            "divider_x_px": 144,
+            "raw_upper_text": "",
+            "raw_left_text": "걸픔      로\n이 |햄\n|       5\n인\n큰       벡\n리\n",
+            "raw_right_text": "옥 동 빈| 을 는 8 를 때\n3 | 23 8 히트 [이 이르 히로 로\n호    으| | 히8726\n뽀 | -거 88. |득 2 을 을\n명 대 티네 알로\n도 베토 래비| | 10\n| 의 울디 | [미이으 보고\n뷰바 10  ㅣ  더\n때 들 오『 |\n"
+        }
+    }
+}
+등록증 (12)
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "870104",
+        "번호": "5780022",
+        "발급일": "2023-04-28",
+        "주소": "고구 을 Re 7 중 i bau",
+        "_debug_geometry": {
+            "front_deskew_angle": -2.21,
+            "front_card_bbox": [
+                20,
+                16,
+                483,
+                320
+            ],
+            "v_line_frac": 0.422,
+            "v_line_strength": 0.32,
+            "h_line_frac": 0.416,
+            "h_line_strength": 0.089,
+            "coarse_rotation": 0,
+            "coarse_confidence": "ok",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 216,
+            "divider_slope": 0.0004,
+            "fine_deskew_angle": 0.02,
+            "divider_frac": 0.424,
+            "back_card_bbox": [
+                0,
+                0,
+                509,
+                356
+            ],
+            "left_col_bbox": [
+                5,
+                35,
+                225,
+                327
+            ],
+            "right_col_bbox": [
+                215,
+                35,
+                503,
+                327
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                509,
+                53
+            ],
+            "divider_x_px": 215,
+            "raw_upper_text": "",
+            "raw_left_text": "19800 = [       디\n\n조푸|                  ;\n\n끼똥\n\n1 -    1\n\n-                  ;\n\n보울\n\n모으                  뽀\n\n우영                  해\n0  (투\n",
+            "raw_right_text": "고구 을    Re    ©\n7  중          i   bau\n4  8 | 3m    F 8 REL)\n© (| du      rN   | au\n> |=    & 2 Mims\nmi Bi lS    = Se\nlat     (을 |     CAPS |\nim 72  @  eee\nNI  om:  a      wie   몰\n고 os  LD    S Olole\nA Be       & Ble\nJ    Yay           = i\nz= By        & 9S   2\n제    | 똥개        : Q\n+  #         2 Ae\neS   호\n2) ㅣ     :\na)       x = 8\na) 9 |     Fare\n\n$$ E)SIFONOT NIP\n",
+            "similarity_correction": "no_change"
+        }
+    }
+}
+등록증 (3)
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "600822",
+        "번호": "5140012",
+        "한글": "이아",
+        "_debug_geometry": {
+            "front_deskew_angle": 0.0,
+            "front_card_bbox": [
+                20,
+                21,
+                480,
+                319
+            ],
+            "v_line_frac": 0.529,
+            "v_line_strength": 0.265,
+            "h_line_frac": 0.457,
+            "h_line_strength": 0.066,
+            "coarse_rotation": 0,
+            "coarse_confidence": "low_v",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 256,
+            "divider_slope": 0.0108,
+            "fine_deskew_angle": 0.62,
+            "divider_frac": 0.529,
+            "back_card_bbox": [
+                0,
+                0,
+                484,
+                293
+            ],
+            "left_col_bbox": [
+                4,
+                29,
+                232,
+                269
+            ],
+            "right_col_bbox": [
+                256,
+                29,
+                479,
+                269
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                484,
+                43
+            ],
+            "divider_x_px": 256,
+            "raw_upper_text": "",
+            "raw_left_text": "은 302\n다\n=골         |\n타석 | ㆍ |\n으\n3\n너           |         -\n후르\n은총\n구명 에\n\n가. 는 00뚜 주\n\n~ 1-\\\n",
+            "raw_right_text": ":  배   으 보  언\n\n6노   이 은 오르\n\n베15]   | 올 !긴\n\n|삐주   이 이 다모 =\n\n100   히이식흥 3\n\n  쁜쁘드 =츠 =\n\n 18  개 을 주\n~     ㅁ\n\n1 |겨    요 6 |유\n\n1! 꿔    | 1310\n\n| |   익어 기민\n\n| |  ㅇ (으 뿌\n\n적     | 0@| 0 |(으\n\n3       |\n\n때      |\n\n7110 (개\n"
+        }
+    }
+}
