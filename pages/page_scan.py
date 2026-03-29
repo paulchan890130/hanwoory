@@ -1339,14 +1339,39 @@ def _normalize_hangul_name(s: str) -> str:
 
 
 def _looks_like_korean_address(s: str) -> bool:
+    """
+    Weak gate: used inside _clean_addr_line to filter obvious non-addresses.
+    Requires a city/province abbreviation PLUS at least one word-ending
+    admin-unit token (시/군/구) or road-name token (대로/번길/로/길).
+    Mere presence of the syllable inside a longer word is not enough.
+    """
     s = (s or '').strip()
     if not s:
         return False
     if not re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s):
         return False
-    if not re.search(r'(시|군|구|로|길|번길|대로)', s):
+    has_admin = bool(re.search(r'[가-힣]{1,6}[시군구](?:\s|$|\d)', s))
+    has_road  = bool(re.search(r'[가-힣]{2,8}(?:대로|번길|로|길)(?:\s|$|\d)', s))
+    return has_admin or has_road
+
+
+# Strong gate: BOTH a plausible admin-unit token AND a road-name token must be present.
+# Used at the final out["주소"] save point to reject garbage OCR candidates.
+_ADDR_ADMIN_TOKEN_RE = re.compile(r'[가-힣]{1,6}[시군구](?:\s|$|\d)')
+_ADDR_ROAD_TOKEN_RE  = re.compile(r'[가-힣]{2,8}(?:대로|번길|로|길)(?:\s|$|\d)')
+
+
+def _is_valid_address_candidate(s: str) -> bool:
+    """
+    Strong acceptance gate for the final out["주소"] assignment.
+    Rejects candidates that merely contain stray syllables.
+    """
+    s = (s or '').strip()
+    if not s or _kor_count(s) < 5 or len(s) < 8:
         return False
-    return True
+    if not re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s):
+        return False
+    return bool(_ADDR_ADMIN_TOKEN_RE.search(s)) and bool(_ADDR_ROAD_TOKEN_RE.search(s))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1905,9 +1930,15 @@ def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = '')
         except Exception:
             pass
 
-        text_name = _extract_kor_name_strict(text_top)
-        if text_name:
-            cands.append((5, text_name))
+        # 최우선: text_top에서 괄호 안 한글 이름 (예: LI FENZI(이분자))
+        # 압도적 우선순위(50)를 주어 ROI 토큰 점수를 무조건 이긴다
+        paren_m = re.search(r'\(([가-힣]{2,4})\)', text_top or '')
+        if paren_m and paren_m.group(1) not in _NAME_BAN:
+            cands.append((50, paren_m.group(1)))
+        else:
+            text_name = _extract_kor_name_strict(text_top)
+            if text_name:
+                cands.append((5, text_name))
 
         bad = {
             "방문취","거주따","매확청","사격","재태서","외국","국내","거소","신고","주소",
@@ -2148,22 +2179,29 @@ def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = '')
 
     if _looks_weak_address(addr):
         try:
+            # 뒷면을 uprighted 상태에서 주소 박스 영역만 크롭하여 전용 OCR
+            # (2× 확대 후 OCR → 소형 카드 샘플에서 주소 인식률 향상)
             rot_bot = bot.rotate(best_deg, expand=True)
             rw, rh = rot_bot.size
             addr_roi = rot_bot.crop((
-                int(rw * 0.18),
-                int(rh * 0.34),
-                int(rw * 0.92),
-                int(rh * 0.80),
+                int(rw * 0.05),
+                int(rh * 0.30),
+                int(rw * 0.95),
+                int(rh * 0.90),
             ))
-            addr_txt = _ocr(ImageOps.grayscale(addr_roi), lang="kor", config="--oem 3 --psm 6")
+            addr_roi_g = ImageOps.grayscale(addr_roi)
+            addr_roi_g = addr_roi_g.resize(
+                (max(1, addr_roi_g.width * 2), max(1, addr_roi_g.height * 2)),
+                resample=_PILImage.LANCZOS,
+            )
+            addr_txt = _ocr(addr_roi_g, lang="kor", config="--oem 3 --psm 6")
             addr_retry = _best_addr_latest(addr_txt)
             if addr_retry and not _looks_weak_address(addr_retry):
                 addr = addr_retry
         except Exception:
             pass
 
-    if addr and _kor_count(addr) >= 3 and len(addr) >= 6:
+    if _is_valid_address_candidate(addr):
         out["주소"] = _apply_hierarchical_region_normalization(addr)
     else:
         lines_all = [l.strip() for l in (t_top + "\n" + tn_bot).splitlines() if l.strip()]
@@ -2186,7 +2224,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = '', gender: str = '')
             if sc > best_score:
                 best_score = sc
                 best_line = c
-        if best_line:
+        if _is_valid_address_candidate(best_line):
             out["주소"] = _apply_hierarchical_region_normalization(best_line)
 
 
