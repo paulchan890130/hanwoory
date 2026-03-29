@@ -409,8 +409,10 @@ These items are complete — do not redo:
 - Tesseract tessdata fix: Linux `_ensure_tesseract()` now uses system tessdata dir and copies `ocrb.traineddata` there, instead of pointing `TESSDATA_PREFIX` at the project-only dir (which hid `eng`/`kor`)
 - Passport OCR migrated from Tesseract MRZ to **OmniMRZ** (PaddleOCR-based); `Dockerfile.backend` installs OmniMRZ from GitHub source (PyPI wheel is broken)
 - OCR concurrency guard: `asyncio.Semaphore(1)` in `scan.py` serialises passport+ARC to prevent overlapping threads from OOM-killing the Render worker
-- OmniMRZ prewarm: daemon thread fires at worker startup to pre-load PaddleOCR models (background only — first request no longer waits for it)
-- Passport OCR redesigned: Tesseract+ocrb primary path (~1-3s, no cold-start) + OmniMRZ secondary only if already loaded; 90% accuracy on sample set; `_ensure_tesseract()` moved inside try block; `asyncio.CancelledError` now re-raised properly in both routes
+- OmniMRZ prewarm thread **disabled** — was causing OOM on Render free tier (512MB) by downloading 4 PaddleOCR models at startup
+- Passport OCR redesigned: Tesseract+ocrb only via `_passport_tess_mrz()` (~1-3s, no model loading, 90% accuracy on 30-sample benchmark); OmniMRZ/PaddleOCR never called at runtime
+- `_ensure_tesseract()` moved inside try block in both routes; `asyncio.CancelledError` caught with TimeoutError (no re-raise) to prevent 500 on Render gateway timeout
+- PDF DPI raised 200→250 for better MRZ readability in scanned PDFs
 
 ## In-progress / temporary debug state
 

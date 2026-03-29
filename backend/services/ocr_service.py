@@ -54,9 +54,10 @@ def _prewarm_omni_mrz() -> None:
         pass
 
 
-# Fire prewarm immediately when the module is imported (i.e. at uvicorn worker startup).
-# By the time the first real passport request arrives, models should already be in memory.
-_threading.Thread(target=_prewarm_omni_mrz, daemon=True).start()
+# OmniMRZ 프리웜 비활성화 — Render 무료 플랜(512MB RAM)에서 PaddleOCR 4개 모델을
+# 서버 시작 즉시 다운로드하면 OOM 킬이 발생한다.
+# 여권 OCR은 Tesseract+ocrb 기반 _passport_tess_mrz()가 처리하므로 프리웜 불필요.
+# _prewarm_omni_mrz() / _get_omni_mrz() 는 코드에 남겨두지만 호출하지 않는다.
 
 
 # ── ARC 옵션 ────────────────────────────────────────────────────────────────
@@ -867,87 +868,31 @@ def _omni_mrz_from_data(data: dict) -> dict:
 
 def parse_passport(img, fast: bool = False):
     """
-    여권 MRZ(TD3) 파서.
-
-    전략 (Render 타임아웃 대응):
-    1. Tesseract+ocrb MRZ (항상 즉시 실행, ~1-3s) — 성공 시 바로 반환.
-    2. OmniMRZ (PaddleOCR) — 이미 로딩된 경우에만 시도(비블로킹).
-       모델 미로딩 상태에서는 완전히 건너뜀 (20-40s 콜드스타트 회피).
+    여권 MRZ(TD3) 파서 — Tesseract+ocrb 전용 (~1-3s).
 
     Input:  PIL.Image (RGB)
     Output: dict with keys 성, 명, 성별, 국가, 국적, 여권, 발급, 만기, 생년월일
             or {"_no_mrz": True, ...} on failure.
-
-    발급 (issue date): MRZ TD3 미포함 — 항상 "" 반환.
     """
     if img is None:
         return {}
-
-    # ── Preprocessing ─────────────────────────────────────────────────────────
 
     try:
         img = ImageOps.exif_transpose(img)
     except Exception:
         pass
 
-    max_side = 1600
     w0, h0 = img.size
+    max_side = 1600
     scale = max_side / float(max(w0, h0))
     if scale < 1.0:
         img = img.resize((int(w0 * scale), int(h0 * scale)), resample=_PILImage.BILINEAR)
 
-    # ── 1차: Tesseract MRZ (빠른 경로, ~1-3s) ─────────────────────────────────
-    tess_result = _passport_tess_mrz(img)
-    if tess_result:
-        return tess_result
+    result = _passport_tess_mrz(img)
+    if result:
+        return result
 
-    # ── 2차: OmniMRZ — 이미 로딩된 경우에만 (비블로킹 체크) ───────────────────
-    # _omni_mrz_instance 는 모듈 레벨 변수; Python GIL로 읽기는 atomic.
-    # None이면 아직 프리웜 중이거나 실패 — 블로킹 없이 완전 스킵.
-    if _omni_mrz_instance is None:
-        return {
-            "_no_mrz": True,
-            "_best_score": -1,
-            "_rescue_band": "tess_no_mrz_omni_not_loaded",
-            "_rescue_band_alen": 0,
-        }
-
-    try:
-        omni = _get_omni_mrz()
-    except Exception as exc:
-        return {"_no_mrz": True, "_parse_error": f"OmniMRZ init failed: {exc}"}
-
-    def _try_omni(pil_img):
-        try:
-            import numpy as _np
-            arr = _np.array(pil_img.convert("RGB"))
-            result = omni.process(arr)
-            status = result.get("extraction", {}).get("status", "")
-            if not status.startswith("SUCCESS"):
-                return None
-            data = result.get("parsed_data", {}).get("data")
-            return data if data else None
-        except Exception:
-            return None
-
-    # OmniMRZ: 0° → 180° (fast=True) 또는 전방향 (fast=False)
-    data = _try_omni(img)
-    if data is None:
-        rotations = (180,) if fast else (180, 90, 270)
-        for rot in rotations:
-            data = _try_omni(img.rotate(rot, expand=True))
-            if data is not None:
-                break
-
-    if data is None:
-        return {
-            "_no_mrz": True,
-            "_best_score": -1,
-            "_rescue_band": "omnimrz_no_mrz",
-            "_rescue_band_alen": 0,
-        }
-
-    return _omni_mrz_from_data(data)
+    return {"_no_mrz": True, "_best_score": -1, "_rescue_band": "tess_no_mrz", "_rescue_band_alen": 0}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

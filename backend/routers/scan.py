@@ -16,14 +16,14 @@ def _file_to_pil(img_bytes: bytes, content_type: str = ""):
             return Image.open(io.BytesIO(img_bytes)).convert("RGB")
         except Exception:
             pass
-    # PDF path: render first page at 200 dpi
+    # PDF path: render first page at 250 dpi (200 was borderline for some scanned PDFs)
     try:
         import fitz  # PyMuPDF
         doc = fitz.open(stream=img_bytes, filetype="pdf")
         if doc.page_count == 0:
             raise ValueError("PDF에 페이지가 없습니다.")
         page = doc[0]
-        pix = page.get_pixmap(dpi=200)
+        pix = page.get_pixmap(dpi=250)
         return Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     except ImportError:
         raise ValueError("PyMuPDF(fitz)가 설치되지 않아 PDF를 처리할 수 없습니다.")
@@ -178,14 +178,12 @@ async def scan_passport(
                     asyncio.to_thread(parse_passport, img, True),
                     timeout=25.0,
                 )
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, asyncio.CancelledError):
                 return {
                     "debug": "passport-timeout",
                     "error_type": "TimeoutError",
                     "error_message": "passport OCR exceeded 25s server time budget",
                 }
-            except asyncio.CancelledError:
-                raise  # 요청 취소는 재전파 (FastAPI가 정상 종료 처리)
             except Exception as exc:
                 return {"debug": "passport-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
             return {
@@ -194,8 +192,6 @@ async def scan_passport(
                 "raw_L1": result.pop("_raw_L1", None) if result else None,
                 "raw_L2": result.pop("_raw_L2", None) if result else None,
             }
-    except asyncio.CancelledError:
-        raise
     except Exception as exc:
         return {
             "debug": "passport-route-exception",
@@ -235,19 +231,15 @@ async def scan_arc(
                     asyncio.to_thread(parse_arc, img, True),
                     timeout=25.0,
                 )
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, asyncio.CancelledError):
                 return {
                     "debug": "arc-timeout",
                     "error_type": "TimeoutError",
                     "error_message": "ARC OCR exceeded 25s server time budget",
                 }
-            except asyncio.CancelledError:
-                raise  # 요청 취소는 재전파
             except Exception as exc:
                 return {"debug": "arc-parse-exception", "error_type": exc.__class__.__name__, "error_message": str(exc), "traceback": _tb.format_exc()[-1000:]}
             return {"debug": "arc-parse-done", "result": result}
-    except asyncio.CancelledError:
-        raise
     except Exception as exc:
         return {
             "debug": "arc-route-exception",
