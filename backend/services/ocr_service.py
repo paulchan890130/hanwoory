@@ -1070,8 +1070,9 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     top, bot = _split_arc_front_back(img)
 
     try:
-        max_tries = 2 if fast else None
-        t_top = ocr_try_all(top, langs=("kor", "kor+eng"), max_tries=max_tries)["text"]
+        # fast=True: 1회(kor+eng, psm=6)만 시도 — 호출 수 2→1로 감소
+        max_tries = 1 if fast else None
+        t_top = ocr_try_all(top, langs=("kor+eng",) if fast else ("kor", "kor+eng"), max_tries=max_tries)["text"]
     except Exception:
         t_top = ""
     tn_top = t_top
@@ -1090,11 +1091,17 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
             #   pair_line:   upper area — original ARC blue/pink cards put number near top
             #   mid_number:  middle area — yellow-design and newer cards put number ~35-58% height
             #   front_only:  lower-left — 6-digit front stamp area on some older layouts
-            rois = {
-                "pair_line":   front_img.crop((int(w * 0.35), int(h * 0.05), int(w * 0.92), int(h * 0.26))),
-                "mid_number":  front_img.crop((int(w * 0.30), int(h * 0.33), int(w * 0.92), int(h * 0.58))),
-                "front_only":  front_img.crop((int(w * 0.08), int(h * 0.68), int(w * 0.42), int(h * 0.93))),
-            }
+            # fast=True: mid_number만 사용 (가중치 최고, Tesseract 호출 6→2회로 감소)
+            if fast:
+                rois = {
+                    "mid_number": front_img.crop((int(w * 0.30), int(h * 0.33), int(w * 0.92), int(h * 0.58))),
+                }
+            else:
+                rois = {
+                    "pair_line":  front_img.crop((int(w * 0.35), int(h * 0.05), int(w * 0.92), int(h * 0.26))),
+                    "mid_number": front_img.crop((int(w * 0.30), int(h * 0.33), int(w * 0.92), int(h * 0.58))),
+                    "front_only": front_img.crop((int(w * 0.08), int(h * 0.68), int(w * 0.42), int(h * 0.93))),
+                }
             # ROI priority weights: mid_number > pair_line > front_only
             roi_weights = {"pair_line": 8, "mid_number": 10, "front_only": 4}
             for src_name, roi in rois.items():
@@ -1286,16 +1293,19 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
           3. Label-adjacent name in full-card OCR text — "성명 홍길동" pattern
           4. Best Korean token within the name-line ROI only — geometrically constrained local
           5. Return ""                                 — never guess from full-card token pool
+        fast=True: 1 ROI × 1 lang(kor+eng) × 1 PSM(6) = 1 Tesseract 호출만 사용
         """
         roi_texts = []  # collect for level-4 fallback
         try:
             w, h = img.size
             # ROI right boundary 0.95: parenthesised Korean name follows the English name on
             # the same line and starts at ≈74–80% card width for typical 9-char names.
-            rois = [
+            all_rois = [
                 img.crop((int(w * 0.26), int(h * 0.25), int(w * 0.95), int(h * 0.46))),
                 img.crop((int(w * 0.22), int(h * 0.20), int(w * 0.95), int(h * 0.53))),
             ]
+            rois = all_rois[:1] if fast else all_rois
+            psm_list = (6,) if fast else (7, 6)
             for roi in rois:
                 g = ImageOps.grayscale(roi)
                 g = ImageOps.autocontrast(g)
@@ -1304,7 +1314,17 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                     g = g.filter(ImageFilter.SHARPEN)
                 except Exception:
                     pass
-                for psm in (7, 6):
+                for psm in psm_list:
+                    # fast 모드: kor+eng 단일 호출로 parens 탐색
+                    if fast:
+                        txt2 = _ocr(g, lang="kor+eng", config=f"--oem 3 --psm {psm}") or ""
+                        roi_texts.append(txt2)
+                        m2 = re.search(r"\(([가-힣]{2,4})\)", txt2)
+                        if m2:
+                            cand2 = m2.group(1)
+                            if cand2 not in _NAME_BAN and not cand2.endswith("출"):
+                                return cand2
+                        continue
                     txt = _ocr(g, lang="kor", config=f"--oem 3 --psm {psm}") or ""
                     roi_texts.append(txt)
                     m = re.search(r"\(([가-힣]{2,4})\)", txt)
@@ -1361,15 +1381,15 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         out["한글"] = name_ko
 
     best_text, best_sc, best_deg = "", -1, 0
-    for deg in (0, 90, 270):
+    # fast 모드: 0° 단일 호출(psm=6 only). 등록증 뒷면은 대부분 정방향이므로 충분.
+    rot_list = (0,) if fast else (0, 90, 270)
+    for deg in rot_list:
         im = bot.rotate(deg, expand=True) if deg else bot
         t1 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 6")
-        t2 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 4")
-        t = t1 + "\n" + t2
-        # Use word-score (sum of 3+ char Korean sequences) instead of raw char count.
-        # Garbled text from wrong rotation has many short fragments (score 6–12);
-        # correctly-oriented text has long word runs (score 93–115). The threshold
-        # 40 reliably separates the two cases without ever seeing more than 3 rotations.
+        t = t1
+        if not fast:
+            t2 = _ocr(ImageOps.grayscale(im), lang="kor", config="--oem 3 --psm 4")
+            t = t1 + "\n" + t2
         sc = _kor_word_score(t)
         if sc > best_sc:
             best_sc, best_text, best_deg = sc, t, deg
