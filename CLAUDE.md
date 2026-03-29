@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **K.ID SaaS** — an immigration office (출입국) operations platform. Architecture: **Next.js (frontend) + FastAPI (backend)**. All business data lives in **Google Sheets / Google Drive** — do not replace with a relational database.
 
-The `pages/` directory and `app.py` are **legacy Streamlit reference specs only** — never import them at runtime.
+The `pages/` directory and `app.py` are **legacy Streamlit reference specs** — never import them at runtime. `pages/page_scan.py` specifically is a **donor/reference file** for OCR logic: proven extraction ideas are transplanted from it into `backend/services/ocr_service.py`, but it is not the active runtime file.
 
 ---
 
@@ -61,8 +61,8 @@ backend/
                           scan, admin, search, reference, quick_doc, manual
   services/
     tenant_service.py   — Core Google Sheets abstraction (thread-safe, TTL-cached gspread)
-    accounts_service.py — Accounts sheet CRUD + password hashing
-    ocr_service.py      — Passport OCR (Tesseract+ocrb); ARC OCR (Tesseract multi-config)
+    accounts_service.py — Accounts sheet CRUD + password hashing; defines ACCOUNTS_SCHEMA (16 cols)
+    ocr_service.py      — Passport OCR (Tesseract+ocrb); ARC OCR (geometry-first orientation)
     addr_service.py     — Address correction using national road-name index
   data/
     addr_index.json     — Compact road/dong name index (~3MB, 256 regions, 172K roads)
@@ -83,7 +83,7 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 | `customer_sheet_key` | Customer data workbook — 고객 데이터, 진행업무, 예정업무, 완료업무, 일일결산, 잔액, 일정, 메모 tabs |
 | `work_sheet_key` | Work reference workbook — 업무참고, 업무정리 tabs |
 
-`tenant_service._resolve_sheet_key()` routes each tab name to the correct workbook (cached 10 min). **Do not fall back to admin sheet keys for non-default tenants** — a missing key must raise `ValueError`. Exception: `DEFAULT_TENANT_ID` (`"hanwoory"`) falls back to `SHEET_KEY` for backwards compatibility.
+`tenant_service._resolve_sheet_key()` routes each tab name to the correct workbook using `_CUSTOMER_WORKBOOK_SHEETS` and `_WORK_WORKBOOK_SHEETS` sets (cached 10 min). **Do not fall back to admin sheet keys for non-default tenants** — a missing key must raise `ValueError`. Exception: `DEFAULT_TENANT_ID` (`"hanwoory"`) falls back to `SHEET_KEY` for backwards compatibility.
 
 ### Tenant workspace provisioning
 
@@ -169,6 +169,11 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 `backend/routers/customers.py` defines `_DEFAULT_CUSTOMER_HEADERS` — authoritative column order:
 `고객ID, 한글, 성, 명, 여권, 국적, 성별, 등록증, 번호, 발급일, 만기일, 발급, 만기, 주소, 연, 락, 처, V, 체류자격, 비자종류, 메모, 폴더`
 
+### Accounts sheet schema
+
+`backend/services/accounts_service.py` defines `ACCOUNTS_SCHEMA` (16 columns, order fixed):
+`login_id, password_hash, tenant_id, office_name, office_adr, contact_name, contact_tel, biz_reg_no, agent_rrn, is_admin, is_active, folder_id, work_sheet_key, customer_sheet_key, created_at, sheet_key`
+
 ---
 
 ## OCR subsystem
@@ -178,7 +183,7 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 | Document | Engine | Notes |
 |---|---|---|
 | Passport | **Tesseract + ocrb** | `_passport_tess_mrz()` — MRZ TD3, ~1-3s, no model loading |
-| ARC (외국인등록증) | **Tesseract** | `kor+eng+ocrb` multi-config pipeline |
+| ARC (외국인등록증) | **Tesseract** | Geometry-first orientation + column-based extraction |
 
 OmniMRZ/PaddleOCR code exists in `ocr_service.py` but **is never called at runtime** — the prewarm thread is disabled (OOM on Render 512MB free tier). OmniMRZ is still installed in `Dockerfile.backend` from source (PyPI wheel is empty) but this is vestigial.
 
@@ -197,10 +202,25 @@ parse_passport(img: PIL.Image, fast: bool = False) -> dict
 # Returns {"_no_mrz": True, ...} on failure.
 
 parse_arc(img: PIL.Image, fast: bool = False) -> dict
-# Returns {한글, 등록증, 번호, 발급일, 만기일, 주소}
-# fast=True caps OCR attempts to ~5 calls (used by the /arc endpoint).
-# 주소 is post-processed by addr_service.correct_address() after extraction.
+# Returns {한글, 등록증, 번호, 발급일, 만기일, 주소, _debug_geometry}
+# fast=True limits OCR passes; used by the /arc endpoint.
+# 주소 pipeline: geometry orient → column OCR → dated-row parse →
+#               hierarchical normalization → addr_service DB correction
 ```
+
+### ARC back-side pipeline (`ocr_service.py`)
+
+The back side uses a **geometry-first** approach — no OCR rotation voting:
+
+1. **`_geometry_orient_back(bot)`** — column density scan on interior [15%–85%]; finds vertical divider peak (spec: 0.30–0.43 = 0°, 0.57–0.70 = 180°); fine deskew via divider angle polyfit. Returns `(oriented_img, debug_dict)`.
+2. **Ambiguity fallback** — when `coarse_confidence == "low_v"` or `"low_h"`, tries +180° and picks winner by `_kor_word_score` (sum of ≥3-char Korean runs).
+3. **Column OCR** — splits at `divider_frac`: left col (dates), right col (addresses). Both use `lang="kor"` only; right col selects PSM=6 vs PSM=4 by `_kor_word_score`, not string length.
+4. **Address extraction** — `_extract_addr_section` + `_parse_dated_addr_rows` on right-col text first, then `tn_bot` (full back OCR) as fallback. Picks latest dated row whose address passes `_is_valid_address_candidate`.
+5. **Hierarchical normalization** — `_apply_hierarchical_region_normalization`: Level1 (시도) exact→alias→short, then Level2 (시군구) within matched parent. Data tables: `LEVEL1_REGIONS`, `LEVEL1_ALIASES`, `LEVEL2_BY_PARENT`, `LEVEL2_ALIASES_BY_PARENT` (all in `ocr_service.py`).
+6. **DB correction** — `addr_service.correct_address()` fixes road name OCR errors against 172K-entry index.
+7. **Final gate** — `_is_valid_address_candidate`: requires province regex + word-boundary admin-unit token + word-boundary road-name token. Blank is saved instead of garbage.
+
+All geometry fields are exposed in `out["_debug_geometry"]` for debugging.
 
 ### Address correction service (`backend/services/addr_service.py`)
 
@@ -219,7 +239,7 @@ python backend/scripts/build_addr_index.py PATH_TO_도로명마스터.txt
 - `POST /api/scan/arc` — ARC parse, 25s timeout
 - `POST /api/scan/register` — upsert customer from OCR result; matches by `여권` or `등록증+번호`
 
-Both routes currently return a **debug-wrapped response** (as of 2026-03-29):
+Both routes currently return a **debug-wrapped response**:
 ```json
 {"debug": "passport-parse-done", "result": {...parsed fields...}, "raw_L1": null, "raw_L2": null}
 ```
@@ -309,5 +329,5 @@ Dockerfile.backend:
 ## In-progress / known issues
 
 - **OCR debug mode active** — both `/api/scan/passport` and `/api/scan/arc` wrap responses in `{"debug": ..., "result": {...}}`. Remove wrapper when tuning is done.
-- **ARC Korean name accuracy** — Korean name extraction produces garbled results on some ARC back images. Under active improvement.
+- **ARC address accuracy** — geometry-first pipeline + dated-row parsing active. `_debug_geometry` key in response contains `divider_frac`, `coarse_confidence`, `addr_source`, `ambig_winner` etc. for diagnosis.
 - **OmniMRZ vestigial** — installed in Docker image but never called at runtime. Can be removed from `Dockerfile.backend` once confident Tesseract path is sufficient.

@@ -1281,61 +1281,176 @@ def _geometry_orient_back(bot: Image.Image) -> tuple[Image.Image, dict]:
         return bot, {"back_geom_error": str(e)}
 
 
-def _similarity_correct_address(addr: str) -> str:
+# ─────────────────────────────────────────────────────────────────────────────
+# 9) 계층적 행정구역 정규화 — Level1(시도) / Level2(시군구)
+# ─────────────────────────────────────────────────────────────────────────────
+
+LEVEL1_REGIONS: list[str] = [
+    "서울특별시", "부산광역시", "대구광역시", "인천광역시",
+    "광주광역시", "대전광역시", "울산광역시", "세종특별자치시",
+    "경기도", "강원특별자치도", "충청북도", "충청남도",
+    "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도",
+]
+
+# OCR 오인식 → 정규 시도명 (자주 나타나는 오류만, 보수적)
+LEVEL1_ALIASES: dict[str, str] = {
+    "서울특발시": "서울특별시",
+    "서울룩별시": "서울특별시",
+    "서올특별시": "서울특별시",
+    "경기두":     "경기도",
+    "경기로":     "경기도",
+    "강원도":     "강원특별자치도",
+    "전라북도":   "전북특별자치도",
+    "전북도":     "전북특별자치도",
+    "제주도":     "제주특별자치도",
+}
+
+_LEVEL1_SHORT_MAP: dict[str, str] = {
+    "서울": "서울특별시", "부산": "부산광역시", "대구": "대구광역시",
+    "인천": "인천광역시", "광주": "광주광역시", "대전": "대전광역시",
+    "울산": "울산광역시", "세종": "세종특별자치시", "경기": "경기도",
+    "강원": "강원특별자치도", "충북": "충청북도", "충남": "충청남도",
+    "전북": "전북특별자치도", "전남": "전라남도",
+    "경북": "경상북도", "경남": "경상남도", "제주": "제주특별자치도",
+}
+
+LEVEL2_BY_PARENT: dict[str, list[str]] = {
+    "서울특별시": [
+        "종로구","중구","용산구","성동구","광진구","동대문구","중랑구",
+        "성북구","강북구","도봉구","노원구","은평구","서대문구","마포구",
+        "양천구","강서구","구로구","금천구","영등포구","동작구","관악구",
+        "서초구","강남구","송파구","강동구",
+    ],
+    "부산광역시": [
+        "중구","서구","동구","영도구","부산진구","동래구","남구",
+        "북구","해운대구","사하구","금정구","강서구","연제구",
+        "수영구","사상구","기장군",
+    ],
+    "대구광역시": ["중구","동구","서구","남구","북구","수성구","달서구","달성군","군위군"],
+    "인천광역시": [
+        "중구","동구","미추홀구","연수구","남동구","부평구",
+        "계양구","서구","강화군","옹진군",
+    ],
+    "광주광역시": ["동구","서구","남구","북구","광산구"],
+    "대전광역시": ["동구","중구","서구","유성구","대덕구"],
+    "울산광역시": ["중구","남구","동구","북구","울주군"],
+    "세종특별자치시": [],
+    "경기도": [
+        "수원시","고양시","용인시","성남시","부천시","안산시","화성시",
+        "남양주시","평택시","안양시","의정부시","파주시","시흥시",
+        "김포시","광주시","광명시","군포시","하남시","오산시","이천시",
+        "안성시","구리시","의왕시","포천시","양주시","여주시",
+        "과천시","동두천시","가평군","양평군","연천군",
+    ],
+    "강원특별자치도": [
+        "춘천시","원주시","강릉시","동해시","태백시","속초시","삼척시",
+        "홍천군","횡성군","영월군","평창군","정선군",
+        "철원군","화천군","양구군","인제군","고성군","양양군",
+    ],
+    "충청북도": [
+        "청주시","충주시","제천시","보은군","옥천군","영동군",
+        "증평군","진천군","괴산군","음성군","단양군",
+    ],
+    "충청남도": [
+        "천안시","공주시","보령시","아산시","서산시","논산시",
+        "계룡시","당진시","금산군","부여군","서천군","청양군",
+        "홍성군","예산군","태안군",
+    ],
+    "전북특별자치도": [
+        "전주시","군산시","익산시","정읍시","남원시","김제시",
+        "완주군","진안군","무주군","장수군","임실군","순창군","고창군","부안군",
+    ],
+    "전라남도": [
+        "목포시","여수시","순천시","나주시","광양시","담양군",
+        "곡성군","구례군","고흥군","보성군","화순군","장흥군",
+        "강진군","해남군","영암군","무안군","함평군","영광군",
+        "장성군","완도군","진도군","신안군",
+    ],
+    "경상북도": [
+        "포항시","경주시","김천시","안동시","구미시","영주시",
+        "영천시","상주시","문경시","경산시","의성군","청송군",
+        "영양군","영덕군","청도군","고령군","성주군","칠곡군",
+        "예천군","봉화군","울진군","울릉군",
+    ],
+    "경상남도": [
+        "창원시","진주시","통영시","사천시","김해시","밀양시",
+        "거제시","양산시","의령군","함안군","창녕군","고성군",
+        "남해군","하동군","산청군","함양군","거창군","합천군",
+    ],
+    "제주특별자치도": ["제주시","서귀포시"],
+}
+
+# Level2 OCR 오인식 alias — 실제 OCR 출력에서 확인된 오류만 (보수적)
+LEVEL2_ALIASES_BY_PARENT: dict[str, dict[str, str]] = {
+    "서울특별시": {
+        "강남기": "강남구", "강남가": "강남구",   # 기/가 → 구 혼동
+        "서초기": "서초구",
+        "마프구": "마포구",                        # ㅗ→ㅡ 오인식
+        "은평기": "은평구",
+    },
+    "경기도": {
+        "시흥기": "시흥시", "시홍시": "시흥시",    # 홍/흥 혼동
+        "수원기": "수원시", "수언시": "수원시",    # 언/원 혼동
+        "부천기": "부천시",
+        "안산기": "안산시",
+    },
+}
+
+
+def _normalize_level1_region(text: str) -> tuple[str, float]:
+    """Level1 시도명 탐색. 반환: (정규 시도명, 신뢰도 0~1)"""
+    for lvl1 in LEVEL1_REGIONS:
+        if lvl1 in text:
+            return lvl1, 1.0
+    for alias, canonical in LEVEL1_ALIASES.items():
+        if alias in text:
+            return canonical, 0.8
+    for short, canonical in _LEVEL1_SHORT_MAP.items():
+        if text.startswith(short):
+            return canonical, 0.6
+    return "", 0.0
+
+
+def _normalize_level2_region(text: str, parent: str) -> tuple[str, float]:
+    """Level1 확정 후 해당 parent의 Level2 목록에서만 시군구 탐색."""
+    children = LEVEL2_BY_PARENT.get(parent, [])
+    for child in children:
+        if child in text:
+            return child, 1.0
+    aliases = LEVEL2_ALIASES_BY_PARENT.get(parent, {})
+    for alias, canonical in aliases.items():
+        if alias in text:
+            return canonical, 0.8
+    return "", 0.0
+
+
+def _apply_hierarchical_region_normalization(addr: str) -> str:
     """
-    OCR이 뭉개진 광역시도 명칭을 계층적 유사도로 보정.
-    Level 1: 광역시도 (17개 고정 목록, difflib)
-    Level 2: 주소 전체를 그대로 유지하고 첫 토큰만 교체.
-    무거운 전국 퍼지 검색은 하지 않는다.
+    Level1 → Level2 계층 정규화.
+    신뢰도가 낮으면 원본 반환 (안전 최우선).
+    전국 퍼지 검색 없음 — alias + 단축어 exact match 만 수행.
     """
     if not addr:
         return addr
-    try:
-        from difflib import get_close_matches as _gcm
-
-        _L1 = [
-            "서울특별시", "부산광역시", "대구광역시", "인천광역시",
-            "광주광역시", "대전광역시", "울산광역시", "세종특별자치시",
-            "경기도", "강원특별자치도", "충청북도", "충청남도",
-            "전북특별자치도", "전라남도", "경상북도", "경상남도",
-            "제주특별자치도",
-        ]
-        _L1_SHORT: dict[str, str] = {
-            "서울": "서울특별시",  "부산": "부산광역시",  "대구": "대구광역시",
-            "인천": "인천광역시",  "광주": "광주광역시",  "대전": "대전광역시",
-            "울산": "울산광역시",  "세종": "세종특별자치시",
-            "경기": "경기도",      "강원": "강원특별자치도",
-            "충북": "충청북도",    "충남": "충청남도",
-            "전북": "전북특별자치도", "전남": "전라남도",
-            "경북": "경상북도",    "경남": "경상남도",   "제주": "제주특별자치도",
-            # 구형 명칭
-            "강원도": "강원특별자치도", "전라북도": "전북특별자치도",
-            "제주도": "제주특별자치도",
-        }
-
-        tokens = addr.split()
-        if not tokens:
-            return addr
-
-        t0 = tokens[0]
-        corrected_l1 = None
-        if t0 in _L1_SHORT:
-            corrected_l1 = _L1_SHORT[t0]
-        elif t0 not in _L1:
-            if 2 <= len(t0) <= 8:
-                m = _gcm(t0, _L1 + list(_L1_SHORT.keys()), n=1, cutoff=0.62)
-                if m:
-                    best = m[0]
-                    corrected_l1 = _L1_SHORT.get(best, best if best in _L1 else None)
-        else:
-            corrected_l1 = t0
-
-        if corrected_l1 and corrected_l1 != t0:
-            tokens[0] = corrected_l1
-            addr = " ".join(tokens)
-    except Exception:
-        pass
-    return addr
+    lvl1, conf1 = _normalize_level1_region(addr)
+    if not lvl1 or conf1 < 0.6:
+        return addr  # 시도 불명확 → 손대지 않음
+    result = addr
+    # Level1 alias 보정 (alias로 잡힌 경우만 교체)
+    if conf1 == 0.8:
+        for alias, canonical in LEVEL1_ALIASES.items():
+            if alias in result:
+                result = result.replace(alias, canonical, 1)
+                break
+    # Level2: 올바른 명칭이 이미 있으면 건드리지 않음
+    _, conf2 = _normalize_level2_region(result, lvl1)
+    if conf2 < 0.8:
+        aliases2 = LEVEL2_ALIASES_BY_PARENT.get(lvl1, {})
+        for alias, canonical in aliases2.items():
+            if alias in result:
+                result = result.replace(alias, canonical, 1)
+                break
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1761,146 +1876,78 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         s = (s or "").strip()
         return bool(re.search(r"(유효|유호|취업가능|민원안내|하이코리아|일련번호)", s))
 
-    def _is_addr_header_line(s: str) -> bool:
-        s = (s or "").strip()
-        return bool(re.search(r"(국내거소|체류지|신고일|신고월)", s))
+    # ── donor 이식: 주소 섹션 추출 + dated-row 파싱 ─────────────────────────
+    _DATE_ROW_RE_L = re.compile(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})')
 
-    def _is_junk_addr_line(s: str) -> bool:
-        s = (s or "").strip()
+    def _addr_score_back(s: str) -> float:
+        """뒷면 주소 후보 점수 (donor pages/page_scan.py 에서 이식)."""
         if not s:
-            return True
-        if _ADDR_BAN_RE.search(s):
-            return True
-        if re.fullmatch(r"[\(\)\.\-/#\s]+", s):
-            return True
-        if _kor_count(s) < 2 and len(re.sub(r"[^\d]", "", s)) >= 6:
-            return True
-        return False
-
-    def _addr_score(s: str) -> float:
-        s = _clean_addr_line(s)
-        if _is_junk_addr_line(s):
             return -1.0
-        has_lvl   = bool(re.search(r"(도|시|군|구)", s))
-        has_road  = bool(re.search(r"(로|길|번길|대로)", s))
-        has_num   = bool(re.search(r"\d", s))
-        has_unit  = bool(re.search(r"(동|호|층|#\d+)", s))
-        province_re = r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)"
-        has_province = bool(re.search(province_re, s))
-        score = 0.0
-        score += _kor_count(s) * 2.0
-        score += 6.0 if has_lvl else 0.0
-        score += 9.0 if has_road else 0.0
-        score += 4.0 if has_num else 0.0
-        score += 3.0 if has_unit else 0.0
-        score += 6.0 if has_province else 0.0
+        if _ADDR_BAN_RE.search(s):
+            return -1.0
+        score  = _kor_count(s) * 2.0
+        score += 6.0 if re.search(r'[가-힣]{1,6}[시군구](?:\s|$|\d)', s)           else 0.0
+        score += 9.0 if re.search(r'[가-힣]{2,8}(?:대로|번길|로|길)(?:\s|$|\d)', s) else 0.0
+        score += 4.0 if re.search(r'\d', s)                                         else 0.0
+        score += 3.0 if re.search(r'(동|호|층|#\d+)', s)                            else 0.0
+        score += 6.0 if re.search(
+            r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', s
+        ) else 0.0
         score += min(len(s), 60) / 12.0
-        # Province/city near the start of the string — strong structural signal
-        if re.match(r"^.{0,10}" + province_re, s):
-            score += 4.0
-        # Full structure: province + road + number + unit all present
-        if has_province and has_road and has_num and has_unit:
-            score += 6.0
-        # No road but has admin-level word — slightly suspicious
-        if has_lvl and not has_road:
-            score -= 4.0
         if len(s) < 8:
             score -= 5.0
-        # Line starts with a date pattern (YYYY.MM.DD or YY.MM.DD etc.)
-        if re.match(r"^\d{2,4}[.\-/]\d{1,2}[.\-/]\d{1,2}", s):
-            score -= 12.0
-        # Line contains 2 or more date-like fragments anywhere
-        date_frags = re.findall(r"\d{1,4}[.\-/]\d{1,2}[.\-/]\d{1,2}", s)
-        if len(date_frags) >= 2:
-            score -= 8.0
-        # Punctuation-density penalty: >20% of chars are punctuation/special
-        punct_chars = sum(1 for c in s if not c.isalnum() and c not in (" ", "·"))
-        if len(s) > 0 and punct_chars / len(s) > 0.20:
-            score -= 8.0
         return score
 
-    def _merge_addr_lines(lines: list) -> list:
-        merged = []
-        i = 0
-        while i < len(lines):
-            cur = (lines[i] or "").strip()
-            nxt = (lines[i + 1] or "").strip() if i + 1 < len(lines) else ""
-            combined = cur
-            if nxt:
-                cur_has_date = bool(re.search(r"\d{1,4}[.\-/]\d{1,2}[.\-/]\d{1,2}", cur))
-                cur_has_addr = bool(re.search(r"(도|시|군|구|로|길|번길|대로)", cur))
-                nxt_is_cont = bool(re.match(r"^[\s:;,.~\-]*(\(?[가-힣0-9]|길|로|번길|대로|동|호|층)", nxt))
-                nxt_header = _is_addr_header_line(nxt)
-                nxt_stop = _is_addr_stop_line(nxt)
-                if cur_has_date and nxt_is_cont and not nxt_header and not nxt_stop:
-                    combined = cur + " " + nxt
-                    i += 1
-                elif cur_has_addr and nxt_is_cont and not nxt_header and not nxt_stop:
-                    combined = cur + " " + nxt
-                    i += 1
-            merged.append(combined)
-            i += 1
-        return merged
-
-    def _extract_addr_region(text: str) -> list:
-        lines = [re.sub(r"\s+", " ", l).strip() for l in (text or "").splitlines() if l.strip()]
-        if not lines:
-            return []
-        start_idx = 0
+    def _extract_addr_section(text: str) -> list:
+        """체류지/Address 헤더 이후 라인 반환. 헤더 없으면 전체 반환."""
+        lines = [l.strip() for l in (text or '').splitlines() if l.strip()]
+        start = 0
         for i, l in enumerate(lines):
-            if re.search(r"(국내거소|체류지)", l):
-                start_idx = i + 1
+            if re.search(r'체류지|Address|국내거소', l, re.I):
+                start = i + 1
                 break
-        region = []
-        for l in lines[start_idx:]:
+        result = []
+        for l in lines[start:]:
             if _is_addr_stop_line(l):
                 break
-            region.append(l)
-        return region if region else lines
+            result.append(l)
+        return result if result else lines
 
-    def _best_addr_latest(text: str) -> str:
-        lines = _extract_addr_region(text)
-        lines = _merge_addr_lines(lines)
-        best_addr = ""
-        best_date = None
-        best_sc = -1.0
-        for raw in lines:
-            if _ADDR_BAN_RE.search(raw):
-                continue
-            m = re.search(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", raw)
-            if not m:
-                continue
-            try:
-                y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-                dt = _dt(y, mo, d)
-            except ValueError:
-                continue
-            c = _clean_addr_line(raw)
-            sc = _addr_score(c)
-            if sc < 0:
-                continue
-            if (best_date is None) or (dt > best_date) or (dt == best_date and sc > best_sc):
-                best_date, best_sc, best_addr = dt, sc, c
-        if best_addr:
-            return best_addr
-        best_addr2 = ""
-        best_sc2 = -1.0
-        for raw in lines:
-            c = _clean_addr_line(raw)
-            sc = _addr_score(c)
-            if sc > best_sc2:
-                best_addr2, best_sc2 = c, sc
-        return best_addr2
-
-    def _looks_weak_address(addr: str) -> bool:
-        addr = (addr or "").strip()
-        if not addr:
-            return True
-        if _kor_count(addr) < 5:
-            return True
-        if not re.search(r"(도|시|군|구|로|길|번길|대로)", addr):
-            return True
-        return False
+    def _parse_dated_addr_rows(lines: list) -> list:
+        """
+        날짜로 시작하는 행 → (datetime, cleaned_addr) 쌍 추출, 최신순 정렬.
+        ARC 뒷면 형식: '2024.03.15  경기도 시흥시 ...'
+        연속 행(multi-line address) 병합 지원.
+        """
+        rows = []
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            dm = _DATE_ROW_RE_L.match(line)
+            if dm:
+                try:
+                    row_dt = _dt(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)))
+                except ValueError:
+                    i += 1
+                    continue
+                parts = [line[dm.end():].strip()]
+                j = i + 1
+                while j < len(lines):
+                    nxt = lines[j].strip()
+                    if _DATE_ROW_RE_L.match(nxt) or _is_addr_stop_line(nxt):
+                        break
+                    if nxt and not _ADDR_BAN_RE.search(nxt):
+                        parts.append(nxt)
+                    j += 1
+                addr_raw = ' '.join(p for p in parts if p)
+                addr_c = _clean_addr_line(addr_raw)
+                if addr_c:
+                    rows.append((row_dt, addr_c))
+                i = j
+            else:
+                i += 1
+        rows.sort(key=lambda x: x[0], reverse=True)
+        return rows
 
     # ── 컬럼 기반 OCR — 기하학적으로 방향이 확정된 뒷면 ─────────────────────
     # 디바이더를 기준으로 좌(날짜) / 우(주소) 컬럼 분리 + 상단 헤더 별도 OCR.
@@ -1962,33 +2009,56 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     # 날짜 추출 보강: 상단·좌측 텍스트를 tn_bot 앞에 추가
     tn_bot = (_upper_txt or "") + "\n" + (_left_txt or "") + "\n" + tn_bot
 
-    # 주소: 우측 넓은 컬럼만 사용
+    # ── 주소 추출: 우측 컬럼 1차 → tn_bot dated-row 2차 ─────────────────────
     addr = ""
-    _addr_best_sc = -1.0
     try:
-        _raw_lines = [re.sub(r"\s+", " ", _l).strip()
-                      for _l in (_right_txt or "").splitlines() if _l.strip()]
-        _region = _extract_addr_region("\n".join(_raw_lines))
-        _merged = _merge_addr_lines(_region)
-        for _i in range(len(_region) - 1):
-            _merged.append((_region[_i] + " " + _region[_i + 1]).strip())
-        for _raw in _merged:
-            _c = _clean_addr_line(_raw)
-            _sc = _addr_score(_c)
-            if _sc > _addr_best_sc:
-                _addr_best_sc, addr = _sc, _c
+        # 1차: 기하학적으로 분리된 우측 주소 컬럼 — 점수 기반 선택
+        # (우측 컬럼에는 날짜가 없으므로 dated-row 파싱 불필요)
+        _sec_r = _extract_addr_section(_right_txt)
+        _best_sc_r = -1.0
+        for _sl in _sec_r:
+            _cl = _clean_addr_line(_sl)
+            _sc = _addr_score_back(_cl)
+            if _sc > _best_sc_r and _is_valid_address_candidate(_cl):
+                _best_sc_r = _sc
+                addr = _cl
+                _debug_geom["addr_source"] = "right_col"
+        # 인접 라인 병합 시도 (2행 걸쳐 쓰인 주소)
+        for _i in range(len(_sec_r) - 1):
+            _cm = _clean_addr_line(_sec_r[_i] + " " + _sec_r[_i + 1])
+            _sc = _addr_score_back(_cm)
+            if _sc > _best_sc_r and _is_valid_address_candidate(_cm):
+                _best_sc_r = _sc
+                addr = _cm
+                _debug_geom["addr_source"] = "right_col_merged"
     except Exception:
         pass
 
-    # Fallback: full-back OCR text already computed by the rotation loop.
-    # Less clean than strip OCR but covers edge cases missed by the strips.
-    if _looks_weak_address(addr):
-        _fb = _best_addr_latest(tn_bot)
-        if not _looks_weak_address(_fb):
-            addr = _fb
+    # 2차: tn_bot (날짜+주소 전체 텍스트) — dated-row 파싱 (donor 이식)
+    # tn_bot 은 좌측 날짜 컬럼이 포함되어 "2024.03.15  경기도..." 형태로 읽힌다
+    if not _is_valid_address_candidate(addr):
+        try:
+            _sec_fb = _extract_addr_section(tn_bot)
+            _dated_rows = _parse_dated_addr_rows(_sec_fb)
+            for _, _row_addr in _dated_rows:
+                if _is_valid_address_candidate(_row_addr):
+                    addr = _row_addr
+                    _debug_geom["addr_source"] = "dated_row_tnbot"
+                    break
+            # dated rows 없으면 score-based fallback
+            if not _is_valid_address_candidate(addr):
+                _best_sc_fb = -1.0
+                for _sl_fb in _sec_fb:
+                    _cm_fb = _clean_addr_line(_sl_fb)
+                    _sc_fb = _addr_score_back(_cm_fb)
+                    if _sc_fb > _best_sc_fb and _is_valid_address_candidate(_cm_fb):
+                        _best_sc_fb = _sc_fb
+                        addr = _cm_fb
+                        _debug_geom["addr_source"] = "tnbot_score"
+        except Exception:
+            pass
 
-    # Strict gate: province + admin-unit(시군구) + road-name 모두 있어야 저장
-    # "blank is better than garbage" — 구조 미달 주소는 버린다
+    # 최종 저장 (strict gate — province+admin+road 구조 확인)
     if addr and _is_valid_address_candidate(addr):
         out["주소"] = addr
 
@@ -2003,13 +2073,13 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     if out.get("주소"):
         out["주소"] = _dedup_address(out["주소"])
 
-    # Level 1 광역시도 유사도 보정 (OCR 오자 복원)
+    # 계층적 행정구역 정규화 (Level1 → Level2 alias 보정)
     if out.get("주소"):
-        _addr_before_sim = out["주소"]
-        out["주소"] = _similarity_correct_address(out["주소"])
-        _debug_geom["similarity_correction"] = (
-            f"{_addr_before_sim!r} → {out['주소']!r}"
-            if _addr_before_sim != out["주소"] else "no_change"
+        _addr_before_norm = out["주소"]
+        out["주소"] = _apply_hierarchical_region_normalization(out["주소"])
+        _debug_geom["region_normalization"] = (
+            f"{_addr_before_norm!r} → {out['주소']!r}"
+            if _addr_before_norm != out["주소"] else "no_change"
         )
 
     # DB-based address correction: correct OCR mis-reads in road/dong names
