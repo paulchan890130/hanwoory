@@ -1229,11 +1229,19 @@ def _geometry_orient_back(bot: Image.Image) -> tuple[Image.Image, dict]:
             int2 = d2[my2:sh2 - my2, mx2:sw2 - mx2]
             iw2  = (sw2 - mx2) - mx2
 
-            cd2_sm = _sm(int2.mean(axis=0))
+            cd2_raw = int2.mean(axis=0)
+            cd2_sm  = _sm(cd2_raw)
             dv0, dv1 = int(iw2 * 0.20), int(iw2 * 0.80)
             dr = int(np.argmax(cd2_sm[dv0:dv1])) + dv0
+            # 스무딩이 실제 peak 위치를 클러스터 중심으로 끌어당기는 것을 방지.
+            # unsmoothed 밀도로 ±25컬럼 내 진짜 최댓값 컬럼을 찾는다.
+            # (테이블 border 이중선 간격이 ~30px 이므로 ±12는 실제 peak 를 놓친다)
+            ref_lo = max(dv0, dr - 25)
+            ref_hi = min(dv1, dr + 26)
+            dr = ref_lo + int(np.argmax(cd2_raw[ref_lo:ref_hi]))
             da = dr + mx2
             divider_frac = da / sw2
+            dbg["divider_col_unsmoothed"] = da
 
             # ±3px 밴드 안의 다크픽셀 → 기울기 측정
             bl = max(0, da - 3)
@@ -1888,9 +1896,11 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         min(_div_x + int(_rb_w * 0.02), int(_rb_w * 0.48)),
         int(_rb_h * 0.92),
     ))
-    # 우측 넓은 컬럼 (주소) — 디바이더 쪽 2% overlap
+    # 우측 넓은 컬럼 (주소) — divider 바로 오른쪽에서 시작 (overlap 없음)
+    # Bug fix: 이전 "-2% overlap" 은 좌측 날짜/라벨 컬럼을 포함시켜 OCR 오염을 유발했음.
+    _right_x = max(_div_x, int(_rb_w * 0.30))
     _right_crop = _rot_back.crop((
-        max(_div_x - int(_rb_w * 0.02), int(_rb_w * 0.30)),
+        _right_x,
         int(_rb_h * 0.10),
         int(_rb_w * 0.99),
         int(_rb_h * 0.92),
@@ -1900,18 +1910,26 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         "left_col_bbox":          (int(_rb_w * 0.01), int(_rb_h * 0.10),
                                     min(_div_x + int(_rb_w * 0.02), int(_rb_w * 0.48)),
                                     int(_rb_h * 0.92)),
-        "right_col_bbox":         (max(_div_x - int(_rb_w * 0.02), int(_rb_w * 0.30)),
-                                    int(_rb_h * 0.10), int(_rb_w * 0.99), int(_rb_h * 0.92)),
+        "right_col_bbox":         (_right_x, int(_rb_h * 0.10),
+                                    int(_rb_w * 0.99), int(_rb_h * 0.92)),
         "upper_date_region_bbox": (0, 0, _rb_w, int(_rb_h * 0.15)),
         "divider_x_px":           _div_x,
     })
 
     def _oprep(im: Image.Image) -> Image.Image:
-        return ImageOps.autocontrast(ImageOps.grayscale(im))
+        g = ImageOps.autocontrast(ImageOps.grayscale(im))
+        # 저해상도 카드 이미지 업스케일 (Tesseract 최소 권장 300DPI 보정)
+        if g.width < 500 or g.height < 350:
+            g = g.resize((g.width * 2, g.height * 2), resample=_PILImage.LANCZOS)
+        return g
 
     _upper_txt = _ocr(_oprep(_upper_crop), lang="kor", config="--oem 3 --psm 6")
     _left_txt  = _ocr(_oprep(_left_crop),  lang="kor", config="--oem 3 --psm 6")
-    _right_txt = _ocr(_oprep(_right_crop), lang="kor", config="--oem 3 --psm 6")
+    # 주소 컬럼: psm=6 (균일 블록) + psm=4 (단일 컬럼) 병행, 긴 결과 우선
+    _right_prep = _oprep(_right_crop)
+    _right_t6   = _ocr(_right_prep, lang="kor", config="--oem 3 --psm 6")
+    _right_t4   = _ocr(_right_prep, lang="kor+eng", config="--oem 3 --psm 4")
+    _right_txt  = _right_t6 if len(_right_t6.strip()) >= len(_right_t4.strip()) else _right_t4
 
     _debug_geom.update({
         "raw_upper_text": _upper_txt,
