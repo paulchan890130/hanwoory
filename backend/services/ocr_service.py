@@ -2006,123 +2006,141 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         "raw_right_text": _right_txt,
     })
 
-    # 날짜 추출 보강: 상단·좌측 텍스트를 tn_bot 앞에 추가
-    tn_bot = (_upper_txt or "") + "\n" + (_left_txt or "") + "\n" + tn_bot
+    # donor 원칙: 주소/만기일 추출은 "방향이 바로 선 뒷면 전체 OCR" 기준으로 먼저 처리한다.
+    # 컬럼 OCR은 디버그/보조용으로만 남기고, 주소 primary path 에서는 tn_bot(전체 OCR)을 그대로 사용한다.
+    tn_bot_aug = (_upper_txt or "") + "\n" + (_left_txt or "") + "\n" + tn_bot
 
-    # ── 주소 추출: 도너 방식 1차 → 우측 컬럼 2차 → tn_bot 3차 ──────────────────
-    # 도너(page_scan.py)의 핵심 구조를 그대로 이식:
-    #   1차: 전체 너비 주소 섹션 크롭 → PSM=6 OCR → _parse_dated_addr_rows
-    #        (날짜+주소가 같은 행에 있으므로 날짜가 주소 파싱의 앵커 역할을 함)
-    #   2차: 기하학적으로 분리된 우측 컬럼 → 점수 기반 선택
-    #   3차: tn_bot 전체 텍스트 → _parse_dated_addr_rows + score fallback
-    addr = ""
+    def _clean_addr_line(s: str) -> str:
+        # page_scan.py donor 로직을 기준으로 유지하되, 공백/쉼표 정도만 가볍게 정리한다.
+        s = re.sub(r'^\s*\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\s*', '', s or '')
+        s = re.sub(r'[^가-힣0-9\s\-\.,#()/~]', ' ', s)
+        if ARC_REMOVE_PAREN:
+            s = re.sub(r'\([^)]*\)', ' ', s)
+        s = re.sub(r'\s*,\s*', ', ', s)
+        s = re.sub(r'\s{2,}', ' ', s).strip(' ,')
+        return s
 
-    # ── 1차: 도너 방식 — full-width 주소 섹션 크롭 + dated-row 파싱 ─────────────
-    # 도너는 회전 확정 후 뒷면 전체 너비에서 체류지 헤더 아래를 크롭하여
-    # PSM=6 단일 OCR → _parse_dated_addr_rows 로 "날짜 주소" 행을 추출한다.
-    # 우측 컬럼 단독 OCR과 달리 날짜가 텍스트 앵커로 작동해 노이즈에 강하다.
-    _lines_tb = [l.strip() for l in tn_bot.splitlines() if l.strip()]
-    _hdr_frac = 0.28  # 기본값: 뒷면 상단 28%부터 주소 섹션 시작
-    for _hi, _hl in enumerate(_lines_tb):
-        if re.search(r'체류지|Address|국내거소', _hl, re.I):
-            _hdr_frac = max(0.18, min(0.70, (_hi + 1) / max(len(_lines_tb), 1)))
-            break
+    def _is_junk_addr_line(s: str) -> bool:
+        s = (s or '').strip()
+        if not s:
+            return True
+        if _ADDR_BAN_RE.search(s):
+            return True
+        if _kor_count(s) < 3 and len(re.sub(r'[^\d]', '', s)) >= 6:
+            return True
+        if re.fullmatch(r'[\(\)\.\-/#\s]+', s):
+            return True
+        return False
 
-    _addr_y0 = int(_rb_h * _hdr_frac)
-    _addr_crop_img = _rot_back.crop((int(_rb_w * 0.02), _addr_y0, int(_rb_w * 0.98), _rb_h))
-    _addr_crop_txt = _ocr(_oprep(_addr_crop_img), lang="kor", config="--oem 3 --psm 6")
+    def _addr_score(s: str) -> float:
+        s = _clean_addr_line(s)
+        if _is_junk_addr_line(s):
+            return -1.0
+        has_lvl  = bool(re.search(r'(도|시|군|구)', s))
+        has_road = bool(re.search(r'(로|길|번길|대로)', s))
+        has_num  = bool(re.search(r'\d', s))
+        has_unit = bool(re.search(r'(동|호|층|호수|#\d+)', s))
+        return (
+            _kor_count(s) * 2
+            + has_lvl * 6
+            + has_road * 8
+            + has_num * 4
+            + has_unit * 2
+            + min(len(s), 60) / 12.0
+        )
 
-    _debug_geom.update({
-        "hdr_frac":          round(_hdr_frac, 2),
-        "addr_crop_preview": (_addr_crop_txt or "")[:300],
-    })
+    def _best_addr_latest(text: str) -> str:
+        """
+        donor page_scan.py 와 같은 주소 선택 원칙.
+        1) 'YYYY.MM.DD + 주소' 형식이면 가장 최신 날짜의 주소를 우선
+        2) 없으면 점수 최고 주소 fallback
+        """
+        lines = [l for l in (text or '').splitlines() if l.strip()]
+        best_addr = ''
+        best_date = None
+        best_sc = -1.0
 
-    _sec_lines_crop = _extract_addr_section(_addr_crop_txt)
-    _dated_rows_crop = _parse_dated_addr_rows(_sec_lines_crop)
-    for _, _row_addr in _dated_rows_crop:
-        if _is_valid_address_candidate(_row_addr):
-            addr = _row_addr
-            _debug_geom["addr_source"] = "crop_dated_row"
-            break
+        for l in lines:
+            if _ADDR_BAN_RE.search(l):
+                continue
+            m = re.search(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})', l)
+            if not m:
+                continue
+            try:
+                y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                dt = _dt(y, mo, d)
+            except ValueError:
+                continue
 
-    # ── 2차: 기하학적으로 분리된 우측 주소 컬럼 — 점수 기반 선택 ────────────────
-    # (우측 컬럼에는 날짜가 없으므로 scored 선택만 가능)
-    if not addr:
-        try:
-            _sec_r = _extract_addr_section(_right_txt)
-            _best_sc_r = -1.0
-            for _sl in _sec_r:
-                _cl = _clean_addr_line(_sl)
-                _sc = _addr_score_back(_cl)
-                if _sc > _best_sc_r and _is_valid_address_candidate(_cl):
-                    _best_sc_r = _sc
-                    addr = _cl
-                    _debug_geom["addr_source"] = "right_col"
-            # 인접 라인 병합 시도 (2행 걸쳐 쓰인 주소)
-            for _i in range(len(_sec_r) - 1):
-                _cm = _clean_addr_line(_sec_r[_i] + " " + _sec_r[_i + 1])
-                _sc = _addr_score_back(_cm)
-                if _sc > _best_sc_r and _is_valid_address_candidate(_cm):
-                    _best_sc_r = _sc
-                    addr = _cm
-                    _debug_geom["addr_source"] = "right_col_merged"
-        except Exception:
-            pass
+            c = _clean_addr_line(l)
+            sc = _addr_score(c)
+            if sc < 0:
+                continue
 
-    # ── 3차: tn_bot 전체 텍스트 — dated-row 파싱 + score fallback ───────────────
-    # tn_bot 은 좌측 날짜 컬럼이 포함되어 "2024.03.15  경기도..." 형태로 읽힌다
-    if not _is_valid_address_candidate(addr):
-        try:
-            _sec_fb = _extract_addr_section(tn_bot)
-            _dated_rows = _parse_dated_addr_rows(_sec_fb)
-            for _, _row_addr in _dated_rows:
-                if _is_valid_address_candidate(_row_addr):
-                    addr = _row_addr
-                    _debug_geom["addr_source"] = "dated_row_tnbot"
-                    break
-            if not _is_valid_address_candidate(addr):
-                _best_sc_fb = -1.0
-                for _sl_fb in _sec_fb:
-                    _cm_fb = _clean_addr_line(_sl_fb)
-                    _sc_fb = _addr_score_back(_cm_fb)
-                    if _sc_fb > _best_sc_fb and _is_valid_address_candidate(_cm_fb):
-                        _best_sc_fb = _sc_fb
-                        addr = _cm_fb
-                        _debug_geom["addr_source"] = "tnbot_score"
-        except Exception:
-            pass
+            if (best_date is None) or (dt > best_date) or (dt == best_date and sc > best_sc):
+                best_date, best_sc, best_addr = dt, sc, c
 
-    # 최종 저장 (province + admin + road 구조 확인)
-    if addr and _is_valid_address_candidate(addr):
-        out["주소"] = addr
+        if best_addr:
+            return best_addr
 
+        best_addr2 = ''
+        best_score2 = -1.0
+        for l in lines:
+            c = _clean_addr_line(l)
+            sc = _addr_score(c)
+            if sc > best_score2:
+                best_addr2, best_score2 = c, sc
+        return best_addr2
+
+    # ── 주소 추출: donor page_scan.py 순서를 그대로 따른다 ─────────────────────
+    # 1) 방향 보정된 뒷면 전체 OCR
+    # 2) 상단+하단 전체 OCR fallback
+    # 3) 마지막으로 전체 줄 중 도/시/군/구/로/길/번길/대로 포함 줄 강제 선택
+    addr = _best_addr_latest(tn_bot)
+    if addr and _kor_count(addr) >= 3 and len(addr) >= 6:
+        out['주소'] = addr
+        _debug_geom['addr_source'] = 'best_addr_latest_back'
+    else:
+        addr2 = _best_addr_latest(t_top + "\n" + tn_bot)
+        if addr2 and _kor_count(addr2) >= 3 and len(addr2) >= 6:
+            out['주소'] = addr2
+            _debug_geom['addr_source'] = 'best_addr_latest_top_back'
+
+        if '주소' not in out:
+            lines_all = [l.strip() for l in (t_top + "\n" + tn_bot).splitlines() if l.strip()]
+            best_line = ''
+            best_score = -1.0
+            for l in lines_all:
+                if _kor_count(l) < 3:
+                    continue
+                if not re.search(r'(도|시|군|구|로|길|번길|대로)', l):
+                    continue
+                sc = _addr_score(l)
+                if sc > best_score:
+                    best_score = sc
+                    best_line = _clean_addr_line(l)
+            if best_line:
+                out['주소'] = best_line
+                _debug_geom['addr_source'] = 'forced_best_line'
+
+        # geometry 기반 column OCR 은 donor primary path 에 포함되지 않으므로
+        # 최종 fallback 으로만 제한적으로 사용한다.
+        if '주소' not in out:
+            addr3 = _best_addr_latest(tn_bot_aug)
+            if addr3 and _kor_count(addr3) >= 3 and len(addr3) >= 6:
+                out['주소'] = addr3
+                _debug_geom['addr_source'] = 'best_addr_latest_aug'
+
+    # donor 취지 유지: 주소를 살리는 것이 우선이며, 일부 오탈자만 가볍게 정리한다.
+    if out.get('주소'):
+        out['주소'] = _dedup_address(out['주소'])
+        out['주소'] = re.sub(r'\s*,\s*', ', ', out['주소']).strip(' ,')
     # 여권 DOB가 있으면 등록증 앞번호는 여권 기준 우선
     front_from_passport = dob_to_arc_front(passport_dob)
     if front_from_passport:
         out["등록증"] = front_from_passport
     elif out.get("등록증") and not _valid_yymmdd6(out.get("등록증", "")):
         out.pop("등록증", None)
-
-    # Remove duplicated address text (OCR artefact: same block read twice)
-    if out.get("주소"):
-        out["주소"] = _dedup_address(out["주소"])
-
-    # 계층적 행정구역 정규화 (Level1 → Level2 alias 보정)
-    if out.get("주소"):
-        _addr_before_norm = out["주소"]
-        out["주소"] = _apply_hierarchical_region_normalization(out["주소"])
-        _debug_geom["region_normalization"] = (
-            f"{_addr_before_norm!r} → {out['주소']!r}"
-            if _addr_before_norm != out["주소"] else "no_change"
-        )
-
-    # DB-based address correction: correct OCR mis-reads in road/dong names
-    if out.get("주소"):
-        try:
-            from .addr_service import correct_address as _correct_addr
-            out["주소"] = _correct_addr(out["주소"])
-        except Exception:
-            pass
 
     out["_debug_geometry"] = _debug_geom
     return out
