@@ -233,6 +233,66 @@
         }
     }
 }
+지피티+제미나이
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "820523",
+        "번호": "6820190",
+        "발급일": "2019-01-09",
+        "한글": "전복",
+        "주소": "고 을 에몰 모계 웅 을 0 로",
+        "_debug_geometry": {
+            "front_deskew_angle": -0.91,
+            "front_card_bbox": [
+                17,
+                25,
+                475,
+                323
+            ],
+            "v_line_frac": 0.312,
+            "v_line_strength": 0.311,
+            "h_line_frac": 0.598,
+            "h_line_strength": 0.124,
+            "coarse_rotation": 0,
+            "coarse_confidence": "ok",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 145,
+            "divider_slope": 0.0007,
+            "fine_deskew_angle": 0.04,
+            "divider_frac": 0.312,
+            "back_card_bbox": [
+                0,
+                0,
+                464,
+                259
+            ],
+            "left_col_bbox": [
+                4,
+                25,
+                153,
+                238
+            ],
+            "right_col_bbox": [
+                144,
+                25,
+                459,
+                238
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                464,
+                38
+            ],
+            "divider_x_px": 144,
+            "raw_upper_text": "11     1 [| :  |  로\n20 |. 1 오노 공오 | 후 016. 나뽀\n",
+            "raw_left_text": "1으30   |  든 05\n[개기     1! 요\n뚜호     1\n나 |    벽\n젤름     | 포\n롱은     | @90\n주     | 와\n톱| |   다\n에      팍\n흥      |벡\n~   !  1\n",
+            "raw_right_text": "0 개\n: 8 8 |. |\n1 | 8 8 |빈  여니 방| 겔 매\n그 주 8  [디  2 이으틸로\n00: 건 영언 융 :  를 은\n이 2 애   18 은\n0 | 앨 80: [8  너으래이 일 애\n(는 | 쑥에 스노 너  오 8 뚜9\n대 버려 비세\n\"2 | 쪼은 베   100 으 분유\n00! 않 알도  | 이 이 흐!쿠의\n| 의. 울보   9 니이 거울 걸\n00 (9 8  ~\n| 띠 보1      내\n\n| 율   | |몬뿌\n\n=걱  26\n",
+            "addr_source": "best_addr_latest_back"
+        }
+    }
+}
 등록증 (12)
 업데이트 전
 {
@@ -410,6 +470,65 @@
     }
 }
 지피티 업데이트 후
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "870104",
+        "번호": "5780022",
+        "발급일": "2023-04-28",
+        "주소": "베틀 오비 온띠주 으 을 트로",
+        "_debug_geometry": {
+            "front_deskew_angle": -2.21,
+            "front_card_bbox": [
+                20,
+                16,
+                483,
+                320
+            ],
+            "v_line_frac": 0.422,
+            "v_line_strength": 0.32,
+            "h_line_frac": 0.416,
+            "h_line_strength": 0.089,
+            "coarse_rotation": 0,
+            "coarse_confidence": "ok",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 216,
+            "divider_slope": 0.0004,
+            "fine_deskew_angle": 0.02,
+            "divider_frac": 0.424,
+            "back_card_bbox": [
+                0,
+                0,
+                509,
+                356
+            ],
+            "left_col_bbox": [
+                5,
+                35,
+                225,
+                327
+            ],
+            "right_col_bbox": [
+                215,
+                35,
+                503,
+                327
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                509,
+                53
+            ],
+            "divider_x_px": 215,
+            "raw_upper_text": "",
+            "raw_left_text": "19800 = [       디\n\n조푸|                  ;\n\n끼똥\n\n1 -    1\n\n-                  ;\n\n보울\n\n모으                  뽀\n\n우영                  해\n0  (투\n",
+            "raw_right_text": "~ 글 0 허66- 그 으06  더\n| | 8  |볼|    아가 게\n백   럭 [>       도 8 스캐 녀\n8 는 [페     소여 희팽\n너   을 래둔이     오는지 은 더\n0     오102이승 주\n--료 |      @   몬 솜\n9. (주 1@   그 |      던\n& 06 18     | 이모\n군  슴로  으     으 으 (01\n0 본         우모 이크 오\n본 | 구게        도 8 8 이\n1  뭉크     글 : @  또 쿼\n개   위 |      씨 00 [으\n1융류)31( 107 41('\n",
+            "addr_source": "best_addr_latest_back"
+        }
+    }
+}
+지피티+제미나이
 {
     "debug": "arc-parse-done",
     "result": {
@@ -698,6 +817,65 @@
             "raw_left_text": "은 302\n다\n=골         |\n타석 | ㆍ |\n으\n3\n너           |         -\n후르\n은총\n구명 에\n\n가. 는 00뚜 주\n\n~ 1-\\\n",
             "raw_right_text": ":  배   으 보  언\n\n6노   이 은 오르\n\n베15]   | 올 !긴\n\n|삐주   이 이 다모 =\n\n100   히이식흥 3\n\n  쁜쁘드 =츠 =\n\n 18  개 을 주\n~     ㅁ\n\n1 |겨    요 6 |유\n\n1! 꿔    | 1310\n\n| |   익어 기민\n\n| |  ㅇ (으 뿌\n\n적     | 0@| 0 |(으\n\n3       |\n\n때      |\n\n7110 (개\n",
             "addr_source": "best_addr_latest_back"
+        }
+    }
+}
+지피티+제미나이
+
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "600822",
+        "번호": "5140012",
+        "한글": "이아",
+        "_debug_geometry": {
+            "front_deskew_angle": 0.0,
+            "front_card_bbox": [
+                20,
+                21,
+                480,
+                319
+            ],
+            "v_line_frac": 0.529,
+            "v_line_strength": 0.265,
+            "h_line_frac": 0.457,
+            "h_line_strength": 0.066,
+            "coarse_rotation": 0,
+            "coarse_confidence": "low_v",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 256,
+            "divider_slope": 0.0108,
+            "fine_deskew_angle": 0.62,
+            "divider_frac": 0.529,
+            "back_card_bbox": [
+                0,
+                0,
+                484,
+                293
+            ],
+            "left_col_bbox": [
+                4,
+                29,
+                232,
+                269
+            ],
+            "right_col_bbox": [
+                256,
+                29,
+                479,
+                269
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                484,
+                43
+            ],
+            "divider_x_px": 256,
+            "raw_upper_text": "",
+            "raw_left_text": "은 302\n다\n=골         |\n타석 | ㆍ |\n으\n3\n너           |         -\n후르\n은총\n구명 에\n\n가. 는 00뚜 주\n\n~ 1-\\\n",
+            "raw_right_text": ":  배   으 보  언\n\n6노   이 은 오르\n\n베15]   | 올 !긴\n\n|삐주   이 이 다모 =\n\n100   히이식흥 3\n\n  쁜쁘드 =츠 =\n\n 18  개 을 주\n~     ㅁ\n\n1 |겨    요 6 |유\n\n1! 꿔    | 1310\n\n| |   익어 기민\n\n| |  ㅇ (으 뿌\n\n적     | 0@| 0 |(으\n\n3       |\n\n때      |\n\n7110 (개\n",
+            "hdr_frac": 0.28,
+            "addr_crop_preview": "뜨고                  [=]           01 은수 건\n뉘                   개       이기 6 4\n우울               글뽀뜨               들 몬\n\n|        -=마   8      엉 모   001\n\n녁        58. | ： 윈요문육\n\n「                  애톨즈이         의 빌 의\n>         굴기 위         - 걸 부을\n비율                 손수 |             1\n으으                 또듬"
         }
     }
 }
