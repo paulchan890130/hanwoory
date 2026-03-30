@@ -2009,32 +2009,67 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
     # 날짜 추출 보강: 상단·좌측 텍스트를 tn_bot 앞에 추가
     tn_bot = (_upper_txt or "") + "\n" + (_left_txt or "") + "\n" + tn_bot
 
-    # ── 주소 추출: 우측 컬럼 1차 → tn_bot dated-row 2차 ─────────────────────
+    # ── 주소 추출: 도너 방식 1차 → 우측 컬럼 2차 → tn_bot 3차 ──────────────────
+    # 도너(page_scan.py)의 핵심 구조를 그대로 이식:
+    #   1차: 전체 너비 주소 섹션 크롭 → PSM=6 OCR → _parse_dated_addr_rows
+    #        (날짜+주소가 같은 행에 있으므로 날짜가 주소 파싱의 앵커 역할을 함)
+    #   2차: 기하학적으로 분리된 우측 컬럼 → 점수 기반 선택
+    #   3차: tn_bot 전체 텍스트 → _parse_dated_addr_rows + score fallback
     addr = ""
-    try:
-        # 1차: 기하학적으로 분리된 우측 주소 컬럼 — 점수 기반 선택
-        # (우측 컬럼에는 날짜가 없으므로 dated-row 파싱 불필요)
-        _sec_r = _extract_addr_section(_right_txt)
-        _best_sc_r = -1.0
-        for _sl in _sec_r:
-            _cl = _clean_addr_line(_sl)
-            _sc = _addr_score_back(_cl)
-            if _sc > _best_sc_r and _is_valid_address_candidate(_cl):
-                _best_sc_r = _sc
-                addr = _cl
-                _debug_geom["addr_source"] = "right_col"
-        # 인접 라인 병합 시도 (2행 걸쳐 쓰인 주소)
-        for _i in range(len(_sec_r) - 1):
-            _cm = _clean_addr_line(_sec_r[_i] + " " + _sec_r[_i + 1])
-            _sc = _addr_score_back(_cm)
-            if _sc > _best_sc_r and _is_valid_address_candidate(_cm):
-                _best_sc_r = _sc
-                addr = _cm
-                _debug_geom["addr_source"] = "right_col_merged"
-    except Exception:
-        pass
 
-    # 2차: tn_bot (날짜+주소 전체 텍스트) — dated-row 파싱 (donor 이식)
+    # ── 1차: 도너 방식 — full-width 주소 섹션 크롭 + dated-row 파싱 ─────────────
+    # 도너는 회전 확정 후 뒷면 전체 너비에서 체류지 헤더 아래를 크롭하여
+    # PSM=6 단일 OCR → _parse_dated_addr_rows 로 "날짜 주소" 행을 추출한다.
+    # 우측 컬럼 단독 OCR과 달리 날짜가 텍스트 앵커로 작동해 노이즈에 강하다.
+    _lines_tb = [l.strip() for l in tn_bot.splitlines() if l.strip()]
+    _hdr_frac = 0.28  # 기본값: 뒷면 상단 28%부터 주소 섹션 시작
+    for _hi, _hl in enumerate(_lines_tb):
+        if re.search(r'체류지|Address|국내거소', _hl, re.I):
+            _hdr_frac = max(0.18, min(0.70, (_hi + 1) / max(len(_lines_tb), 1)))
+            break
+
+    _addr_y0 = int(_rb_h * _hdr_frac)
+    _addr_crop_img = _rot_back.crop((int(_rb_w * 0.02), _addr_y0, int(_rb_w * 0.98), _rb_h))
+    _addr_crop_txt = _ocr(_oprep(_addr_crop_img), lang="kor", config="--oem 3 --psm 6")
+
+    _debug_geom.update({
+        "hdr_frac":          round(_hdr_frac, 2),
+        "addr_crop_preview": (_addr_crop_txt or "")[:300],
+    })
+
+    _sec_lines_crop = _extract_addr_section(_addr_crop_txt)
+    _dated_rows_crop = _parse_dated_addr_rows(_sec_lines_crop)
+    for _, _row_addr in _dated_rows_crop:
+        if _is_valid_address_candidate(_row_addr):
+            addr = _row_addr
+            _debug_geom["addr_source"] = "crop_dated_row"
+            break
+
+    # ── 2차: 기하학적으로 분리된 우측 주소 컬럼 — 점수 기반 선택 ────────────────
+    # (우측 컬럼에는 날짜가 없으므로 scored 선택만 가능)
+    if not addr:
+        try:
+            _sec_r = _extract_addr_section(_right_txt)
+            _best_sc_r = -1.0
+            for _sl in _sec_r:
+                _cl = _clean_addr_line(_sl)
+                _sc = _addr_score_back(_cl)
+                if _sc > _best_sc_r and _is_valid_address_candidate(_cl):
+                    _best_sc_r = _sc
+                    addr = _cl
+                    _debug_geom["addr_source"] = "right_col"
+            # 인접 라인 병합 시도 (2행 걸쳐 쓰인 주소)
+            for _i in range(len(_sec_r) - 1):
+                _cm = _clean_addr_line(_sec_r[_i] + " " + _sec_r[_i + 1])
+                _sc = _addr_score_back(_cm)
+                if _sc > _best_sc_r and _is_valid_address_candidate(_cm):
+                    _best_sc_r = _sc
+                    addr = _cm
+                    _debug_geom["addr_source"] = "right_col_merged"
+        except Exception:
+            pass
+
+    # ── 3차: tn_bot 전체 텍스트 — dated-row 파싱 + score fallback ───────────────
     # tn_bot 은 좌측 날짜 컬럼이 포함되어 "2024.03.15  경기도..." 형태로 읽힌다
     if not _is_valid_address_candidate(addr):
         try:
@@ -2045,7 +2080,6 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
                     addr = _row_addr
                     _debug_geom["addr_source"] = "dated_row_tnbot"
                     break
-            # dated rows 없으면 score-based fallback
             if not _is_valid_address_candidate(addr):
                 _best_sc_fb = -1.0
                 for _sl_fb in _sec_fb:
@@ -2058,7 +2092,7 @@ def parse_arc(img, fast: bool = False, passport_dob: str = ""):
         except Exception:
             pass
 
-    # 최종 저장 (strict gate — province+admin+road 구조 확인)
+    # 최종 저장 (province + admin + road 구조 확인)
     if addr and _is_valid_address_candidate(addr):
         out["주소"] = addr
 
