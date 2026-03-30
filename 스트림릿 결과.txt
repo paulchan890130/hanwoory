@@ -17,6 +17,65 @@
 
 경기도 시홍시 정왕대로337번안길4
 
+넥스트 적용본
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "820523",
+        "번호": "6820190",
+        "발급일": "2019-01-09",
+        "_debug_geometry": {
+            "front_deskew_angle": -0.91,
+            "front_card_bbox": [
+                17,
+                25,
+                475,
+                323
+            ],
+            "v_line_frac": 0.312,
+            "v_line_strength": 0.311,
+            "h_line_frac": 0.598,
+            "h_line_strength": 0.124,
+            "coarse_rotation": 0,
+            "coarse_confidence": "ok",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 145,
+            "divider_slope": 0.0007,
+            "fine_deskew_angle": 0.04,
+            "divider_frac": 0.312,
+            "back_card_bbox": [
+                0,
+                0,
+                464,
+                259
+            ],
+            "left_col_bbox": [
+                4,
+                25,
+                153,
+                238
+            ],
+            "right_col_bbox": [
+                144,
+                25,
+                459,
+                238
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                464,
+                38
+            ],
+            "divider_x_px": 144,
+            "raw_upper_text": "-   다   ?   ?     블 ㅣ  |  0\n20 |. 1 오부 공오 | 흐음] 이노 뽀\n",
+            "raw_left_text": "1으30   |  는 05\n[개기     1! 요\n뚜호     10\n나 |    벽\n볼륨     |\n랑드        | @50\n| 빼\n\n수     | 와\n=0   다\n에      작\n앵        :메\n개   을 그\n",
+            "raw_right_text": "9 ! 50 06 01 | 고        =새\n3 ㅣ 8 8 |. |꼬| ：을 는816롤 때\n3 ㅣ 았므 를 !떤도| 」목 미운 오페 존\n| 000 2 비고! |드 |으우으\n| 후 은 [티논| |리 미르트로\n= ： 오즈   쓰  6851 <  거즈 모\n경  【    >  1 이요 | 공\n내 오경 69 |응|   | 6 을\n또 | 에돔 문무 세   이 이용16|을 프\n| 의. 우고    기  노쓰\n4)  [을 본!        에\n펠 8 승\n호  겹        (우쓰\n\n (브 (도    조 | 26\n",
+            "addr_crop_preview": "을     기저 01 지불\n때 | 영보 해 8 | 을 디요 미9\n오노 | 헤몬 뽀게|  을 빈유\n빼| 때 래번 | 호 으티\n여여 열도  3 8 퀴울\n밀| 8 호된 | [비이 토\n10베 0: 돕1놈| |    |.\n"
+        }
+    }
+}
+
 등록증 (12)
 한글 이름
 
@@ -36,6 +95,65 @@
 
 경기도 시홍시 봉우제로테 경기도 시홍시 봉우제로테 2004.3.5. 가짜 00니
 
+넥스트 적용본
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "870104",
+        "번호": "5780022",
+        "발급일": "2023-04-28",
+        "_debug_geometry": {
+            "front_deskew_angle": -2.21,
+            "front_card_bbox": [
+                20,
+                16,
+                483,
+                320
+            ],
+            "v_line_frac": 0.422,
+            "v_line_strength": 0.32,
+            "h_line_frac": 0.416,
+            "h_line_strength": 0.089,
+            "coarse_rotation": 0,
+            "coarse_confidence": "ok",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 216,
+            "divider_slope": 0.0004,
+            "fine_deskew_angle": 0.02,
+            "divider_frac": 0.424,
+            "back_card_bbox": [
+                0,
+                0,
+                509,
+                356
+            ],
+            "left_col_bbox": [
+                5,
+                35,
+                225,
+                327
+            ],
+            "right_col_bbox": [
+                215,
+                35,
+                503,
+                327
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                509,
+                53
+            ],
+            "divider_x_px": 215,
+            "raw_upper_text": "",
+            "raw_left_text": "13800 1 [       더\n\n조푸|                  ;\n\n끼\n\n나 -    14\n\n비드                  한\n\n'                  ;\n\n쁘풍\n\n모으                  뽀\n\n운영                  해\n0  그\n",
+            "raw_right_text": ". 여연 주  으으\n| 으으 | 토오루 다\n저  처 스페     도 8 은 3 넘\n6! | 으 레떼     인영 !주인 더\n그 081 응 띠고\n”  어  |> |    오 온 [거둔\n|    홈     운 8 고승 구\n--료 |     @  몬 솜\n9 (주 1@   그 |     던\n06 18     66 | |을 @\n군 슴로  으    으 으 (01\n\"은       도봉 비우\n에고 내      이응 반6 힌\n2 96포        8 을 또 2 그\n본 ㅣ: 구게      도 8 8 이\n고  뭉크     글 : @  도 |\n   더  |      “… 80 [은\n=:  1] 는   \\       =\n:용료)31( 107 841('\n",
+            "addr_crop_preview": "요요 한 56\n| |, 히   비오\n0   크니 대\n쓰이 | 해조 |   바우\n_ 0  < 띄\n때려,\"\n"
+        }
+    }
+}
+
 등록증 (3)
 한글 이름
 
@@ -52,3 +170,62 @@
 등록증 만기일(YYYY-MM-DD)
 
 2026-07-16
+
+넥스트 적용본
+{
+    "debug": "arc-parse-done",
+    "result": {
+        "등록증": "060822",
+        "번호": "5140012",
+        "한글": "이아",
+        "_debug_geometry": {
+            "front_deskew_angle": 0.0,
+            "front_card_bbox": [
+                20,
+                21,
+                480,
+                319
+            ],
+            "v_line_frac": 0.529,
+            "v_line_strength": 0.265,
+            "h_line_frac": 0.457,
+            "h_line_strength": 0.066,
+            "coarse_rotation": 0,
+            "coarse_confidence": "low_v",
+            "is_vertical_divider": true,
+            "divider_col_unsmoothed": 256,
+            "divider_slope": 0.0108,
+            "fine_deskew_angle": 0.62,
+            "divider_frac": 0.529,
+            "back_card_bbox": [
+                0,
+                0,
+                484,
+                293
+            ],
+            "left_col_bbox": [
+                4,
+                29,
+                232,
+                269
+            ],
+            "right_col_bbox": [
+                256,
+                29,
+                479,
+                269
+            ],
+            "upper_date_region_bbox": [
+                0,
+                0,
+                484,
+                43
+            ],
+            "divider_x_px": 256,
+            "raw_upper_text": "",
+            "raw_left_text": "은 302\n다\n=골         |\n타석 | |\n으\n3\n녀           |         -\n후르\n으증\n구명 월\n\n가 0. 는 00 주\n\n~ 1-\\\n",
+            "raw_right_text": "'  개   으 보  어\n가게   이 은 오로\n더   | 올 !고\n\nㆍ 쁘|즈   - 이 괴도 -\n100   히이식흥 3\n타개     득 몬\n:  8   여몽 은\n1 |-  이영 비크\n1 곰    기 으 뜨|츠\n1! 꿔    | 1310\n| |   익어 기인\n| |  ㅇ (으 뿌\n\n적     | | 0 |(으\n\n9       1\n\n때      |\n711 10은(개\n",
+            "addr_crop_preview": "-ㅡ들\n\n를\n\n|. 0820\n\n|  브이\n\n\"딱들 &  호\n\n자 비  나\n\n100!\n를 | |\n"
+        }
+    }
+}
