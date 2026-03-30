@@ -206,7 +206,6 @@ export default function DailyPage() {
     onSuccess: () => {
       // 위임내역 append는 backend add_entry에서 처리 (daily.py _append_delegation_to_customer)
       toast.success("추가됨");
-      qc.invalidateQueries({ queryKey: ["daily", "entries"] });
       // 입력 초기화
       setNewCategory(""); setNewName(""); setNewTask(""); setNewTime("");
       setNewIncType(""); setNewE1Type(""); setNewE2Type("");
@@ -214,6 +213,11 @@ export default function DailyPage() {
       setSelectedCustomerId(null); setCustomerSuggestions([]); setShowSuggestions(false);
     },
     onError: () => toast.error("추가 실패"),
+    onSettled: () => {
+      // 성공/실패 무관하게 항상 갱신 (기존 고객의 경우 위임내역 업데이트로 응답이 느릴 수 있음)
+      qc.invalidateQueries({ queryKey: ["daily", "entries"] });
+      qc.invalidateQueries({ queryKey: ["tasks", "active"] });
+    },
   });
 
   const updateMut = useMutation({

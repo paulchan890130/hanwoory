@@ -42,6 +42,7 @@ _ACTIVE_HEADER = [
     "id", "category", "date", "name", "work", "details",
     "transfer", "cash", "card", "stamp", "receivable",
     "planned_expense", "processed", "processed_timestamp",
+    "reception", "processing", "storage",
 ]
 
 
@@ -181,6 +182,9 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
             "planned_expense":     "",
             "processed":           "",
             "processed_timestamp": "",
+            "reception":           "",
+            "processing":          "",
+            "storage":             "",
         }
         upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [new_task], id_field="id")
 
