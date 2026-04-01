@@ -131,7 +131,7 @@ frontend/app/
 
 All API calls go through `frontend/lib/api.ts` (axios) — attaches `Authorization: Bearer <token>` on every request; on 401 clears auth state and redirects to `/login`.
 
-Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLoggedIn`). The `user_info` localStorage key stores `{login_id, tenant_id, is_admin, office_name, access_token}`.
+Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLoggedIn`). `setUser` stores two separate localStorage keys: `user_info` (full JSON object) and `access_token` (bare token string). `api.ts` reads `access_token` directly for the `Authorization` header.
 
 **Auth guard — two layers:**
 1. **`frontend/middleware.ts`** (Edge): checks `kid_auth` cookie, redirects before page renders
@@ -293,6 +293,24 @@ Drawers filling viewport height must set `minHeight: 0` on `flex: 1` body childr
 
 Always use `router.push('/route')` for same-app routes. Never `<a href="/route" target="_blank">` — opens a new tab that may fail to load webpack chunks from a stale `.next/` cache.
 
+### Daily settlement → active task field routing
+
+`POST /api/daily/entries` triggers `_apply_daily_to_active()` in `backend/routers/daily.py`. The memo `[KID]inc=X;e1=Y;e2=Z[/KID]` tag controls which 진행업무 field is incremented:
+
+| Memo type | Active task field | Source column |
+|---|---|---|
+| `inc=현금` | `cash` | `income_cash` |
+| `inc=이체` | `transfer` | `income_etc` |
+| `inc=카드` | `card` | `income_etc` |
+| `inc=미수` | `receivable` | `income_etc` |
+| `e1=인지` or `e2=인지` | `stamp` | `exp_etc` |
+
+Other expense types (이체/현금/카드) do **not** increment active task fields — they appear only in daily totals. Matching an existing task uses the tuple `(category, date, name, work)`. No match → new task created. The `현금출금` category is always skipped.
+
+**Active task header** — `ACTIVE_HEADER` in `backend/routers/tasks.py` is authoritative (17 columns). Any code writing to `ACTIVE_TASKS_SHEET_NAME` must use all 17 columns including `reception`, `processing`, `storage`. The `_ACTIVE_HEADER` in `daily.py` mirrors this — keep them in sync.
+
+After each `POST /api/daily/entries`, the frontend must invalidate **both** `["daily", "entries"]` and `["tasks", "active"]` in React Query. Use `onSettled` (not `onSuccess`) so invalidation runs even if the response is slow or errors — the backend saves the daily entry before doing the delegation/task side effects, so the entry is in the sheet even when the overall request appears to fail.
+
 ### Quick-doc PDF pipeline
 
 ```
@@ -331,3 +349,4 @@ Dockerfile.backend:
 - **OCR debug mode active** — both `/api/scan/passport` and `/api/scan/arc` wrap responses in `{"debug": ..., "result": {...}}`. Remove wrapper when tuning is done.
 - **ARC address accuracy** — geometry-first pipeline + dated-row parsing active. `_debug_geometry` key in response contains `divider_frac`, `coarse_confidence`, `addr_source`, `ambig_winner` etc. for diagnosis.
 - **OmniMRZ vestigial** — installed in Docker image but never called at runtime. Can be removed from `Dockerfile.backend` once confident Tesseract path is sufficient.
+- **Windows local dev** — `backend/main.py` forces stdout/stderr to UTF-8 on Windows to prevent Korean characters from appearing as `???` in uvicorn logs. This is already in place; don't remove it.
