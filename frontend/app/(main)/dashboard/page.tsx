@@ -109,20 +109,20 @@ function ExpiryTable({ rows, dateField }: { rows: ExpiryAlert[]; dateField: stri
   );
 }
 
-// ── 진행업무 D+ 헬퍼 (가장 최근 체크 타임스탬프 기준) ─────────────────────────
-function latestStageTs(task: ActiveTask): string {
-  return [task.storage || "", task.processing || "", task.reception || ""]
-    .filter(Boolean)
-    .sort()
-    .reverse()[0] ?? "";
-}
-
 function dPlusFromTs(ts: string): number {
   if (!ts) return 0;
   const start = new Date(ts.slice(0, 10));
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
+}
+
+// 두 타임스탬프 사이의 일수. endTs 없으면 오늘까지.
+function daysBetween(startTs: string, endTs: string | null): number {
+  if (!startTs) return 0;
+  const start = new Date(startTs.slice(0, 10));
+  const end = endTs ? new Date(endTs.slice(0, 10)) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000));
 }
 
 function fmtDate(iso: string): string {
@@ -193,10 +193,6 @@ function ActiveTaskRow({
     setDirty(false);
   };
 
-  // Display uses parent-managed pending state so checkboxes feel responsive
-  const latestTs = [pendingStorage, pendingProcessing, pendingReception]
-    .filter(Boolean).sort().reverse()[0] ?? "";
-  const dp = dPlusFromTs(latestTs);
   const rowBg = markedDelete
     ? "rgba(229,62,62,0.06)"
     : markedComplete
@@ -227,27 +223,27 @@ function ActiveTaskRow({
       </td>
       <td style={{ textAlign: "right", width: 56 }}>
         <input type="text" inputMode="numeric" className="hw-table-input"
-          style={{ textAlign: "right" }} value={transfer} placeholder="이체"
+          style={{ textAlign: "right" }} value={transfer}
           onChange={(e) => { setTransfer(e.target.value); mark(); }} />
       </td>
       <td style={{ textAlign: "right", width: 56 }}>
         <input type="text" inputMode="numeric" className="hw-table-input"
-          style={{ textAlign: "right" }} value={cash} placeholder="현금"
+          style={{ textAlign: "right" }} value={cash}
           onChange={(e) => { setCash(e.target.value); mark(); }} />
       </td>
       <td style={{ textAlign: "right", width: 56 }}>
         <input type="text" inputMode="numeric" className="hw-table-input"
-          style={{ textAlign: "right" }} value={card} placeholder="카드"
+          style={{ textAlign: "right" }} value={card}
           onChange={(e) => { setCard(e.target.value); mark(); }} />
       </td>
       <td style={{ textAlign: "right", width: 56 }}>
         <input type="text" inputMode="numeric" className="hw-table-input"
-          style={{ textAlign: "right" }} value={stamp} placeholder="인지"
+          style={{ textAlign: "right" }} value={stamp}
           onChange={(e) => { setStamp(e.target.value); mark(); }} />
       </td>
       <td style={{ textAlign: "right", width: 56 }}>
         <input type="text" inputMode="numeric" className="hw-table-input"
-          style={{ textAlign: "right" }} value={receivable} placeholder="미수"
+          style={{ textAlign: "right" }} value={receivable}
           onChange={(e) => { setReceivable(e.target.value); mark(); }} />
       </td>
       {/* 필드 저장 버튼 — progress 체크박스와 완전히 분리된 전용 열 */}
@@ -268,23 +264,27 @@ function ActiveTaskRow({
       </td>
       {/* 접수 / 처리 / 보관중 — 가로 배치, 저장 버튼 없음 (선택 처리로만 저장) */}
       <td style={{ minWidth: 160, verticalAlign: "middle" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          {latestTs ? (
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#718096" }}>D+{dp}</span>
-          ) : null}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, flexWrap: "nowrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+            {pendingReception && <span style={{ fontSize: 9, fontWeight: 700, color: pendingProcessing ? "#CBD5E0" : "#2B6CB0" }}>D+{daysBetween(pendingReception, pendingProcessing || null)}</span>}
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={!!pendingReception} onChange={() => toggleLocal("reception")}
                 style={{ accentColor: "#3182CE", width: 11, height: 11 }} />
               <span style={{ fontSize: 10, color: pendingReception ? "#2B6CB0" : "#A0AEC0", fontWeight: pendingReception ? 700 : 400 }}>접수</span>
               {pendingReception && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingReception)}</span>}
             </label>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+            {pendingProcessing && <span style={{ fontSize: 9, fontWeight: 700, color: pendingStorage ? "#CBD5E0" : "#975A16" }}>D+{daysBetween(pendingProcessing, pendingStorage || null)}</span>}
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
                 style={{ accentColor: "#D69E2E", width: 11, height: 11 }} />
               <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처리</span>
               {pendingProcessing && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingProcessing)}</span>}
             </label>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+            {pendingStorage && <span style={{ fontSize: 9, fontWeight: 700, color: "#553C9A" }}>D+{dPlusFromTs(pendingStorage)}</span>}
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={!!pendingStorage} onChange={() => toggleLocal("storage")}
                 style={{ accentColor: "#9F7AEA", width: 11, height: 11 }} />

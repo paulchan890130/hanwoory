@@ -14,24 +14,26 @@ const INCOME_METHODS = ["", "이체", "현금", "카드", "미수"];
 const EXPENSE_METHODS = ["", "이체", "현금", "카드", "인지"];
 
 // 메모 태그 파싱 (기존 Streamlit _unpack_memo 동일)
-function unpackMemo(memo: string): { inc: string; e1: string; e2: string; user: string } {
-  const result = { inc: "", e1: "", e2: "", user: memo || "" };
-  if (!memo) return result;
+// e1a / e2a = per-slot expense amounts (added to preserve individual amounts)
+function unpackMemo(memo: string): { inc: string; e1: string; e1a: string; e2: string; e2a: string; user: string } {
+  const result: Record<string, string> = { inc: "", e1: "", e1a: "", e2: "", e2a: "", user: memo || "" };
+  if (!memo) return result as ReturnType<typeof unpackMemo>;
   const start = memo.indexOf("[KID]");
   const end = memo.indexOf("[/KID]");
   if (start !== -1 && end !== -1 && end > start) {
     const inner = memo.slice(start + 5, end);
     inner.split(";").forEach((part) => {
       const [k, v] = part.split("=");
-      if (k && v !== undefined) result[k.trim() as "inc" | "e1" | "e2"] = v.trim();
+      if (k && v !== undefined) result[k.trim()] = v.trim();
     });
     result.user = memo.slice(end + 6).trim();
   }
-  return result;
+  return result as ReturnType<typeof unpackMemo>;
 }
 
-function packMemo(inc: string, e1: string, e2: string, userMemo: string): string {
-  const tag = `[KID]inc=${inc};e1=${e1};e2=${e2}[/KID]`;
+// e1a / e2a carry per-slot amounts so they survive the exp_etc aggregation
+function packMemo(inc: string, e1: string, e1a: string, e2: string, e2a: string, userMemo: string): string {
+  const tag = `[KID]inc=${inc};e1=${e1};e1a=${e1a};e2=${e2};e2a=${e2a}[/KID]`;
   return userMemo ? `${tag} ${userMemo}` : tag;
 }
 
@@ -288,7 +290,7 @@ export default function DailyPage() {
       else if (newE2Type) exp_etc += e2Amt;
     }
 
-    const memo = isCashOut ? newMemo : packMemo(newIncType, newE1Type, newE2Type, newMemo);
+    const memo = isCashOut ? newMemo : packMemo(newIncType, newE1Type, String(e1Amt), newE2Type, String(e2Amt), newMemo);
 
     addMut.mutate({
       date,
@@ -315,7 +317,10 @@ export default function DailyPage() {
     let incDisplay = 0, e1Display = 0, e2Display = 0;
     if (!isCashOut) {
       incDisplay = meta.inc === "현금" ? safeInt(entry.income_cash) : safeInt(entry.income_etc);
-      if (meta.e1 === "현금" && meta.e2 !== "현금") {
+      if (meta.e1a || meta.e2a) {
+        // New format: individual amounts stored in memo tag
+        e1Display = safeInt(meta.e1a); e2Display = safeInt(meta.e2a);
+      } else if (meta.e1 === "현금" && meta.e2 !== "현금") {
         e1Display = safeInt(entry.exp_cash); e2Display = safeInt(entry.exp_etc);
       } else if (meta.e1 !== "현금" && meta.e2 === "현금") {
         e1Display = safeInt(entry.exp_etc);  e2Display = safeInt(entry.exp_cash);
@@ -366,7 +371,7 @@ export default function DailyPage() {
 
     const memo = isCashOut
       ? (editValues.user_memo || "")
-      : packMemo(editValues.inc_type || "", editValues.e1_type || "", editValues.e2_type || "", editValues.user_memo || "");
+      : packMemo(editValues.inc_type || "", editValues.e1_type || "", String(e1Amt), editValues.e2_type || "", String(e2Amt), editValues.user_memo || "");
 
     updateMut.mutate({
       id: editId,
@@ -656,7 +661,9 @@ export default function DailyPage() {
                   e1Label = "현금출금";
                 } else {
                   dispInc = meta.inc === "현금" ? safeInt(entry.income_cash) : safeInt(entry.income_etc);
-                  if (meta.e1 === "현금" && meta.e2 !== "현금") {
+                  if (meta.e1a || meta.e2a) {
+                    dispE1 = safeInt(meta.e1a); dispE2 = safeInt(meta.e2a);
+                  } else if (meta.e1 === "현금" && meta.e2 !== "현금") {
                     dispE1 = safeInt(entry.exp_cash); dispE2 = safeInt(entry.exp_etc);
                   } else if (meta.e1 !== "현금" && meta.e2 === "현금") {
                     dispE1 = safeInt(entry.exp_etc); dispE2 = safeInt(entry.exp_cash);

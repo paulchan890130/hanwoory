@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from backend.auth import get_current_user
+from backend.routers.scan import _ensure_tesseract
 from backend.services.roi_ocr_service import (
     extract_arc_field,
     extract_arc_fields,
@@ -36,17 +37,20 @@ def _parse_json_dict(raw: str | None, default: dict[str, Any]) -> dict[str, Any]
 async def scan_workspace_passport(
     file: UploadFile = File(...),
     roi_json: str | None = Form(default=None),
+    rotation_deg: int = Form(default=0),
     user: dict = Depends(get_current_user),
 ):
     _ = user
 
+    _ensure_tesseract()
     img_bytes = await file.read()
 
     try:
         img = file_bytes_to_pil(img_bytes, file.content_type or "")
         roi = _parse_json_dict(roi_json, DEFAULT_PASSPORT_MRZ_ROI)
-        result = extract_passport_roi(img, roi)
-        return {"result": result, "roi": roi}
+        result = extract_passport_roi(img, roi, rotation_deg=rotation_deg)
+        debug = result.pop("_debug", {})
+        return {"result": result, "roi": roi, "debug": debug}
     except HTTPException:
         raise
     except Exception as exc:
@@ -60,10 +64,12 @@ async def scan_workspace_arc(
     roi_json: str | None = Form(default=None),
     rois_json: str | None = Form(default=None),
     fields_json: str | None = Form(default=None),
+    rotation_deg: int = Form(default=0),
     user: dict = Depends(get_current_user),
 ):
     _ = user
 
+    _ensure_tesseract()
     img_bytes = await file.read()
 
     try:
@@ -76,8 +82,8 @@ async def scan_workspace_arc(
                 raise HTTPException(status_code=400, detail=f"허용되지 않은 필드입니다: {field}")
 
             roi = _parse_json_dict(roi_json, DEFAULT_ARC_ROI)
-            value = extract_arc_field(img, field, roi)
-            return {"field": field, "value": value, "roi": roi}
+            value, debug = extract_arc_field(img, field, roi, rotation_deg=rotation_deg)
+            return {"field": field, "value": value, "roi": roi, "debug": debug}
 
         # 2) 다중 필드 추출 (확장용)
         rois = _parse_json_dict(rois_json, {})

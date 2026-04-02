@@ -120,11 +120,16 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     memo = str(rec.get("memo", "")) or ""
     m = _re.search(r'\[KID\](.*?)\[/KID\]', memo)
     inc_type = e1_type = e2_type = ""
+    e1_indiv = e2_indiv = 0  # per-slot amounts from new memo format (e1a= / e2a=)
     if m:
         parts = dict(p.split("=", 1) for p in m.group(1).split(";") if "=" in p)
         inc_type = parts.get("inc", "")
         e1_type  = parts.get("e1", "")
         e2_type  = parts.get("e2", "")
+        try: e1_indiv = int(parts.get("e1a", "0") or "0")
+        except Exception: e1_indiv = 0
+        try: e2_indiv = int(parts.get("e2a", "0") or "0")
+        except Exception: e2_indiv = 0
 
     income_cash = _safe_int(rec.get("income_cash", 0))
     income_etc  = _safe_int(rec.get("income_etc", 0))
@@ -134,20 +139,31 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     # 진행업무 필드별 누적 델타
     delta: dict = {"transfer": 0, "cash": 0, "card": 0, "stamp": 0, "receivable": 0}
 
-    # 수입 유형 매핑
-    if inc_type == "현금":
-        delta["cash"] += income_cash
-    elif inc_type == "이체":
-        delta["transfer"] += income_etc
-    elif inc_type == "카드":
-        delta["card"] += income_etc
-    elif inc_type == "미수":
-        delta["receivable"] += income_etc
+    # 수입 유형 매핑 — income-side values must NOT flow into active-task columns.
+    # Active-task columns are populated from expense slots only.
 
-    # 지출 유형 매핑 (인지만 진행업무에 누적)
-    for etype in (e1_type, e2_type):
-        if etype == "인지":
-            delta["stamp"] += exp_etc
+    # 지출 유형 매핑: expense slots → active-task payment columns
+    # New format (e1a/e2a present): precise per-slot mapping
+    if e1_indiv or e2_indiv:
+        for etype, eamt in ((e1_type, e1_indiv), (e2_type, e2_indiv)):
+            if not etype or not eamt:
+                continue
+            if etype == "이체":   delta["transfer"] += eamt
+            elif etype == "현금": delta["cash"]     += eamt
+            elif etype == "카드": delta["card"]     += eamt
+            elif etype == "인지": delta["stamp"]    += eamt
+    else:
+        # Legacy format: no individual amounts — best-effort mapping
+        # If only one distinct non-cash expense type exists, map exp_etc to it
+        non_cash_types = {t for t in (e1_type, e2_type) if t and t != "현금"}
+        if len(non_cash_types) == 1:
+            t = next(iter(non_cash_types))
+            if t == "이체":   delta["transfer"] += exp_etc
+            elif t == "카드": delta["card"]     += exp_etc
+            elif t == "인지": delta["stamp"]    += exp_etc
+        # Cash expenses from exp_cash
+        if "현금" in (e1_type, e2_type) and exp_cash:
+            delta["cash"] += exp_cash
 
     # 매칭 진행업무 조회 (category + date + name + work)
     active_tasks = read_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or []
