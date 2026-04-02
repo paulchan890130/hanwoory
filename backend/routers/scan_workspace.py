@@ -13,7 +13,7 @@ from backend.services.roi_ocr_service import (
 
 router = APIRouter()
 
-DEFAULT_PASSPORT_MRZ_ROI = {"x": 0.05, "y": 0.72, "w": 0.90, "h": 0.22}
+DEFAULT_PASSPORT_MRZ_ROI = {"x": 0.05, "y": 0.80, "w": 0.90, "h": 0.15}
 DEFAULT_ARC_ROI = {"x": 0.10, "y": 0.10, "w": 0.80, "h": 0.18}
 ARC_ALLOWED_FIELDS = {"한글", "등록증", "번호", "발급일", "만기일", "주소"}
 

@@ -54,15 +54,16 @@ docker compose up -d
 
 ```
 backend/
-  main.py               — FastAPI app, registers 13 routers
+  main.py               — FastAPI app, registers 14 routers
   auth.py               — JWT creation/verification (8h expiry); get_current_user / require_admin deps
   models.py             — All Pydantic request/response models
   routers/              — auth, tasks, customers, daily, memos, events, board,
-                          scan, admin, search, reference, quick_doc, manual
+                          scan, scan_workspace, admin, search, reference, quick_doc, manual
   services/
     tenant_service.py   — Core Google Sheets abstraction (thread-safe, TTL-cached gspread)
     accounts_service.py — Accounts sheet CRUD + password hashing; defines ACCOUNTS_SCHEMA (16 cols)
     ocr_service.py      — Passport OCR (Tesseract+ocrb); ARC OCR (geometry-first orientation)
+    roi_ocr_service.py  — ROI-crop OCR for scan workspace; imports helpers from ocr_service
     addr_service.py     — Address correction using national road-name index
   data/
     addr_index.json     — Compact road/dong name index (~3MB, 256 regions, 172K roads)
@@ -144,6 +145,7 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 - **@radix-ui/*** — headless UI primitives
 - **sonner** — toast notifications (`toast.success`, `toast.error`)
 - **react-hook-form + zod** — form validation
+- **react-zoom-pan-pinch** — still in package.json but no longer used in scan page; do not reintroduce in scan page
 
 ---
 
@@ -233,10 +235,10 @@ To regenerate the index after a new 주소 DB release:
 python backend/scripts/build_addr_index.py PATH_TO_도로명마스터.txt
 ```
 
-### Scan router endpoints
+### Scan router endpoints (`backend/routers/scan.py` — legacy full-auto)
 
-- `POST /api/scan/passport` — passport parse, 25s timeout
-- `POST /api/scan/arc` — ARC parse, 25s timeout
+- `POST /api/scan/passport` — full passport parse via `ocr_service.parse_passport`, 25s timeout
+- `POST /api/scan/arc` — full ARC parse via `ocr_service.parse_arc`, 25s timeout
 - `POST /api/scan/register` — upsert customer from OCR result; matches by `여권` or `등록증+번호`
 
 Both routes currently return a **debug-wrapped response**:
@@ -245,9 +247,27 @@ Both routes currently return a **debug-wrapped response**:
 ```
 The frontend handles this via `(res.data as any).result ?? res.data`. When OCR tuning is complete, remove the `debug` wrapper and return parsed fields directly.
 
-### OCR concurrency guard (`backend/routers/scan.py`)
-
 `asyncio.Semaphore(1)` serialises passport+ARC jobs. Both routes check `sem.locked()` and return `{"debug": "passport-busy"|"arc-busy"}` immediately if another job is running.
+
+### Scan workspace endpoints (`backend/routers/scan_workspace.py` — active UI path)
+
+The `/scan` page uses these endpoints, not the full-auto scan endpoints above.
+
+- `POST /api/scan-workspace/passport` — crops image to `roi_json` (normalised x/y/w/h), runs MRZ OCR via `roi_ocr_service.extract_passport_roi`. Returns `{"result": {...}, "roi": {...}}`.
+- `POST /api/scan-workspace/arc` — single-field extraction via `roi_ocr_service.extract_arc_field`; or batch via `extract_arc_fields` when `fields_json` supplied. Returns `{"field": "...", "value": "..."}`.
+
+`roi_ocr_service.py` imports low-level helpers directly from `ocr_service.py` (`_ocr`, `_prep_mrz`, `_parse_mrz_pair`, `find_best_mrz_pair_from_text`, etc.). Do not duplicate these helpers.
+
+### Scan page architecture (`frontend/app/(main)/scan/page.tsx`)
+
+The `/scan` page is a **semi-manual OCR workspace** — it never fires OCR on upload. Architecture:
+
+- **`WorkspaceCanvas` component** — fixed-height (660 px) viewport. Image is a movable layer (drag-to-pan, button zoom/rotate, no wheel zoom). Guide boxes are a **separate fixed overlay layer** rendered above the image; they do not move with the image.
+- **`computeRoi(guide, container, natural, tf)`** — converts a guide box position (container-space 0–1) to image-space crop coordinates accounting for scale, pan, and rotation (0°/90°/180°/270°). Called at the moment the user clicks an extract button. This is the single source of truth for what the backend crops — if visual alignment ≠ OCR crop, the bug is here.
+- **`stateRef` pattern** — `WorkspaceCanvas` writes `{ tf, container, natural }` into a `MutableRefObject` on every render (not via `useEffect`). The OCR handlers in `ScanPage` read from that ref at click time to compute the ROI. No derived ROI state is stored.
+- **Guide constants** — `PASSPORT_MRZ_GUIDE` (single gold box, `{x:0.160, y:0.635, w:0.630, h:0.085}`) and `ARC_GUIDE_BOXES` (6 field boxes). All coordinates are container-space (0–1). User moves the image to align document features with the fixed guide boxes, then clicks extract. Back-sticker guides (`만기일`, `주소`) are intentionally narrow+tall to match the rotated orientation of the back card before the user rotates it.
+- Zoom: button-only (no wheel), range 0.05×–20×, no upscaling cap on initial fit.
+- `POST /api/scan/register` is the save path. Field state (성, 명, 한글, 등록증, … 주소) is read directly from React state at submit time.
 
 ---
 
@@ -346,7 +366,8 @@ Dockerfile.backend:
 
 ## In-progress / known issues
 
-- **OCR debug mode active** — both `/api/scan/passport` and `/api/scan/arc` wrap responses in `{"debug": ..., "result": {...}}`. Remove wrapper when tuning is done.
-- **ARC address accuracy** — geometry-first pipeline + dated-row parsing active. `_debug_geometry` key in response contains `divider_frac`, `coarse_confidence`, `addr_source`, `ambig_winner` etc. for diagnosis.
-- **OmniMRZ vestigial** — installed in Docker image but never called at runtime. Can be removed from `Dockerfile.backend` once confident Tesseract path is sufficient.
-- **Windows local dev** — `backend/main.py` forces stdout/stderr to UTF-8 on Windows to prevent Korean characters from appearing as `???` in uvicorn logs. This is already in place; don't remove it.
+- **OCR debug mode active** — `/api/scan/passport` and `/api/scan/arc` (full-auto endpoints) still wrap responses in `{"debug": ..., "result": {...}}`. The scan workspace endpoints (`/api/scan-workspace/*`) return clean `{"result": {...}}`. Remove the debug wrapper from the full-auto endpoints when tuning is complete.
+- **ARC address accuracy** — geometry-first pipeline + dated-row parsing active in `ocr_service.parse_arc`. `_debug_geometry` key in response contains `divider_frac`, `coarse_confidence`, `addr_source`, `ambig_winner` for diagnosis.
+- **OmniMRZ vestigial** — installed in `Dockerfile.backend` from source but never called at runtime (prewarm disabled). Can be removed once Tesseract-only path is confirmed sufficient.
+- **Windows local dev** — `backend/main.py` forces stdout/stderr to UTF-8 on Windows to prevent Korean characters appearing as `???` in uvicorn logs. Do not remove this block.
+- **`react-zoom-pan-pinch`** — still in `frontend/package.json` but unused. Safe to remove. Do not reintroduce it in the scan page.
