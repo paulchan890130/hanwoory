@@ -22,6 +22,18 @@ if sys.platform == "win32":
 # 부모 디렉토리를 sys.path에 추가 → config, core.* import 가능
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# ── .env 로딩 (로컬 개발용) ────────────────────────────────────────────────────
+# 프로젝트 루트의 .env 파일에서 JWT_SECRET_KEY, ALLOWED_ORIGINS, HANWOORY_ENV 등을 읽는다.
+# python-dotenv가 없으면 조용히 건너뜀 (Docker 환경에서는 compose env:가 대신 주입).
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.isfile(_env_path):
+        _load_dotenv(_env_path, override=False)  # override=False: 시스템 환경변수 우선
+except ImportError:
+    pass
+# ─────────────────────────────────────────────────────────────────────────────
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
