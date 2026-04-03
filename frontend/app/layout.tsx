@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
@@ -6,6 +6,11 @@ import { Toaster } from "sonner";
 export const metadata: Metadata = {
   title: "K.ID 출입국 업무관리",
   description: "행정사 출입국 업무관리 시스템",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

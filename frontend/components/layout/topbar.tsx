@@ -1,13 +1,15 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, LogOut, X, Clock, User, ClipboardList, Calendar, FileText, BookOpen, BookMarked } from "lucide-react";
+import { Search, Bell, LogOut, X, Clock, User, ClipboardList, Calendar, FileText, BookOpen, BookMarked, Menu } from "lucide-react";
 import { getUser, clearUser } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi } from "@/lib/api";
 
 interface TopbarProps {
-  leftOffset: number; // 사이드바 너비
+  leftOffset: number;
+  isMobile?: boolean;
+  onMobileMenuToggle?: () => void;
 }
 
 const RECENT_SEARCH_KEY = "hw_recent_searches";
@@ -24,7 +26,7 @@ function addRecentSearch(q: string) {
   localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify([q, ...prev].slice(0, 8)));
 }
 
-export default function Topbar({ leftOffset }: TopbarProps) {
+export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: TopbarProps) {
   const router = useRouter();
   const qc = useQueryClient();
   const user = getUser();
@@ -94,8 +96,17 @@ export default function Topbar({ leftOffset }: TopbarProps) {
         className="hw-topbar"
         style={{ left: leftOffset }}
       >
-        {/* 왼쪽 여백 스페이서: 검색창이 flex-grow로 남은 공간을 가져가므로 최소한만 */}
-        <div style={{ flexShrink: 0, minWidth: 0 }} />
+        {/* 모바일: 햄버거 메뉴 */}
+        {isMobile && (
+          <button
+            onClick={onMobileMenuToggle}
+            style={{ color: "#4A5568", background: "none", border: "none", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0 }}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        {/* 데스크톱: 여백 스페이서 */}
+        {!isMobile && <div style={{ flexShrink: 0, minWidth: 0 }} />}
 
         {/* 글로벌 검색창 - 반응형: 최소 160px, 최대 300px, 공간 부족 시 수축 */}
         <div className="hw-search-bar" style={{ flex: "1 1 auto", minWidth: 160, maxWidth: 300, overflow: "hidden" }}>

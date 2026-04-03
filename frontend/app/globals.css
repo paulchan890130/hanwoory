@@ -684,6 +684,40 @@ input[type="number"]::-webkit-outer-spin-button {
 .fc .fc-daygrid-day.cal-kr-holiday .fc-daygrid-day-number   { color: #DC2626; font-weight: 700; }
 .fc .fc-daygrid-day.cal-cn-holiday .fc-daygrid-day-number   { color: #2563EB; font-weight: 700; }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   앱 전체 모바일 반응형 (< 768px)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 767px) {
+  /* 카드 패딩 축소 */
+  .hw-card { padding: 14px 16px; }
+
+  /* 테이블: 가로 스크롤 허용, 최소 폭 보장 */
+  .hw-table { min-width: 480px; }
+
+  /* 테이블 래퍼가 없는 경우 대비 — 테이블 부모를 스크롤 컨테이너로 */
+  .hw-card > div > table,
+  .hw-card > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* 페이지 타이틀 */
+  .hw-page-title { font-size: 17px !important; }
+
+  /* 검색바 축소 */
+  .hw-search-bar { max-width: 150px !important; min-width: 80px !important; }
+
+  /* 탭 버튼: 최소 너비 보장 */
+  .hw-tabs button { min-width: 0 !important; padding: 8px 10px !important; font-size: 12px !important; }
+
+  /* 버튼: 텍스트 줄바꿈 방지 */
+  .btn-primary, .btn-secondary {
+    white-space: nowrap;
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+  }
+
+  /* 인풋/셀렉트 */
+  .hw-input { font-size: 14px !important; }
+}
+
 /* ── 로그인 페이지 반응형 ── */
 @media (max-width: 767px) {
   .login-outer {
