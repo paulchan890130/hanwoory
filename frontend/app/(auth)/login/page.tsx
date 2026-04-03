@@ -94,10 +94,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", background: "#fff" }}>
+    <div className="login-outer" style={{ minHeight: "100vh", display: "flex", background: "#fff" }}>
 
       {/* ── 좌측 브랜딩 패널 (흰 배경, 골드 포인트) ── */}
       <div
+        className="login-left"
         style={{
           flex: "0 0 420px",
           background: "#fff",
@@ -172,6 +173,7 @@ export default function LoginPage() {
 
       {/* ── 우측 로그인 폼 (흰 배경) ── */}
       <div
+        className="login-right"
         style={{
           flex: 1,
           display: "flex",
@@ -181,7 +183,7 @@ export default function LoginPage() {
           background: "#fff",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 440 }}>
+        <div className="login-inner" style={{ width: "100%", maxWidth: 440 }}>
 
           {/* 폼 헤더 */}
           <div style={{ marginBottom: 32 }}>

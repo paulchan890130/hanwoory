@@ -626,9 +626,11 @@ export default function DashboardPage() {
 
   const calEvents = useMemo(
     () =>
-      Object.entries(events as Record<string, string[]>).flatMap(([date, texts]) =>
-        texts.map((text, i) => ({ id: `${date}-${i}`, title: text, date }))
-      ),
+      Object.entries(events as Record<string, string[]>).map(([date, texts]) => ({
+        id: date,
+        title: texts.filter(Boolean).join("\n"),
+        date,
+      })),
     [events]
   );
 
@@ -781,7 +783,12 @@ export default function DashboardPage() {
               aspectRatio={1.4}
               expandRows={true}
               events={calEvents}
-              dayMaxEvents={2}
+              dayMaxEvents={false}
+              eventContent={(arg) => (
+                <div style={{ fontSize: 11, padding: "1px 4px", whiteSpace: "pre-line", lineHeight: 1.4, overflow: "hidden", width: "100%" }}>
+                  {arg.event.title}
+                </div>
+              )}
               eventClick={handleCalEventClick}
               eventDidMount={handleEventDidMount}
               headerToolbar={CAL_HEADER_TOOLBAR}

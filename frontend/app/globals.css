@@ -683,3 +683,26 @@ input[type="number"]::-webkit-outer-spin-button {
 .fc .fc-daygrid-day.cal-sat .fc-daygrid-day-number          { color: #2563EB; font-weight: 700; }
 .fc .fc-daygrid-day.cal-kr-holiday .fc-daygrid-day-number   { color: #DC2626; font-weight: 700; }
 .fc .fc-daygrid-day.cal-cn-holiday .fc-daygrid-day-number   { color: #2563EB; font-weight: 700; }
+
+/* ── 로그인 페이지 반응형 ── */
+@media (max-width: 767px) {
+  .login-outer {
+    flex-direction: column !important;
+  }
+  .login-left {
+    flex: none !important;
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 3px solid #F5A623;
+    padding: 28px 20px !important;
+    justify-content: flex-start !important;
+  }
+  .login-right {
+    width: 100% !important;
+    padding: 32px 20px !important;
+    align-items: flex-start !important;
+  }
+  .login-inner {
+    max-width: 100% !important;
+  }
+}
