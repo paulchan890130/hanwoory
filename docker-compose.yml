@@ -12,8 +12,10 @@ services:
       HANWOORY_ENV: server
       ALLOWED_ORIGINS: http://localhost:3000
       JWT_SECRET_KEY: change-this-secret
+      GOOGLE_APPLICATION_CREDENTIALS: /etc/secrets/hanwoory-9eaa1a4c54d7.json
     volumes:
       - .:/app
+      - "C:/Users/66885/Documents/K.ID 출입국업무관리 실험/hanwoory-9eaa1a4c54d7.json:/etc/secrets/hanwoory-9eaa1a4c54d7.json:ro"
     restart: unless-stopped
 
   frontend:

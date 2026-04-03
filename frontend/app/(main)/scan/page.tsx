@@ -343,15 +343,6 @@ function WorkspaceCanvas({
 
   if (!preview || !file) return <SampleBox text={sampleText} sampleSrc={sampleSrc} />;
 
-  if (file.type === "application/pdf") {
-    return (
-      <div>
-        <iframe src={preview} style={{ width: "100%", minHeight: 420, border: "none", borderRadius: 8 }} title="PDF 미리보기" />
-        <div style={{ fontSize: 12, color: "#A0AEC0", marginTop: 6 }}>PDF는 ROI 숫자값만 조정합니다.</div>
-      </div>
-    );
-  }
-
   const rot = ((tf.rot % 360) + 360) % 360;
   const isSelecting = selectingFor !== null;
   const cursor = isSelecting ? "crosshair" : (dragging ? "grabbing" : "grab");
@@ -735,11 +726,50 @@ export default function ScanPage() {
     }
   };
 
-  const handlePassportFile = (f: File) => {
+  const convertPdfToImage = async (f: File): Promise<File> => {
+    const formData = new FormData();
+    formData.append("file", f);
+    formData.append("page", "0");
+    formData.append("dpi", "200");
+    const res = await api.post("/api/scan-workspace/render-pdf", formData, {
+      responseType: "blob",
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    const blob = res.data as Blob;
+    return new File([blob], f.name.replace(/\.pdf$/i, ".png"), { type: "image/png" });
+  };
+
+  const handlePassportFile = async (f: File) => {
+    if (f.type === "application/pdf") {
+      toast.loading("PDF 변환 중...", { id: "pdf-convert" });
+      try {
+        const img = await convertPdfToImage(f);
+        toast.dismiss("pdf-convert");
+        setPassportFile(img);
+        setPassportPreview(URL.createObjectURL(img));
+      } catch {
+        toast.dismiss("pdf-convert");
+        toast.error("PDF 변환 실패");
+      }
+      return;
+    }
     setPassportFile(f);
     setPassportPreview(URL.createObjectURL(f));
   };
-  const handleArcFile = (f: File) => {
+  const handleArcFile = async (f: File) => {
+    if (f.type === "application/pdf") {
+      toast.loading("PDF 변환 중...", { id: "pdf-convert" });
+      try {
+        const img = await convertPdfToImage(f);
+        toast.dismiss("pdf-convert");
+        setArcFile(img);
+        setArcPreview(URL.createObjectURL(img));
+      } catch {
+        toast.dismiss("pdf-convert");
+        toast.error("PDF 변환 실패");
+      }
+      return;
+    }
     setArcFile(f);
     setArcPreview(URL.createObjectURL(f));
   };

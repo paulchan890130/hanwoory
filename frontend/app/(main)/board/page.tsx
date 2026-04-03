@@ -4,16 +4,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { boardApi, type BoardPost } from "@/lib/api";
 import { getUser } from "@/lib/auth";
-import { Plus, Trash2, MessageSquare, ChevronLeft, Pin } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ChevronLeft, Pin, RefreshCw, Pencil } from "lucide-react";
 
 export default function BoardPage() {
   const qc = useQueryClient();
   const user = getUser();
   const isAdmin = user?.is_admin === true;
 
-  const [view, setView] = useState<"list" | "write" | "detail">("list");
+  const [view, setView] = useState<"list" | "write" | "edit" | "detail">("list");
   const [selectedPost, setSelectedPost] = useState<BoardPost | null>(null);
-  const [form, setForm] = useState({ title: "", content: "", category: "", is_notice: false });
+  const [form, setForm] = useState({ title: "", content: "", category: "", is_notice: false, popup_yn: false });
+  const [editForm, setEditForm] = useState({ title: "", content: "", category: "", is_notice: false, popup_yn: false });
   const [comment, setComment] = useState("");
 
   const { data: posts = [] } = useQuery({
@@ -34,14 +35,33 @@ export default function BoardPage() {
         content: form.content,
         category: form.category.trim() || "자유",
         is_notice: isAdmin && form.is_notice ? "Y" : "",
+        popup_yn: isAdmin && form.popup_yn ? "Y" : "",
       }),
     onSuccess: () => {
       toast.success("작성됨");
       qc.invalidateQueries({ queryKey: ["board"] });
       setView("list");
-      setForm({ title: "", content: "", category: "", is_notice: false });
+      setForm({ title: "", content: "", category: "", is_notice: false, popup_yn: false });
     },
     onError: () => toast.error("작성 실패"),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: () =>
+      boardApi.update(selectedPost!.id, {
+        title: editForm.title,
+        content: editForm.content,
+        category: editForm.category.trim() || "자유",
+        is_notice: isAdmin && editForm.is_notice ? "Y" : "",
+        popup_yn: isAdmin && editForm.popup_yn ? "Y" : "",
+      }),
+    onSuccess: (res) => {
+      toast.success("수정됨");
+      setSelectedPost(res.data as BoardPost);
+      qc.invalidateQueries({ queryKey: ["board"] });
+      setView("detail");
+    },
+    onError: () => toast.error("수정 실패"),
   });
 
   const deleteMut = useMutation({
@@ -73,6 +93,19 @@ export default function BoardPage() {
     },
   });
 
+  const checkManualMut = useMutation({
+    mutationFn: () => boardApi.checkManual(),
+    onSuccess: (res) => {
+      if (res.data.updated) {
+        toast.success(`메뉴얼 업데이트 감지: ${res.data.date}`);
+        qc.invalidateQueries({ queryKey: ["board"] });
+      } else {
+        toast.success(`메뉴얼 최신 상태 (${res.data.date})`);
+      }
+    },
+    onError: () => toast.error("하이코리아 확인 실패"),
+  });
+
   // 공지 / 일반 분리 (백엔드에서 이미 정렬되어 오지만 프론트에서도 구분)
   const notices = (posts as BoardPost[]).filter(
     (p) => String(p.is_notice ?? "").trim().toUpperCase() === "Y"
@@ -82,6 +115,8 @@ export default function BoardPage() {
   );
 
   // 본인 또는 관리자 여부
+  const canEdit = (post: BoardPost) =>
+    isAdmin || post.author_login === user?.login_id || post.author === user?.login_id;
   const canDelete = (post: BoardPost) =>
     isAdmin || post.author_login === user?.login_id || post.author === user?.login_id;
   const canDeleteComment = (c: Record<string, string>) =>
@@ -134,7 +169,10 @@ export default function BoardPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {view !== "list" && (
           <button
-            onClick={() => { setView("list"); setSelectedPost(null); }}
+            onClick={() => {
+              if (view === "edit") { setView("detail"); }
+              else { setView("list"); setSelectedPost(null); }
+            }}
             style={{ padding: 4, background: "none", border: "none", cursor: "pointer", color: "#718096", borderRadius: 6 }}
           >
             <ChevronLeft size={18} />
@@ -142,13 +180,24 @@ export default function BoardPage() {
         )}
         <h1 className="hw-page-title">📢 게시판</h1>
         {view === "list" && (
-          <button
-            onClick={() => setView("write")}
-            className="btn-primary"
-            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 12px" }}
-          >
-            <Plus size={12} /> 글쓰기
-          </button>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {isAdmin && (
+              <button
+                onClick={() => checkManualMut.mutate()}
+                disabled={checkManualMut.isPending}
+                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 10px", background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8", borderRadius: 6, cursor: "pointer", opacity: checkManualMut.isPending ? 0.6 : 1 }}
+              >
+                <RefreshCw size={12} /> 메뉴얼 업데이트 확인
+              </button>
+            )}
+            <button
+              onClick={() => setView("write")}
+              className="btn-primary"
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 12px" }}
+            >
+              <Plus size={12} /> 글쓰기
+            </button>
+          </div>
         )}
       </div>
 
@@ -208,22 +257,33 @@ export default function BoardPage() {
         <div className="hw-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: "#2D3748" }}>새 글 작성</div>
 
-          {/* 관리자만 공지 체크박스 표시 */}
+          {/* 관리자만 공지 / 팝업 체크박스 표시 */}
           {isAdmin && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                id="is_notice"
-                checked={form.is_notice}
-                onChange={(e) => setForm(p => ({ ...p, is_notice: e.target.checked }))}
-                style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#D4A017" }}
-              />
-              <label
-                htmlFor="is_notice"
-                style={{ fontSize: 13, color: "#92700A", fontWeight: 600, cursor: "pointer" }}
-              >
-                📌 공지사항으로 등록
-              </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="is_notice"
+                  checked={form.is_notice}
+                  onChange={(e) => setForm(p => ({ ...p, is_notice: e.target.checked }))}
+                  style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#D4A017" }}
+                />
+                <label htmlFor="is_notice" style={{ fontSize: 13, color: "#92700A", fontWeight: 600, cursor: "pointer" }}>
+                  📌 공지사항으로 등록
+                </label>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="popup_yn"
+                  checked={form.popup_yn}
+                  onChange={(e) => setForm(p => ({ ...p, popup_yn: e.target.checked }))}
+                  style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#3182CE" }}
+                />
+                <label htmlFor="popup_yn" style={{ fontSize: 13, color: "#2B6CB0", fontWeight: 600, cursor: "pointer" }}>
+                  🔔 팝업 표시
+                </label>
+              </div>
             </div>
           )}
 
@@ -265,7 +325,7 @@ export default function BoardPage() {
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button
-              onClick={() => { setView("list"); setForm({ title: "", content: "", category: "", is_notice: false }); }}
+              onClick={() => { setView("list"); setForm({ title: "", content: "", category: "", is_notice: false, popup_yn: false }); }}
               className="btn-secondary"
               style={{ fontSize: 13, padding: "7px 16px" }}
             >
@@ -278,6 +338,93 @@ export default function BoardPage() {
               style={{ fontSize: 13, padding: "7px 16px", opacity: (!form.title || createMut.isPending) ? 0.5 : 1 }}
             >
               {createMut.isPending ? "등록 중..." : "등록"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 수정 ── */}
+      {view === "edit" && selectedPost && (
+        <div className="hw-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#2D3748" }}>글 수정</div>
+
+          {isAdmin && (
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="edit_is_notice"
+                  checked={editForm.is_notice}
+                  onChange={(e) => setEditForm(p => ({ ...p, is_notice: e.target.checked }))}
+                  style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#D4A017" }}
+                />
+                <label htmlFor="edit_is_notice" style={{ fontSize: 13, color: "#92700A", fontWeight: 600, cursor: "pointer" }}>
+                  📌 공지사항으로 등록
+                </label>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="edit_popup_yn"
+                  checked={editForm.popup_yn}
+                  onChange={(e) => setEditForm(p => ({ ...p, popup_yn: e.target.checked }))}
+                  style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#3182CE" }}
+                />
+                <label htmlFor="edit_popup_yn" style={{ fontSize: 13, color: "#2B6CB0", fontWeight: 600, cursor: "pointer" }}>
+                  🔔 팝업 표시
+                </label>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4 }}>제목</label>
+              <input
+                className="hw-input"
+                style={{ width: "100%", fontSize: 14, padding: "8px 10px" }}
+                value={editForm.title}
+                onChange={(e) => setEditForm(p => ({ ...p, title: e.target.value }))}
+              />
+            </div>
+            <div style={{ width: 120 }}>
+              <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4 }}>분류</label>
+              <input
+                className="hw-input"
+                style={{ width: "100%", fontSize: 14, padding: "8px 10px" }}
+                value={editForm.category}
+                onChange={(e) => setEditForm(p => ({ ...p, category: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4 }}>내용</label>
+            <textarea
+              style={{
+                width: "100%", height: 320, resize: "vertical",
+                border: "1px solid #CBD5E0", borderRadius: 6, padding: "10px 12px",
+                fontSize: 14, outline: "none", fontFamily: "inherit", lineHeight: 1.7,
+                boxSizing: "border-box",
+              }}
+              value={editForm.content}
+              onChange={(e) => setEditForm(p => ({ ...p, content: e.target.value }))}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              onClick={() => setView("detail")}
+              className="btn-secondary"
+              style={{ fontSize: 13, padding: "7px 16px" }}
+            >
+              취소
+            </button>
+            <button
+              onClick={() => updateMut.mutate()}
+              disabled={!editForm.title || updateMut.isPending}
+              className="btn-primary"
+              style={{ fontSize: 13, padding: "7px 16px", opacity: (!editForm.title || updateMut.isPending) ? 0.5 : 1 }}
+            >
+              {updateMut.isPending ? "저장 중..." : "저장"}
             </button>
           </div>
         </div>
@@ -301,18 +448,49 @@ export default function BoardPage() {
                   {displayAuthor(selectedPost)} · {selectedPost.created_at?.slice(0, 10)}
                 </div>
               </div>
-              {canDelete(selectedPost) && (
-                <button
-                  onClick={() => deleteMut.mutate(selectedPost.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#FC8181", background: "none", border: "none", cursor: "pointer" }}
-                >
-                  <Trash2 size={12} /> 삭제
-                </button>
-              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                {canEdit(selectedPost) && (
+                  <button
+                    onClick={() => {
+                      setEditForm({
+                        title: selectedPost.title ?? "",
+                        content: selectedPost.content ?? "",
+                        category: selectedPost.category ?? "",
+                        is_notice: String(selectedPost.is_notice ?? "").trim().toUpperCase() === "Y",
+                        popup_yn: String(selectedPost.popup_yn ?? "").trim().toUpperCase() === "Y",
+                      });
+                      setView("edit");
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#3182CE", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    <Pencil size={12} /> 수정
+                  </button>
+                )}
+                {canDelete(selectedPost) && (
+                  <button
+                    onClick={() => deleteMut.mutate(selectedPost.id)}
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#FC8181", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    <Trash2 size={12} /> 삭제
+                  </button>
+                )}
+              </div>
             </div>
             <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: 16, fontSize: 14, color: "#4A5568", whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
               {selectedPost.content}
             </div>
+            {selectedPost.link_url && (
+              <div style={{ marginTop: 16 }}>
+                <a
+                  href={selectedPost.link_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#3182CE", fontWeight: 600, textDecoration: "none" }}
+                >
+                  🔗 바로 가기
+                </a>
+              </div>
+            )}
           </div>
 
           {/* 댓글 */}

@@ -13,6 +13,7 @@ const inputStyle: React.CSSProperties = {
   background: "#fff",
   color: "#2D3748",
   outline: "none",
+  boxSizing: "border-box",
 };
 
 const labelStyle: React.CSSProperties = {
@@ -225,6 +226,7 @@ export default function QuickPoaPage() {
           style={{
             background: "#fff", borderRadius: 10, border: "1px solid #E2E8F0",
             padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10,
+            minWidth: 0,
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 700, color: "#2D3748", marginBottom: 4 }}>
@@ -266,7 +268,7 @@ export default function QuickPoaPage() {
         </div>
 
         {/* 오른쪽: 옵션 + 위임업무 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           {/* 옵션 */}
           <div
             style={{

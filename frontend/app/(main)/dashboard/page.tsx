@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  tasksApi, memosApi, eventsApi, customersApi,
-  type ActiveTask, type PlannedTask, type ExpiryAlert,
+  tasksApi, memosApi, eventsApi, customersApi, boardApi,
+  type ActiveTask, type PlannedTask, type ExpiryAlert, type BoardPost,
 } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { safeInt, formatNumber } from "@/lib/utils";
@@ -428,6 +428,32 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // ── 공지 팝업 (일 1회) ──────────────────────────────────────────────────────
+  const [popupNotices, setPopupNotices] = useState<BoardPost[]>([]);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupDetail, setPopupDetail] = useState<BoardPost | null>(null);
+
+  useEffect(() => {
+    boardApi.getPopup().then((res) => {
+      const items = res.data as BoardPost[];
+      if (items.length === 0) return;
+      const seenAt = localStorage.getItem("notice_popup_seen_at") ?? "";
+      const maxUpdated = items.reduce((mx, p) => {
+        const u = (p.updated_at ?? p.created_at ?? "");
+        return u > mx ? u : mx;
+      }, "");
+      if (seenAt && maxUpdated <= seenAt) return;
+      setPopupNotices(items);
+      setShowPopup(true);
+    }).catch(() => {/* 무시 */});
+  }, []);
+
+  const closePopup = () => {
+    localStorage.setItem("notice_popup_seen_at", new Date().toISOString());
+    setShowPopup(false);
+    setPopupDetail(null);
+  };
+
   const [memoText, setMemoText] = useState("");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
@@ -658,6 +684,62 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── 공지 팝업 모달 ── */}
+      {showPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 10, width: 480, maxWidth: "92vw", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            {/* 팝업 헤더 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid #E2E8F0" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1A202C" }}>📢 공지사항</span>
+              <button onClick={closePopup} style={{ background: "none", border: "none", fontSize: 18, color: "#A0AEC0", cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+            {/* 팝업 본문 */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 18px" }}>
+              {!popupDetail ? (
+                // 목록
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {popupNotices.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => setPopupDetail(n)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 8px", background: "none", border: "none", borderBottom: "1px solid #F7FAFC", cursor: "pointer", textAlign: "left", width: "100%", borderRadius: 6 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#F7FAFC")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#2D3748", flex: 1 }}>{n.title}</span>
+                      <span style={{ fontSize: 11, color: "#A0AEC0", whiteSpace: "nowrap" }}>{n.updated_at?.slice(0, 10)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                // 상세
+                <div>
+                  <button onClick={() => setPopupDetail(null)} style={{ background: "none", border: "none", fontSize: 12, color: "#3182CE", cursor: "pointer", marginBottom: 10, padding: 0 }}>← 목록으로</button>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1A202C", marginBottom: 8 }}>{popupDetail.title}</div>
+                  <div style={{ fontSize: 12, color: "#A0AEC0", marginBottom: 14 }}>{popupDetail.updated_at?.slice(0, 10)}</div>
+                  <div style={{ fontSize: 13, color: "#4A5568", whiteSpace: "pre-wrap", lineHeight: 1.8 }}>{popupDetail.content}</div>
+                  {popupDetail.link_url && (
+                    <div style={{ marginTop: 16 }}>
+                      <a href={popupDetail.link_url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 13, color: "#3182CE", fontWeight: 600, textDecoration: "none" }}>
+                        🔗 바로 가기
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* 팝업 푸터 */}
+            <div style={{ padding: "12px 18px", borderTop: "1px solid #E2E8F0", display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={closePopup} style={{ fontSize: 13, padding: "6px 18px", background: "#EDF2F7", border: "none", borderRadius: 6, cursor: "pointer", color: "#4A5568", fontWeight: 600 }}>
+                오늘 하루 보지 않기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 페이지 헤더 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1 className="hw-page-title">홈 대시보드</h1>

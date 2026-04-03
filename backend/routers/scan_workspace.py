@@ -1,7 +1,9 @@
+import io
 import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from backend.auth import get_current_user
 from backend.routers.scan import _ensure_tesseract
@@ -13,6 +15,46 @@ from backend.services.roi_ocr_service import (
 )
 
 router = APIRouter()
+
+
+@router.post("/render-pdf")
+async def render_pdf_page(
+    file: UploadFile = File(...),
+    page: int = Form(default=0),
+    dpi: int = Form(default=200),
+    user: dict = Depends(get_current_user),
+):
+    """PDF 특정 페이지를 PNG 이미지로 렌더링하여 반환"""
+    _ = user
+    try:
+        import fitz  # pymupdf
+    except ImportError as exc:
+        raise HTTPException(status_code=500, detail="pymupdf가 설치되지 않았습니다.") from exc
+
+    pdf_bytes = await file.read()
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"PDF 열기 실패: {exc}") from exc
+
+    total_pages = len(doc)
+    if total_pages == 0:
+        raise HTTPException(status_code=400, detail="페이지가 없는 PDF입니다.")
+    if page >= total_pages:
+        page = 0
+
+    scale = dpi / 72.0  # PDF 기본 단위는 72dpi
+    mat = fitz.Matrix(scale, scale)
+    pix = doc.load_page(page).get_pixmap(matrix=mat, alpha=False)
+    png_bytes = pix.tobytes("png")
+    doc.close()
+
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={"X-PDF-Total-Pages": str(total_pages)},
+    )
+
 
 DEFAULT_PASSPORT_MRZ_ROI = {"x": 0.05, "y": 0.80, "w": 0.90, "h": 0.15}
 DEFAULT_ARC_ROI = {"x": 0.10, "y": 0.10, "w": 0.80, "h": 0.18}

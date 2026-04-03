@@ -1,0 +1,62 @@
+# ── Stage 1: Build Next.js frontend ──────────────────────────────────────────
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend ./
+# rewrites in next.config.js read API_URL at runtime, but set here for build-time ENV persistence
+ENV API_URL=http://localhost:8000
+RUN npm run build
+
+# ── Stage 2: Final image (Python 3.11 + Node.js 20 + Tesseract) ──────────────
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        tesseract-ocr-kor \
+        libtesseract-dev \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender1 \
+        libgl1 \
+        libgomp1 \
+        poppler-utils \
+        git \
+        curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ── Python backend ────────────────────────────────────────────────────────────
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN git clone --depth=1 https://github.com/AzwadFawadHasan/OmniMRZ.git /tmp/OmniMRZ && \
+    sed -i 's|include = \["omnimrz/py.typed"\]|include = ["omnimrz*"]|' /tmp/OmniMRZ/pyproject.toml && \
+    pip install --no-cache-dir /tmp/OmniMRZ && \
+    rm -rf /tmp/OmniMRZ
+
+RUN python -c "from omnimrz import OmniMRZ; print('omnimrz smoke test passed')"
+
+COPY . .
+
+# ── Next.js frontend (built artifacts from Stage 1) ───────────────────────────
+COPY --from=frontend-builder /app/frontend/.next ./frontend/.next
+COPY --from=frontend-builder /app/frontend/node_modules ./frontend/node_modules
+
+# API_URL must be set at runtime so next.config.js rewrites resolve to localhost
+ENV API_URL=http://localhost:8000
+ENV PYTHONUNBUFFERED=1
+ENV HANWOORY_ENV=server
+ENV NODE_ENV=production
+
+# ── Startup: uvicorn (background, internal only) + next start (foreground) ───
+RUN printf '#!/bin/sh\nuvicorn backend.main:app --host 127.0.0.1 --port 8000 &\ncd /app/frontend && exec node_modules/.bin/next start --port 3000\n' \
+    > /app/start.sh && chmod +x /app/start.sh
+
+EXPOSE 3000
+
+CMD ["/app/start.sh"]

@@ -7,6 +7,7 @@ import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, BookOpen, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2, HelpCircle,
+  ExternalLink,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -21,8 +22,11 @@ const NAV_ITEMS = [
   { href: "/search",     label: "통합검색",       icon: Search },
   { href: "/memos",      label: "메모",           icon: FileText },
   { href: "/board",      label: "게시판",         icon: MessageSquare },
-  { href: "/manual",     label: "메뉴얼 검색",    icon: HelpCircle },
+  // { href: "/manual", label: "메뉴얼 검색", icon: HelpCircle },  // 추후 활성화
 ];
+
+const HIKOREA_MANUAL_URL =
+  "https://www.hikorea.go.kr/board/BoardNtcDetailR.pt?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1";
 
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: Settings };
 
@@ -87,6 +91,18 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {!collapsed && <span className="truncate">{label}</span>}
           </Link>
         ))}
+
+        {/* 메뉴얼 — 외부 링크 (새 창) */}
+        <a
+          href={HIKOREA_MANUAL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={collapsed ? "메뉴얼" : undefined}
+          className="hw-sidebar-item"
+        >
+          <ExternalLink size={16} className="shrink-0" />
+          {!collapsed && <span className="truncate">메뉴얼</span>}
+        </a>
 
         {/* 구분선 */}
         <div

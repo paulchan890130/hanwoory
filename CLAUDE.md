@@ -32,12 +32,30 @@ npm run lint     # ESLint
 - Google service account key at `config.KEY_PATH` (Windows: `C:\Users\66885\Documents\...\hanwoory-9eaa1a4c54d7.json`, Linux: `/etc/secrets/hanwoory-9eaa1a4c54d7.json`)
 - Tesseract OCR must be installed separately for `backend/routers/scan.py` to work
 
-**Docker** (from repo root):
+**Docker — two options:**
+
+*두 컨테이너 (로컬 개발용):*
 ```bash
-docker compose build --no-cache frontend   # required after next.config.js changes
+docker compose build --no-cache frontend   # next.config.js 변경 후 필요
 docker compose up -d
 ```
-`API_URL=http://backend:8000` is a build arg baked into Next.js rewrites at build time — runtime env injection is too late. Changing `API_URL` requires a full frontend rebuild.
+
+*단일 컨테이너 (Render 배포용):*
+```bash
+# 빌드
+docker build -f Dockerfile.combined -t kid-combined .
+
+# 실행 (Google 서비스 계정 키 마운트 필요)
+docker run -p 3000:3000 \
+  -e JWT_SECRET_KEY=... -e HANWOORY_ENV=server \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/hanwoory-9eaa1a4c54d7.json \
+  -v "/path/to/hanwoory-9eaa1a4c54d7.json:/etc/secrets/hanwoory-9eaa1a4c54d7.json:ro" \
+  kid-combined
+```
+
+`Dockerfile.combined`: FastAPI(`localhost:8000`, 내부전용) + Next.js(`0.0.0.0:3000`, 외부노출) 동시 실행. `API_URL=http://localhost:8000`이 baked-in되므로 Render에서 포트 3000 단일 서비스로 운용 가능.
+
+`next.config.js`의 `API_URL`은 `process.env.API_URL`을 런타임에 읽으므로 `ENV API_URL=http://localhost:8000`을 이미지에 포함시켜야 함 (빌드 arg만으로는 부족).
 
 ---
 
@@ -86,6 +104,9 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 
 `tenant_service._resolve_sheet_key()` routes each tab name to the correct workbook using `_CUSTOMER_WORKBOOK_SHEETS` and `_WORK_WORKBOOK_SHEETS` sets (cached 10 min). **Do not fall back to admin sheet keys for non-default tenants** — a missing key must raise `ValueError`. Exception: `DEFAULT_TENANT_ID` (`"hanwoory"`) falls back to `SHEET_KEY` for backwards compatibility.
 
+**Tabs that route to admin `SHEET_KEY` for all tenants (shared global data):**
+`"게시판"`, `"게시판댓글"` — board/notice system is intentionally shared across all tenants. `core/google_sheets.get_worksheet()` falls through to `sheet_key = SHEET_KEY` for any tab not in the customer or work workbook sets.
+
 ### Tenant workspace provisioning
 
 `POST /api/admin/workspace` in `backend/routers/admin.py` (idempotent, stage-by-stage):
@@ -101,7 +122,7 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 
 | Constant | Purpose |
 |---|---|
-| `SHEET_KEY` | Admin master spreadsheet (contains Accounts tab) |
+| `SHEET_KEY` | Admin master spreadsheet (contains Accounts tab + shared board tabs) |
 | `ADMIN_CUSTOMER_SHEET_KEY` | Admin customer data sheet |
 | `PARENT_DRIVE_FOLDER_ID` | Parent Drive folder for all tenant office folders |
 | `CUSTOMER_DATA_TEMPLATE_ID` | Template copied for new tenant customer sheet |
@@ -115,7 +136,7 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 frontend/app/
   (auth)/login/         — Login page (no layout wrapper)
   (main)/layout.tsx     — Protected layout: checks isLoggedIn(), renders Sidebar + Topbar
-  (main)/dashboard/     — Active tasks, planned tasks, calendar, expiry alerts
+  (main)/dashboard/     — Active tasks, planned tasks, calendar, expiry alerts, notice popup
   (main)/customers/     — Customer management
   (main)/tasks/         — Tasks (planned / active / completed)
   (main)/daily/         — Daily settlement
@@ -125,8 +146,8 @@ frontend/app/
   (main)/reference/     — Reference materials
   (main)/search/        — Global search
   (main)/memos/         — Notes
-  (main)/board/         — Board
-  (main)/manual/        — GPT-powered manual search
+  (main)/board/         — Board + notice management
+  (main)/manual/        — GPT-powered manual search (비활성; 사이드바에서 숨김)
   (main)/admin/         — Admin: account list + workspace provisioning
 ```
 
@@ -137,6 +158,11 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 **Auth guard — two layers:**
 1. **`frontend/middleware.ts`** (Edge): checks `kid_auth` cookie, redirects before page renders
 2. **`(main)/layout.tsx`** (client): `useEffect` checks `isLoggedIn()` via localStorage, keeps `ready=false` until confirmed
+
+### Sidebar (`frontend/components/layout/sidebar.tsx`)
+
+- `메뉴얼 검색` (`/manual`) — 코드는 유지, `NAV_ITEMS`에서 주석 처리하여 숨김 (추후 활성화 예정)
+- `메뉴얼` — `<a target="_blank">` 외부 링크로 하이코리아 URL 직접 연결 (Next.js `router.push` 아님)
 
 ### Key frontend dependencies
 
@@ -157,6 +183,7 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 4. **`config.py` is the single source of truth** for Drive/Sheets IDs and Korean tab names.
 5. **`is_active=TRUE` only after all three keys** (`folder_id`, `customer_sheet_key`, `work_sheet_key`) are confirmed.
 6. **Tenant data isolation is strict** — `get_customer_sheet_key()` / `get_work_sheet_key()` must not fall back to admin sheets for non-default tenants.
+7. **UI 변경 금지** — 기능 변경 시 기존 레이아웃/배치 구조를 임의로 바꾸지 말 것. 데이터·로직만 수정.
 
 ---
 
@@ -175,6 +202,33 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 
 `backend/services/accounts_service.py` defines `ACCOUNTS_SCHEMA` (16 columns, order fixed):
 `login_id, password_hash, tenant_id, office_name, office_adr, contact_name, contact_tel, biz_reg_no, agent_rrn, is_admin, is_active, folder_id, work_sheet_key, customer_sheet_key, created_at, sheet_key`
+
+---
+
+## Board / Notice system (`backend/routers/board.py`)
+
+### POST_HEADER (12 columns)
+`id, tenant_id, author_login, office_name, is_notice, category, title, content, created_at, updated_at, popup_yn, link_url`
+
+`popup_yn="Y"` → 대시보드 일일 팝업에 표시. 관리자만 설정 가능.
+`link_url` → 공지 상세에서 "🔗 바로 가기" 버튼으로 노출. 시스템 자동생성 공지에 사용.
+
+### Endpoints
+- `GET /api/board` — 전체 목록 (시스템 내부 행 `__manual_check__` 제외, 공지 상단)
+- `GET /api/board/popup` — `popup_yn=Y`인 공지만 반환 (대시보드 팝업용)
+- `GET /api/board/check-manual` — 하이코리아 메뉴얼 페이지 스크랩 → 첨부파일 날짜 변경 감지 → 자동 공지 생성 (관리자 전용)
+- `POST /api/board` — 글 작성 (관리자만 `is_notice`, `popup_yn` 설정 가능)
+- `PUT /api/board/{id}` — 수정 (작성자 or 관리자)
+- `DELETE /api/board/{id}` — 삭제 (작성자 or 관리자, 댓글 연쇄 삭제)
+
+### 시스템 예약 category
+- `"__manual_check__"` — 마지막으로 감지한 하이코리아 첨부 날짜를 `content`에 저장 (목록에서 숨김)
+- `"__manual_notice__"` — 자동 생성된 메뉴얼 업데이트 공지 (`popup_yn=Y`, `link_url=하이코리아URL`)
+
+### 대시보드 일일 팝업 (`dashboard/page.tsx`)
+- `useEffect` 마운트 시 `localStorage.notice_popup_date` 확인 → 오늘 날짜와 다르면 `/api/board/popup` 호출
+- 팝업 있으면 모달 표시: 목록 → 클릭 → 상세 (`link_url` 있으면 "🔗 바로 가기")
+- "오늘 하루 보지 않기" 클릭 시 `localStorage.notice_popup_date = 오늘(YYYY-MM-DD)`
 
 ---
 
@@ -220,7 +274,7 @@ The back side uses a **geometry-first** approach — no OCR rotation voting:
 4. **Address extraction** — `_extract_addr_section` + `_parse_dated_addr_rows` on right-col text first, then `tn_bot` (full back OCR) as fallback. Picks latest dated row whose address passes `_is_valid_address_candidate`.
 5. **Hierarchical normalization** — `_apply_hierarchical_region_normalization`: Level1 (시도) exact→alias→short, then Level2 (시군구) within matched parent. Data tables: `LEVEL1_REGIONS`, `LEVEL1_ALIASES`, `LEVEL2_BY_PARENT`, `LEVEL2_ALIASES_BY_PARENT` (all in `ocr_service.py`).
 6. **DB correction** — `addr_service.correct_address()` fixes road name OCR errors against 172K-entry index.
-7. **Final gate** — `_is_valid_address_candidate`: requires province regex + word-boundary admin-unit token + word-boundary road-name token. Blank is saved instead of garbage.
+7. **Final gate** — `_is_valid_address_candidate`: requires province regex + admin/road syllable token. Blank is saved instead of garbage. (완화됨: 단어경계 대신 음절 패턴 사용)
 
 All geometry fields are exposed in `out["_debug_geometry"]` for debugging.
 
@@ -253,8 +307,16 @@ The frontend handles this via `(res.data as any).result ?? res.data`. When OCR t
 
 The `/scan` page uses these endpoints, not the full-auto scan endpoints above.
 
-- `POST /api/scan-workspace/passport` — crops image to `roi_json` (normalised x/y/w/h), runs MRZ OCR via `roi_ocr_service.extract_passport_roi`. Returns `{"result": {...}, "roi": {...}}`.
-- `POST /api/scan-workspace/arc` — single-field extraction via `roi_ocr_service.extract_arc_field`; or batch via `extract_arc_fields` when `fields_json` supplied. Returns `{"field": "...", "value": "..."}`.
+- `POST /api/scan-workspace/passport` — crops image to `roi_json` (normalised x/y/w/h), applies `rotation_deg`, runs MRZ OCR. Returns `{"result": {...}, "roi": {...}}`.
+- `POST /api/scan-workspace/arc` — single-field extraction via `roi_ocr_service.extract_arc_field(img, field, roi, rotation_deg)`; or batch via `extract_arc_fields`. Returns `{"field": "...", "value": "..."}`.
+
+Both accept `rotation_deg: int = Form(default=0)` (0/90/180/270). Rotation is applied **after** cropping: `crop.rotate(-deg, expand=True)` (PIL은 CCW, CSS는 CW이므로 부호 반전).
+
+**Korean name upscaling** (`roi_ocr_service.py`): 한글 필드 크롭이 작을 경우 최소 width 400px 기준으로 최소 2× upscale 후 Tesseract `kor+eng PSM=6` 실행.
+
+- `POST /api/scan-workspace/render-pdf` — PDF 파일을 받아 지정 페이지(기본 0)를 PNG로 렌더링하여 반환. `pymupdf(fitz)` 사용, `dpi` 파라미터(기본 200). 응답 헤더 `X-PDF-Total-Pages`에 전체 페이지 수 포함.
+
+**PDF 처리 흐름**: 프론트엔드 `handlePassportFile`/`handleArcFile`에서 `file.type === "application/pdf"` 감지 → `render-pdf` 호출 → PNG `File` 객체로 변환 → 이후 이미지와 동일한 워크스페이스 흐름. `WorkspaceCanvas`에 PDF 분기 없음 — PDF는 항상 변환 후 진입.
 
 `roi_ocr_service.py` imports low-level helpers directly from `ocr_service.py` (`_ocr`, `_prep_mrz`, `_parse_mrz_pair`, `find_best_mrz_pair_from_text`, etc.). Do not duplicate these helpers.
 
@@ -265,9 +327,10 @@ The `/scan` page is a **semi-manual OCR workspace** — it never fires OCR on up
 - **`WorkspaceCanvas` component** — fixed-height (660 px) viewport. Image is a movable layer (drag-to-pan, button zoom/rotate, no wheel zoom). Guide boxes are a **separate fixed overlay layer** rendered above the image; they do not move with the image.
 - **`computeRoi(guide, container, natural, tf)`** — converts a guide box position (container-space 0–1) to image-space crop coordinates accounting for scale, pan, and rotation (0°/90°/180°/270°). Called at the moment the user clicks an extract button. This is the single source of truth for what the backend crops — if visual alignment ≠ OCR crop, the bug is here.
 - **`stateRef` pattern** — `WorkspaceCanvas` writes `{ tf, container, natural }` into a `MutableRefObject` on every render (not via `useEffect`). The OCR handlers in `ScanPage` read from that ref at click time to compute the ROI. No derived ROI state is stored.
-- **Guide constants** — `PASSPORT_MRZ_GUIDE` (single gold box, `{x:0.160, y:0.635, w:0.630, h:0.085}`) and `ARC_GUIDE_BOXES` (6 field boxes). All coordinates are container-space (0–1). User moves the image to align document features with the fixed guide boxes, then clicks extract. Back-sticker guides (`만기일`, `주소`) are intentionally narrow+tall to match the rotated orientation of the back card before the user rotates it.
-- Zoom: button-only (no wheel), range 0.05×–20×, no upscaling cap on initial fit.
-- `POST /api/scan/register` is the save path. Field state (성, 명, 한글, 등록증, … 주소) is read directly from React state at submit time.
+- **Guide constants** — `PASSPORT_MRZ_GUIDE` (single gold box, `{x:0.160, y:0.635, w:0.630, h:0.085}`) and `ARC_GUIDE_BOXES` (6 field boxes). All coordinates are container-space (0–1). User moves the image to align document features with the fixed guide boxes, then clicks extract.
+- **Mode** — `이동식` (guides shown, move image to align) / `선택식` (guides hidden, user draws custom ROI box). 두 모드는 배타적. 선택식에서 새 필드 선택 시 이전 customRois 전체 초기화.
+- Zoom: button-only (no wheel), range 0.05×–20×.
+- `POST /api/scan/register` is the save path.
 
 ---
 
@@ -291,6 +354,16 @@ upsert_sheet(..., [merged], id_field="id")
 
 `ActiveTaskRow` in `dashboard/page.tsx` uses controlled inputs (`value` + `onChange`) for all 13+ fields, with a single `dirty` boolean. A `useEffect` keyed on `task.id` syncs state from server on refetch. The "저장" button renders only when `dirty === true`.
 
+### Active task D+ display (dashboard)
+
+3단계(접수/처리/보관중) 각각에 독립 D+ 뱃지 표시. 다음 단계가 체크되면 해당 D+는 회색 고정:
+
+- 접수 D+ = `daysBetween(접수ts, 처리ts || null)` — 처리 체크 시 회색
+- 처리 D+ = `daysBetween(처리ts, 보관중ts || null)` — 보관중 체크 시 회색
+- 보관중 D+ = `dPlusFromTs(보관중ts)` — 항상 카운트 중
+
+기존 단일 D+ 표시(`latestStageTs` 함수)는 제거됨.
+
 ### Dropdown positioning inside overflow containers
 
 Use `position: fixed` + `getBoundingClientRect` when a dropdown lives inside a parent with `overflow: auto`:
@@ -311,25 +384,33 @@ Drawers filling viewport height must set `minHeight: 0` on `flex: 1` body childr
 
 ### Internal navigation
 
-Always use `router.push('/route')` for same-app routes. Never `<a href="/route" target="_blank">` — opens a new tab that may fail to load webpack chunks from a stale `.next/` cache.
+Always use `router.push('/route')` for same-app routes. Never `<a href="/route" target="_blank">` — opens a new tab that may fail to load webpack chunks from a stale `.next/` cache. (외부 URL은 예외: `<a target="_blank" rel="noopener noreferrer">` 사용)
 
 ### Daily settlement → active task field routing
 
-`POST /api/daily/entries` triggers `_apply_daily_to_active()` in `backend/routers/daily.py`. The memo `[KID]inc=X;e1=Y;e2=Z[/KID]` tag controls which 진행업무 field is incremented:
+`POST /api/daily/entries` triggers `_apply_daily_to_active()` in `backend/routers/daily.py`.
 
-| Memo type | Active task field | Source column |
-|---|---|---|
-| `inc=현금` | `cash` | `income_cash` |
-| `inc=이체` | `transfer` | `income_etc` |
-| `inc=카드` | `card` | `income_etc` |
-| `inc=미수` | `receivable` | `income_etc` |
-| `e1=인지` or `e2=인지` | `stamp` | `exp_etc` |
+**수입(inc) 측은 진행업무 필드에 절대 반영하지 않는다.** 지출(e1/e2) 측만 반영.
 
-Other expense types (이체/현금/카드) do **not** increment active task fields — they appear only in daily totals. Matching an existing task uses the tuple `(category, date, name, work)`. No match → new task created. The `현금출금` category is always skipped.
+KID 메모 태그 형식 (현재):
+```
+[KID]inc=이체;e1=인지;e1a=60000;e2=인지;e2a=39000[/KID]
+```
+
+| 메모 키 | 진행업무 필드 |
+|---|---|
+| `e1=이체` or `e2=이체` | `transfer` |
+| `e1=현금` or `e2=현금` | `cash` |
+| `e1=카드` or `e2=카드` | `card` |
+| `e1=인지` or `e2=인지` | `stamp` |
+
+`e1a`/`e2a`: 각 지출 슬롯의 개별 금액. 존재하면 정확히 해당 금액만 해당 필드에 반영. 없으면 legacy 단일 타입 감지로 폴백.
+
+Matching an existing task uses the tuple `(category, date, name, work)`. No match → new task created. The `현금출금` category is always skipped.
 
 **Active task header** — `ACTIVE_HEADER` in `backend/routers/tasks.py` is authoritative (17 columns). Any code writing to `ACTIVE_TASKS_SHEET_NAME` must use all 17 columns including `reception`, `processing`, `storage`. The `_ACTIVE_HEADER` in `daily.py` mirrors this — keep them in sync.
 
-After each `POST /api/daily/entries`, the frontend must invalidate **both** `["daily", "entries"]` and `["tasks", "active"]` in React Query. Use `onSettled` (not `onSuccess`) so invalidation runs even if the response is slow or errors — the backend saves the daily entry before doing the delegation/task side effects, so the entry is in the sheet even when the overall request appears to fail.
+After each `POST /api/daily/entries`, the frontend must invalidate **both** `["daily", "entries"]` and `["tasks", "active"]` in React Query. Use `onSettled` (not `onSuccess`) so invalidation runs even if the response is slow or errors.
 
 ### Quick-doc PDF pipeline
 
@@ -358,6 +439,12 @@ Dockerfile.backend:
   git clone OmniMRZ + patch pyproject.toml + pip install (PyPI wheel is empty)
   smoke test: python -c "from omnimrz import OmniMRZ; print('smoke test passed')"
   runs: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+Dockerfile.combined (단일 서비스용):
+  Stage 1: node:20-alpine — Next.js 빌드 (API_URL=http://localhost:8000 baked)
+  Stage 2: python:3.11-slim + Node.js 20 apt 설치 + Tesseract + OmniMRZ
+  start.sh: uvicorn(127.0.0.1:8000, background) + next start(0.0.0.0:3000, foreground/PID1)
+  Render 설정: Dockerfile=Dockerfile.combined, Port=3000
 ```
 
 `docker-compose.yml` passes `build.args.API_URL: http://backend:8000` to the builder stage AND sets `environment:` for belt-and-suspenders. The build arg is the critical one.
@@ -371,3 +458,4 @@ Dockerfile.backend:
 - **OmniMRZ vestigial** — installed in `Dockerfile.backend` from source but never called at runtime (prewarm disabled). Can be removed once Tesseract-only path is confirmed sufficient.
 - **Windows local dev** — `backend/main.py` forces stdout/stderr to UTF-8 on Windows to prevent Korean characters appearing as `???` in uvicorn logs. Do not remove this block.
 - **`react-zoom-pan-pinch`** — still in `frontend/package.json` but unused. Safe to remove. Do not reintroduce it in the scan page.
+- **메뉴얼 업데이트 자동감지** — `GET /api/board/check-manual`은 관리자가 게시판에서 수동 트리거. 스케줄러 없음. 하이코리아 페이지 스크랩(`requests`)으로 날짜 추출 — 페이지 구조 변경 시 정규식 수정 필요.

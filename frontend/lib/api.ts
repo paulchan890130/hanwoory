@@ -122,6 +122,8 @@ export interface BoardPost {
   content: string;
   created_at: string;
   updated_at: string;
+  popup_yn?: string;       // "Y" or ""
+  link_url?: string;       // 외부 링크 URL
   view_count?: number;
   comment_count?: number;
 }
@@ -218,6 +220,8 @@ export const boardApi = {
     api.post(`/api/board/${postId}/comments`, { content }),
   deleteComment: (postId: string, commentId: string) =>
     api.delete(`/api/board/${postId}/comments/${commentId}`),
+  getPopup: () => api.get<BoardPost[]>("/api/board/popup"),
+  checkManual: () => api.get<{ updated: boolean; date: string; previous_date?: string }>("/api/board/check-manual"),
 };
 
 // 관리자

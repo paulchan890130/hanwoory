@@ -133,6 +133,8 @@ class BoardPost(BaseModel):
     content: Optional[str] = ""
     created_at: Optional[str] = ""
     updated_at: Optional[str] = ""
+    popup_yn: Optional[str] = ""        # "Y" or "" — 일일 팝업에 표시
+    link_url: Optional[str] = ""        # 클릭 시 이동할 외부 URL
 
 class BoardComment(BaseModel):
     id: Optional[str] = None
