@@ -454,6 +454,29 @@ export default function DashboardPage() {
     setPopupDetail(null);
   };
 
+  // ── 오늘 일정 팝업 (일 1회) ─────────────────────────────────────────────────
+  const [showSchedulePopup, setShowSchedulePopup] = useState(false);
+  const [todayScheduleLines, setTodayScheduleLines] = useState<string[]>([]);
+
+  useEffect(() => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const seenDate = localStorage.getItem("today_schedule_seen") ?? "";
+    if (seenDate === todayStr) return;
+    const evMap = events as Record<string, string[]>;
+    const lines = (evMap[todayStr] || []).filter(Boolean);
+    if (lines.length === 0) return;
+    setTodayScheduleLines(lines);
+    setShowSchedulePopup(true);
+  }, [events]);
+
+  const closeSchedulePopup = () => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    localStorage.setItem("today_schedule_seen", todayStr);
+    setShowSchedulePopup(false);
+  };
+
   const [memoText, setMemoText] = useState("");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
@@ -661,6 +684,12 @@ export default function DashboardPage() {
     arg.el.style.cursor = "pointer";
   }, []);
 
+  const renderEventContent = useCallback((arg: { event: { title: string } }) => (
+    <div style={{ fontSize: 11, padding: "1px 4px", whiteSpace: "pre-line", lineHeight: 1.4, overflow: "hidden", width: "100%" }}>
+      {arg.event.title}
+    </div>
+  ), []);
+
   // Returns class names only (no JSX) — avoids ContentInjector custom-rendering loop
   const handleDayCellClassNames = useCallback((info: { date: Date }) => {
     const d = info.date;
@@ -742,6 +771,33 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* ── 오늘 일정 팝업 모달 ── */}
+      {showSchedulePopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9001, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 10, width: 420, maxWidth: "92vw", maxHeight: "70vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            {/* 헤더 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid #E2E8F0" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1A202C" }}>📅 오늘 일정</span>
+              <button onClick={closeSchedulePopup} style={{ background: "none", border: "none", fontSize: 18, color: "#A0AEC0", cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+            {/* 본문 */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {todayScheduleLines.map((line, i) => (
+                <div key={i} style={{ fontSize: 13, color: "#2D3748", padding: "8px 12px", background: "#FFFBF0", border: "1px solid #FDE68A", borderRadius: 7, lineHeight: 1.6 }}>
+                  {line}
+                </div>
+              ))}
+            </div>
+            {/* 푸터 */}
+            <div style={{ padding: "12px 18px", borderTop: "1px solid #E2E8F0", display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={closeSchedulePopup} style={{ fontSize: 13, padding: "6px 18px", background: "#EDF2F7", border: "none", borderRadius: 6, cursor: "pointer", color: "#4A5568", fontWeight: 600 }}>
+                오늘 하루 보지 않기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 페이지 헤더 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1 className="hw-page-title">홈 대시보드</h1>
@@ -784,11 +840,7 @@ export default function DashboardPage() {
               expandRows={true}
               events={calEvents}
               dayMaxEvents={false}
-              eventContent={(arg) => (
-                <div style={{ fontSize: 11, padding: "1px 4px", whiteSpace: "pre-line", lineHeight: 1.4, overflow: "hidden", width: "100%" }}>
-                  {arg.event.title}
-                </div>
-              )}
+              eventContent={renderEventContent}
               eventClick={handleCalEventClick}
               eventDidMount={handleEventDidMount}
               headerToolbar={CAL_HEADER_TOOLBAR}
