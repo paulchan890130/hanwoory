@@ -117,6 +117,8 @@ DOC_TEMPLATES: dict = {
     "정보제공동의서":          "templates/정보제공동의서.pdf",
     "위임장":                 "templates/위임장.pdf",
     "위임장1":                "templates/위임장1.pdf",
+    "하이코리아":             "templates/하이코리아.pdf",
+    "소시넷":                 "templates/소시넷.pdf",
     "대행업무수행확인서":      "templates/대행업무수행확인서.pdf",
     "대행업무수행확인서1":     "templates/대행업무수행확인서1.pdf",
     # ── 비자별 통합신청서 (F계열) ─────────────────────────────────────────
@@ -872,7 +874,9 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
 # Output types the one-click generator knows about.
 # Add to IMPLEMENTED_OUTPUTS when a new type has a working backend path.
 _ALL_OUTPUTS = {"위임장", "건강보험(세대합가)", "건강보험(피부양자)", "하이코리아", "소시넷"}
-_IMPLEMENTED_OUTPUTS = {"위임장"}
+_IMPLEMENTED_OUTPUTS = {"위임장", "하이코리아", "소시넷"}
+# 출력 순서 (다중 선택 시 페이지 순서)
+_OUTPUT_ORDER = ["위임장", "하이코리아", "소시넷"]
 
 
 class QuickPoaRequest(BaseModel):
@@ -943,17 +947,20 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
     not_impl = requested - _IMPLEMENTED_OUTPUTS
     if not_impl:
         raise HTTPException(status_code=400, detail=f"미구현 출력 유형: {not_impl}")
-    if "위임장" not in requested:
-        raise HTTPException(status_code=400, detail="현재 위임장만 생성 가능합니다.")
-
-    template_rel = DOC_TEMPLATES.get("위임장")
-    if not template_rel:
-        raise HTTPException(status_code=500, detail="DOC_TEMPLATES에 '위임장' 경로가 없습니다.")
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    template_path = os.path.join(base_dir, template_rel)
-    if not os.path.exists(template_path):
-        raise HTTPException(status_code=500, detail=f"위임장 템플릿 파일이 없습니다: {template_path}")
+
+    # 각 출력 유형의 템플릿 경로 사전 검증
+    ordered_outputs = [o for o in _OUTPUT_ORDER if o in requested]
+    template_paths: dict[str, str] = {}
+    for out_type in ordered_outputs:
+        rel = DOC_TEMPLATES.get(out_type)
+        if not rel:
+            raise HTTPException(status_code=500, detail=f"DOC_TEMPLATES에 '{out_type}' 경로가 없습니다.")
+        abs_p = os.path.join(base_dir, rel)
+        if not os.path.exists(abs_p):
+            raise HTTPException(status_code=500, detail=f"템플릿 파일이 없습니다: {abs_p}")
+        template_paths[out_type] = abs_p
 
     # 행정사 계정 정보 조회
     tenant_id = user.get("tenant_id") or user.get("sub", "")
@@ -1024,7 +1031,8 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
     try:
         import fitz
         merged_doc = fitz.open()
-        fill_and_append_pdf(template_path, field_values, seal_bytes_by_role, merged_doc)
+        for out_type in ordered_outputs:
+            fill_and_append_pdf(template_paths[out_type], field_values, seal_bytes_by_role, merged_doc)
         out = io.BytesIO()
         merged_doc.save(out)
         merged_doc.close()
@@ -1036,7 +1044,8 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
 
     kind, data_bytes = _pdf_bytes_to_jpg_or_zip(pdf_bytes, dpi=req.dpi)
     ymd = today.strftime("%Y%m%d")
-    base_name = f"{ymd}_{row['한글']}_위임장"
+    outputs_label = "_".join(ordered_outputs)
+    base_name = f"{ymd}_{row['한글']}_{outputs_label}"
 
     # HTTP headers must be latin-1 encoded; use RFC 5987 for non-ASCII filenames.
     from urllib.parse import quote as _quote

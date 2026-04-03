@@ -46,8 +46,8 @@ const OUTPUT_TYPES: OutputTypeSpec[] = [
   { id: "위임장",             label: "위임장",             implemented: true  },
   { id: "건강보험(세대합가)", label: "건강보험 (세대합가)", implemented: false },
   { id: "건강보험(피부양자)", label: "건강보험 (피부양자)", implemented: false },
-  { id: "하이코리아",         label: "하이코리아",          implemented: false },
-  { id: "소시넷",             label: "소시넷",              implemented: false },
+  { id: "하이코리아",         label: "하이코리아(비번)",    implemented: true  },
+  { id: "소시넷",             label: "소시넷(비번)",        implemented: true  },
 ];
 
 export default function QuickPoaPage() {
@@ -233,15 +233,16 @@ export default function QuickPoaPage() {
             신청인 입력
           </div>
           {[
-            { key: "kor_name" as const, label: "한글명 (도장명) *", placeholder: "홍길동" },
-            { key: "surname"  as const, label: "영문 성 (Surname)", placeholder: "HONG" },
-            { key: "given"    as const, label: "영문 이름 (Given)", placeholder: "GILDONG" },
-            { key: "stay_status" as const, label: "체류자격", placeholder: "F-6" },
-            { key: "reg6"     as const, label: "등록증 앞 6자리", placeholder: "YYMMDD" },
-            { key: "no7"      as const, label: "등록증 뒤 7자리", placeholder: "1234567" },
-            { key: "addr"     as const, label: "한국 내 주소", placeholder: "서울시..." },
-            { key: "passport" as const, label: "여권번호", placeholder: "AB1234567" },
-          ].map(({ key, label, placeholder }) => (
+            { key: "kor_name" as const,    label: "한글명 (도장명) *", placeholder: "홍길동",    always: true  },
+            { key: "surname"  as const,    label: "영문 성 (Surname)", placeholder: "HONG",       always: true  },
+            { key: "given"    as const,    label: "영문 이름 (Given)", placeholder: "GILDONG",    always: true  },
+            { key: "stay_status" as const, label: "체류자격",           placeholder: "F-6",        always: false },
+            { key: "reg6"     as const,    label: "등록증 앞 6자리",   placeholder: "YYMMDD",     always: true  },
+            { key: "no7"      as const,    label: "등록증 뒤 7자리",   placeholder: "1234567",    always: true  },
+            { key: "addr"     as const,    label: "한국 내 주소",       placeholder: "서울시...",  always: true  },
+            { key: "passport" as const,    label: "여권번호",           placeholder: "AB1234567", always: false },
+          ].filter(({ always }) => always || selectedOutputs.has("위임장"))
+           .map(({ key, label, placeholder }) => (
             <div key={key}>
               <label style={labelStyle}>{label}</label>
               <input
@@ -307,8 +308,8 @@ export default function QuickPoaPage() {
             </div>
           </div>
 
-          {/* 위임업무 체크 */}
-          <div
+          {/* 위임업무 체크 — 위임장 선택 시에만 표시 */}
+          {selectedOutputs.has("위임장") && <div
             style={{
               background: "#fff", borderRadius: 10, border: "1px solid #E2E8F0",
               padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8,
@@ -335,7 +336,7 @@ export default function QuickPoaPage() {
                 {label}
               </label>
             ))}
-          </div>
+          </div>}
         </div>
       </div>
 
