@@ -436,12 +436,14 @@ export default function DashboardPage() {
   // (서버는 KST naive ISO, 클라이언트는 UTC+Z → 문자열 비교 시 항상 서버 > 클라이언트가 돼
   //  매번 팝업이 뜨는 버그 방지)
   const noticeMaxUpdatedRef = useRef("");
+  // 계정별 localStorage 키 — 브라우저를 공유해도 계정마다 독립적으로 seen 상태 관리
+  const noticeSeenKey = `notice_popup_seen_at_${user?.login_id ?? ""}`;
 
   useEffect(() => {
     boardApi.getPopup().then((res) => {
       const items = res.data as BoardPost[];
       if (items.length === 0) return;
-      const seenAt = localStorage.getItem("notice_popup_seen_at") ?? "";
+      const seenAt = localStorage.getItem(noticeSeenKey) ?? "";
       const maxUpdated = items.reduce((mx, p) => {
         const u = (p.updated_at ?? p.created_at ?? "");
         return u > mx ? u : mx;
@@ -455,7 +457,7 @@ export default function DashboardPage() {
 
   const closePopup = () => {
     // 클라이언트 시간(UTC)이 아닌 서버 timestamp 문자열을 저장해야 다음 비교가 정확함
-    localStorage.setItem("notice_popup_seen_at", noticeMaxUpdatedRef.current || new Date().toISOString());
+    localStorage.setItem(noticeSeenKey, noticeMaxUpdatedRef.current || new Date().toISOString());
     setShowPopup(false);
     setPopupDetail(null);
   };
