@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -428,10 +428,14 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // ── 공지 팝업 (일 1회) ──────────────────────────────────────────────────────
+  // ── 공지 팝업 (신규 업데이트 시에만 표시) ──────────────────────────────────
   const [popupNotices, setPopupNotices] = useState<BoardPost[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [popupDetail, setPopupDetail] = useState<BoardPost | null>(null);
+  // 서버에서 받은 maxUpdated 값을 저장 — 닫기 시 이 값을 localStorage에 저장
+  // (서버는 KST naive ISO, 클라이언트는 UTC+Z → 문자열 비교 시 항상 서버 > 클라이언트가 돼
+  //  매번 팝업이 뜨는 버그 방지)
+  const noticeMaxUpdatedRef = useRef("");
 
   useEffect(() => {
     boardApi.getPopup().then((res) => {
@@ -442,6 +446,7 @@ export default function DashboardPage() {
         const u = (p.updated_at ?? p.created_at ?? "");
         return u > mx ? u : mx;
       }, "");
+      noticeMaxUpdatedRef.current = maxUpdated;
       if (seenAt && maxUpdated <= seenAt) return;
       setPopupNotices(items);
       setShowPopup(true);
@@ -449,7 +454,8 @@ export default function DashboardPage() {
   }, []);
 
   const closePopup = () => {
-    localStorage.setItem("notice_popup_seen_at", new Date().toISOString());
+    // 클라이언트 시간(UTC)이 아닌 서버 timestamp 문자열을 저장해야 다음 비교가 정확함
+    localStorage.setItem("notice_popup_seen_at", noticeMaxUpdatedRef.current || new Date().toISOString());
     setShowPopup(false);
     setPopupDetail(null);
   };
@@ -476,6 +482,15 @@ export default function DashboardPage() {
     localStorage.setItem("today_schedule_seen", todayStr);
     setShowSchedulePopup(false);
   };
+
+  // ── 모바일 감지 ──────────────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [memoText, setMemoText] = useState("");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
@@ -817,8 +832,8 @@ export default function DashboardPage() {
       {/* 빠른 액션 */}
       <QuickActions />
 
-      {/* ── 상단 2단 레이아웃 (원본 Streamlit st.columns(2) = 1:1) ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+      {/* ── 상단 레이아웃: 모바일=1컬럼(cal→memo→ARC→passport), 데스크톱=2컬럼 ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, alignItems: "start" }}>
 
         {/* 왼쪽: 캘린더 + 단기메모 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

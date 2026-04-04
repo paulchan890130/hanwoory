@@ -40,6 +40,14 @@ docker compose build --no-cache frontend   # next.config.js 변경 후 필요
 docker compose up -d
 ```
 
+`docker-compose.yml`에 Google 서비스 계정 키 마운트가 반드시 필요 (없으면 Google Sheets 연결 불가 → 로그인 시 "계정이 존재하지 않습니다"):
+```yaml
+environment:
+  GOOGLE_APPLICATION_CREDENTIALS: /etc/secrets/hanwoory-9eaa1a4c54d7.json
+volumes:
+  - "C:/Users/66885/Documents/.../hanwoory-9eaa1a4c54d7.json:/etc/secrets/hanwoory-9eaa1a4c54d7.json:ro"
+```
+
 *단일 컨테이너 (Render 배포용):*
 ```bash
 # 빌드
@@ -173,6 +181,25 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 - **react-hook-form + zod** — form validation
 - **react-zoom-pan-pinch** — still in package.json but no longer used in scan page; do not reintroduce in scan page
 
+### FullCalendar `eventContent` — 무한 루프 주의
+
+`eventContent`에 인라인 함수(`(arg) => <div>...`)를 직접 전달하면 React error #185 (Maximum update depth exceeded)가 발생한다. 반드시 `useCallback`으로 메모이제이션된 참조를 전달할 것:
+
+```tsx
+const renderEventContent = useCallback((arg: { event: { title: string } }) => (
+  <div style={{ whiteSpace: "pre-line" }}>{arg.event.title}</div>
+), []);
+// ...
+<FullCalendar eventContent={renderEventContent} />
+```
+
+### 모바일 반응형 레이아웃
+
+`(main)/layout.tsx`에서 `window.innerWidth < 768`로 `isMobile` 감지 (resize 이벤트 포함).
+- 모바일: `mainMarginLeft = 0`, 사이드바는 transform 드로어 (`translateX(-100%/0)`) + backdrop
+- 데스크톱: `mainMarginLeft = leftOffset` (사이드바 너비)
+- 뷰포트 메타: `app/layout.tsx`에서 `export const viewport: Viewport = { width: "device-width", initialScale: 1 }` (Next.js Viewport export 방식 — `<meta>` 직접 삽입 금지)
+
 ---
 
 ## Critical Constraints
@@ -225,10 +252,17 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 - `"__manual_check__"` — 마지막으로 감지한 하이코리아 첨부 날짜를 `content`에 저장 (목록에서 숨김)
 - `"__manual_notice__"` — 자동 생성된 메뉴얼 업데이트 공지 (`popup_yn=Y`, `link_url=하이코리아URL`)
 
-### 대시보드 일일 팝업 (`dashboard/page.tsx`)
-- `useEffect` 마운트 시 `localStorage.notice_popup_date` 확인 → 오늘 날짜와 다르면 `/api/board/popup` 호출
-- 팝업 있으면 모달 표시: 목록 → 클릭 → 상세 (`link_url` 있으면 "🔗 바로 가기")
-- "오늘 하루 보지 않기" 클릭 시 `localStorage.notice_popup_date = 오늘(YYYY-MM-DD)`
+### 대시보드 팝업 (`dashboard/page.tsx`)
+
+**공지 팝업** (`showPopup`):
+- 마운트 시 `/api/board/popup` 호출 → `updated_at` 기준 최신값을 `localStorage.notice_popup_seen_at` (ISO timestamp)와 비교
+- 새 공지가 있으면 모달 표시: 목록 → 클릭 → 상세 (`link_url` 있으면 "🔗 바로 가기")
+- "오늘 하루 보지 않기" 클릭 시 `localStorage.notice_popup_seen_at = new Date().toISOString()`
+
+**오늘 일정 팝업** (`showSchedulePopup`):
+- `events` 쿼리 로드 후 오늘 날짜(`YYYY-MM-DD`) 키로 일정 존재 여부 확인
+- `localStorage.today_schedule_seen`에 오늘 날짜가 없으면 팝업 표시
+- "오늘 하루 보지 않기" 클릭 시 `localStorage.today_schedule_seen = 오늘(YYYY-MM-DD)` (ISO timestamp 아님)
 
 ---
 
@@ -422,6 +456,16 @@ After each `POST /api/daily/entries`, the frontend must invalidate **both** `["d
 
 `generate_full` accepts `direct_overrides: dict` (PDF widget name → value) applied after `build_field_values()` — use for post-generation field edits without changing customer data.
 
+### 원클릭 작성 (`POST /api/quick-doc/quick-poa`)
+
+구현된 출력: `위임장`, `하이코리아`, `소시넷` (templates/ 폴더의 PDF 파일).
+`_OUTPUT_ORDER = ["위임장", "하이코리아", "소시넷"]` 순서로 `fill_and_append_pdf` 호출 → 단일 merged PDF → 1페이지면 JPG, 다페이지면 ZIP.
+`build_field_values()`의 동일한 `field_values` + `seal_bytes_by_role`을 모든 출력에 재사용.
+
+프론트엔드 필드 표시 규칙:
+- `체류자격`, `여권번호` 필드: `위임장`이 `selectedOutputs`에 있을 때만 표시
+- `위임업무` 체크박스 섹션: `위임장`이 `selectedOutputs`에 있을 때만 표시
+
 ---
 
 ## Docker build architecture
@@ -448,6 +492,11 @@ Dockerfile.combined (단일 서비스용):
 ```
 
 `docker-compose.yml` passes `build.args.API_URL: http://backend:8000` to the builder stage AND sets `environment:` for belt-and-suspenders. The build arg is the critical one.
+
+**Render 배포 설정:**
+- Dockerfile Path: `Dockerfile.combined` (선행 공백 없이 정확히 입력 — 공백 있으면 "no such file" 에러)
+- Port: `3000`
+- Auto-Deploy: enabled → git push 시 자동 빌드/배포
 
 ---
 
