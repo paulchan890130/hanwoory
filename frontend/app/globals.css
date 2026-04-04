@@ -688,8 +688,9 @@ input[type="number"]::-webkit-outer-spin-button {
    앱 전체 모바일 반응형 (< 768px)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 @media (max-width: 767px) {
-  /* 카드 패딩 축소 */
-  .hw-card { padding: 14px 16px; }
+  /* 카드 패딩 축소 + 폭 보장 */
+  /* min-width: 0 — grid/flex 1fr 자식이 실제로 1fr을 지키도록 (기본값 auto는 컨텐츠 크기) */
+  .hw-card { padding: 14px 16px; min-width: 0; width: 100%; box-sizing: border-box; }
 
   /* 테이블: 가로 스크롤 허용, 최소 폭 보장 */
   .hw-table { min-width: 480px; }
@@ -703,6 +704,9 @@ input[type="number"]::-webkit-outer-spin-button {
 
   /* 검색바 축소 */
   .hw-search-bar { max-width: 150px !important; min-width: 80px !important; }
+
+  /* 상단바: 모바일 padding·gap 축소로 요소 압축 방지 */
+  .hw-topbar { padding: 0 10px !important; gap: 8px !important; }
 
   /* 탭 버튼: 최소 너비 보장 */
   .hw-tabs button { min-width: 0 !important; padding: 8px 10px !important; font-size: 12px !important; }

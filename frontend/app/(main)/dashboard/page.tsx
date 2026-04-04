@@ -838,7 +838,7 @@ export default function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, alignItems: "start" }}>
 
         {/* 왼쪽: 캘린더 + 단기메모 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
           {/* 일정 달력 — 높이 증가 */}
           <div className="hw-card">
             {/* 제목 + 범례 */}
@@ -889,7 +889,7 @@ export default function DashboardPage() {
         </div>
 
         {/* 오른쪽: 만기 알림 (스크롤 제한) */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
           {/* 등록증 만기 4개월 */}
           <div className="hw-card">
             <div className="hw-card-title">🪪 등록증 만기 4개월 전</div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { dailyApi } from "@/lib/api";
 
@@ -291,6 +291,13 @@ function LineChartSVG({ data }: { data: TrendPoint[] }) {
 // ── 메인 페이지 ───────────────────────────────────────────────────────────
 export default function MonthlyPage() {
   const now = new Date();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [year, setYear]   = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
 
@@ -397,8 +404,8 @@ export default function MonthlyPage() {
             <LineChartSVG data={data.trend} />
           </Card>
 
-          {/* ③④ 요일별 + 카테고리별 */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          {/* ③④ 요일별 + 카테고리별 — 모바일 1컬럼 */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
             <Card title={`📅 ${selectedLabel} 요일별 순수익`}>
               {data.dow.every((d) => d.net === 0) ? (
                 <div style={{ textAlign: "center", padding: 40, color: "#A0AEC0", fontSize: 13 }}>해당 월 데이터 없음</div>

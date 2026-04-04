@@ -52,6 +52,13 @@ const selectCellStyle: React.CSSProperties = {
 
 export default function DailyPage() {
   const qc = useQueryClient();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [date, setDate] = useState(today());
   const [showMonthly, setShowMonthly] = useState(false);
   const [editId, setEditId] = useState<string | null>(null); // 수정 중인 행 id
@@ -428,7 +435,7 @@ export default function DailyPage() {
       </div>
 
       {/* ── 요약 카드 ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "12px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: "12px" }}>
         {/* 이번달 누적 순수익 카드 (선택 날짜까지만) */}
         <div className="hw-card" style={{ padding: "16px" }}>
           <div style={{ fontSize: 11, color: "#718096", fontWeight: 500, marginBottom: 4 }}>
@@ -474,7 +481,7 @@ export default function DailyPage() {
           <div style={{ fontSize: 12, fontWeight: 600, color: "#2D3748", marginBottom: 10 }}>
             {viewYear}년 {viewMonth}월 결산 합계
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
             {[
               { label: "수입(현금)", val: (monthlySummary as any).income_cash, color: "#2B6CB0" },
               { label: "수입(기타)", val: (monthlySummary as any).income_etc, color: "#2B6CB0" },
