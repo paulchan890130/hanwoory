@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -48,11 +48,15 @@ export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
+  // 동시 중복 제출 방지 — disabled 속성은 React re-render 전에 두 번째 클릭이 가능하므로 ref로 동기 가드
+  const inflightRef = useRef(false);
 
   const loginForm = useForm<LoginForm>();
   const signupForm = useForm<SignupForm>();
 
   const onLogin = async (data: LoginForm) => {
+    if (inflightRef.current) return;
+    inflightRef.current = true;
     setLoading(true);
     try {
       const res = await authApi.login(data.login_id, data.password);
@@ -65,6 +69,7 @@ export default function LoginPage() {
         "로그인 실패";
       toast.error(msg);
     } finally {
+      inflightRef.current = false;
       setLoading(false);
     }
   };
@@ -74,6 +79,8 @@ export default function LoginPage() {
       toast.error("비밀번호 확인이 일치하지 않습니다.");
       return;
     }
+    if (inflightRef.current) return;
+    inflightRef.current = true;
     setLoading(true);
     try {
       await authApi.signup(data as unknown as Record<string, string>);
@@ -89,6 +96,7 @@ export default function LoginPage() {
         "가입 실패";
       toast.error(msg);
     } finally {
+      inflightRef.current = false;
       setLoading(false);
     }
   };

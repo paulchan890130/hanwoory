@@ -825,12 +825,19 @@ def _passport_tess_mrz(img: Image.Image) -> dict | None:
         if best_parsed and best_sc >= 8:
             break
 
-    # ── Deskew fallback ──────────────────────────────────────────────────────
-    # If the main pass produced no confident result, try small rotation corrections
-    # to handle passports that were placed at a slight angle (±3°–10°).
-    # Only "ocrb" is tried here to keep the fallback lean (~6 extra OCR calls max).
+    # ── Orientation + deskew fallback ────────────────────────────────────────
+    # Triggers when main pass (original orientation) produced no confident result.
+    #
+    # Priority order:
+    #   90°, 270° — passport placed 90° sideways on scanner (most common failure)
+    #   180°       — upside-down placement
+    #   ±5°, ±10°, ±3° — genuine slight tilt on otherwise correct orientation
+    #
+    # For major rotations (90/270/180): try both "ocrb" and "eng".
+    # For fine tilts: ocrb only (lean path).
     if not best_parsed or best_sc < 6:
-        for angle in (-5, 5, -10, 10, -3, 3):
+        _ROT_LANGS = {90: ("ocrb", "eng"), 270: ("ocrb", "eng"), 180: ("ocrb", "eng")}
+        for angle in (90, 270, 180, -5, 5, -10, 10, -3, 3):
             if best_parsed and best_sc >= 6:
                 break
             try:
@@ -840,19 +847,23 @@ def _passport_tess_mrz(img: Image.Image) -> dict | None:
                     rotated = img.rotate(angle, expand=True)
                 except Exception:
                     continue
+            langs = _ROT_LANGS.get(angle, ("ocrb",))
             for _, band in _iter_mrz_candidate_bands(rotated):
                 prep = _prep_mrz(band)
-                txt = _tess_string(prep, "ocrb", "--oem 3 --psm 6", timeout_s=4)
-                if not txt:
-                    continue
-                L1, L2, sc = find_best_mrz_pair_from_text(txt)
-                if sc > best_sc:
-                    parsed = _parse_mrz_pair(L1, L2) if (L1 and L2) else {}
-                    if parsed.get("여권"):
-                        best_sc = sc
-                        best_parsed = parsed
-                    elif sc > best_sc:
-                        best_sc = sc
+                for lang in langs:
+                    txt = _tess_string(prep, lang, "--oem 3 --psm 6", timeout_s=4)
+                    if not txt:
+                        continue
+                    L1, L2, sc = find_best_mrz_pair_from_text(txt)
+                    if sc > best_sc:
+                        parsed = _parse_mrz_pair(L1, L2) if (L1 and L2) else {}
+                        if parsed.get("여권"):
+                            best_sc = sc
+                            best_parsed = parsed
+                        elif sc > best_sc:
+                            best_sc = sc
+                    if best_parsed and best_sc >= 6:
+                        break
                 if best_parsed and best_sc >= 6:
                     break
 

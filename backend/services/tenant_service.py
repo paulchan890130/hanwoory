@@ -231,11 +231,33 @@ def _col_letter(n: int) -> str:
     return s
 
 
+# ── 단기 읽기 캐시 (429 버스트 방지) ─────────────────────────────────────────
+# 로그인 직후 대시보드가 동시에 5~6개 Sheets 읽기를 발생시켜 429 에러가 나는 것을 방지.
+# 쓰기(upsert/delete) 시 해당 키를 무효화하므로 데이터 일관성은 유지됨.
+_READ_CACHE: dict = {}  # (tenant_id, sheet_name) → (timestamp, records)
+_READ_CACHE_LOCK = threading.Lock()
+_READ_CACHE_TTL = 30  # seconds
+
+
+def _invalidate_read_cache(sheet_name: str, tenant_id: str) -> None:
+    key = (tenant_id, sheet_name)
+    with _READ_CACHE_LOCK:
+        _READ_CACHE.pop(key, None)
+
+
 def read_sheet(sheet_name: str, tenant_id: str, default_if_empty=None):
     """
     tenant_id 기반으로 sheet_name 워크시트에서 모든 레코드를 읽어 반환.
     get_all_values() 사용 → 모든 값이 문자열로 반환되어 선행0(010 등) 보존됨.
+    30초 단기 캐시로 로그인 직후 버스트 읽기에 의한 429 에러 방지.
     """
+    key = (tenant_id, sheet_name)
+    now = time.time()
+    with _READ_CACHE_LOCK:
+        if key in _READ_CACHE:
+            ts, cached = _READ_CACHE[key]
+            if now - ts < _READ_CACHE_TTL:
+                return cached
     try:
         ws = get_worksheet(sheet_name, tenant_id)
         values = ws.get_all_values()
@@ -256,7 +278,10 @@ def read_sheet(sheet_name: str, tenant_id: str, default_if_empty=None):
             {clean_header[i]: (row[i] if i < len(row) else "") for i in range(len(clean_header))}
             for row in values[1:]
         ]
-        return records if records else default_if_empty
+        result = records if records else default_if_empty
+        with _READ_CACHE_LOCK:
+            _READ_CACHE[key] = (time.time(), result)
+        return result
     except Exception as e:
         print(f"[tenant_service] read_sheet 실패 ({sheet_name}): {e}")
         return default_if_empty
@@ -320,6 +345,7 @@ def upsert_sheet(
         if appends:
             ws.append_rows(appends, value_input_option="RAW")
 
+        _invalidate_read_cache(sheet_name, tenant_id)
         return True
     except Exception as e:
         print(f"[tenant_service] upsert_sheet 실패 ({sheet_name}): {e}")
@@ -360,6 +386,7 @@ def delete_from_sheet(
         for row_no in sorted(rows_to_delete, reverse=True):
             ws.delete_rows(row_no)
 
+        _invalidate_read_cache(sheet_name, tenant_id)
         return True
     except Exception as e:
         print(f"[tenant_service] delete_from_sheet 실패 ({sheet_name}): {e}")

@@ -122,6 +122,28 @@ def extract_passport_roi(img: Image.Image, roi: Dict[str, float], rotation_deg: 
     text, attempts = _best_mrz_text(crop)
     L1, L2, score = find_best_mrz_pair_from_text(text)
 
+    # ── Slight-angle correction fallback ─────────────────────────────────────
+    # If the primary crop produced no valid MRZ (score < 4), the document may be
+    # slightly tilted inside the ROI.  Try small CW/CCW rotations of the crop
+    # until a valid passport-number-carrying pair is found.
+    # This runs only on failure — zero cost for straight/well-aligned scans.
+    if not L1 or not L2 or score < 4 or not _parse_mrz_pair(L1, L2).get("여권"):
+        for _ang in (-5, 5, -10, 10, -3, 3):
+            try:
+                _rc = crop.rotate(_ang, expand=True, fillcolor=255)
+            except Exception:
+                try:
+                    _rc = crop.rotate(_ang, expand=True)
+                except Exception:
+                    continue
+            _rt, _ra = _best_mrz_text(_rc)
+            _rL1, _rL2, _rsc = find_best_mrz_pair_from_text(_rt)
+            if _rL1 and _rL2 and _rsc > score:
+                _rp = _parse_mrz_pair(_rL1, _rL2)
+                if _rp.get("여권"):
+                    L1, L2, score, text, attempts = _rL1, _rL2, _rsc, _rt, _ra
+                    break
+
     if not L1 or not L2:
         failure = (
             "OCR text is empty — no text produced by any attempt"

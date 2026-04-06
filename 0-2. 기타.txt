@@ -1,10 +1,91 @@
-1. 스크롤로 확대축소기능 빼자, 지금 추가한 버튼식으로 가자
-2. 좌측 사진넣어지는 화면 크기가 고정되어서 아래부분이 안보여
-3. 좌측에 사진넣는 부분 우상단에 확대, 축소, 원위치 버튼이 있는데 확대, 축소, 90도(이미지) 회전, 원위치 버튼으로 추가하고 회전기능 추가
-4. 좌측에 사진을 올리면 추출되는 영역과 사진이 병합되어 내가 원하는 기능이 나오지 않고있어 내가 생각한 기능은 레이어가 분리되어 추출되는 영역은 고정되어있고 사진을 옮겨서 사용자가 추출되는 영역에 맞게 사진을 위치시키는거야
-5. 캡쳐화면 참고로 올려줄테니 확인해보고
-지금 올려주는 등록증 모음.zip 과 중국 여권.zip을 참고해서 
-여권부분은 mrz
-등록증 부분은
-한글이름, 등록증 앞, 등록증 뒤, 등록증 발급일, 등록증 만기일, 주소
-의 추출되는 영역의 대략적인 평균 좌표를 지정해줘 내가 하나하나 조정할 수가 없어
+You are continuing the real migration/stabilization project for the local workspace at:
+
+C:\Users\윤찬\K.ID soft
+
+This is NOT a Streamlit maintenance task.
+Do NOT revert this task back to Streamlit.
+Do NOT redesign unrelated UI.
+Do NOT replace the real app with a simplified new app.
+Use the minimum-change principle.
+Inspect and patch the actual local files first.
+
+Current task: prevent login/initial-page burst traffic from causing Google Sheets 429 quota errors.
+
+Observed problem:
+- Duplicate login requests can happen if the user clicks login repeatedly.
+- After login, multiple APIs read the same Google Sheets data at nearly the same time.
+- Customer search is firing too often while typing.
+- This causes Google Sheets read quota bursts and 429 errors.
+
+Required fixes:
+
+1) Login button dedupe / single-submit protection
+- If the user clicks the login button repeatedly, only the first click should be accepted.
+- Do not allow duplicate concurrent POST /api/auth/login requests from repeated clicking.
+- Disable or lock the login action while the first login request is in flight.
+- Prevent accidental double-submit both from rapid clicking and from repeated Enter key submission if applicable.
+- Keep normal login UX intact.
+
+2) Inspect and reduce duplicated sheet reads across APIs
+- Inspect whether multiple APIs are reading the same sheet independently during initial load.
+- Especially inspect overlap across:
+  - tasks/active
+  - tasks/planned
+  - events
+  - customers/expiry-alerts
+  - memos/short
+  - reference/sheets
+  - customer-related search/read endpoints
+- If the same sheet is being read multiple times in parallel through separate service functions, consolidate or share the read path where possible with minimum structural change.
+- Do not change business output; reduce redundant read pressure.
+
+3) Customer search debounce + minimum query length
+- Add debounce to customer search.
+- Only trigger customer search from 2 or more characters.
+- Do not fire API calls for 0 or 1 character.
+- Use practical debounce timing (around 300–500ms is acceptable).
+- Keep UX usable and responsive.
+
+4) Add short cache (30 seconds) for read-heavy endpoints
+Add tenant-safe, user-safe short caching for these endpoints / data sources:
+
+- tasks/active
+- tasks/planned
+- events
+- customers/expiry-alerts
+- memos/short
+- reference/sheets
+
+Requirements for cache:
+- TTL: 30 seconds
+- Cache must be keyed correctly so tenant data does not leak across tenants/users.
+- Use cache only for safe read endpoints.
+- Do NOT cache login/auth validation in a way that breaks security or session correctness.
+- Do NOT cache write/update endpoints.
+- After relevant writes, ensure cache invalidation or safe staleness handling is considered where needed.
+
+Implementation guidance:
+- Start by identifying the actual duplicate-read hotspots in the current local code.
+- Then patch the smallest possible set of files.
+- Prefer shared server-side caching or read deduplication over superficial frontend-only workarounds.
+- Keep desktop/mobile behavior intact unless the patch requires tiny UX changes such as disabling a button while loading.
+
+Required response format:
+1) confirmed cause
+2) exact files actually modified
+3) exact diff / patch
+4) why each change was necessary
+5) verification steps
+6) whether login burst and sheet-read burst are now reduced
+
+Verification requirements:
+- Repeated login clicks should result in only one effective login submission.
+- Customer search should not call the API for 1-character input.
+- Customer search should debounce properly.
+- The listed read-heavy endpoints should use 30-second cache.
+- Initial page load should produce materially fewer Google Sheets reads than before.
+- No tenant data leakage.
+- No regression in normal login or dashboard behavior.
+
+Do not give theory only.
+Patch the actual local files and return the real diff.
