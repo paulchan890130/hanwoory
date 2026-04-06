@@ -149,7 +149,7 @@ export default function BoardPage() {
         )}
       </td>
       <td style={{ color: "#718096", fontSize: 12 }}>{displayAuthor(post)}</td>
-      <td style={{ color: "#A0AEC0", fontSize: 11 }}>{post.created_at?.slice(0, 10)}</td>
+      <td style={{ color: "#A0AEC0", fontSize: 11 }}>{(post.updated_at ?? post.created_at)?.slice(0, 10)}</td>
       <td style={{ textAlign: "center" }}>
         {canDelete(post) && (
           <button
@@ -445,7 +445,7 @@ export default function BoardPage() {
                 )}
                 <div style={{ fontSize: 17, fontWeight: 700, color: "#1A202C" }}>{selectedPost.title}</div>
                 <div style={{ fontSize: 12, color: "#A0AEC0", marginTop: 4 }}>
-                  {displayAuthor(selectedPost)} · {selectedPost.created_at?.slice(0, 10)}
+                  {displayAuthor(selectedPost)} · {(selectedPost.updated_at ?? selectedPost.created_at)?.slice(0, 10)}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>

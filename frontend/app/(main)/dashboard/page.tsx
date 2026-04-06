@@ -781,7 +781,7 @@ export default function DashboardPage() {
             {/* 팝업 푸터 */}
             <div style={{ padding: "12px 18px", borderTop: "1px solid #E2E8F0", display: "flex", justifyContent: "flex-end" }}>
               <button onClick={closePopup} style={{ fontSize: 13, padding: "6px 18px", background: "#EDF2F7", border: "none", borderRadius: 6, cursor: "pointer", color: "#4A5568", fontWeight: 600 }}>
-                오늘 하루 보지 않기
+                이후로 보지 않기
               </button>
             </div>
           </div>

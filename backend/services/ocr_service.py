@@ -532,8 +532,10 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
         if m_sep:
             sur_raw = name_block[:m_sep.start()].replace("<", " ").strip()
             after_sep = name_block[m_sep.end():]
-            m_nxt = re.search(r"<+", after_sep)
-            given_raw = (after_sep[:m_nxt.start()] if m_nxt else after_sep).replace("<", " ").strip()
+            # Preserve the FULL given-name field (ICAO: single '<' separates given name
+            # components, trailing '<' is filler padding).  Stopping at the first '<'
+            # was wrong for multi-token names like SHOHRUHBEK<ABDIHAKIMOVICH<<<<.
+            given_raw = after_sep.rstrip("<").replace("<", " ").strip()
             sur = re.sub(r"\s+", " ", sur_raw).strip()
             given = re.sub(r"\s+", " ", given_raw).strip()
             sur = _strip_mrz_trail(sur)
@@ -822,6 +824,37 @@ def _passport_tess_mrz(img: Image.Image) -> dict | None:
                 break  # 충분히 높은 score + 여권번호 확보 → 조기 종료
         if best_parsed and best_sc >= 8:
             break
+
+    # ── Deskew fallback ──────────────────────────────────────────────────────
+    # If the main pass produced no confident result, try small rotation corrections
+    # to handle passports that were placed at a slight angle (±3°–10°).
+    # Only "ocrb" is tried here to keep the fallback lean (~6 extra OCR calls max).
+    if not best_parsed or best_sc < 6:
+        for angle in (-5, 5, -10, 10, -3, 3):
+            if best_parsed and best_sc >= 6:
+                break
+            try:
+                rotated = img.rotate(angle, expand=True, fillcolor=255)
+            except Exception:
+                try:
+                    rotated = img.rotate(angle, expand=True)
+                except Exception:
+                    continue
+            for _, band in _iter_mrz_candidate_bands(rotated):
+                prep = _prep_mrz(band)
+                txt = _tess_string(prep, "ocrb", "--oem 3 --psm 6", timeout_s=4)
+                if not txt:
+                    continue
+                L1, L2, sc = find_best_mrz_pair_from_text(txt)
+                if sc > best_sc:
+                    parsed = _parse_mrz_pair(L1, L2) if (L1 and L2) else {}
+                    if parsed.get("여권"):
+                        best_sc = sc
+                        best_parsed = parsed
+                    elif sc > best_sc:
+                        best_sc = sc
+                if best_parsed and best_sc >= 6:
+                    break
 
     if not best_parsed:
         return None
