@@ -577,8 +577,27 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
     if out.get("만기"):
         try:
             exp = _dt.strptime(out["만기"], "%Y-%m-%d").date()
-            issued = _minus_years(exp, 10) + _td(days=1)
-            out["발급"] = issued.strftime("%Y-%m-%d")
+            nat = out.get("국가", "").upper().strip()
+            # KOR: excluded from auto-derivation — leave 발급 blank for manual entry
+            if nat != "KOR":
+                dob_str = out.get("생년월일", "")
+                validity = 10  # adult default
+                if dob_str:
+                    try:
+                        dob = _dt.strptime(dob_str, "%Y-%m-%d").date()
+                        # If holder was under 18 at the prospective adult-issue date, use 5-yr validity
+                        adult_issue = _minus_years(exp, 10)
+                        age_at_issue = (adult_issue - dob).days / 365.25
+                        if age_at_issue < 18:
+                            validity = 5
+                    except Exception:
+                        pass
+                base = _minus_years(exp, validity)
+                if nat == "VNM":
+                    issued = base          # Vietnam: same-day anniversary, offset=0
+                else:
+                    issued = base + _td(days=1)  # all others: +1 day
+                out["발급"] = issued.strftime("%Y-%m-%d")
         except Exception:
             pass
 

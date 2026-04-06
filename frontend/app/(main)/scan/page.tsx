@@ -1089,6 +1089,9 @@ export default function ScanPage() {
             <div>
               <label style={labelStyle}>여권 발급일 (YYYY-MM-DD)</label>
               <input style={inputStyle} value={여권발급} onChange={(e) => set여권발급(e.target.value)} />
+              <span style={{ fontSize: 10, color: "#A0AEC0", display: "block", marginTop: 2 }}>
+                국가별 정책이 다를 수 있으니 원본과 다르면 직접 수정하세요
+              </span>
             </div>
             <div>
               <label style={labelStyle}>여권 만기일 (YYYY-MM-DD)</label>
