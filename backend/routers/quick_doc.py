@@ -2,7 +2,7 @@
 import sys, os, io, datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -166,6 +166,192 @@ ROLE_WIDGETS: dict = {
     "aggregator":    "pyin",  # 합산자
     "agent":         "ayin",  # 행정사
 }
+
+# ── 업무 미리보기 데이터 ──────────────────────────────────────────────────────
+
+WORK_OVERVIEW: dict = {
+    # ── 체류 등록 ──────────────────────────────────────────────────────────────
+    ("체류", "등록", "F", "1"): {
+        "summary": "F-1(방문동거) 외국인등록 최초 신청",
+        "description": "국민 또는 영주자(F-5) 가족으로서 방문·동거 목적으로 체류하는 외국인의 최초 등록 신청입니다. 입국일로부터 90일 이내에 관할 출입국관리사무소에 신청해야 합니다.",
+        "process": ["서류 준비 (통합신청서·비취업서약서 등)", "관할 사무소 방문 접수", "수수료 납부", "심사 (3~7 영업일)", "외국인등록증 수령"],
+        "typical_days": 7,
+        "caution": "입국일로부터 90일 이내 신청 필수. 신청인과 국민(보증인)이 함께 방문하거나 위임장 필요.",
+        "sms_template": "{name}님, F-1 등록 서류 접수가 완료되었습니다. 등록증 발급까지 약 {days}일 소요 예정입니다. - 한우리행정사",
+    },
+    ("체류", "등록", "F", "2"): {
+        "summary": "F-2(거주) 외국인등록 최초 신청",
+        "description": "거주자격(F-2)으로 체류하는 외국인의 최초 등록 신청입니다. 결혼이민자 또는 점수제 기반 거주자격 취득자 등이 해당됩니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·신원보증서 등)", "관할 사무소 방문 접수", "수수료 납부", "심사 (3~7 영업일)", "외국인등록증 수령"],
+        "typical_days": 7,
+        "caution": "배우자(국민) 동반 또는 위임장 지참. 혼인관계증명서 등 가족관계 서류 필수.",
+        "sms_template": "{name}님, F-2 등록 서류 접수가 완료되었습니다. 약 {days}일 후 등록증 수령 예정입니다. - 한우리행정사",
+    },
+    ("체류", "등록", "F", "3"): {
+        "summary": "F-3(동반) 외국인등록 최초 신청",
+        "description": "취업자격 체류자의 동반 가족으로서 체류하는 외국인의 최초 등록입니다.",
+        "process": ["서류 준비 (통합신청서·비취업서약서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "외국인등록증 수령"],
+        "typical_days": 7,
+        "caution": "주신청자(취업자) 체류 증명 필요. 가족관계 증빙 서류 지참.",
+        "sms_template": "{name}님, F-3 등록 접수가 완료되었습니다. 약 {days}일 후 등록증 수령 가능합니다. - 한우리행정사",
+    },
+    ("체류", "등록", "F", "4"): {
+        "summary": "F-4(재외동포) 외국인등록 최초 신청",
+        "description": "재외동포(F-4) 체류자격자의 최초 외국인등록 신청입니다. 외국국적 동포로서 단순노무 제외 대부분 활동이 가능합니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·한글성명 병기 신청서·단순노무 비취업서약서 등)", "관할 사무소 방문 접수", "심사", "외국인등록증 수령"],
+        "typical_days": 7,
+        "caution": "단순노무 비취업서약서 필수. 직업신고서에 현직 기재. 한글성명병기 신청서 필요.",
+        "sms_template": "{name}님, F-4 등록 접수 완료되었습니다. 등록증 수령까지 약 {days}일 소요 예정입니다. - 한우리행정사",
+    },
+    ("체류", "등록", "F", "6"): {
+        "summary": "F-6(결혼이민) 외국인등록 최초 신청",
+        "description": "국민의 배우자로서 결혼이민(F-6) 체류자격을 받은 외국인의 최초 등록 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "외국인등록증 수령"],
+        "typical_days": 7,
+        "caution": "혼인관계증명서 및 배우자(국민) 동반 또는 위임장 필요.",
+        "sms_template": "{name}님, F-6 등록 접수 완료되었습니다. 처리 후 연락드리겠습니다. - 한우리행정사",
+    },
+    ("체류", "등록", "H2", ""): {
+        "summary": "H-2(방문취업) 외국인등록 최초 신청",
+        "description": "중국·구소련 지역 동포를 위한 방문취업(H-2) 체류자격자의 최초 외국인등록 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·한글성명 병기 신청서·치료예정 서약서 등)", "관할 사무소 방문 접수", "심사", "외국인등록증 수령"],
+        "typical_days": 5,
+        "caution": "한글성명 병기 신청서 필수. 치료예정 서약서 포함. 취업활동 가능 직종 사전 확인 필수.",
+        "sms_template": "{name}님, H-2 등록 접수 완료되었습니다. 처리 후 연락드리겠습니다. - 한우리행정사",
+    },
+    # ── 체류 연장 ──────────────────────────────────────────────────────────────
+    ("체류", "연장", "F", "1"): {
+        "summary": "F-1(방문동거) 체류기간 연장",
+        "description": "F-1 체류자격의 체류기간 만료 전 연장 신청입니다. 만료일 4개월 전부터 신청 가능합니다.",
+        "process": ["서류 준비 (통합신청서·비취업서약서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "등록증 갱신 수령"],
+        "typical_days": 5,
+        "caution": "체류기간 만료일 전 신청 필수. 만료 후 신청 시 범칙금 부과.",
+        "sms_template": "{name}님, F-1 연장 접수 완료되었습니다. 약 {days}일 후 갱신 등록증 수령 가능합니다. - 한우리행정사",
+    },
+    ("체류", "연장", "F", "2"): {
+        "summary": "F-2(거주) 체류기간 연장",
+        "description": "F-2 체류자격의 체류기간 만료 전 연장 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "등록증 갱신"],
+        "typical_days": 5,
+        "caution": "체류기간 만료 전 신청. 소득 및 직업 신고서 최신화.",
+        "sms_template": "{name}님, F-2 연장 접수 완료되었습니다. 처리 후 연락드리겠습니다. - 한우리행정사",
+    },
+    ("체류", "연장", "F", "3"): {
+        "summary": "F-3(동반) 체류기간 연장",
+        "description": "F-3 체류자격의 체류기간 연장 신청입니다. 주신청자 체류 연장과 동시에 신청 권장합니다.",
+        "process": ["서류 준비 (통합신청서·비취업서약서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "등록증 갱신"],
+        "typical_days": 5,
+        "caution": "주신청자(취업자) 체류 증명 갱신 필요.",
+        "sms_template": "{name}님, F-3 연장 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "연장", "F", "4"): {
+        "summary": "F-4(재외동포) 체류기간 연장",
+        "description": "F-4 재외동포 체류자격의 체류기간 연장 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·한글성명 병기 신청서 등)", "관할 사무소 방문 접수", "심사", "등록증 갱신"],
+        "typical_days": 5,
+        "caution": "직업신고서 최신 정보 기재. 단순노무 비취업서약서 재확인.",
+        "sms_template": "{name}님, F-4 연장 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "연장", "F", "6"): {
+        "summary": "F-6(결혼이민) 체류기간 연장",
+        "description": "F-6 결혼이민 체류자격의 체류기간 연장 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "등록증 갱신"],
+        "typical_days": 5,
+        "caution": "혼인 유지 증명 서류 필요. 이혼 등 가족관계 변동 시 별도 상담.",
+        "sms_template": "{name}님, F-6 연장 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "연장", "H2", ""): {
+        "summary": "H-2(방문취업) 체류기간 연장",
+        "description": "H-2 방문취업 체류자격의 체류기간 연장 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·법령준수 확인서·비취업 확인서 등)", "관할 사무소 방문 접수", "심사", "등록증 갱신"],
+        "typical_days": 5,
+        "caution": "취업활동 증빙 서류 및 법령준수 확인서 필수. 비취업 확인서도 요구될 수 있음.",
+        "sms_template": "{name}님, H-2 연장 접수 완료되었습니다. - 한우리행정사",
+    },
+    # ── 체류 변경 ──────────────────────────────────────────────────────────────
+    ("체류", "변경", "F", "1"): {
+        "summary": "F-1(방문동거) 체류자격 변경",
+        "description": "타 체류자격에서 F-1(방문동거)으로 변경 신청입니다.",
+        "process": ["서류 준비 (통합신청서·비취업서약서·신원보증서 등)", "관할 사무소 방문 접수", "심사", "등록증 수령"],
+        "typical_days": 10,
+        "caution": "현재 체류자격 만료 전 신청 필수.",
+        "sms_template": "{name}님, F-1 변경 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "변경", "F", "2"): {
+        "summary": "F-2(거주) 체류자격 변경",
+        "description": "타 체류자격에서 F-2(거주)로 변경 신청입니다. 결혼이민자가 주요 대상이며 배우자 국민과의 혼인관계 증명이 핵심입니다.",
+        "process": ["서류 준비 (결혼배경진술서·초청장·소득신고서 등)", "관할 사무소 방문 접수", "심사 (1~3주)", "등록증 수령"],
+        "typical_days": 14,
+        "caution": "결혼배경진술서 및 외국인 배우자 진술서 모두 필요. 배우자 소득 요건 충족 확인.",
+        "sms_template": "{name}님, F-2 변경 서류 접수 완료되었습니다. 심사에 약 {days}일 소요 예정입니다. - 한우리행정사",
+    },
+    ("체류", "변경", "F", "4"): {
+        "summary": "F-4(재외동포) 체류자격 변경",
+        "description": "타 체류자격에서 F-4 재외동포로 변경 신청입니다. 재외동포 자격 증명이 필요합니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·단순노무 비취업서약서·한글성명 병기 신청서 등)", "관할 사무소 방문 접수", "심사", "등록증 수령"],
+        "typical_days": 10,
+        "caution": "재외동포 자격 증명 서류 필수. 단순노무 비취업서약서 지참.",
+        "sms_template": "{name}님, F-4 변경 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "변경", "F", "5"): {
+        "summary": "F-5(영주) 체류자격 변경",
+        "description": "F-5 영주자격으로의 변경 신청입니다. 점수제 심사를 통해 영주자격을 취득합니다. 서류 준비가 가장 많은 업무 유형입니다.",
+        "process": ["점수제 자격 확인", "서류 준비 (기본정보서·심사보고서·정보제공동의서·신원보증서 등)", "관할 사무소 방문 접수", "심사 (4~8주)", "영주자격 등록증 수령"],
+        "typical_days": 42,
+        "caution": "점수 기준 충족 여부 사전 확인 필수. 신청자 기본정보 서식·심사보고서 등 복잡한 서류 요구.",
+        "sms_template": "{name}님, F-5 영주자격 변경 서류 접수 완료되었습니다. 심사 기간이 길어질 수 있으니 양해 부탁드립니다. - 한우리행정사",
+    },
+    ("체류", "변경", "H2", ""): {
+        "summary": "H-2(방문취업) 체류자격 변경",
+        "description": "타 체류자격에서 H-2 방문취업으로 변경하는 신청입니다.",
+        "process": ["서류 준비 (통합신청서·직업신고서·한글성명 병기 신청서·치료예정 서약서 등)", "관할 사무소 방문 접수", "심사", "등록증 수령"],
+        "typical_days": 7,
+        "caution": "취업활동 가능 직종 사전 확인 필수. 치료예정 서약서 지참.",
+        "sms_template": "{name}님, H-2 변경 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "변경", "국적", "일반"): {
+        "summary": "일반귀화 신청",
+        "description": "5년 이상 계속 한국에 체류한 외국인이 신청하는 일반귀화입니다. 귀화 후 외국 국적 포기가 원칙입니다.",
+        "process": ["귀화 요건 확인 (체류기간·품행단정·생계능력 등)", "서류 준비", "담당 출입국관리사무소 접수", "귀화심사 (6개월~1년)", "국적증서 수여식 참석"],
+        "typical_days": 180,
+        "caution": "귀화시험 또는 사회통합프로그램 이수 요건 확인. 귀화 후 외국국적 포기 절차 안내 필수.",
+        "sms_template": "{name}님, 일반귀화 신청 서류 접수 완료되었습니다. 심사 기간이 길어질 수 있습니다. - 한우리행정사",
+    },
+    ("체류", "변경", "국적", "간이"): {
+        "summary": "간이귀화 신청",
+        "description": "한국인 배우자 또는 부모를 둔 외국인의 간이귀화 신청입니다. (3년 이상 체류 또는 특수 사정)",
+        "process": ["요건 확인", "서류 준비", "담당 사무소 접수", "귀화심사"],
+        "typical_days": 120,
+        "caution": "결혼이민자는 결혼 후 2년 이상 체류 또는 국민 배우자 사망 등 특수 사정 시 해당.",
+        "sms_template": "{name}님, 간이귀화 신청 접수 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "변경", "국적", "특별"): {
+        "summary": "특별귀화 신청",
+        "description": "대한민국에 특별한 공로가 있는 외국인 또는 우수 외국인재에 대한 특별귀화 신청입니다.",
+        "process": ["요건 확인 (공로·인재 요건)", "서류 준비", "법무부 접수", "귀화심사"],
+        "typical_days": 90,
+        "caution": "일반 행정사무소가 아닌 법무부 국적과 직접 처리. 개별 요건 사전 확인 필수.",
+        "sms_template": "{name}님, 특별귀화 신청 접수 완료되었습니다. - 한우리행정사",
+    },
+    # ── 체류 신고 ──────────────────────────────────────────────────────────────
+    ("체류", "신고", "주소", ""): {
+        "summary": "외국인 주소(체류지) 변경 신고",
+        "description": "외국인이 거주지를 이전한 경우 이전일로부터 14일 이내에 관할 출입국관리사무소에 신고해야 합니다.",
+        "process": ["이전 주소 증빙 준비 (임대차계약서 등)", "관할 사무소 방문 또는 하이코리아 온라인 신고"],
+        "typical_days": 1,
+        "caution": "이전일로부터 14일 이내 신고 의무. 위반 시 과태료 부과.",
+        "sms_template": "{name}님, 주소변경 신고 완료되었습니다. - 한우리행정사",
+    },
+    ("체류", "신고", "등록사항", ""): {
+        "summary": "외국인 등록사항 변경 신고",
+        "description": "성명·여권번호·국적 등 외국인등록 기재사항이 변경된 경우 변경일로부터 14일 이내에 신고합니다.",
+        "process": ["변경 증빙 서류 준비 (새 여권 등)", "관할 사무소 방문 신고"],
+        "typical_days": 1,
+        "caution": "변경일로부터 14일 이내 신고 의무.",
+        "sms_template": "{name}님, 등록사항 변경 신고 완료되었습니다. - 한우리행정사",
+    },
+}
+
 
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
@@ -627,6 +813,55 @@ def get_selection_tree(_: dict = Depends(get_current_user)):
         "minwon": MINWON_OPTIONS,
         "types": {f"{k[0]}|{k[1]}": v for k, v in TYPE_OPTIONS.items()},
         "subtypes": {f"{k[0]}|{k[1]}|{k[2]}": v for k, v in SUBTYPE_OPTIONS.items()},
+    }
+
+
+@router.get("/preview")
+def get_work_preview(
+    category: str = Query(...),
+    minwon: str = Query(...),
+    kind: str = Query(default=""),
+    detail: str = Query(default=""),
+    _: dict = Depends(get_current_user),
+):
+    """업무 미리보기 — 선택된 업무의 개요·서식·첨부서류·SMS 템플릿 반환"""
+    norm_kind = kind if kind and kind != "x" else ""
+    norm_detail = detail or ""
+
+    # REQUIRED_DOCS 조회 (exact match → kind-only fallback → empty)
+    docs_key = (category, minwon, norm_kind, norm_detail)
+    docs_key2 = (category, minwon, norm_kind, "")
+    docs = REQUIRED_DOCS.get(docs_key) or REQUIRED_DOCS.get(docs_key2, {"main": [], "agent": []})
+    form_docs = list(docs.get("main", []))
+    attach_docs = list(docs.get("agent", []))
+
+    # WORK_OVERVIEW 조회 (exact match → kind-only fallback → category+minwon fallback)
+    ov = (
+        WORK_OVERVIEW.get((category, minwon, norm_kind, norm_detail))
+        or WORK_OVERVIEW.get((category, minwon, norm_kind, ""))
+        or WORK_OVERVIEW.get((category, minwon, "", ""))
+        or {}
+    )
+
+    label_parts = [category, minwon]
+    if norm_kind:
+        label_parts.append(norm_kind + (f"-{norm_detail}" if norm_detail else ""))
+    label = " ".join(label_parts)
+
+    return {
+        "label": label,
+        "category": category,
+        "minwon": minwon,
+        "kind": norm_kind,
+        "detail": norm_detail,
+        "summary": ov.get("summary", ""),
+        "description": ov.get("description", ""),
+        "process": ov.get("process", []),
+        "typical_days": ov.get("typical_days", 0),
+        "caution": ov.get("caution", ""),
+        "sms_template": ov.get("sms_template", ""),
+        "form_docs": form_docs,
+        "attach_docs": attach_docs,
     }
 
 

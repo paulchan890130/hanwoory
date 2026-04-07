@@ -6,7 +6,7 @@ import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, BookOpen, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
-  ExternalLink, X,
+  ExternalLink, X, Eye,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/quick-doc",  label: "문서자동작성",   icon: FileEdit },
   { href: "/scan",       label: "OCR 스캔",       icon: ScanLine },
   { href: "/reference",  label: "업무참고",       icon: BookOpen },
+  { href: "/work-preview", label: "업무 미리보기", icon: Eye },
   { href: "/search",     label: "통합검색",       icon: Search },
   { href: "/memos",      label: "메모",           icon: FileText },
   { href: "/board",      label: "게시판",         icon: MessageSquare },

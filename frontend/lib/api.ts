@@ -308,8 +308,26 @@ export interface FullDocGenRequest {
   direct_overrides?: Record<string, string>;
 }
 
+export interface WorkPreviewData {
+  label: string;
+  category: string;
+  minwon: string;
+  kind: string;
+  detail: string;
+  summary: string;
+  description: string;
+  process: string[];
+  typical_days: number;
+  caution: string;
+  sms_template: string;
+  form_docs: string[];
+  attach_docs: string[];
+}
+
 export const quickDocApi = {
   getTree: () => api.get<DocTree>("/api/quick-doc/tree"),
+  getPreview: (category: string, minwon: string, kind: string, detail: string) =>
+    api.get<WorkPreviewData>("/api/quick-doc/preview", { params: { category, minwon, kind, detail } }),
   getRequiredDocs: (category: string, minwon: string, kind: string, detail: string, reg_no?: string) =>
     api.post<RequiredDocsResponse>("/api/quick-doc/required-docs", {
       category, minwon, kind, detail, reg_no: reg_no ?? "",
