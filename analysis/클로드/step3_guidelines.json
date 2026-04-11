@@ -1,0 +1,639 @@
+{
+  "$schema": "출입국 실무지침 DB - STEP 3: 핵심 자격별 실무지침",
+  "version": "1.0",
+  "created_date": "2026-04-11",
+  "guidelines": [
+    {
+      "id": 1,
+      "visa_code": "F-6",
+      "visa_subtype_code": null,
+      "task_type": "STATUS_CHANGE",
+      "task_name_detail": "결혼이민(F-6) 체류자격변경허가",
+      "overview": "국민의 배우자로서 결혼이민(F-6) 자격으로 변경하고자 하는 경우",
+      "eligibility": "국민의 배우자(F-6-1), 국민과의 혼인관계에서 출생한 자녀를 양육하는 부 또는 모(F-6-2), 혼인의 파탄에 본인 귀책사유가 없는 배우자(F-6-3)",
+      "fee": "4만원",
+      "max_permission_period": "1년 (초회), 이후 연장 시 최대 2~3년",
+      "processing_period": "접수일로부터 약 30일",
+      "review_criteria": "혼인의 진정성, 초청인의 부양능력(소득요건), 국내 체류지 확보, 기본적 의사소통 능력, 결핵진단서(고위험국 해당시)",
+      "legal_basis": "출입국관리법 제24조, 동법 시행령 별표1, 결혼이민 사증 및 체류관리 통합지침",
+      "source_manual": "260310 체류민원 매뉴얼, 221230 편람 43번 지침",
+      "form_documents": [
+        {
+          "name": "통합신청서(별지34호)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "여권",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "표준규격사진 1장",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "수수료",
+          "is_required": true,
+          "condition": "4만원"
+        }
+      ],
+      "attached_documents": [
+        {
+          "name": "혼인관계증명서(상세)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "주민등록등본",
+          "is_required": true,
+          "condition": "초청인(국민 배우자) 기준"
+        },
+        {
+          "name": "국민 배우자의 신분증 사본",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "외국인등록증",
+          "is_required": true,
+          "condition": "소지자에 한함"
+        },
+        {
+          "name": "가족관계증명서(상세)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "초청인의 소득 입증서류",
+          "is_required": true,
+          "condition": "소득금액증명원, 재직증명서, 근로소득원천징수영수증 등"
+        },
+        {
+          "name": "체류지 입증서류",
+          "is_required": true,
+          "condition": "임대차계약서, 등기부등본, 숙소제공확인서 중 택1"
+        },
+        {
+          "name": "결혼식 사진, 교제경위서 등",
+          "is_required": true,
+          "condition": "혼인의 진정성 입증"
+        },
+        {
+          "name": "신원보증서",
+          "is_required": true,
+          "condition": "보증기간 2년, 체류자격변경 시만 징구"
+        },
+        {
+          "name": "결핵진단서",
+          "is_required": false,
+          "condition": "결핵고위험국가(35개국) 국민에 한함"
+        },
+        {
+          "name": "기본증명서(상세)",
+          "is_required": false,
+          "condition": "해당 시"
+        },
+        {
+          "name": "출입국사실증명서",
+          "is_required": false,
+          "condition": "초청인 해외체류 기간 확인 시"
+        }
+      ],
+      "exceptions": [
+        {
+          "type": "fee_exemption",
+          "title": "수수료 감면",
+          "description": "결혼이민(F-6)은 체류자격변경 수수료 4만원(일반 10만원 대비 감액)"
+        },
+        {
+          "type": "doc_exemption",
+          "title": "신원보증서 이후 면제",
+          "description": "체류자격변경 시 2년 보증기간의 신원보증서 징구, 이후 체류기간 연장 시에는 징구 생략"
+        },
+        {
+          "type": "special_case",
+          "title": "국민 배우자 사망·실종·이혼 시",
+          "description": "혼인관계 해소 후에도 F-6-2(자녀양육) 또는 F-6-3(귀책사유 없음) 요건 충족 시 체류 가능"
+        },
+        {
+          "type": "special_case",
+          "title": "가정폭력 피해자",
+          "description": "가정폭력 피해 결혼이민자는 별도 심사기준 적용, 소득요건 완화"
+        },
+        {
+          "type": "policy_change",
+          "title": "소득요건 기준",
+          "description": "초청인(국민) 기준 전년도 도시근로자 가구당 월평균소득 이상 입증 필요"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "visa_code": "F-6",
+      "visa_subtype_code": null,
+      "task_type": "PERIOD_EXTEND",
+      "task_name_detail": "결혼이민(F-6) 체류기간연장허가",
+      "overview": "결혼이민(F-6) 자격으로 체류 중인 자의 체류기간을 연장하는 경우",
+      "eligibility": "F-6 자격 소지자로서 혼인관계가 유지되고 있는 자",
+      "fee": "3만원",
+      "max_permission_period": "최대 2년 (초회 1년 후 2년씩 연장 가능)",
+      "processing_period": "접수일로부터 약 14일",
+      "review_criteria": "혼인관계 유지 여부, 국내 체류 적정성, 초청인 소득요건 충족 여부",
+      "legal_basis": "출입국관리법 제25조",
+      "source_manual": "260310 체류민원 매뉴얼",
+      "form_documents": [
+        {
+          "name": "통합신청서(별지34호)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "여권 및 외국인등록증",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "표준규격사진 1장",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "수수료",
+          "is_required": true,
+          "condition": "3만원"
+        }
+      ],
+      "attached_documents": [
+        {
+          "name": "혼인관계증명서(상세)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "주민등록등본",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "초청인 소득 입증서류",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "체류지 입증서류",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "결핵진단서",
+          "is_required": false,
+          "condition": "결핵고위험국가 국민 중 이전에 미제출한 경우"
+        },
+        {
+          "name": "외국인 직업·소득 신고서",
+          "is_required": false,
+          "condition": "취업 중인 경우"
+        }
+      ],
+      "exceptions": [
+        {
+          "type": "fee_exemption",
+          "title": "수수료 감면",
+          "description": "결혼이민(F-6)은 체류기간연장 수수료 3만원(일반 6만원 대비 감액)"
+        },
+        {
+          "type": "doc_exemption",
+          "title": "신원보증서 면제",
+          "description": "체류기간 연장 시 신원보증서 징구 생략"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "visa_code": "E-7",
+      "visa_subtype_code": "E-7-4",
+      "task_type": "STATUS_CHANGE",
+      "task_name_detail": "숙련기능인력(E-7-4) 체류자격변경허가 (K-point 점수제)",
+      "overview": "비전문취업(E-9), 선원취업(E-10), 방문취업(H-2) 등으로 4년 이상 체류한 숙련 외국인근로자가 점수제를 통해 E-7-4로 자격변경",
+      "eligibility": "최근 10년간 해당 자격(E-9, E-10, H-2)으로 4년 이상 체류한 뒤 등록외국인으로 현재 근무처에서 정상 근로 중인 자. 현 근무처에서 연봉 2,600만원 이상(농축산업·어업·내항상선: 2,400만원 이상). 향후 2년 이상 E-7-4 고용계약 체결. 현재 1년 이상 근무 중인 기업의 추천을 받은 자. 한국어능력 4급 이상 최소점수(50점) 이상자로 총점(기본항목+가점항목) 200점 이상",
+      "fee": "10만원 (일반적인 자격변경 수수료 적용, 전자민원 감면 포함)",
+      "max_permission_period": "1회 부여 체류기간 2년 이내(고용계약 범위 내)",
+      "processing_period": null,
+      "review_criteria": "K-point 점수제 심사표 기준 총 300점 만점 중 200점 이상(가점 포함). 기본항목: (A)최근2년 연간평균소득 최대120점, (B)한국어능력 최대120점, (C)나이 최대60점. 가점항목: 중앙부처/광역지자체/고용기업 추천(30점), 현근무처 3년 이상 근속(50점), 인구감소지역·읍면지역 3년 이상 근무(20점), 기능사 이상 자격증·국내대학 학위(20점), 국내 운전면허증(10점). 감점항목: 벌금100만원 미만 형(최대20점), 조세 체납으로 체류허가 제한 경력(최대15점), 출입국관리법 3회 이하 위반 행정처분(최대15점)",
+      "legal_basis": "K-point E74 시행일 2024.11.27",
+      "source_manual": "260310 체류민원 매뉴얼 p.297-316",
+      "form_documents": [
+        {
+          "name": "통합신청서(별지34호)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "여권사본(인적사항면)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "점수제 자체 심사표(붙임7 양식)",
+          "is_required": true,
+          "condition": "외국인 본인 작성"
+        },
+        {
+          "name": "신상 기술서(붙임4 양식)",
+          "is_required": true,
+          "condition": "외국인 본인 작성"
+        },
+        {
+          "name": "표준근로계약서(E-7-4 계약서 제출)",
+          "is_required": true,
+          "condition": "계약기간 최소 2년 이상, 연봉 2,600만원 이상 명시"
+        },
+        {
+          "name": "수수료",
+          "is_required": true,
+          "condition": null
+        }
+      ],
+      "attached_documents": [
+        {
+          "name": "세무서 발행 소득금액증명원",
+          "is_required": true,
+          "condition": "최근 2년간 평균소득 확인용"
+        },
+        {
+          "name": "한국어능력 입증서류",
+          "is_required": true,
+          "condition": "TOPIK으로 할 경우만 점수표 제출, 사회통합프로그램 이수증이나 사전평가 점수로 하는 경우 이수증 제출 생략"
+        },
+        {
+          "name": "신원보증서(별지129호)",
+          "is_required": true,
+          "condition": "고용주가 신원보증인"
+        },
+        {
+          "name": "사업자등록증 사본 또는 농업경영체등록(국립농산물품질관리원)",
+          "is_required": true,
+          "condition": "현재 근무처"
+        },
+        {
+          "name": "납세증명서, 지방세납세증명서",
+          "is_required": true,
+          "condition": "기업의 세금체납 여부 확인용"
+        },
+        {
+          "name": "4대보험 사업장 가입자 명부 또는 농업경영체등록(국립농산물품질관리원), 공사금액 입증서류(시공능력순위확인서 등/건설업에 한함)",
+          "is_required": true,
+          "condition": "현재 근무처"
+        },
+        {
+          "name": "고용기업 추천서(붙임5) 및 추천자 신분증 사본",
+          "is_required": true,
+          "condition": "현재 근무처"
+        },
+        {
+          "name": "국내 자격증 사본",
+          "is_required": false,
+          "condition": "가점 해당자만 제출"
+        },
+        {
+          "name": "국내 학위증 사본",
+          "is_required": false,
+          "condition": "가점 해당자만 제출"
+        },
+        {
+          "name": "국내 운전면허증사본",
+          "is_required": false,
+          "condition": "가점 해당자만 제출"
+        },
+        {
+          "name": "뿌리기업 확인서",
+          "is_required": false,
+          "condition": "뿌리기업만 해당"
+        },
+        {
+          "name": "원청확인서 또는 기자재업체확인서",
+          "is_required": false,
+          "condition": "조선업만 해당"
+        },
+        {
+          "name": "내항여객운송사업면허증 또는 내항화물운송사업등록증",
+          "is_required": false,
+          "condition": "내항/항정기운송사업만 해당"
+        }
+      ],
+      "scoring_system": {
+        "total_max": 300,
+        "passing_score": 200,
+        "basic_items": {
+          "income_max_120": "최근2년 연간 평균소득: 2,500~3,000만=50, 3,000~3,500만=65, 3,500~4,000만=80, 4,000~4,500만=95, 4,500~5,000만=110, 5,000만이상=120 (농축산업·어업·내항상선 종사자는 연봉 2,400만원 이상으로 완화)",
+          "korean_max_120": "2급/2단계/41~60점=50, 3급/3단계/61~80점=80, 4급/4단계/81점이상=120. TOPIK 2급 3~4급 이상 또는 사회통합프로그램 사전평가 이후 2단계(3단계/41~60점/61~80점/81점 이상)",
+          "age_max_60": "19~26세=40, 27~33세=60, 34~40세=30, 41세이상=10"
+        },
+        "bonus_items": {
+          "recommendation_max_30": "중앙부처(30), 광역지자체(30), 고용기업(50) 추천. 1회 중앙부처나 광역지자체 추천이 중복되면 하나만 인정",
+          "tenure_3yr_plus": "현 근무처 3년 이상 근속 = 50점",
+          "depopulation_area": "인구감소지역 및 읍면지역 3년이상 근무 = 20점",
+          "qualification": "기능사 이상 자격증·국내대학 학위 = 20점",
+          "driving_license": "국내 운전면허증 = 10점"
+        },
+        "deduction_items": {
+          "fine_under_1m": "벌금 100만원 미만의 형을 받은 자에게 횟수에 따라 최대 20점 감점(1회=5, 2회=10, 3회이상=20)",
+          "tax_delinquency": "조세 체납으로 체류허가 제한받은 사실 있는 자 최대 15점 감점(1회=5, 2회=10, 3회이상=15)",
+          "immigration_violation": "출입국관리법 3회 이하 위반자로 행정처분을 받은 자 최대 15점까지 감점(1회=5, 2회=10, 3회이상=15)"
+        },
+        "exclusions": [
+          "벌금 100만원 이상의 형을 받은 자(완납 시 신청 가능)",
+          "조세 체납자(완납 시 신청 가능)",
+          "출입국관리법 4회 이상 위반자",
+          "불법체류 경력 3개월 이상인 자",
+          "대한민국의 이익이나 공공의 안전 등을 해치는 행동을 할 염려가 있다고 인정할 만한 자",
+          "경제질서 또는 사회질서를 해치거나 선량한 풍속 등을 해치는 행동을 할 염려가 있다고 인정할 만한 자"
+        ],
+        "employer_requirements": {
+          "basic": "현재 E-9, E-10, H-2를 1명 이상 정상적으로 고용하고 있는 기존 숙련기능 점수제 적용 사업장 중 3개 체류자격(E-9, E-10, H-2) 중 어느 하나에 해당되는 외국인을 현재 고용하고 있는 사업장",
+          "quota": "해당 사업장 국민고용 인원의 30% 이내",
+          "depopulation_exception": "인구감소지역·뿌리산업은 국민고용 인원의 50% 이내",
+          "tax_exclusion": "세금(국세, 지방세) 체납 사실 있는 업체는 제외"
+        }
+      },
+      "exceptions": [
+        {
+          "type": "special_case",
+          "title": "체류자격변경만 허용",
+          "description": "E-7-4는 신규 비자발급 대상 아님, 체류자격변경만 허용"
+        },
+        {
+          "type": "special_case",
+          "title": "시행일",
+          "description": "K-point E74 시행일: 2024.11.27(수)"
+        },
+        {
+          "type": "special_case",
+          "title": "사회통합프로그램 유효기간",
+          "description": "사전평가 결과일로부터 2년이 지나면 결과는 무효가 됨"
+        },
+        {
+          "type": "special_case",
+          "title": "소득 입증 대체",
+          "description": "최근 2년간 소득 입증이 불가능한 경우, 최근 5년 내 연간 단위로 소득금액이 가장 높은 2개년의 소득금액증명으로 제출 가능"
+        },
+        {
+          "type": "special_case",
+          "title": "건설업 고용 소수점 인원",
+          "description": "건설업의 경우 시공능력평가액이나 연대공사금액 총 택 T×0.41연당 0.4명 고용, 소수점 이하는 올림에서 고용가능"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "visa_code": "F-5",
+      "visa_subtype_code": "F-5-2",
+      "task_type": "STATUS_CHANGE",
+      "task_name_detail": "영주(F-5-2) 체류자격변경허가 - 국민의 배우자",
+      "overview": "국민의 배우자로서 혼인상태로 2년 이상 대한민국에 체류하거나, 혼인한 상태에서 대한민국에서 출생한 자녀를 양육하는 경우 영주자격(F-5) 신청",
+      "eligibility": "F-6 자격으로 2년 이상 대한민국에 계속 체류하면서 혼인관계를 유지하고 있는 자, 또는 혼인한 상태에서 대한민국에서 출생한 자녀를 양육하고 있는 자",
+      "fee": "20만원",
+      "max_permission_period": "영구(무기한)",
+      "review_criteria": "혼인의 진정성 및 혼인관계 지속 여부, 기본적 소양(한국어 등), 생계유지 능력, 기본소양(사회통합프로그램 이수 등), 품행 단정(범죄경력 조회)",
+      "legal_basis": "출입국관리법 제46조의2, 동법 시행령 제12조",
+      "source_manual": "260310 체류민원 매뉴얼, 221230 편람 40번 지침",
+      "form_documents": [
+        {
+          "name": "통합신청서(별지34호)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "여권 및 외국인등록증",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "표준규격사진 1장",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "수수료 20만원",
+          "is_required": true,
+          "condition": null
+        }
+      ],
+      "attached_documents": [
+        {
+          "name": "혼인관계증명서(상세)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "국민 배우자의 기본증명서(상세)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "국민 배우자의 가족관계증명서(상세)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "주민등록등본",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "소득 입증서류",
+          "is_required": true,
+          "condition": "소득금액증명원, 재직증명서 등"
+        },
+        {
+          "name": "체류지 입증서류",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "사회통합프로그램 이수증 또는 한국어능력 입증서류",
+          "is_required": true,
+          "condition": "귀화용 사회통합프로그램 5단계 이수 또는 TOPIK 등"
+        },
+        {
+          "name": "범죄경력증명서(본국)",
+          "is_required": true,
+          "condition": "발급 가능 국가"
+        },
+        {
+          "name": "신체검사서",
+          "is_required": false,
+          "condition": "필요 시"
+        }
+      ],
+      "exceptions": [
+        {
+          "type": "fee_exemption",
+          "title": "수수료",
+          "description": "영주(F-5) 자격변경 수수료 20만원(일반 10만원 대비 증액)"
+        },
+        {
+          "type": "special_case",
+          "title": "자녀 출산 시 2년 면제",
+          "description": "대한민국에서 출생한 자녀를 양육하고 있는 경우 2년 체류 요건이 면제될 수 있음"
+        },
+        {
+          "type": "special_case",
+          "title": "배우자 사망/이혼 시",
+          "description": "배우자 사망 또는 귀책사유 없는 이혼의 경우에도 자녀 양육 등 요건 충족 시 영주 신청 가능"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "visa_code": "F-4",
+      "visa_subtype_code": null,
+      "task_type": "STATUS_CHANGE",
+      "task_name_detail": "재외동포(F-4) 체류자격변경허가",
+      "overview": "국내에서 다른 체류자격으로 체류 중인 재외동포가 F-4 자격으로 변경하고자 하는 경우",
+      "eligibility": "대한민국 국적을 보유하였던 자(대한민국정부 수립 전 국외이주 동포 포함)로서 외국국적을 취득한 자, 또는 부모의 일방/조부모의 일방이 대한민국 국적을 보유하였던 자로서 외국국적을 취득한 자. 세부코드: F-4-1(일반동포)~F-4-29(미성년 출생등록 전환자)",
+      "fee": "10만원",
+      "max_permission_period": "최대 3년",
+      "review_criteria": "재외동포 자격 충족 여부(국적 이력 확인), 세부코드별 자격요건 충족 여부, 취업제한 업종 준수 여부, 범죄경력, 체류실태",
+      "legal_basis": "재외동포의 출입국과 법적지위에 관한 법률, 출입국관리법 제24조",
+      "source_manual": "260310 체류민원 매뉴얼, 221230 편람 42번 지침",
+      "form_documents": [
+        {
+          "name": "재외동포(F-4) 통합신청서(별지 제1호서식)",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "여권",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "표준규격사진 1장",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "수수료",
+          "is_required": true,
+          "condition": "10만원"
+        }
+      ],
+      "attached_documents": [
+        {
+          "name": "재외동포 입증서류",
+          "is_required": true,
+          "condition": "국적 이력 증명(호적등본, 제적등본, 가족관계증명서 등)"
+        },
+        {
+          "name": "세부코드별 자격 입증서류",
+          "is_required": true,
+          "condition": "학위증(F-4-2,5,12), TOPIK증(F-4-14), 자격증(F-4-6), 근무경력증명(F-4-11,15) 등"
+        },
+        {
+          "name": "범죄경력증명서",
+          "is_required": true,
+          "condition": "본국 경찰기관 발급"
+        },
+        {
+          "name": "건강진단서(결핵진단서)",
+          "is_required": false,
+          "condition": "결핵고위험국가 국민에 한함"
+        },
+        {
+          "name": "거소신고증(기존 F-4 소지자)",
+          "is_required": false,
+          "condition": "기존 소지자 해당"
+        }
+      ],
+      "employment_restrictions": {
+        "unrestricted_subtypes": [
+          "F-4-16",
+          "F-4-17",
+          "F-4-18",
+          "F-4-19",
+          "F-4-20"
+        ],
+        "restricted_subtypes": [
+          "F-4-1",
+          "F-4-2",
+          "F-4-3",
+          "F-4-4",
+          "F-4-5",
+          "F-4-6",
+          "F-4-7",
+          "F-4-9",
+          "F-4-11",
+          "F-4-12",
+          "F-4-13",
+          "F-4-14",
+          "F-4-15",
+          "F-4-24",
+          "F-4-25",
+          "F-4-27",
+          "F-4-29"
+        ],
+        "prohibited_occupations": "단순노무 행위(건설현장 단순노무, 음식점 보조, 청소, 간병, 가사보조 등). 단, 일정 조건 충족 시 제한적 허용",
+        "violation_penalty": "취업제한 업종 위반 시 벌금 500만원 이상"
+      },
+      "exceptions": [
+        {
+          "type": "restriction",
+          "title": "병역 의무 미이행자 제한",
+          "description": "2018.5.1. 이후 국적을 이탈·상실한 남성으로서 병역의무를 이행하지 않은 자는 F-4 자격 제한"
+        },
+        {
+          "type": "special_case",
+          "title": "지정국가 강화심사",
+          "description": "21개 지정국가(중국, 베트남, 필리핀, 방글라데시 등) 국민은 강화된 심사기준 적용"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "visa_code": "F-4",
+      "visa_subtype_code": null,
+      "task_type": "PERIOD_EXTEND",
+      "task_name_detail": "재외동포(F-4) 체류기간연장허가",
+      "overview": "재외동포(F-4) 자격으로 체류 중인 자의 체류기간을 연장하는 경우",
+      "eligibility": "F-4 자격 소지자",
+      "fee": "6만원",
+      "max_permission_period": "최대 3년",
+      "review_criteria": "체류실태 점검, 취업제한 업종 준수 여부, 범죄경력 추가 확인",
+      "legal_basis": "재외동포법, 출입국관리법 제25조",
+      "source_manual": "260310 체류민원 매뉴얼",
+      "form_documents": [
+        {
+          "name": "재외동포(F-4) 통합신청서",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "여권 및 거소신고증",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "수수료",
+          "is_required": true,
+          "condition": "6만원"
+        }
+      ],
+      "attached_documents": [
+        {
+          "name": "체류지 입증서류",
+          "is_required": true,
+          "condition": null
+        },
+        {
+          "name": "취업 중인 경우 재직증명서 또는 사업자등록증",
+          "is_required": false,
+          "condition": "취업 중인 경우"
+        }
+      ],
+      "exceptions": []
+    }
+  ]
+}

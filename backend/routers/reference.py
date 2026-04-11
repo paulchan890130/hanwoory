@@ -5,8 +5,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.auth import get_current_user
 from backend.services.tenant_service import get_work_sheet_key, _get_spreadsheet
+from backend.services.cache_service import cache_get, cache_set
 
 router = APIRouter()
+
+_CACHE_REF_SHEETS = "reference:sheets"
+_TTL_REF = 30.0  # seconds
 
 
 def _col_letter(n: int) -> str:
@@ -21,11 +25,16 @@ def _col_letter(n: int) -> str:
 def list_sheets(user: dict = Depends(get_current_user)):
     """테넌트의 업무정리 스프레드시트에 있는 시트 이름 목록 반환"""
     tenant_id = user["tenant_id"]
+    cached = cache_get(tenant_id, _CACHE_REF_SHEETS)
+    if cached is not None:
+        return cached
     sheet_key = get_work_sheet_key(tenant_id)
     try:
         sh = _get_spreadsheet(sheet_key)
         titles = [ws.title for ws in sh.worksheets()]
-        return {"sheet_key": sheet_key, "sheets": titles}
+        result = {"sheet_key": sheet_key, "sheets": titles}
+        cache_set(tenant_id, _CACHE_REF_SHEETS, result, _TTL_REF)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"시트 목록 조회 실패: {e}")
 

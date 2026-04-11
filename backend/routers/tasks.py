@@ -14,6 +14,11 @@ from backend.models import (
     BatchProgressRequest,
 )
 from backend.services.tenant_service import read_sheet, upsert_sheet, delete_from_sheet
+from backend.services.cache_service import cache_get, cache_set, cache_invalidate
+
+_CACHE_ACTIVE  = "tasks:active"
+_CACHE_PLANNED = "tasks:planned"
+_TTL = 30.0  # seconds
 
 router = APIRouter()
 
@@ -73,19 +78,26 @@ def _sort_key_active(t: dict):
 
 @router.get("/active", response_model=List[dict])
 def get_active_tasks(user: dict = Depends(get_current_user)):
+    tenant_id = user["tenant_id"]
+    cached = cache_get(tenant_id, _CACHE_ACTIVE)
+    if cached is not None:
+        return cached
     ACTIVE, *_ = _sheet_names()
-    tasks = read_sheet(ACTIVE, user["tenant_id"], default_if_empty=[]) or []
+    tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
     tasks.sort(key=_sort_key_active)
+    cache_set(tenant_id, _CACHE_ACTIVE, tasks, _TTL)
     return tasks
 
 
 @router.post("/active", response_model=dict)
 def add_active_task(task: ActiveTask, user: dict = Depends(get_current_user)):
     ACTIVE, *_ = _sheet_names()
+    tenant_id = user["tenant_id"]
     if not task.id:
         task.id = str(uuid.uuid4())
     rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-    upsert_sheet(ACTIVE, user["tenant_id"], ACTIVE_HEADER, [rec], id_field="id")
+    upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, [rec], id_field="id")
+    cache_invalidate(tenant_id, _CACHE_ACTIVE)
     return rec
 
 
@@ -103,6 +115,7 @@ def update_active_task(task_id: str, task: ActiveTask, user: dict = Depends(get_
     existing = next((r for r in all_tasks if r.get("id") == task_id), {})
     merged = {**existing, **changes}
     upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, [merged], id_field="id")
+    cache_invalidate(tenant_id, _CACHE_ACTIVE)
     return merged
 
 
@@ -127,6 +140,7 @@ def batch_update_active_progress(req: BatchProgressRequest, user: dict = Depends
 
     if changed:
         upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, changed, id_field="id")
+        cache_invalidate(tenant_id, _CACHE_ACTIVE)
 
     return {"updated": len(changed)}
 
@@ -134,7 +148,9 @@ def batch_update_active_progress(req: BatchProgressRequest, user: dict = Depends
 @router.delete("/active")
 def delete_active_tasks(req: DeleteTasksRequest, user: dict = Depends(get_current_user)):
     ACTIVE, *_ = _sheet_names()
-    delete_from_sheet(ACTIVE, user["tenant_id"], req.task_ids, id_field="id")
+    tenant_id = user["tenant_id"]
+    delete_from_sheet(ACTIVE, tenant_id, req.task_ids, id_field="id")
+    cache_invalidate(tenant_id, _CACHE_ACTIVE)
     return {"deleted": len(req.task_ids)}
 
 
@@ -167,6 +183,7 @@ def complete_tasks(req: CompleteTasksRequest, user: dict = Depends(get_current_u
         upsert_sheet(COMPLETED, tenant_id, completed_header, completed_records, id_field="id")
 
     delete_from_sheet(ACTIVE, tenant_id, req.task_ids, id_field="id")
+    cache_invalidate(tenant_id, _CACHE_ACTIVE)
     return {"completed": len(completed_records)}
 
 
@@ -177,17 +194,25 @@ PLANNED_HEADER = ["id", "date", "period", "content", "note"]
 
 @router.get("/planned", response_model=List[dict])
 def get_planned_tasks(user: dict = Depends(get_current_user)):
+    tenant_id = user["tenant_id"]
+    cached = cache_get(tenant_id, _CACHE_PLANNED)
+    if cached is not None:
+        return cached
     _, PLANNED, _ = _sheet_names()
-    return read_sheet(PLANNED, user["tenant_id"], default_if_empty=[])
+    result = read_sheet(PLANNED, tenant_id, default_if_empty=[]) or []
+    cache_set(tenant_id, _CACHE_PLANNED, result, _TTL)
+    return result
 
 
 @router.post("/planned", response_model=dict)
 def add_planned_task(task: PlannedTask, user: dict = Depends(get_current_user)):
     _, PLANNED, _ = _sheet_names()
+    tenant_id = user["tenant_id"]
     if not task.id:
         task.id = str(uuid.uuid4())
     rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-    upsert_sheet(PLANNED, user["tenant_id"], PLANNED_HEADER, [rec], id_field="id")
+    upsert_sheet(PLANNED, tenant_id, PLANNED_HEADER, [rec], id_field="id")
+    cache_invalidate(tenant_id, _CACHE_PLANNED)
     return rec
 
 
@@ -202,13 +227,16 @@ def update_planned_task(task_id: str, task: PlannedTask, user: dict = Depends(ge
     existing = next((r for r in all_tasks if r.get("id") == task_id), {})
     merged = {**existing, **changes}
     upsert_sheet(PLANNED, tenant_id, PLANNED_HEADER, [merged], id_field="id")
+    cache_invalidate(tenant_id, _CACHE_PLANNED)
     return merged
 
 
 @router.delete("/planned")
 def delete_planned_tasks(req: DeleteTasksRequest, user: dict = Depends(get_current_user)):
     _, PLANNED, _ = _sheet_names()
-    delete_from_sheet(PLANNED, user["tenant_id"], req.task_ids, id_field="id")
+    tenant_id = user["tenant_id"]
+    delete_from_sheet(PLANNED, tenant_id, req.task_ids, id_field="id")
+    cache_invalidate(tenant_id, _CACHE_PLANNED)
     return {"deleted": len(req.task_ids)}
 
 

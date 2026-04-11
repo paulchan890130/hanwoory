@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -50,6 +50,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   // 동시 중복 제출 방지 — disabled 속성은 React re-render 전에 두 번째 클릭이 가능하므로 ref로 동기 가드
   const inflightRef = useRef(false);
+  // 장시간 미이용 자동 로그아웃 여부 — api.ts 401 핸들러가 sessionStorage에 설정한 플래그를 읽음
+  const [showExpiredMsg, setShowExpiredMsg] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("auth_expired") === "1") {
+        setShowExpiredMsg(true);
+        sessionStorage.removeItem("auth_expired");
+      }
+    } catch { /* sessionStorage 차단 환경 무시 */ }
+  }, []);
 
   const loginForm = useForm<LoginForm>();
   const signupForm = useForm<SignupForm>();
@@ -239,6 +250,21 @@ export default function LoginPage() {
           {/* ── 로그인 폼 ── */}
           {tab === "login" && (
             <form onSubmit={loginForm.handleSubmit(onLogin)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* 장시간 미이용 자동 로그아웃 안내 — 수동 로그아웃 시에는 표시 안 됨 */}
+              {showExpiredMsg && (
+                <div style={{
+                  padding: "11px 14px",
+                  borderRadius: 8,
+                  background: "rgba(254,215,170,0.45)",
+                  color: "#744210",
+                  border: "1px solid rgba(245,166,35,0.45)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  lineHeight: 1.5,
+                }}>
+                  장시간 미이용으로 로그아웃 되었습니다.
+                </div>
+              )}
               <div>
                 <label style={labelStyle}>로그인 ID</label>
                 <input

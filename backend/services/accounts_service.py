@@ -74,7 +74,8 @@ def verify_password(password: str, hashed: str) -> bool:
 def _get_ws():
     """
     서비스 계정으로 Accounts 워크시트를 반환.
-    시트가 없으면 자동 생성.
+    시트가 없으면 자동 생성 (쓰기 경로 전용).
+    읽기 경로에서는 _get_ws_readonly() 를 사용할 것.
     """
     from config import SHEET_KEY, ACCOUNTS_SHEET_NAME
     from backend.services.tenant_service import _get_gspread_client
@@ -85,6 +86,19 @@ def _get_ws():
     except Exception:
         ws = sh.add_worksheet(title=ACCOUNTS_SHEET_NAME, rows=500, cols=len(ACCOUNTS_SCHEMA) + 2)
     return ws
+
+
+def _get_ws_readonly():
+    """
+    서비스 계정으로 Accounts 워크시트를 읽기 전용으로 반환.
+    시트가 존재하지 않으면 add_worksheet 를 호출하지 않고 예외를 그대로 전파.
+    find_account 등 읽기 경로에서만 사용. 절대 쓰기/생성 경로에서 사용하지 말 것.
+    """
+    from config import SHEET_KEY, ACCOUNTS_SHEET_NAME
+    from backend.services.tenant_service import _get_gspread_client
+    gc = _get_gspread_client()
+    sh = gc.open_by_key(SHEET_KEY)
+    return sh.worksheet(ACCOUNTS_SHEET_NAME)  # raises WorksheetNotFound if missing — intentional
 
 
 def ensure_header(ws=None) -> None:
@@ -118,9 +132,11 @@ def find_account(login_id: str) -> dict | None:
     Accounts 시트에서 login_id 로 계정을 찾아 반환.
     get_all_values() 직접 파싱 → 헤더 중복 오류 면역.
     없으면 None 반환.
+
+    주의: _get_ws_readonly() 사용 — 시트가 없어도 add_worksheet 절대 호출 안 함.
     """
     try:
-        ws = _get_ws()
+        ws = _get_ws_readonly()
         values = ws.get_all_values()
     except Exception as e:
         print(f"[accounts_service.find_account] Sheets 읽기 실패: {e}")

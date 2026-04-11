@@ -424,7 +424,7 @@ export default function DashboardPage() {
   const { data: events = {} } = useQuery({
     queryKey: ["events"],
     queryFn: () => eventsApi.get().then((r) => r.data),
-    staleTime: 30_000,
+    staleTime: 3_000,  // 3s — 일정 추가/수정 후 즉시 갱신 필요
   });
   const { data: expiryData } = useQuery({
     queryKey: ["expiry-alerts"],

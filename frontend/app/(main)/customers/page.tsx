@@ -251,17 +251,18 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Record<string, string> | null>(null);
   const [isNewMode, setIsNewMode] = useState(false);
 
-  // 300ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
+  // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
     const t = setTimeout(() => {
-      setDebouncedSearch(search.length === 1 ? "" : search);
-    }, 300);
+      setDebouncedSearch(search.length < 2 ? "" : search);
+    }, 400);
     return () => clearTimeout(t);
   }, [search]);
 
   const { data: customers = [], isLoading, error } = useQuery({
     queryKey: ["customers", debouncedSearch],
-    queryFn: () => customersApi.list(debouncedSearch || undefined).then((r) => r.data as Record<string, string>[]),
+    queryFn: ({ signal }) =>
+      customersApi.list(debouncedSearch || undefined, signal).then((r) => r.data as Record<string, string>[]),
     staleTime: 30_000,
   });
 

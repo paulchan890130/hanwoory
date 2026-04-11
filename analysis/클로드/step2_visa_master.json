@@ -1,0 +1,732 @@
+{
+  "$schema": "출입국 실무지침 DB - STEP 2: 체류자격 마스터 데이터",
+  "version": "1.0",
+  "created_date": "2026-04-11",
+  "sources": [
+    "260310 사증민원 자격별 안내 매뉴얼 (2026.3)",
+    "260310 체류민원 자격별 안내 매뉴얼 (2026.3)",
+    "221230 체류관리편람 (2022.12)"
+  ],
+  "visa_types": [
+    {
+      "id": 1,
+      "visa_code": "A-1",
+      "visa_name": "외교",
+      "visa_category": "외교/공무",
+      "activity_scope": "외국정부의 외교사절단이나 영사기관의 구성원, 조약 또는 국제관행에 따라 외교사절과 동등한 특권과 면제를 받는 자와 그 가족",
+      "eligible_persons": "외국정부의 외교사절단이나 영사기관의 구성원(대사, 공사, 참사관, 서기관 등 외교직원), 조약·국제관행에 의해 외교사절 동등 특권·면제를 받는 자(국제연합 사무총장·사무차장, 국제연합전문기구 사무국장 등), 국가원수·각료·양원의장·정부주최 회의 대표단 구성원, 상기자의 가족",
+      "max_stay_period": "재임기간",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 2,
+      "visa_code": "A-2",
+      "visa_name": "공무",
+      "visa_category": "외교/공무",
+      "activity_scope": "외국정부 또는 국제기구의 공무를 수행하는 사람과 그 가족",
+      "eligible_persons": "대한민국정부가 승인한 외국정부 또는 국제기구의 공무를 수행하는 자와 그 가족",
+      "max_stay_period": "공무수행기간",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 3,
+      "visa_code": "A-3",
+      "visa_name": "협정",
+      "visa_category": "외교/공무",
+      "activity_scope": "대한민국정부와의 협정에 따라 외국인등록이 면제되거나 면제될 필요가 있다고 인정되는 사람과 그 가족",
+      "eligible_persons": "SOFA 대상자, Fulbright 협정대상자, 기타 한국정부 협정에 따른 자격자 및 그 가족",
+      "max_stay_period": "협정상의 체류기간",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 4,
+      "visa_code": "B-1",
+      "visa_name": "사증면제",
+      "visa_category": "단기",
+      "activity_scope": "대한민국과 사증면제협정을 체결한 국가의 국민으로서 그 협정에 의한 활동",
+      "eligible_persons": "사증면제협정 체결국 국민",
+      "max_stay_period": "협정상의 체류기간",
+      "is_employment_allowed": false,
+      "is_long_term": false,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 5,
+      "visa_code": "B-2",
+      "visa_name": "관광통과",
+      "visa_category": "단기",
+      "activity_scope": "관광·통과 등의 목적으로 대한민국에 사증 없이 입국하려는 사람",
+      "eligible_persons": "무사증입국 허가대상 국가 국민, 제주도 무사증입국 대상자, 관광상륙허가 대상자 등",
+      "max_stay_period": "법무부장관이 따로 정하는 기간",
+      "is_employment_allowed": false,
+      "is_long_term": false,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 6,
+      "visa_code": "C-1",
+      "visa_name": "일시취재",
+      "visa_category": "단기",
+      "activity_scope": "일시적인 취재 또는 보도활동",
+      "eligible_persons": "외국의 신문, 방송, 잡지, 기타 보도기관에서 한국에 파견되어 취재·보도활동을 하는 자",
+      "max_stay_period": "90일",
+      "is_employment_allowed": false,
+      "is_long_term": false,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 7,
+      "visa_code": "C-3",
+      "visa_name": "단기방문",
+      "visa_category": "단기",
+      "activity_scope": "시장조사, 업무연락, 상담, 계약, 관광, 요양, 친지방문, 친선경기, 각종 행사·회의 참가, 문화예술, 일반연수, 강습, 종교의식 참석, 학술자료 수집 등",
+      "eligible_persons": "관광, 통과, 치료, 친지방문, 상용 등의 목적으로 90일 이내 체류할 자",
+      "max_stay_period": "90일",
+      "is_employment_allowed": false,
+      "is_long_term": false,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 8,
+      "visa_code": "C-4",
+      "visa_name": "단기취업",
+      "visa_category": "단기",
+      "activity_scope": "일시 흥행, 광고·패션 모델, 강의·강연, 연구, 기술지도 등 수익을 목적으로 단기간 취업활동",
+      "eligible_persons": "수익이 따르는 단기간 활동을 하려는 자(90일 이하)",
+      "max_stay_period": "90일",
+      "is_employment_allowed": true,
+      "is_long_term": false,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 9,
+      "visa_code": "D-1",
+      "visa_name": "문화예술",
+      "visa_category": "유학/연수",
+      "activity_scope": "수익을 목적으로 하지 않는 학술 또는 예술상의 활동",
+      "eligible_persons": "수익 없이 학술·예술활동을 하려는 자",
+      "max_stay_period": "2년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 10,
+      "visa_code": "D-2",
+      "visa_name": "유학",
+      "visa_category": "유학/연수",
+      "activity_scope": "전문대학 이상의 교육기관 또는 학술연구기관에서 정규과정의 교육을 받거나 특정 연구를 하는 활동",
+      "eligible_persons": "전문대학 이상 교육기관 정규과정 입학자, 학술연구기관 연구자",
+      "max_stay_period": "2년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 11,
+      "visa_code": "D-3",
+      "visa_name": "기술연수",
+      "visa_category": "유학/연수",
+      "activity_scope": "법무부장관이 정하는 연수조건을 갖춘 자로서 국내의 산업체에서 연수를 받는 활동",
+      "eligible_persons": "해외투자기업 연수생(D-3-1)",
+      "max_stay_period": "2년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 12,
+      "visa_code": "D-4",
+      "visa_name": "일반연수",
+      "visa_category": "유학/연수",
+      "activity_scope": "유학(D-2) 이외의 교육기관이나 기업체, 단체 등에서 교육 또는 연수를 받는 활동",
+      "eligible_persons": "한국어연수생, 고등학교 이하 교육기관 유학생, 기업체 연수생 등",
+      "max_stay_period": "2년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 13,
+      "visa_code": "D-5",
+      "visa_name": "취재",
+      "visa_category": "취업",
+      "activity_scope": "외국의 신문, 방송, 잡지, 기타 보도기관에서 한국에 주재하면서 취재·보도활동",
+      "eligible_persons": "외국보도기관의 한국주재 기자·특파원",
+      "max_stay_period": "2년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 14,
+      "visa_code": "D-6",
+      "visa_name": "종교",
+      "visa_category": "기타",
+      "activity_scope": "외국의 종교단체 또는 이에 준하는 단체의 명을 받고 종교활동",
+      "eligible_persons": "외국 종교단체의 파견 선교사, 목사, 신부, 승려 등",
+      "max_stay_period": "2년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 15,
+      "visa_code": "D-7",
+      "visa_name": "주재",
+      "visa_category": "취업",
+      "activity_scope": "외국의 공공기관, 단체 또는 회사의 본사, 지사, 기타 사업소 등에서 1년 이상 근무한 자로서 한국 내 그 계열회사, 자회사, 지사 또는 사무소에 필수전문인력으로 파견되어 근무하는 활동",
+      "eligible_persons": "본사 1년 이상 근무 후 한국 주재원으로 파견된 자",
+      "max_stay_period": "3년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 16,
+      "visa_code": "D-8",
+      "visa_name": "기업투자",
+      "visa_category": "취업",
+      "activity_scope": "외국인투자촉진법에 의한 외국인투자기업의 경영·관리 또는 생산·기술 분야에 종사하는 필수전문인력",
+      "eligible_persons": "외국인투자기업 경영자, 기술인력 등",
+      "max_stay_period": "5년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 17,
+      "visa_code": "D-9",
+      "visa_name": "무역경영",
+      "visa_category": "취업",
+      "activity_scope": "대한민국에 회사를 설립하여 경영하거나 무역, 기타 영리사업을 위한 활동",
+      "eligible_persons": "한국 내 회사 설립·경영자, 무역업자",
+      "max_stay_period": "2년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 18,
+      "visa_code": "D-10",
+      "visa_name": "구직",
+      "visa_category": "취업",
+      "activity_scope": "교수(E-1)~특정활동(E-7)에 해당하는 분야의 취업을 위한 구직활동",
+      "eligible_persons": "전문직종(E-1~E-7) 자격에 해당하는 취업을 위한 구직활동자",
+      "max_stay_period": "6개월",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 19,
+      "visa_code": "E-1",
+      "visa_name": "교수",
+      "visa_category": "취업",
+      "activity_scope": "전문대학 이상의 교육기관 또는 이에 준하는 기관에서 전문 분야의 교육·연구지도 활동",
+      "eligible_persons": "고등교육법에 의한 자격요건을 갖춘 외국인으로서 전문대학 이상의 교육기관에서 교육 또는 연구지도를 하려는 자",
+      "max_stay_period": "5년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 20,
+      "visa_code": "E-2",
+      "visa_name": "회화지도",
+      "visa_category": "취업",
+      "activity_scope": "법무부장관이 정하는 자격요건을 갖춘 외국인으로서 외국어전문학원, 초등학교 이상의 교육기관 및 부설어학연구소, 방송사, 기업체부설 어학연수원 등에서 외국어 회화지도",
+      "eligible_persons": "해당 언어를 모국어로 하는 국가의 국적자로서 학사 이상 학위 소지자",
+      "max_stay_period": "2년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 21,
+      "visa_code": "E-3",
+      "visa_name": "연구",
+      "visa_category": "취업",
+      "activity_scope": "대한민국 내의 공·사 기관으로부터 초빙되어 각종 연구소에서 자연과학 또는 각 분야의 산업상 고도기술의 연구개발",
+      "eligible_persons": "자연과학·첨단기술 연구개발 분야 초빙 연구원",
+      "max_stay_period": "5년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 22,
+      "visa_code": "E-4",
+      "visa_name": "기술지도",
+      "visa_category": "취업",
+      "activity_scope": "대한민국 내의 공·사 기관에 초빙되어 자연과학 또는 산업상의 고도의 전문기술을 제공하는 활동",
+      "eligible_persons": "자연과학·산업기술 분야 전문기술 제공자",
+      "max_stay_period": "5년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 23,
+      "visa_code": "E-5",
+      "visa_name": "전문직업",
+      "visa_category": "취업",
+      "activity_scope": "대한민국의 법률에 의하여 자격이 인정된 외국의 전문직업 분야에 종사하는 활동",
+      "eligible_persons": "외국의 변호사, 회계사, 의사 등 전문직 자격 소지자로서 국내법에 의해 인정된 자",
+      "max_stay_period": "5년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 24,
+      "visa_code": "E-6",
+      "visa_name": "예술흥행",
+      "visa_category": "취업",
+      "activity_scope": "수익을 목적으로 하는 음악, 미술, 문학 등의 예술활동 및 수익을 목적으로 하는 연예, 연주, 연극, 운동경기, 광고·패션모델 기타 이에 준하는 활동",
+      "eligible_persons": "예술활동 종사자, 흥행사, 운동선수, 모델 등",
+      "max_stay_period": "2년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 25,
+      "visa_code": "E-7",
+      "visa_name": "특정활동",
+      "visa_category": "취업",
+      "activity_scope": "대한민국 내의 공·사 기관 등과의 계약에 따라 법무부장관이 특별히 지정하는 활동",
+      "eligible_persons": "전문지식·기술·기능을 가진 자로서 E-1~E-6, E-8~E-10에 해당하지 않는 분야에서 활동하려는 자",
+      "max_stay_period": "3년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1",
+      "notes": "전문인력(E-7-1)과 숙련기능인력(E-7-S) 등 세분화"
+    },
+    {
+      "id": 26,
+      "visa_code": "E-8",
+      "visa_name": "계절근로",
+      "visa_category": "취업",
+      "activity_scope": "계절적으로 농어업·양식업 분야 근로활동에 종사하는 활동",
+      "eligible_persons": "지방자치단체와 MOU를 체결한 국가 국민으로서 계절근로에 종사하려는 자",
+      "max_stay_period": "8개월",
+      "is_employment_allowed": true,
+      "is_long_term": false,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 27,
+      "visa_code": "E-9",
+      "visa_name": "비전문취업",
+      "visa_category": "취업",
+      "activity_scope": "외국인고용법에 따라 국내에서 비전문적인 업무에 종사하는 활동",
+      "eligible_persons": "고용허가제(EPS)에 따라 한국에 취업하는 외국인근로자",
+      "max_stay_period": "3년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1, 외국인근로자의 고용 등에 관한 법률"
+    },
+    {
+      "id": 28,
+      "visa_code": "E-10",
+      "visa_name": "선원취업",
+      "visa_category": "취업",
+      "activity_scope": "선박의 선원으로서 종사하는 활동",
+      "eligible_persons": "국내 해운업체 소속 선박 선원으로 취업하려는 자",
+      "max_stay_period": "3년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 29,
+      "visa_code": "F-1",
+      "visa_name": "방문동거",
+      "visa_category": "거주",
+      "activity_scope": "친척방문, 가족동거, 피부양, 가사보조 등의 목적으로 체류하려는 자",
+      "eligible_persons": "국민의 배우자의 부모, 전문인력·유학생의 부모, 외국인 가사보조인 등",
+      "max_stay_period": "2년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 30,
+      "visa_code": "F-2",
+      "visa_name": "거주",
+      "visa_category": "거주",
+      "activity_scope": "대한민국에 영주할 수 있는 체류자격(F-5)을 가지지 못하나 장기간 거주할 필요가 있는 자",
+      "eligible_persons": "국민의 미성년 외국인자녀, 영주자격자의 배우자, 난민인정자, 점수제 거주자, 부동산투자자, 공익사업투자자, 특별기여자 등",
+      "max_stay_period": "3년 (F-2-99 점수제: 3년)",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 31,
+      "visa_code": "F-3",
+      "visa_name": "동반",
+      "visa_category": "거주",
+      "activity_scope": "문화예술(D-1)~특정활동(E-7)까지의 자격 소지자의 배우자 및 미성년 자녀로서 배우자가 없는 자",
+      "eligible_persons": "D-1~E-7 자격소지자의 배우자 및 미성년 자녀",
+      "max_stay_period": "동반하는 주자격자의 체류기간",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 32,
+      "visa_code": "F-4",
+      "visa_name": "재외동포",
+      "visa_category": "거주",
+      "activity_scope": "재외동포의출입국과법적지위에관한법률에 따른 재외동포 활동",
+      "eligible_persons": "대한민국 국적을 보유하였던 자(대한민국정부 수립 전 국외로 이주한 동포 포함)로서 외국국적을 취득한 자, 부모의 일방 또는 조부모의 일방이 대한민국 국적을 보유하였던 자로서 외국국적을 취득한 자",
+      "max_stay_period": "3년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1, 재외동포법"
+    },
+    {
+      "id": 33,
+      "visa_code": "F-5",
+      "visa_name": "영주",
+      "visa_category": "거주",
+      "activity_scope": "대한민국에 영주할 수 있는 체류자격",
+      "eligible_persons": "5년 이상 대한민국에 체류한 자, 국민의 배우자·자녀, 영주자격자의 배우자·자녀, 고액투자자, 첨단기술보유자, 특별공로자 등",
+      "max_stay_period": "영구(무기한)",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1",
+      "notes": "F-5-1~F-5-16 세부코드, 체류자격변경 수수료 20만원"
+    },
+    {
+      "id": 34,
+      "visa_code": "F-6",
+      "visa_name": "결혼이민",
+      "visa_category": "거주",
+      "activity_scope": "국민의 배우자 또는 국민과 혼인관계(사실상의 혼인관계 포함)에서 출생한 자녀를 양육하는 부 또는 모로서 법무부장관이 인정하는 자",
+      "eligible_persons": "국민의 배우자, 국민과의 혼인관계에서 출생 자녀를 양육하는 부/모",
+      "max_stay_period": "3년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1",
+      "notes": "체류자격변경 수수료 4만원, 체류기간연장 수수료 3만원"
+    },
+    {
+      "id": 35,
+      "visa_code": "G-1",
+      "visa_name": "기타",
+      "visa_category": "기타",
+      "activity_scope": "법무부장관이 인정하는 자로서 A-1~F-6, H-1, H-2에 해당하지 않는 활동",
+      "eligible_persons": "난민신청자, 인도적체류허가자, 산재피해자, 가정폭력 피해자, 피해 외국인 등",
+      "max_stay_period": "1년",
+      "is_employment_allowed": false,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1",
+      "notes": "G-1-5(난민신청자), G-1-6(인도적체류자), G-1-10(산재), G-1-11(가정폭력) 등"
+    },
+    {
+      "id": 36,
+      "visa_code": "H-1",
+      "visa_name": "관광취업",
+      "visa_category": "취업",
+      "activity_scope": "대한민국과 관광취업에 관한 협정이나 양해각서 등을 체결한 국가의 국민으로서 관광과 취업활동",
+      "eligible_persons": "관광취업 협정(워킹홀리데이) 체결국의 만18~30세(일부 25세) 청년",
+      "max_stay_period": "1년",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1"
+    },
+    {
+      "id": 37,
+      "visa_code": "H-2",
+      "visa_name": "방문취업",
+      "visa_category": "취업",
+      "activity_scope": "재외동포(F-4) 자격에 해당하지 않는 동포로서 취업활동 등을 하려는 사람",
+      "eligible_persons": "만25세 이상인 중국·구소련지역 동포로서 재외동포(F-4) 자격에 해당하지 않는 자",
+      "max_stay_period": "3년 (복수사증 유효기간 5년)",
+      "is_employment_allowed": true,
+      "is_long_term": true,
+      "legal_basis": "출입국관리법 시행령 별표1, 재외동포법"
+    }
+  ],
+  "visa_subtypes": {
+    "F-4": [
+      {
+        "subtype_code": "F-4-1",
+        "subtype_name": "대한민국 국적 보유자(일반동포)"
+      },
+      {
+        "subtype_code": "F-4-2",
+        "subtype_name": "전문학사 이상 학위 취득자"
+      },
+      {
+        "subtype_code": "F-4-3",
+        "subtype_name": "OECD 국가 영주권·시민권 취득자"
+      },
+      {
+        "subtype_code": "F-4-4",
+        "subtype_name": "다국적기업·Fortune500 1년 이상 근무자"
+      },
+      {
+        "subtype_code": "F-4-5",
+        "subtype_name": "한국 교육기관 학사 이상 학위 취득자"
+      },
+      {
+        "subtype_code": "F-4-6",
+        "subtype_name": "국가기술자격증 취득자"
+      },
+      {
+        "subtype_code": "F-4-7",
+        "subtype_name": "60세 이상인 자"
+      },
+      {
+        "subtype_code": "F-4-9",
+        "subtype_name": "국내 거소신고 8년 이상인 자"
+      },
+      {
+        "subtype_code": "F-4-11",
+        "subtype_name": "과거 한국에서 D-5~E-7 자격 1년 이상 합법 취업한 자"
+      },
+      {
+        "subtype_code": "F-4-12",
+        "subtype_name": "한국 전문대학 이상 졸업 후 학사 이상인 자(유학→동포전환)"
+      },
+      {
+        "subtype_code": "F-4-13",
+        "subtype_name": "미화 10만불 이상 투자한 자"
+      },
+      {
+        "subtype_code": "F-4-14",
+        "subtype_name": "한국어능력시험(TOPIK) 2급 이상 취득자"
+      },
+      {
+        "subtype_code": "F-4-15",
+        "subtype_name": "과거 한국에서 E-9, E-10, H-2 자격 4년 이상 합법 취업한 자"
+      },
+      {
+        "subtype_code": "F-4-17",
+        "subtype_name": "복수국적 포기 후 외국국적동포 자격전환자"
+      },
+      {
+        "subtype_code": "F-4-19",
+        "subtype_name": "전.현직 공무원(5급이상) 등"
+      },
+      {
+        "subtype_code": "F-4-20",
+        "subtype_name": "전.현직 국회의원, 5년이상 재직공무원"
+      },
+      {
+        "subtype_code": "F-4-24",
+        "subtype_name": "재외동포(F-4)자격자의 미혼 미성년 자녀"
+      },
+      {
+        "subtype_code": "F-4-25",
+        "subtype_name": "재외동포(F-4) 기타 동포"
+      },
+      {
+        "subtype_code": "F-4-27",
+        "subtype_name": "대한민국 정부수립 이전 국외이주 동포"
+      },
+      {
+        "subtype_code": "F-4-29",
+        "subtype_name": "미성년 출생등록 후 동포 자격전환자"
+      }
+    ],
+    "F-5": [
+      {
+        "subtype_code": "F-5-1",
+        "subtype_name": "5년 이상 체류 일반 영주"
+      },
+      {
+        "subtype_code": "F-5-2",
+        "subtype_name": "국민의 배우자(혼인상태 2년 이상 또는 자녀출산)"
+      },
+      {
+        "subtype_code": "F-5-3",
+        "subtype_name": "국민의 미성년 외국인 자녀"
+      },
+      {
+        "subtype_code": "F-5-4",
+        "subtype_name": "영주(F-5)자격자의 배우자 및 미성년자녀"
+      },
+      {
+        "subtype_code": "F-5-5",
+        "subtype_name": "50만불 이상 투자한 외국인"
+      },
+      {
+        "subtype_code": "F-5-6",
+        "subtype_name": "영주자격 지역특화형 투자"
+      },
+      {
+        "subtype_code": "F-5-7",
+        "subtype_name": "고액투자자(300만불 이상)"
+      },
+      {
+        "subtype_code": "F-5-8",
+        "subtype_name": "특정분야 능력 소유자(과학·경영·교육·문화예술·체육 분야)"
+      },
+      {
+        "subtype_code": "F-5-9",
+        "subtype_name": "고액투자자(500만불 이상 기업투자)"
+      },
+      {
+        "subtype_code": "F-5-10",
+        "subtype_name": "퇴직 기업투자(D-8) 소지자"
+      },
+      {
+        "subtype_code": "F-5-11",
+        "subtype_name": "재외동포(F-4) 2년 이상 체류 후 영주"
+      },
+      {
+        "subtype_code": "F-5-12",
+        "subtype_name": "거주(F-2) 2년 이상 체류 후 영주(점수제)"
+      },
+      {
+        "subtype_code": "F-5-13",
+        "subtype_name": "첨단과학기술 소유자"
+      },
+      {
+        "subtype_code": "F-5-14",
+        "subtype_name": "특별공로자(대한민국에 특별한 기여)"
+      },
+      {
+        "subtype_code": "F-5-15",
+        "subtype_name": "고용허가제 성실근로자(E-9/E-10, 10년 이상 체류)"
+      },
+      {
+        "subtype_code": "F-5-16",
+        "subtype_name": "방문취업(H-2) 장기체류자(F-2경유 후 영주)"
+      }
+    ],
+    "F-6": [
+      {
+        "subtype_code": "F-6-1",
+        "subtype_name": "국민의 배우자"
+      },
+      {
+        "subtype_code": "F-6-2",
+        "subtype_name": "자녀양육 (혼인관계 해소 후 미성년 자녀 양육)"
+      },
+      {
+        "subtype_code": "F-6-3",
+        "subtype_name": "혼인파탄의 귀책사유 없는 배우자"
+      }
+    ],
+    "F-2": [
+      {
+        "subtype_code": "F-2-1",
+        "subtype_name": "국민의 미성년 외국인 자녀"
+      },
+      {
+        "subtype_code": "F-2-2",
+        "subtype_name": "국민의 외국인 자녀(성년)"
+      },
+      {
+        "subtype_code": "F-2-3",
+        "subtype_name": "영주(F-5)자격 소지자의 배우자"
+      },
+      {
+        "subtype_code": "F-2-4",
+        "subtype_name": "난민인정자"
+      },
+      {
+        "subtype_code": "F-2-5",
+        "subtype_name": "부동산 투자이민(50만불 이상)"
+      },
+      {
+        "subtype_code": "F-2-6",
+        "subtype_name": "공익사업 투자이민(50만불 이상)"
+      },
+      {
+        "subtype_code": "F-2-7",
+        "subtype_name": "점수제 거주(종합점수 80점 이상)"
+      },
+      {
+        "subtype_code": "F-2-9",
+        "subtype_name": "장기체류 후 거주(10년 이상 합법체류)"
+      },
+      {
+        "subtype_code": "F-2-12",
+        "subtype_name": "거주(F-2)자격 소지자의 배우자"
+      },
+      {
+        "subtype_code": "F-2-14",
+        "subtype_name": "전문인력 점수제 거주"
+      },
+      {
+        "subtype_code": "F-2-15",
+        "subtype_name": "자녀가 성년이 된 자녀양육자(F-6-2 전환)"
+      },
+      {
+        "subtype_code": "F-2-16",
+        "subtype_name": "특별기여자(대한민국에 특별한 기여)"
+      },
+      {
+        "subtype_code": "F-2-99",
+        "subtype_name": "기타 거주"
+      }
+    ],
+    "G-1": [
+      {
+        "subtype_code": "G-1-1",
+        "subtype_name": "산재(산업재해) 피해 외국인"
+      },
+      {
+        "subtype_code": "G-1-5",
+        "subtype_name": "난민신청자"
+      },
+      {
+        "subtype_code": "G-1-6",
+        "subtype_name": "인도적체류허가자"
+      },
+      {
+        "subtype_code": "G-1-10",
+        "subtype_name": "체불임금 관련 체류"
+      },
+      {
+        "subtype_code": "G-1-11",
+        "subtype_name": "가정폭력 피해자"
+      },
+      {
+        "subtype_code": "G-1-12",
+        "subtype_name": "성매매 피해자"
+      },
+      {
+        "subtype_code": "G-1-16",
+        "subtype_name": "소송진행 중인 자"
+      }
+    ],
+    "E-7": [
+      {
+        "subtype_code": "E-7-1",
+        "subtype_name": "전문인력(전문지식·기술 보유자)"
+      },
+      {
+        "subtype_code": "E-7-S",
+        "subtype_name": "숙련기능인력(점수제)"
+      }
+    ],
+    "H-2": [
+      {
+        "subtype_code": "H-2-1",
+        "subtype_name": "연고지 없는 동포(추첨제)"
+      },
+      {
+        "subtype_code": "H-2-5",
+        "subtype_name": "연고동포(국내 8촌 이내 친척)"
+      },
+      {
+        "subtype_code": "H-2-7",
+        "subtype_name": "국내 유학 후 방문취업 전환자"
+      }
+    ]
+  }
+}

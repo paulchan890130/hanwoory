@@ -1,0 +1,680 @@
+{
+  "$schema": "출입국 실무지침 DB - STEP 1: 공통규칙 데이터",
+  "version": "1.0",
+  "created_date": "2026-04-10",
+  "sources": [
+    "221230 체류관리편람 (2022.12)",
+    "260310 체류민원 자격별 안내 매뉴얼 (2026.3)",
+    "260310 사증민원 자격별 안내 매뉴얼 (2026.3)"
+  ],
+  "fee_schedule": [
+    {
+      "id": 1,
+      "task_name": "체류자격 외 활동허가",
+      "task_code": "ACTIVITY_EXTRA",
+      "fee_amount": 120000,
+      "fee_display": "12만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 2,
+      "task_name": "근무처의 변경·추가",
+      "task_code": "WORKPLACE_CHANGE",
+      "fee_amount": 120000,
+      "fee_display": "12만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 3,
+      "task_name": "체류자격 부여",
+      "task_code": "STATUS_GRANT",
+      "fee_amount": 80000,
+      "fee_display": "8만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 4,
+      "task_name": "체류자격 변경허가",
+      "task_code": "STATUS_CHANGE",
+      "fee_amount": 100000,
+      "fee_display": "10만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [
+        {
+          "condition": "영주(F-5) 자격 변경",
+          "fee_amount": 200000,
+          "fee_display": "20만원"
+        },
+        {
+          "condition": "결혼이민(F-6) 자격 변경",
+          "fee_amount": 40000,
+          "fee_display": "4만원"
+        }
+      ],
+      "notes": null
+    },
+    {
+      "id": 5,
+      "task_name": "체류기간 연장허가",
+      "task_code": "PERIOD_EXTEND",
+      "fee_amount": 60000,
+      "fee_display": "6만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [
+        {
+          "condition": "결혼이민(F-6) 체류기간 연장",
+          "fee_amount": 30000,
+          "fee_display": "3만원"
+        }
+      ],
+      "notes": null
+    },
+    {
+      "id": 6,
+      "task_name": "단수재입국허가",
+      "task_code": "REENTRY_SINGLE",
+      "fee_amount": 30000,
+      "fee_display": "3만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 7,
+      "task_name": "복수재입국허가",
+      "task_code": "REENTRY_MULTIPLE",
+      "fee_amount": 50000,
+      "fee_display": "5만원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 8,
+      "task_name": "외국인등록증 발급 및 재발급",
+      "task_code": "ALIEN_CARD_ISSUE",
+      "fee_amount": 35000,
+      "fee_display": "3만 5천원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 9,
+      "task_name": "거소등록증 발급 및 재발급",
+      "task_code": "RESIDENCE_CARD_ISSUE",
+      "fee_amount": 35000,
+      "fee_display": "3만 5천원",
+      "legal_basis": "재외동포의 출입국과 법적 지위에 관한 법률 시행규칙 제12조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 10,
+      "task_name": "출입국에 관한 사실증명",
+      "task_code": "ENTRY_EXIT_CERT",
+      "fee_amount": 2000,
+      "fee_display": "2천원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 11,
+      "task_name": "외국인등록 사실증명",
+      "task_code": "ALIEN_REG_CERT",
+      "fee_amount": 2000,
+      "fee_display": "2천원",
+      "legal_basis": "출입국관리법 제87조, 동법 시행규칙 제72조",
+      "exceptions": [],
+      "notes": null
+    },
+    {
+      "id": 12,
+      "task_name": "국내거소신고 사실증명",
+      "task_code": "DOMESTIC_RES_CERT",
+      "fee_amount": 2000,
+      "fee_display": "2천원",
+      "legal_basis": "재외동포의 출입국과 법적 지위에 관한 법률 시행규칙 제12조",
+      "exceptions": [],
+      "notes": null
+    }
+  ],
+  "tb_high_risk_countries": [
+    {
+      "id": 1,
+      "country_name_kr": "네팔",
+      "country_name_en": "Nepal",
+      "region": "아시아"
+    },
+    {
+      "id": 2,
+      "country_name_kr": "동티모르",
+      "country_name_en": "Timor-Leste",
+      "region": "아시아"
+    },
+    {
+      "id": 3,
+      "country_name_kr": "러시아",
+      "country_name_en": "Russia",
+      "region": "유럽/아시아"
+    },
+    {
+      "id": 4,
+      "country_name_kr": "말레이시아",
+      "country_name_en": "Malaysia",
+      "region": "아시아"
+    },
+    {
+      "id": 5,
+      "country_name_kr": "몽골",
+      "country_name_en": "Mongolia",
+      "region": "아시아"
+    },
+    {
+      "id": 6,
+      "country_name_kr": "미얀마",
+      "country_name_en": "Myanmar",
+      "region": "아시아"
+    },
+    {
+      "id": 7,
+      "country_name_kr": "방글라데시",
+      "country_name_en": "Bangladesh",
+      "region": "아시아"
+    },
+    {
+      "id": 8,
+      "country_name_kr": "베트남",
+      "country_name_en": "Vietnam",
+      "region": "아시아"
+    },
+    {
+      "id": 9,
+      "country_name_kr": "태국",
+      "country_name_en": "Thailand",
+      "region": "아시아"
+    },
+    {
+      "id": 10,
+      "country_name_kr": "스리랑카",
+      "country_name_en": "Sri Lanka",
+      "region": "아시아"
+    },
+    {
+      "id": 11,
+      "country_name_kr": "우즈베키스탄",
+      "country_name_en": "Uzbekistan",
+      "region": "중앙아시아"
+    },
+    {
+      "id": 12,
+      "country_name_kr": "인도",
+      "country_name_en": "India",
+      "region": "아시아"
+    },
+    {
+      "id": 13,
+      "country_name_kr": "인도네시아",
+      "country_name_en": "Indonesia",
+      "region": "아시아"
+    },
+    {
+      "id": 14,
+      "country_name_kr": "중국",
+      "country_name_en": "China",
+      "region": "아시아"
+    },
+    {
+      "id": 15,
+      "country_name_kr": "캄보디아",
+      "country_name_en": "Cambodia",
+      "region": "아시아"
+    },
+    {
+      "id": 16,
+      "country_name_kr": "키르기스스탄",
+      "country_name_en": "Kyrgyzstan",
+      "region": "중앙아시아"
+    },
+    {
+      "id": 17,
+      "country_name_kr": "파키스탄",
+      "country_name_en": "Pakistan",
+      "region": "아시아"
+    },
+    {
+      "id": 18,
+      "country_name_kr": "필리핀",
+      "country_name_en": "Philippines",
+      "region": "아시아"
+    },
+    {
+      "id": 19,
+      "country_name_kr": "라오스",
+      "country_name_en": "Laos",
+      "region": "아시아"
+    },
+    {
+      "id": 20,
+      "country_name_kr": "카자흐스탄",
+      "country_name_en": "Kazakhstan",
+      "region": "중앙아시아"
+    },
+    {
+      "id": 21,
+      "country_name_kr": "타지키스탄",
+      "country_name_en": "Tajikistan",
+      "region": "중앙아시아"
+    },
+    {
+      "id": 22,
+      "country_name_kr": "우크라이나",
+      "country_name_en": "Ukraine",
+      "region": "유럽"
+    },
+    {
+      "id": 23,
+      "country_name_kr": "아제르바이잔",
+      "country_name_en": "Azerbaijan",
+      "region": "서아시아"
+    },
+    {
+      "id": 24,
+      "country_name_kr": "벨라루스",
+      "country_name_en": "Belarus",
+      "region": "유럽"
+    },
+    {
+      "id": 25,
+      "country_name_kr": "몰도바공화국",
+      "country_name_en": "Moldova",
+      "region": "유럽"
+    },
+    {
+      "id": 26,
+      "country_name_kr": "나이지리아",
+      "country_name_en": "Nigeria",
+      "region": "아프리카"
+    },
+    {
+      "id": 27,
+      "country_name_kr": "남아프리카공화국",
+      "country_name_en": "South Africa",
+      "region": "아프리카"
+    },
+    {
+      "id": 28,
+      "country_name_kr": "에티오피아",
+      "country_name_en": "Ethiopia",
+      "region": "아프리카"
+    },
+    {
+      "id": 29,
+      "country_name_kr": "케냐",
+      "country_name_en": "Kenya",
+      "region": "아프리카"
+    },
+    {
+      "id": 30,
+      "country_name_kr": "콩고민주공화국",
+      "country_name_en": "Democratic Republic of the Congo",
+      "region": "아프리카"
+    },
+    {
+      "id": 31,
+      "country_name_kr": "모잠비크",
+      "country_name_en": "Mozambique",
+      "region": "아프리카"
+    },
+    {
+      "id": 32,
+      "country_name_kr": "짐바브웨",
+      "country_name_en": "Zimbabwe",
+      "region": "아프리카"
+    },
+    {
+      "id": 33,
+      "country_name_kr": "앙골라",
+      "country_name_en": "Angola",
+      "region": "아프리카"
+    },
+    {
+      "id": 34,
+      "country_name_kr": "페루",
+      "country_name_en": "Peru",
+      "region": "남미"
+    },
+    {
+      "id": 35,
+      "country_name_kr": "파푸아뉴기니",
+      "country_name_en": "Papua New Guinea",
+      "region": "오세아니아"
+    }
+  ],
+  "tb_certificate_rules": {
+    "rule_category": "health",
+    "title": "외국인 결핵진단서 제출 의무 관련 안내",
+    "source": "260310 체류민원 매뉴얼 p.5-6, 260310 사증민원 매뉴얼 p.5-6, 221230 편람 p.12-13",
+    "submission_cases": {
+      "visa_application": [
+        {
+          "case": "국내 90일 초과 체류 목적 사증 신청",
+          "detail": "전자사증 대상자의 경우 국내 입국 후 외국인등록 시 제출",
+          "legal_basis": "출입국관리법 제10조의2 제1항 제2호(장기체류자격) - 체류기간이 90일 이하라도 장기체류자격 사증을 신청하는 경우 결핵진단서 제출 대상"
+        },
+        {
+          "case": "단기체류자격 중 계절근로자(C-4-1~4) 및 국내 체류 중인 외국인 결핵환자가 가족 등을 간병인으로 초청하는 경우",
+          "detail": null
+        },
+        {
+          "case": "과거 결핵진단서를 제출하고 국내에 장기체류하다가 완전출국 후 새로운 장기체류사증을 발급받으려는 경우",
+          "detail": null
+        }
+      ],
+      "alien_registration": [
+        {
+          "case": "사증 신청 시 결핵진단서를 제출해야 하는 외국인이 전자사증으로 입국한 경우",
+          "detail": null
+        },
+        {
+          "case": "결핵고위험국가 국민이 장기체류 가능한 복수사증을 소지하고 사증 발급일로부터 6개월이 지나서 입국한 경우",
+          "detail": null
+        }
+      ],
+      "stay_permit_application": [
+        {
+          "case": "단기체류자격으로 입국한 결핵고위험국가 국민이 장기체류자격으로 변경 신청하는 경우",
+          "detail": null
+        },
+        {
+          "case": "장기체류자격으로 체류 중인 결핵고위험국가 국민 중 2016.3.2. 이후 사증 및 체류허가 신청 시 결핵진단서를 제출한 적이 없는 경우",
+          "detail": null
+        },
+        {
+          "case": "결핵고위험국가 국적의 등록외국인이 체류기간 연장 또는 체류자격변경 신청 시, 신청일 기준 1년 이내 연속으로 6개월 이상 결핵고위험국가에서 장기체류한 경우",
+          "detail": "출국 행선지가 결핵 고위험국가가 아닌 경우 결핵진단서 제출 대상 아님. 출국행선지 확인이 불가한 경우 결핵진단서 제출을 원칙으로 하되 본인이 결핵 고위험 국가를 방문하지 않았음을 소명하는 경우 제출 면제 가능"
+        }
+      ]
+    },
+    "exemptions": [
+      {
+        "type": "visa_type",
+        "description": "외교(A-1), 공무(A-2), 협정(A-3) 자격 소지자",
+        "visa_codes": [
+          "A-1",
+          "A-2",
+          "A-3"
+        ]
+      },
+      {
+        "type": "age",
+        "description": "만 6세 미만 소아 (단, 만 6세 이후 최초 체류허가 신청 시 제출)",
+        "condition": "age < 6"
+      },
+      {
+        "type": "medical",
+        "description": "임신부",
+        "condition": "pregnant"
+      },
+      {
+        "type": "medical",
+        "description": "고령 또는 질병으로 거동이 불가능한 사람",
+        "condition": "immobile_due_to_age_or_illness"
+      }
+    ],
+    "high_risk_country_count": 35
+  },
+  "common_rules": [
+    {
+      "id": 1,
+      "rule_category": "document",
+      "title": "서류 유효기간",
+      "content": "국내에서 발급·제출하는 서류의 유효기간은 별도의 유효기간이 설정되지 않은 경우 발급일로부터 3개월 이내",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": null,
+      "source": "260310 체류민원 매뉴얼 유의사항 p.3, 260310 사증민원 매뉴얼 유의사항 p.3"
+    },
+    {
+      "id": 2,
+      "rule_category": "document",
+      "title": "행정정보 공동이용 서류 면제",
+      "content": "주민등록등본·가족관계기록사항에 관한 증명서·사업자등록증·납세사실증명·어업면허증 등 전자정부법 제36조 제1항에 따른 행정정보의 공동이용을 통하여 정보의 내용을 확인할 수 있는 경우에는 제출하지 아니함. 다만, 정보주체가 이에 동의하지 아니하는 때에는 해당 서류를 첨부하여야 함",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": "전자정부법 제36조 제1항",
+      "source": "260310 체류민원 매뉴얼 유의사항 p.3"
+    },
+    {
+      "id": 3,
+      "rule_category": "document",
+      "title": "심사를 위한 서류 가감",
+      "content": "출입국·외국인청(사무소·출장소)장은 심사를 위해 특히 필요하다고 인정되는 때에는 매뉴얼상의 제출서류를 가감할 수 있음",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": null,
+      "source": "260310 체류민원 매뉴얼 유의사항 p.3"
+    },
+    {
+      "id": 4,
+      "rule_category": "document",
+      "title": "대리신청 제한",
+      "content": "신청인에 대한 직접 면담 필요 등 심사가 필요한 경우 대리 신청이 제한될 수 있음",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": null,
+      "source": "260310 체류민원 매뉴얼 유의사항 p.3"
+    },
+    {
+      "id": 5,
+      "rule_category": "document",
+      "title": "신원보증서의 보증기간 상한",
+      "content": "신원보증서의 보증기간이 4년 이상인 때에도 4년을 한도로 하여 이를 인정하며, 각종 허가를 할 때의 허가기간은 신원보증서의 보증기간을 초과할 수 없음",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": "출입국관리법 제90조, 영 제95조, 시행규칙 제77조",
+      "source": "221230 편람 p.9-12"
+    },
+    {
+      "id": 6,
+      "rule_category": "application",
+      "title": "허가신청 등의 의무자",
+      "content": "17세 미만인 경우 본인이 그 허가 등의 신청을 하지 아니하면 그의 부모나 그 밖에 대통령령으로 정하는 사람이 그 신청을 하여야 함. 대통령령으로 정하는 사람: 1.사실상의 부양자, 2.형제자매, 3.신원보증인, 4.그 밖의 동거인",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": "출입국관리법 제79조, 영 제89조",
+      "source": "221230 편람 p.7"
+    },
+    {
+      "id": 7,
+      "rule_category": "application",
+      "title": "대리 신청 및 수령 가능 업무",
+      "content": "본인이 직접 하거나 법무부장관이 정하는 사람이 대리하게 할 수 있는 업무: 1.외국인 고용 관련 신고, 근무처 변경·추가 신고, 외국인등록사항변경신고, 체류지변경신고 2.체류자격외활동허가, 근무처의변경·추가허가, 체류자격부여~체류기간연장, 재입국허가 3.외국인등록증 수령 및 재발급 4.사증발급인정서 발급의 신청과 수령",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": "시행규칙 제34조",
+      "source": "221230 편람 p.7"
+    },
+    {
+      "id": 8,
+      "rule_category": "application",
+      "title": "관할 원칙",
+      "content": "신청인의 체류지(주소지) 관할 청·사무소 또는 출장소에서 처리",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": null,
+      "source": "221230 편람 p.8"
+    },
+    {
+      "id": 9,
+      "rule_category": "application",
+      "title": "관할 예외 - 기술연수생·비전문취업(E-9)",
+      "content": "외국인 기술연수생·비전문취업(E-9)자의 연수장소 또는 근무처의 변경으로 관할구역이 달라지는 때에는 변경되는 관할 청장·사무소장 또는 출장소장이 접수 처리하고 등록 외국인기록표를 송부 받아 기록정리",
+      "applicable_visa_types": "E-9",
+      "excluded_visa_types": null,
+      "legal_basis": null,
+      "source": "221230 편람 p.8"
+    },
+    {
+      "id": 10,
+      "rule_category": "passport",
+      "title": "여권 유효기간 범위 내 체류기간 부여 안내",
+      "content": "잔여 체류기간 내에서 사실상 여권 재발급이 불가능한 경우 1회에 한하여 여권 유효기간 6개월 이하인 경우라도, 여권 유효기간을 6개월로 간주하여 6개월 이내에서 체류허가 기간 부여",
+      "applicable_visa_types": null,
+      "excluded_visa_types": "A-1, A-2, A-3, F-5, 난민인정자(F-2)·그 가족(F-1), 인도적체류허가자·난민신청자·그 가족(G-1), 무국적자",
+      "legal_basis": null,
+      "effective_date": "2022-07-01",
+      "source": "260310 체류민원 매뉴얼 p.6"
+    },
+    {
+      "id": 11,
+      "rule_category": "employment",
+      "title": "취업 가능 체류자격 외국인의 직업 및 연간소득금액 신고 의무",
+      "content": "취업이 가능한 체류자격을 가진 외국인은 외국인등록 및 각종 체류허가 신청 시에 본인의 직업 및 연간 소득금액을 관할 출입국·외국인관서에 신고하여야 함. 신고대상: 주재(D-7), 기업투자(D-8), 무역경영(D-9), 교수(E-1)~선원취업(E-10), 거주(F-2), 재외동포(F-4), 결혼이민(F-6), 방문취업(H-2). 신고시기: 외국인등록 시, 체류자격 변경허가·체류자격외 활동허가·체류기간 연장허가·근무처변경·추가허가·체류자격 부여허가 신청 시, 직업 변경 시",
+      "applicable_visa_types": "D-7, D-8, D-9, E-1~E-10, F-2, F-4, F-6, H-2",
+      "excluded_visa_types": null,
+      "legal_basis": "출입국관리법 시행규칙 제47조, 제49조의2",
+      "source": "260310 체류민원 매뉴얼 p.7"
+    },
+    {
+      "id": 12,
+      "rule_category": "education",
+      "title": "만6세 이상 만18세 이하 체류외국인의 재학증명서 제출 의무",
+      "content": "만 6세 이상 만 18세 이하의 모든 체류 외국인은 등록(거소)외국인은 재학여부를 신고하여야 함. 신고내용: 초등학교, 중학교, 고등학교 중 어느 학교에 재학하는지 여부. 신고시기: (공통) 초·중·고교 최초 입학 또는 재학 여부 변경(상급학교 진학 포함) 시 15일 이내, (각종 체류허가 시) 외국인등록(거소신고), 체류자격 변경허가, 체류자격외 활동허가, 근무처 변경·추가 허가(신고), 체류자격 부여허가, 체류기간 연장허가 신청 시",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": "출입국관리법 시행규칙 제47조, 제49조의2",
+      "effective_date": "2020-09-25",
+      "source": "260310 체류민원 매뉴얼 p.8"
+    },
+    {
+      "id": 13,
+      "rule_category": "guarantor",
+      "title": "신원보증서 제출생략 체류자격",
+      "content": "다음 체류자격은 원칙적으로 신원보증서 제출을 생략함: 문화예술(D-1), 유학(D-2), 일반연수(D-4), 취재(D-5), 종교(D-6), 주재(D-7), 기업투자(D-8), 무역경영(D-9), 구직(D-10), 교수(E-1), 회화지도(E-2), 연구(E-3), 기술지도(E-4), 전문직업(E-5), 예술흥행(E-6), 특정활동(E-7), 비전문취업(E-9), 동반(F-3), 재외동포(F-4), 결혼이민(F-6), 관광취업(H-1)",
+      "applicable_visa_types": "D-1, D-2, D-4, D-5, D-6, D-7, D-8, D-9, D-10, E-1, E-2, E-3, E-4, E-5, E-6, E-7, E-9, F-3, F-4, F-6, H-1",
+      "excluded_visa_types": null,
+      "legal_basis": "출입국관리법 제90조",
+      "source": "221230 편람 p.11",
+      "exceptions_detail": [
+        "문화예술(D-1), 유학(D-2), 일반연수(D-4): 재정관계(학비, 체재비 등) 입증서류를 제출하지 못할 경우에는 신원보증서 징구",
+        "예술흥행(E-6): 관광진흥법에 의한 호텔업시설, 유흥업소 등에서 공연활동에 종사하는 자(E-6-2)는 징구",
+        "특정활동(E-7): 고용업체별 허용인원 제한 등이 있어 사전관리가 필요한 일부 직종 종사자는 징구 (판매사무원(31215), 주방장 및 조리사(441), 디자이너(285), 호텔접수사무원(3922), 의료코디네이터(S3922), 해삼양식기술자(63019), 조선용접기능공(7430), 숙련우수인재[제조업 현장관리자(700), 건설업 현장관리자(770), 농축어업 현장관리자(600)])",
+        "결혼이민(F-6): 체류자격변경 시는 보증기간 2년의 신원보증서 징구, 이후 체류기간연장 시에는 징구 생략"
+      ]
+    },
+    {
+      "id": 14,
+      "rule_category": "guarantor",
+      "title": "신원보증서 제출 필요 체류자격",
+      "content": "다음 체류자격은 신원보증서 제출이 필요함: 기술연수(D-3), 방문동거(F-1), 거주(F-2), 영주(F-5), 결혼이민(F-6), 예술흥행(E-6), 특정활동(E-7), 선원취업(E-10), 방문취업(H-2), 기타(G-1)",
+      "applicable_visa_types": "D-3, E-6, E-7, E-10, F-1, F-2, F-5, F-6, H-2, G-1",
+      "excluded_visa_types": null,
+      "legal_basis": "출입국관리법 제90조",
+      "source": "221230 편람 p.12",
+      "exceptions_detail": [
+        "방문동거(F-1): 해외입양아, 주한 외국공관원의 가사보조인, 20세미만의 미성년자는 생략",
+        "거주(F-2): 최초 체류허가 시 징구 (단, 신원보증기간이 3년 이상일 경우 이후 연장허가 시 신원보증서 징구 불요. 그러나 3년 미만일 경우 이후 연장허가 시 신원보증서 징구)",
+        "영주(F-5): 정부수립일(1948.8.15) 이전에 입국한 재한화교 및 한국인의 일본인 처와 그 직계존비속으로서 기존 거주(F-2)자격소지자는 생략",
+        "결혼이민(F-6): 체류자격변경 시는 보증기간 2년의 신원보증서 징구, 이후 체류기간연장 시에는 징구 생략",
+        "기타(G-1): 산재대상자 및 그 보호자, 산재로 출국 후 재입국한 자에 대하여는 생략"
+      ]
+    },
+    {
+      "id": 15,
+      "rule_category": "termination",
+      "title": "체류허가절차를 필요로 하지 않게 된 경우의 조치",
+      "content": "다음에 해당하는 사실이 판명된 때에는 즉시 심사를 종결: (1) 신청인이 그 신청을 취소(취하)한 때, (2) 신청인이 사망한 때, (3) 신청인이 대한민국국적을 가지게 된 때, (4) 신청인이 출국한 때(등록외국인이 각종 체류허가를 신청하고 심사 중 2개월 이상 장기 출국하여 연락이 전혀 되지 않는 등 심사를 진행할 수 없는 경우 종결처리), (5) 서류보완 지시를 하였으나 보완기간 내에 보완이 불가능한 때",
+      "applicable_visa_types": null,
+      "excluded_visa_types": null,
+      "legal_basis": null,
+      "source": "221230 편람 p.8"
+    }
+  ],
+  "task_types": [
+    {
+      "id": 1,
+      "task_code": "ACTIVITY_EXTRA",
+      "task_name": "체류자격외활동",
+      "description": "현재 가지고 있는 체류자격의 활동범위 외의 활동을 하고자 할 때",
+      "display_order": 1
+    },
+    {
+      "id": 2,
+      "task_code": "STATUS_GRANT",
+      "task_name": "체류자격부여",
+      "description": "대한민국에서 출생하여 체류자격을 가지지 못하고 체류하게 되는 외국인 등에 대한 체류자격 부여",
+      "display_order": 2
+    },
+    {
+      "id": 3,
+      "task_code": "STATUS_CHANGE",
+      "task_name": "체류자격변경",
+      "description": "다른 체류자격에 해당하는 활동을 하고자 할 때",
+      "display_order": 3
+    },
+    {
+      "id": 4,
+      "task_code": "PERIOD_EXTEND",
+      "task_name": "체류기간연장",
+      "description": "체류기간을 초과하여 계속 체류하고자 할 때",
+      "display_order": 4
+    },
+    {
+      "id": 5,
+      "task_code": "REENTRY",
+      "task_name": "재입국허가",
+      "description": "체류기간 내에 출국하였다가 재입국하고자 할 때",
+      "display_order": 5
+    },
+    {
+      "id": 6,
+      "task_code": "REGISTRATION",
+      "task_name": "외국인등록",
+      "description": "91일 이상 대한민국에 체류하는 외국인의 등록",
+      "display_order": 6
+    },
+    {
+      "id": 7,
+      "task_code": "VISA_ISSUANCE",
+      "task_name": "사증발급인정",
+      "description": "사증발급인정서 발급 신청",
+      "display_order": 7
+    },
+    {
+      "id": 8,
+      "task_code": "WORKPLACE_CHANGE",
+      "task_name": "근무처변경·추가",
+      "description": "근무처를 변경하거나 추가하고자 할 때",
+      "display_order": 8
+    },
+    {
+      "id": 9,
+      "task_code": "NATIONALITY",
+      "task_name": "국적",
+      "description": "귀화, 국적회복, 국적상실 등",
+      "display_order": 9
+    },
+    {
+      "id": 10,
+      "task_code": "MISC_REQUEST",
+      "task_name": "각종신청/청구",
+      "description": "각종 증명서 발급, 이의신청 등",
+      "display_order": 10
+    },
+    {
+      "id": 11,
+      "task_code": "OTHER",
+      "task_name": "기타업무",
+      "description": "기타 출입국 관련 업무",
+      "display_order": 11
+    }
+  ]
+}

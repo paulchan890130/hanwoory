@@ -22,16 +22,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// 응답 인터셉터: 401이면 로그인 페이지로
+// 401 redirect 중복 방지 플래그 — 여러 동시 요청이 모두 401을 받아도 한 번만 리다이렉트
+let _redirecting401 = false;
+
+// 응답 인터셉터: 401이면 인증 상태 즉시 초기화 후 로그인 페이지로
+// - 장시간 미이용 후 만료 시: sessionStorage에 "auth_expired=1" 설정 → 로그인 페이지에서 안내 메시지 표시
+// - 수동 로그아웃과 구분: 수동 로그아웃은 clearUser()만 호출하고 이 플래그를 설정하지 않음
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && !_redirecting401) {
+        _redirecting401 = true;
         localStorage.removeItem("access_token");
         localStorage.removeItem("user_info");
         document.cookie = "kid_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        window.location.href = "/login";
+        // 만료 경고 플래그 — 로그인 페이지에서 "장시간 미이용으로 로그아웃" 메시지 표시용
+        try { sessionStorage.setItem("auth_expired", "1"); } catch { /* sessionStorage 차단 환경 무시 */ }
+        // replace: 히스토리 스택에 만료된 내부 페이지를 남기지 않음
+        window.location.replace("/login");
       }
     }
     return Promise.reject(err);
@@ -161,7 +170,8 @@ export const tasksApi = {
 
 // 고객
 export const customersApi = {
-  list: (search?: string) => api.get("/api/customers", { params: { search } }),
+  list: (search?: string, signal?: AbortSignal) =>
+    api.get("/api/customers", { params: { search }, signal }),
   add: (data: Record<string, string>) => api.post("/api/customers", data),
   update: (id: string, data: Record<string, string>) => api.put(`/api/customers/${id}`, data),
   delete: (id: string) => api.delete(`/api/customers/${id}`),

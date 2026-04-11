@@ -6,8 +6,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.auth import get_current_user
+from backend.services.cache_service import cache_get, cache_set, cache_invalidate
 
 router = APIRouter()
+
+_CACHE_EXPIRY = "customers:expiry-alerts"
+_TTL_EXPIRY = 30.0  # seconds
 
 # 기본 고객 컬럼 스키마 (신규 테넌트 또는 빈 시트일 때 사용)
 _DEFAULT_CUSTOMER_HEADERS = [
@@ -73,6 +77,9 @@ def get_expiry_alerts(user: dict = Depends(get_current_user)):
         return {"card_alerts": [], "passport_alerts": []}
 
     tenant_id = user["tenant_id"]
+    cached = cache_get(tenant_id, _CACHE_EXPIRY)
+    if cached is not None:
+        return cached
     records = _get_records(tenant_id)
     if not records:
         return {"card_alerts": [], "passport_alerts": []}
@@ -134,10 +141,12 @@ def get_expiry_alerts(user: dict = Depends(get_current_user)):
         rows.sort(key=lambda x: x[date_label])
         return rows
 
-    return {
+    result = {
         "card_alerts": _build_rows(card_mask, card_dt, "등록증만기일"),
         "passport_alerts": _build_rows(pass_mask, pass_dt, "여권만기일"),
     }
+    cache_set(tenant_id, _CACHE_EXPIRY, result, _TTL_EXPIRY)
+    return result
 
 
 @router.get("")
@@ -194,6 +203,7 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
     ok = upsert_sheet(CUSTOMER_SHEET_NAME, tenant_id, header_list, [rec], id_field="고객ID")
     if not ok:
         raise HTTPException(status_code=500, detail="고객 추가 실패")
+    cache_invalidate(tenant_id, _CACHE_EXPIRY)
     return {"ok": True, "고객ID": rec["고객ID"]}
 
 
@@ -224,6 +234,7 @@ def update_customer(customer_id: str, data: dict, user: dict = Depends(get_curre
     ok = upsert_sheet(CUSTOMER_SHEET_NAME, tenant_id, header_list, [target], id_field="고객ID")
     if not ok:
         raise HTTPException(status_code=500, detail="고객 수정 실패")
+    cache_invalidate(tenant_id, _CACHE_EXPIRY)
     return {"ok": True}
 
 
@@ -274,4 +285,5 @@ def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
     ok = delete_from_sheet(CUSTOMER_SHEET_NAME, tenant_id, [customer_id], id_field="고객ID")
     if not ok:
         raise HTTPException(status_code=500, detail="고객 삭제 실패")
+    cache_invalidate(tenant_id, _CACHE_EXPIRY)
     return {"ok": True}
