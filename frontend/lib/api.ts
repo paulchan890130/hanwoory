@@ -446,3 +446,49 @@ export const oneClickApi = {
   generate: (data: QuickPoaRequest) =>
     api.post("/api/quick-doc/quick-poa", data, { responseType: "blob" }),
 };
+
+// ── 실무지침 ──────────────────────────────────────────────────────────────────
+
+export interface GuidelineRow {
+  row_id: string;
+  domain: string;
+  major_action_std: string;
+  action_type: string;
+  business_name: string;
+  detailed_code: string;
+  overview_short: string;
+  form_docs: string;
+  supporting_docs: string;
+  exceptions_summary: string;
+  fee_rule: string;
+  basis_section: string;
+  status: string;
+  search_keys?: { key_type: string; key_value: string }[];
+  related_rules?: Record<string, string>[];
+  related_exceptions?: Record<string, string>[];
+}
+
+export interface GuidelineListResponse {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  data: GuidelineRow[];
+}
+
+export const guidelinesApi = {
+  search: (q: string, action_type?: string, page = 1, limit = 30) =>
+    api.get<GuidelineListResponse>("/api/guidelines/search/query", {
+      params: { q, action_type, page, limit },
+    }),
+  listByCode: (code: string) =>
+    api.get<{ code: string; count: number; action_types: string[]; data: GuidelineRow[] }>(
+      `/api/guidelines/code/${encodeURIComponent(code)}`
+    ),
+  list: (params?: { action_type?: string; domain?: string; page?: number; limit?: number }) =>
+    api.get<GuidelineListResponse>("/api/guidelines/", { params }),
+  getDetail: (row_id: string) =>
+    api.get<GuidelineRow>(`/api/guidelines/${row_id}`),
+  stats: () =>
+    api.get("/api/guidelines/stats"),
+};
