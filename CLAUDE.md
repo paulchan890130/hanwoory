@@ -80,11 +80,12 @@ docker run -p 3000:3000 \
 
 ```
 backend/
-  main.py               — FastAPI app, registers 14 routers
+  main.py               — FastAPI app, registers 15 routers
   auth.py               — JWT creation/verification (8h expiry); get_current_user / require_admin deps
   models.py             — All Pydantic request/response models
   routers/              — auth, tasks, customers, daily, memos, events, board,
-                          scan, scan_workspace, admin, search, reference, quick_doc, manual
+                          scan, scan_workspace, admin, search, reference, quick_doc, manual,
+                          guidelines
   services/
     tenant_service.py   — Core Google Sheets abstraction (thread-safe, TTL-cached gspread)
     accounts_service.py — Accounts sheet CRUD + password hashing; defines ACCOUNTS_SCHEMA (16 cols)
@@ -92,7 +93,8 @@ backend/
     roi_ocr_service.py  — ROI-crop OCR for scan workspace; imports helpers from ocr_service
     addr_service.py     — Address correction using national road-name index
   data/
-    addr_index.json     — Compact road/dong name index (~3MB, 256 regions, 172K roads)
+    addr_index.json            — Compact road/dong name index (~3MB, 256 regions, 172K roads)
+    immigration_guidelines_db_v2.json — 출입국 실무지침 DB (~595KB, 309 업무항목)
   scripts/
     build_addr_index.py — Rebuilds addr_index.json from 주소정보 도로명 master file
 config.py               — Single source of truth for all Drive/Sheets resource IDs and tab names
@@ -497,6 +499,52 @@ Dockerfile.combined (단일 서비스용):
 - Dockerfile Path: `Dockerfile.combined` (선행 공백 없이 정확히 입력 — 공백 있으면 "no such file" 에러)
 - Port: `3000`
 - Auto-Deploy: enabled → git push 시 자동 빌드/배포
+
+---
+
+## 출입국 실무지침 라우터 (`backend/routers/guidelines.py`)
+
+Google Sheets가 아닌 **로컬 JSON 파일** 기반 정적 참조 데이터. 테넌트별 차이 없음 (공유 데이터).
+
+### 데이터 소스
+- `backend/data/immigration_guidelines_db_v2.json` (~595KB)
+- 원본 엑셀(`정리.xlsx`) → `엑셀_json_변환.py` 스크립트로 재생성 가능
+- 포함 시트: MASTER_ROWS(309건), RULES(38건), EXCEPTIONS(32건), DOC_DICTIONARY(36건), SEARCH_KEYS, LEGACY_UI_MAP
+
+### 모듈 임포트 시 인덱스 빌드 (1회)
+- `_CODE_INDEX`: `detailed_code` → rows 매핑
+- `_SEARCH_INDEX`: keyword → row_id 매핑
+- `_ROW_INDEX`: `row_id` → row 매핑
+
+### 엔드포인트 (prefix: `/api/guidelines`)
+| 엔드포인트 | 설명 |
+|---|---|
+| `GET /stats` | DB 통계 (버전, 갱신일, 항목수) |
+| `GET /` | MASTER_ROWS 목록 (action_type/domain/major_action 필터 + 페이징) |
+| `GET /search/query?q=...` | 키워드 검색 (코드/업무명/서류명) |
+| `GET /code/{code}` | 체류자격 코드별 조회 (F-4 → F-4, F-4-1, F-4-2... 모두 반환) |
+| `GET /rules` | 공통 규칙 목록 |
+| `GET /exceptions` | 예외 조건 목록 |
+| `GET /docs/lookup?name=...` | 서류명 표준화 조회 |
+| `GET /{row_id}` | 단건 상세 + 연관 RULES/EXCEPTIONS |
+
+**라우터 순서 주의**: FastAPI 경로 충돌 방지를 위해 `/search/query`, `/code/{code}`, `/rules`, `/exceptions`, `/docs/lookup`이 `/{row_id}` 보다 **앞에** 등록되어 있어야 함. 현재 파일 순서 유지할 것.
+
+### action_type ENUM
+`CHANGE` | `EXTEND` | `EXTRA_WORK` | `WORKPLACE` | `REGISTRATION` | `REENTRY` | `GRANT` | `VISA_CONFIRM` | `APPLICATION_CLAIM` | `DOMESTIC_RESIDENCE_REPORT` | `ACTIVITY_EXTRA`
+
+### 핵심 데이터 규칙
+- `form_docs` (작성서류): 업체 준비 서류 — `|` 구분, 표준 순서: `통합신청서 | 위임장 | 업무수행확인서 | [기타]`
+- `supporting_docs` (첨부서류): 고객 준비 서류 — **절대 form_docs와 합치지 말 것**
+- 인지세(`fee_rule`): 수수료라고 표현하지 말 것
+
+### 데이터 업데이트
+```bash
+# 정리.xlsx 수정 후
+python 엑셀_json_변환.py
+# 생성된 immigration_guidelines_db_v2.json을 backend/data/로 복사
+# 서버 재시작 (uvicorn이 reload 모드이면 자동 반영)
+```
 
 ---
 

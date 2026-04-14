@@ -52,6 +52,7 @@ from backend.routers import (
     reference,
     quick_doc,
     manual,
+    guidelines,
 )
 
 app = FastAPI(
@@ -88,7 +89,8 @@ app.include_router(admin.router,     prefix="/api/admin",     tags=["관리자"]
 app.include_router(search.router,    prefix="/api/search",    tags=["통합검색"])
 app.include_router(reference.router, prefix="/api/reference", tags=["업무참고"])
 app.include_router(quick_doc.router, prefix="/api/quick-doc", tags=["문서자동작성"])
-app.include_router(manual.router,    prefix="/api/manual",    tags=["메뉴얼검색"])
+app.include_router(manual.router,    prefix="/api/manual",     tags=["메뉴얼검색"])
+app.include_router(guidelines.router, prefix="/api/guidelines", tags=["실무지침"])
 
 
 @app.get("/health")

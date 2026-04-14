@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>출입국 실무지침 데이터베이스 — 화면 구성 안</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+         background: #F0F4F8; padding: 24px; font-size: 13px; color: #2D3748; }
+  h1 { text-align:center; font-size:22px; color:#1A365D; margin-bottom:4px; }
+  .subtitle { text-align:center; color:#718096; font-size:12px; margin-bottom:20px; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .card { background:white; border-radius:10px; border:1.5px solid #CBD5E0;
+          padding:18px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .card-dark { background:#1A202C; border-color:#4A5568; }
+  .step-badge { display:inline-block; background:#2B6CB0; color:white;
+                border-radius:14px; padding:2px 12px; font-size:11px; font-weight:700;
+                margin-bottom:10px; }
+  .card-title { font-size:15px; font-weight:700; color:#2D3748; margin-bottom:12px; }
+  .card-title-light { color:#E2E8F0; }
+
+  /* 단계 1 - 검색 */
+  .search-row { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  select, input { border:1.5px solid #CBD5E0; border-radius:6px; padding:6px 10px;
+                  font-size:12px; color:#2D3748; background:white; }
+  .btn-primary { background:#3182CE; color:white; border:none; border-radius:6px;
+                 padding:7px 20px; font-weight:700; cursor:pointer; font-size:12px; }
+  .chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { border-radius:14px; padding:3px 12px; font-size:11px; font-weight:600;
+          color:white; cursor:pointer; }
+  .result-bar { background:#EBF8FF; border:1px solid #90CDF4; border-radius:6px;
+                padding:8px 12px; color:#2B6CB0; margin-top:10px; font-size:12px; }
+
+  /* 단계 2 - 목록 */
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { background:#EDF2F7; padding:7px 8px; text-align:left; font-weight:700;
+       color:#4A5568; border-bottom:1.5px solid #CBD5E0; }
+  tr:hover { background:#F7FAFC; }
+  tr.selected { background:#EBF8FF; }
+  td { padding:7px 8px; border-bottom:1px solid #E2E8F0; }
+  .code-badge { background:#EBF8FF; color:#2B6CB0; border-radius:10px;
+                padding:1px 8px; font-weight:600; font-size:11px; display:inline-block; }
+  .action-badge { border-radius:10px; padding:2px 8px; font-size:10px;
+                  font-weight:700; display:inline-block; }
+
+  /* 단계 3 - 상세 */
+  .detail-header { background:#FFFBEB; border:1px solid #F6E05E; border-radius:6px;
+                   padding:10px 14px; margin-bottom:12px; }
+  .doc-split { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .doc-box { border-radius:8px; padding:12px; }
+  .form-docs { background:#F0FFF4; border:1.5px solid #68D391; }
+  .supp-docs { background:#EBF8FF; border:1.5px solid #63B3ED; }
+  .doc-box-title { font-weight:700; font-size:12px; margin-bottom:8px; }
+  .doc-box-title.form { color:#276749; }
+  .doc-box-title.supp { color:#2B6CB0; }
+  .doc-item { padding:4px 0; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .doc-item::before { content:'▸'; color:#A0AEC0; font-size:10px; }
+  .doc-item.highlight { color:#C53030; font-weight:600; }
+  .doc-item.highlight::before { content:'★'; color:#C53030; }
+  .never-merge { text-align:center; padding:6px; font-size:11px; font-weight:700;
+                 color:#C53030; background:#FFF5F5; border-radius:6px; margin-bottom:12px; }
+  .fee-box { background:#FFF5F5; border:1px solid #FC8181; border-radius:6px;
+             padding:10px; margin-bottom:8px; font-size:12px; }
+  .exc-box { background:#FFFAF0; border:1px solid #F6AD55; border-radius:6px;
+             padding:10px; margin-bottom:8px; font-size:12px; }
+  .basis-box { background:#F7FAFC; border:1px solid #CBD5E0; border-radius:6px;
+               padding:10px; font-size:12px; }
+  .action-btns { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .btn-outline { border-radius:6px; padding:7px 16px; font-size:12px; font-weight:700;
+                 cursor:pointer; border:1.5px solid; background:white; }
+
+  /* 시스템 연동 구조 */
+  .flow-row { display:flex; align-items:flex-start; gap:10px;
+              padding:8px 0; border-bottom:1px solid #2D3748; }
+  .flow-icon { font-size:18px; min-width:28px; text-align:center; }
+  .flow-title { font-size:12px; font-weight:700; color:#E2E8F0; margin-bottom:2px; }
+  .flow-desc { font-size:11px; color:#718096; }
+
+  /* 데이터베이스 구성 */
+  .sheet-row { display:flex; align-items:center; gap:10px; padding:7px 0;
+               border-bottom:1px solid #EDF2F7; }
+  .sheet-name { font-weight:700; font-size:12px; min-width:130px; }
+  .sheet-count { font-size:11px; font-weight:700; background:#EDF2F7; border-radius:8px;
+                 padding:2px 8px; min-width:50px; text-align:center; }
+  .sheet-desc { font-size:11px; color:#4A5568; }
+  .progress-bar-wrap { background:#EDF2F7; border-radius:6px; height:6px; margin-top:4px; }
+  .progress-bar-fill { height:6px; border-radius:6px; }
+
+  /* 체크리스트 */
+  .checklist-title { font-weight:700; font-size:13px; margin:10px 0 6px; }
+  .check-item { padding:4px 0; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .checkbox { width:14px; height:14px; border:2px solid #CBD5E0; border-radius:3px; display:inline-block; flex-shrink:0; }
+  .check-note { font-size:10px; color:#718096; margin-left:4px; }
+  .warn { background:#FFF5F5; border:1.5px solid #FC8181; border-radius:6px; padding:8px 12px;
+          color:#C53030; font-size:12px; font-weight:600; text-align:center; margin:8px 0; }
+  label { font-weight:700; font-size:11px; color:#4A5568; margin-bottom:4px; display:block; }
+
+  /* 서버 전환 */
+  .server-step { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid #EDF2F7; }
+  .server-num { width:28px; height:28px; border-radius:50%; background:#3182CE; color:white;
+                font-weight:700; font-size:13px; display:flex; align-items:center;
+                justify-content:center; flex-shrink:0; }
+  .server-body { flex:1; }
+  .server-title { font-weight:700; font-size:13px; color:#2D3748; margin-bottom:3px; }
+  .server-desc { font-size:12px; color:#4A5568; line-height:1.6; }
+  .tag { display:inline-block; border-radius:4px; padding:1px 7px; font-size:10px;
+         font-weight:700; margin-right:4px; }
+  .tag-ready { background:#C6F6D5; color:#276749; }
+  .tag-todo { background:#FEF3C7; color:#744210; }
+  .tag-later { background:#EBF8FF; color:#2B6CB0; }
+</style>
+</head>
+<body>
+
+<h1>📋 출입국 실무지침 데이터베이스 — 화면 구성 안</h1>
+<p class="subtitle">총 309개 업무 항목 수록 | 위임대행 전제 (위임장·업무수행확인서 전체 적용)</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 단계 1: 검색 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:16px;">
+  <span class="step-badge">단계 1</span>
+  <div class="card-title">업무 검색 및 필터</div>
+  <div class="search-row">
+    <div>
+      <label>업무 대분류</label>
+      <select>
+        <option>체류자격 변경허가</option>
+        <option>체류기간 연장허가</option>
+        <option>체류자격외 활동허가</option>
+        <option>외국인등록</option>
+        <option>재입국허가</option>
+        <option>체류자격 부여</option>
+      </select>
+    </div>
+    <div>
+      <label>체류자격 코드</label>
+      <select>
+        <option>F-4 (재외동포)</option>
+        <option>E-7 (특정활동)</option>
+        <option>D-2 (유학)</option>
+        <option>H-2 (방문취업)</option>
+        <option>F-6 (결혼이민)</option>
+      </select>
+    </div>
+    <div style="flex:1;">
+      <label>키워드 검색</label>
+      <input type="text" placeholder="체류자격 코드 / 업무명 / 서류명 입력..." style="width:100%;">
+    </div>
+    <div style="align-self:flex-end;">
+      <button class="btn-primary">🔍 검색</button>
+    </div>
+  </div>
+  <div class="chip-row">
+    <span style="font-size:11px; color:#4A5568; align-self:center; white-space:nowrap;">빠른 필터:</span>
+    <span class="chip" style="background:#38A169;">체류자격 변경</span>
+    <span class="chip" style="background:#3182CE;">체류기간 연장</span>
+    <span class="chip" style="background:#D69E2E;">자격외 활동</span>
+    <span class="chip" style="background:#805AD5;">외국인 등록</span>
+    <span class="chip" style="background:#DD6B20;">재입국 허가</span>
+    <span class="chip" style="background:#E53E3E;">사증발급인정</span>
+  </div>
+  <div class="result-bar">
+    🔎 검색 결과: <strong>9건</strong> &nbsp;|&nbsp; 체류자격 코드: <strong>F-4</strong> &nbsp;|&nbsp; 업무: <strong>체류자격 변경허가</strong>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 단계 2 + 단계 3 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="grid-2">
+
+  <!-- 목록 -->
+  <div class="card">
+    <span class="step-badge">단계 2</span>
+    <div class="card-title">검색 결과 목록</div>
+    <table>
+      <thead><tr>
+        <th>체류자격</th><th>업무명</th><th>업무유형</th><th></th>
+      </tr></thead>
+      <tbody>
+        <tr class="selected">
+          <td><span class="code-badge">F-4</span></td>
+          <td>재외동포</td>
+          <td><span class="action-badge" style="background:#E6FFFA;color:#276749;">체류자격 변경</span></td>
+          <td>▶</td>
+        </tr>
+        <tr>
+          <td><span class="code-badge">F-4</span></td>
+          <td>재외동포</td>
+          <td><span class="action-badge" style="background:#EBF8FF;color:#2B6CB0;">체류기간 연장</span></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><span class="code-badge">F-4-19</span></td>
+          <td>재외동포</td>
+          <td><span class="action-badge" style="background:#E6FFFA;color:#276749;">체류자격 변경</span></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><span class="code-badge">F-4-R</span></td>
+          <td>재외동포(지역특화)</td>
+          <td><span class="action-badge" style="background:#E6FFFA;color:#276749;">체류자격 변경</span></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><span class="code-badge">F-4</span></td>
+          <td>재외동포</td>
+          <td><span class="action-badge" style="background:#FFFBEB;color:#744210;">자격외 활동</span></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><span class="code-badge">F-4</span></td>
+          <td>재외동포</td>
+          <td><span class="action-badge" style="background:#F5F3FF;color:#553C9A;">국내거소 신고</span></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><span class="code-badge">F-4</span></td>
+          <td>재외동포</td>
+          <td><span class="action-badge" style="background:#FFFBEB;color:#744210;">추가 활동허가</span></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 상세 -->
+  <div class="card">
+    <span class="step-badge">단계 3</span>
+    <div class="card-title">업무 상세 — F-4 / 체류자격 변경허가</div>
+
+    <div class="detail-header">
+      <div style="font-weight:700; font-size:13px; color:#744210; margin-bottom:4px;">📌 개요</div>
+      <div>재외동포(F-4) 자격 해당자의 체류자격 변경허가 업무</div>
+    </div>
+
+    <div class="never-merge">⚠ 작성서류와 첨부서류는 반드시 구분하여 준비하십시오</div>
+
+    <div class="doc-split">
+      <div class="doc-box form-docs">
+        <div class="doc-box-title form">✍ 작성서류 — 업체 준비</div>
+        <div class="doc-item">통합신청서</div>
+        <div class="doc-item highlight">위임장 ★ 대행 필수</div>
+        <div class="doc-item highlight">업무수행확인서 ★ 대행 필수</div>
+        <div class="doc-item">외국인 직업 신고서</div>
+        <div class="doc-item">재학신고서(만 6세~18세 해당자)</div>
+      </div>
+      <div class="doc-box supp-docs">
+        <div class="doc-box-title supp">📎 첨부서류 — 고객 준비</div>
+        <div class="doc-item">여권</div>
+        <div class="doc-item">증명사진 1매(3.5×4.5cm, 흰색배경)</div>
+        <div class="doc-item">외국인등록증</div>
+        <div class="doc-item">소득금액증명원</div>
+        <div class="doc-item">결핵진단서(해당자)</div>
+        <div class="doc-item">법령준수 확인서(해당자)</div>
+      </div>
+    </div>
+
+    <div class="fee-box">
+      <strong>💰 인지세:</strong> 기본 10만원 (국민행복카드 / 신용카드 / 현금)
+    </div>
+    <div class="exc-box">
+      <strong>⚠ 예외 사항:</strong> 법령준수 확인서는 해당자에 한함 &nbsp;|&nbsp; 결핵고위험국 장기체류자는 결핵진단서 추가 제출
+    </div>
+    <div class="basis-box">
+      <strong>📖 근거:</strong> 하이코리아 메뉴얼 &nbsp;&gt;&nbsp; 재외동포(F-4) 체류자격 변경허가
+    </div>
+
+    <div class="action-btns">
+      <button class="btn-outline" style="color:#276749; border-color:#276749;">🖨 체크리스트 출력</button>
+      <button class="btn-outline" style="color:#2B6CB0; border-color:#2B6CB0;">📋 클립보드 복사</button>
+      <button class="btn-outline" style="color:#744210; border-color:#744210;">📥 엑셀 내보내기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 시스템 연동 구조 + 데이터베이스 구성 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="grid-2">
+
+  <!-- 시스템 연동 구조 -->
+  <div class="card card-dark">
+    <span class="step-badge">시스템 구조</span>
+    <div class="card-title card-title-light">화면 — 서버 — 데이터베이스 연동 흐름</div>
+
+    <div class="flow-row">
+      <div class="flow-icon">🖥</div>
+      <div>
+        <div class="flow-title">사용자 화면 (업무관리 시스템)</div>
+        <div class="flow-desc">체류자격 코드 / 업무유형 선택 → 검색 → 결과 목록 → 상세 조회</div>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-icon">⬇️</div>
+      <div>
+        <div class="flow-title" style="color:#718096;">요청 전달</div>
+        <div class="flow-desc">내부 네트워크 (공유기) 경유 → 로컬 서버 전달</div>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-icon">⚙️</div>
+      <div>
+        <div class="flow-title">로컬 서버 (공유기 연결 외장하드)</div>
+        <div class="flow-desc">
+          조회 기능: 체류자격 코드별 업무 조회 / 업무유형 필터 / 키워드 검색<br>
+          인지세 규칙 / 예외 분기 / 서류명 표준화 처리
+        </div>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-icon">⬇️</div>
+      <div>
+        <div class="flow-title" style="color:#718096;">데이터 조회</div>
+        <div class="flow-desc">외장하드 내 데이터베이스 파일 직접 읽기</div>
+      </div>
+    </div>
+    <div class="flow-row" style="border:none;">
+      <div class="flow-icon">🗄</div>
+      <div>
+        <div class="flow-title">실무지침 데이터베이스</div>
+        <div class="flow-desc">
+          업무 핵심 데이터 309건 &nbsp;|&nbsp; 공통 규칙 38건 &nbsp;|&nbsp; 예외 분기 32건<br>
+          서류명 표준사전 36건 &nbsp;|&nbsp; 검색 인덱스 934건
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터베이스 구성 -->
+  <div class="card">
+    <span class="step-badge" style="background:#805AD5;">데이터 현황</span>
+    <div class="card-title">데이터베이스 구성 및 완성도</div>
+
+    <div class="sheet-row">
+      <span class="sheet-name" style="color:#38A169;">업무 핵심 데이터</span>
+      <span class="sheet-count">309건</span>
+      <span class="sheet-desc">체류자격 / 작성서류 / 첨부서류 / 인지세</span>
+    </div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%; background:#38A169;"></div></div>
+
+    <div class="sheet-row" style="margin-top:6px;">
+      <span class="sheet-name" style="color:#3182CE;">공통 규칙</span>
+      <span class="sheet-count">38건</span>
+      <span class="sheet-desc">서류 정책 / 업무 기본 규칙 / 인지세 규칙 / 인지세 예외</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-name" style="color:#D69E2E;">예외 분기 조건</span>
+      <span class="sheet-count">32건</span>
+      <span class="sheet-desc">해당자 조건 / 추가 제출 / 면제 조건</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-name" style="color:#805AD5;">서류명 표준사전</span>
+      <span class="sheet-count">36건</span>
+      <span class="sheet-desc">공식 명칭 통일 / 별칭 3종</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-name" style="color:#DD6B20;">검색 인덱스</span>
+      <span class="sheet-count">934건</span>
+      <span class="sheet-desc">코드 / 업무유형 / 키워드 / 동의어</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-name" style="color:#E53E3E;">기존 메뉴 매핑</span>
+      <span class="sheet-count">44건</span>
+      <span class="sheet-desc">기존 시스템 메뉴 → 신규 데이터 연결 완료</span>
+    </div>
+
+    <hr style="margin:14px 0; border-color:#EDF2F7;">
+    <div style="font-weight:700; font-size:12px; color:#2D3748; margin-bottom:8px;">📊 데이터 완성도</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+          <span>인지세 기재 완료</span><span style="color:#38A169; font-weight:700;">309/309</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%; background:#38A169;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+          <span>첨부서류 충실도</span><span style="color:#3182CE; font-weight:700;">302/309</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:97%; background:#3182CE;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+          <span>위임장 적용</span><span style="color:#805AD5; font-weight:700;">303/303</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%; background:#805AD5;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+          <span>업무수행확인서 적용</span><span style="color:#D69E2E; font-weight:700;">135/135</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%; background:#D69E2E;"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 체크리스트 출력 미리보기 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:16px;">
+  <span class="step-badge" style="background:#276749;">출력물 미리보기</span>
+  <div class="card-title">🖨 체크리스트 출력 — F-4 / 체류자격 변경허가</div>
+  <div style="background:#FAFAFA; border:1px solid #E2E8F0; border-radius:8px; padding:16px;">
+    <div style="font-size:15px; font-weight:700; color:#1A365D; margin-bottom:4px;">
+      재외동포(F-4) &nbsp;—&nbsp; 체류자격 변경허가
+    </div>
+    <div style="font-size:11px; color:#718096; margin-bottom:14px;">
+      인지세: 기본 10만원 &nbsp;|&nbsp; 근거: 하이코리아 메뉴얼 &gt; 재외동포(F-4) 체류자격 변경허가
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+      <div>
+        <div class="checklist-title" style="color:#276749;">★ 작성서류 (업체 준비)</div>
+        <div class="check-item"><span class="checkbox"></span> 통합신청서</div>
+        <div class="check-item">
+          <span class="checkbox" style="border-color:#C53030;"></span>
+          <span style="color:#C53030; font-weight:600;">위임장</span>
+          <span class="check-note">← 대행 처리 필수</span>
+        </div>
+        <div class="check-item">
+          <span class="checkbox" style="border-color:#C53030;"></span>
+          <span style="color:#C53030; font-weight:600;">업무수행확인서</span>
+          <span class="check-note">← 대행업체 확인 필수</span>
+        </div>
+        <div class="check-item"><span class="checkbox"></span> 외국인 직업 신고서</div>
+        <div class="check-item"><span class="checkbox"></span> 재학신고서 (만 6세~18세 해당자)</div>
+      </div>
+      <div>
+        <div class="checklist-title" style="color:#2B6CB0;">★ 첨부서류 (고객 준비)</div>
+        <div class="check-item"><span class="checkbox"></span> 여권</div>
+        <div class="check-item"><span class="checkbox"></span> 증명사진 1매 (3.5×4.5cm, 흰색배경)</div>
+        <div class="check-item"><span class="checkbox"></span> 외국인등록증</div>
+        <div class="check-item"><span class="checkbox"></span> 소득금액증명원</div>
+        <div class="check-item"><span class="checkbox"></span> 결핵진단서 (해당자)</div>
+        <div class="check-item"><span class="checkbox"></span> 법령준수 확인서 (해당자)</div>
+      </div>
+    </div>
+
+    <div class="warn" style="margin-top:14px;">
+      ⚠ 예외 사항 확인 필수: 법령준수 확인서는 해당자에 한함 &nbsp;|&nbsp; 결핵고위험국 장기체류자는 결핵진단서 추가 제출
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 로컬 서버 전환 준비 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <span class="step-badge" style="background:#DD6B20;">서버 전환 준비</span>
+  <div class="card-title">구글 드라이브 → 자체 서버(공유기 외장하드) 전환 계획</div>
+
+  <div style="background:#FFFBEB; border:1px solid #F6E05E; border-radius:6px;
+              padding:10px 14px; margin-bottom:16px; font-size:12px; color:#744210;">
+    💡 현재 구글 드라이브 + 외부 서비스 사용 중 → 공유기에 외장하드를 연결한 자체 서버로 전환 예정
+  </div>
+
+  <div class="server-step">
+    <div class="server-num">1</div>
+    <div class="server-body">
+      <div class="server-title">
+        데이터베이스 파일 외장하드 이전
+        <span class="tag tag-ready">준비 완료</span>
+      </div>
+      <div class="server-desc">
+        현재 완성된 실무지침 데이터베이스 파일(정리.xlsx + immigration_guidelines_db_v2.json)을
+        외장하드로 복사합니다. 서버 프로그램도 같은 위치에 배치합니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="server-step">
+    <div class="server-num">2</div>
+    <div class="server-body">
+      <div class="server-title">
+        공유기 포트 설정
+        <span class="tag tag-todo">설정 필요</span>
+      </div>
+      <div class="server-desc">
+        공유기 관리 화면에서 <strong>포트 포워딩</strong>을 설정합니다.<br>
+        외부 포트 8000 → 서버 컴퓨터 내부 IP의 8000번 포트로 연결합니다.<br>
+        내부 네트워크(같은 와이파이)에서는 별도 설정 없이 바로 접속 가능합니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="server-step">
+    <div class="server-num">3</div>
+    <div class="server-body">
+      <div class="server-title">
+        서버 프로그램 실행
+        <span class="tag tag-todo">설정 필요</span>
+      </div>
+      <div class="server-desc">
+        외장하드가 연결된 컴퓨터(또는 공유기 자체 서버 기능)에서 서버 프로그램을 실행합니다.<br>
+        <strong>컴퓨터 시작 시 자동 실행</strong>으로 설정하면 항상 켜진 상태로 유지됩니다.<br>
+        실행 명령: <code style="background:#EDF2F7; padding:1px 6px; border-radius:3px; font-size:11px;">uvicorn immigration_api:app --host 0.0.0.0 --port 8000</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="server-step">
+    <div class="server-num">4</div>
+    <div class="server-body">
+      <div class="server-title">
+        기존 시스템 접속 주소 변경
+        <span class="tag tag-todo">설정 필요</span>
+      </div>
+      <div class="server-desc">
+        기존 Node.js 업무관리 시스템에서 구글 드라이브 주소를 내부 서버 주소로 변경합니다.<br>
+        내부망 접속: <code style="background:#EDF2F7; padding:1px 6px; border-radius:3px; font-size:11px;">http://192.168.x.x:8000</code> (서버 컴퓨터 내부 IP)<br>
+        외부망 접속: 공유기 DDNS 주소 또는 고정 IP 사용
+      </div>
+    </div>
+  </div>
+
+  <div class="server-step">
+    <div class="server-num">5</div>
+    <div class="server-body">
+      <div class="server-title">
+        구글 드라이브 연동 코드 제거
+        <span class="tag tag-later">순차 진행</span>
+      </div>
+      <div class="server-desc">
+        기존 시스템에서 구글 드라이브 API 인증 코드, 토큰, 드라이브 파일 읽기 로직을 제거합니다.<br>
+        데이터 조회는 전부 로컬 서버의 데이터베이스에서 직접 읽습니다.<br>
+        인터넷 연결 없이도 내부망에서 정상 작동합니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="server-step" style="border:none;">
+    <div class="server-num" style="background:#38A169;">6</div>
+    <div class="server-body">
+      <div class="server-title">
+        데이터 업데이트 방식
+        <span class="tag tag-later">운영 중 진행</span>
+      </div>
+      <div class="server-desc">
+        하이코리아 메뉴얼 개정 시 정리.xlsx를 수정 후 서버를 재시작하면 즉시 반영됩니다.<br>
+        구글 드라이브 동기화 불필요 — 외장하드 파일 직접 수정으로 운영합니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
