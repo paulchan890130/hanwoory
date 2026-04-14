@@ -270,7 +270,7 @@ function ActiveTaskRow({
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={!!pendingReception} onChange={() => toggleLocal("reception")}
                 style={{ accentColor: "#3182CE", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: pendingReception ? "#2B6CB0" : "#A0AEC0", fontWeight: pendingReception ? 700 : 400 }}>접수</span>
+              <span style={{ fontSize: 10, color: pendingReception ? "#2B6CB0" : "#A0AEC0", fontWeight: pendingReception ? 700 : 400 }}>접</span>
               {pendingReception && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingReception)}</span>}
             </label>
           </div>
@@ -279,7 +279,7 @@ function ActiveTaskRow({
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
                 style={{ accentColor: "#D69E2E", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처리</span>
+              <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처</span>
               {pendingProcessing && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingProcessing)}</span>}
             </label>
           </div>
@@ -288,7 +288,7 @@ function ActiveTaskRow({
             <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
               <input type="checkbox" checked={!!pendingStorage} onChange={() => toggleLocal("storage")}
                 style={{ accentColor: "#9F7AEA", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: pendingStorage ? "#553C9A" : "#A0AEC0", fontWeight: pendingStorage ? 700 : 400 }}>보관중</span>
+              <span style={{ fontSize: 10, color: pendingStorage ? "#553C9A" : "#A0AEC0", fontWeight: pendingStorage ? 700 : 400 }}>보</span>
               {pendingStorage && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingStorage)}</span>}
             </label>
           </div>
