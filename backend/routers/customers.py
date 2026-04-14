@@ -152,12 +152,14 @@ def get_expiry_alerts(user: dict = Depends(get_current_user)):
 @router.get("")
 def get_customers(
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     user: dict = Depends(get_current_user),
 ):
     tenant_id = user["tenant_id"]
     records = _get_records(tenant_id)
     if not records:
-        return []
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
 
     if search:
         s = search.lower()
@@ -172,7 +174,13 @@ def get_customers(
         return -int(v) if v.isdigit() else 0
 
     records.sort(key=_sort_key)
-    return records
+
+    total = len(records)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    start = (page - 1) * page_size
+    items = records[start:start + page_size]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
 
 
 @router.post("")

@@ -117,6 +117,19 @@ const DRAWER_GROUPS = [
   },
 ];
 
+// 페이지 번호 배열 생성 (최대 7개 표시, 초과 시 … 삽입)
+function buildPageNums(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "…")[] = [1];
+  if (current > 3) pages.push("…");
+  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) {
+    pages.push(p);
+  }
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+  return pages;
+}
+
 function emptyCustomer(): Record<string, string> {
   const rec: Record<string, string> = { 고객ID: "" };
   ALL_FIELDS.forEach((f) => (rec[f] = ""));
@@ -250,21 +263,46 @@ export default function CustomersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Record<string, string> | null>(null);
   const [isNewMode, setIsNewMode] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search.length < 2 ? "" : search);
+      setPage(1);
     }, 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: customers = [], isLoading, error } = useQuery({
-    queryKey: ["customers", debouncedSearch],
+  const { data: pageData, isLoading, error } = useQuery({
+    queryKey: ["customers", debouncedSearch, page],
     queryFn: ({ signal }) =>
-      customersApi.list(debouncedSearch || undefined, signal).then((r) => r.data as Record<string, string>[]),
+      customersApi.list(debouncedSearch || undefined, page, PAGE_SIZE, signal).then((r) => r.data as {
+        items: Record<string, string>[];
+        total: number;
+        page: number;
+        page_size: number;
+        total_pages: number;
+      }),
     staleTime: 30_000,
   });
+
+  const customers = pageData?.items ?? [];
+  const total = pageData?.total ?? 0;
+  const totalPages = pageData?.total_pages ?? 0;
+
+  // 현재 페이지 로드 완료 시 다음 페이지 미리 prefetch
+  useEffect(() => {
+    if (!pageData || page >= pageData.total_pages) return;
+    qc.prefetchQuery({
+      queryKey: ["customers", debouncedSearch, page + 1],
+      queryFn: () =>
+        customersApi.list(debouncedSearch || undefined, page + 1, PAGE_SIZE)
+          .then((r) => r.data),
+      staleTime: 30_000,
+    });
+  }, [pageData, page, debouncedSearch, qc]);
 
   useEffect(() => {
     if (searchParams.get("action") === "new") {
@@ -324,9 +362,9 @@ export default function CustomersPage() {
         >
           <UserPlus size={14} /> 신규 고객
         </button>
-        {customers.length > 0 && (
+        {total > 0 && (
           <span style={{ fontSize:12, color:"#718096", marginLeft:"auto", flexShrink:0 }}>
-            총 <strong style={{ color:"#2D3748" }}>{customers.length}</strong>명
+            총 <strong style={{ color:"#2D3748" }}>{total}</strong>명
           </span>
         )}
       </div>
@@ -391,6 +429,38 @@ export default function CustomersPage() {
               </tbody>
             </table>
           </div>
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:4, padding:"10px 16px", borderTop:"1px solid #EDF2F7" }}>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                style={{ padding:"4px 10px", fontSize:12, border:"1px solid #E2E8F0", borderRadius:6, background:"#fff", color:"#4A5568", cursor: page <= 1 ? "default" : "pointer", opacity: page <= 1 ? 0.35 : 1 }}
+              >‹</button>
+              {buildPageNums(page, totalPages).map((n, i) =>
+                n === "…" ? (
+                  <span key={`ellipsis-${i}`} style={{ padding:"0 4px", fontSize:12, color:"#A0AEC0" }}>…</span>
+                ) : (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    style={{
+                      padding:"4px 9px", fontSize:12, borderRadius:6, cursor:"pointer",
+                      border: n === page ? "1px solid #F5A623" : "1px solid #E2E8F0",
+                      background: n === page ? "#FFF8EC" : "#fff",
+                      color: n === page ? "#C27800" : "#4A5568",
+                      fontWeight: n === page ? 700 : 400,
+                    }}
+                  >{n}</button>
+                )
+              )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                style={{ padding:"4px 10px", fontSize:12, border:"1px solid #E2E8F0", borderRadius:6, background:"#fff", color:"#4A5568", cursor: page >= totalPages ? "default" : "pointer", opacity: page >= totalPages ? 0.35 : 1 }}
+              >›</button>
+            </div>
+          )}
         </div>
       )}
 

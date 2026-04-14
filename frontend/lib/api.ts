@@ -170,8 +170,8 @@ export const tasksApi = {
 
 // 고객
 export const customersApi = {
-  list: (search?: string, signal?: AbortSignal) =>
-    api.get("/api/customers", { params: { search }, signal }),
+  list: (search?: string, page?: number, pageSize?: number, signal?: AbortSignal) =>
+    api.get("/api/customers", { params: { search, page, page_size: pageSize }, signal }),
   add: (data: Record<string, string>) => api.post("/api/customers", data),
   update: (id: string, data: Record<string, string>) => api.put(`/api/customers/${id}`, data),
   delete: (id: string) => api.delete(`/api/customers/${id}`),
