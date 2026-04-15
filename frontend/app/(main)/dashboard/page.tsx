@@ -209,7 +209,7 @@ function ActiveTaskRow({
         <input className="hw-table-input" value={date}
           onChange={(e) => { setDate(e.target.value); mark(); }} />
       </td>
-      <td>
+      <td style={{ minWidth: 72 }}>
         <input className="hw-table-input" value={name}
           onChange={(e) => { setName(e.target.value); mark(); }} />
       </td>
@@ -262,36 +262,44 @@ function ActiveTaskRow({
           </button>
         )}
       </td>
-      {/* 접수 / 처리 / 보관중 — 가로 배치, 저장 버튼 없음 (선택 처리로만 저장) */}
-      <td style={{ minWidth: 160, verticalAlign: "middle" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, flexWrap: "nowrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-            {pendingReception && <span style={{ fontSize: 9, fontWeight: 700, color: pendingProcessing ? "#CBD5E0" : "#2B6CB0" }}>D+{daysBetween(pendingReception, pendingProcessing || null)}</span>}
-            <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={!!pendingReception} onChange={() => toggleLocal("reception")}
-                style={{ accentColor: "#3182CE", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: pendingReception ? "#2B6CB0" : "#A0AEC0", fontWeight: pendingReception ? 700 : 400 }}>접수</span>
-              {pendingReception && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingReception)}</span>}
-            </label>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-            {pendingProcessing && <span style={{ fontSize: 9, fontWeight: 700, color: pendingStorage ? "#CBD5E0" : "#975A16" }}>D+{daysBetween(pendingProcessing, pendingStorage || null)}</span>}
-            <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
-                style={{ accentColor: "#D69E2E", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처리</span>
-              {pendingProcessing && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingProcessing)}</span>}
-            </label>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-            {pendingStorage && <span style={{ fontSize: 9, fontWeight: 700, color: "#553C9A" }}>D+{dPlusFromTs(pendingStorage)}</span>}
-            <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={!!pendingStorage} onChange={() => toggleLocal("storage")}
-                style={{ accentColor: "#9F7AEA", width: 11, height: 11 }} />
-              <span style={{ fontSize: 10, color: pendingStorage ? "#553C9A" : "#A0AEC0", fontWeight: pendingStorage ? 700 : 400 }}>보관중</span>
-              {pendingStorage && <span style={{ fontSize: 9, color: "#A0AEC0" }}>{fmtDate(pendingStorage)}</span>}
-            </label>
-          </div>
+      {/* 접수 / 처리 / 보관중 — 1줄 고정 */}
+      <td style={{ minWidth: 120, verticalAlign: "middle", whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
+          {/* 접수 */}
+          <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+            <input type="checkbox" checked={!!pendingReception} onChange={() => toggleLocal("reception")}
+              style={{ accentColor: "#3182CE", width: 11, height: 11, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: pendingReception ? "#2B6CB0" : "#A0AEC0", fontWeight: pendingReception ? 700 : 400 }}>접</span>
+            {pendingReception && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: pendingProcessing ? "#CBD5E0" : "#2B6CB0" }}>
+                D+{daysBetween(pendingReception, pendingProcessing || null)}
+              </span>
+            )}
+          </label>
+          <span style={{ color: "#E2E8F0", fontSize: 10 }}>·</span>
+          {/* 진 (처리) */}
+          <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+            <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
+              style={{ accentColor: "#D69E2E", width: 11, height: 11, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>진</span>
+            {pendingProcessing && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: pendingStorage ? "#CBD5E0" : "#975A16" }}>
+                D+{daysBetween(pendingProcessing, pendingStorage || null)}
+              </span>
+            )}
+          </label>
+          <span style={{ color: "#E2E8F0", fontSize: 10 }}>·</span>
+          {/* 보 (보관중) */}
+          <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
+            <input type="checkbox" checked={!!pendingStorage} onChange={() => toggleLocal("storage")}
+              style={{ accentColor: "#9F7AEA", width: 11, height: 11, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: pendingStorage ? "#553C9A" : "#A0AEC0", fontWeight: pendingStorage ? 700 : 400 }}>보</span>
+            {pendingStorage && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#553C9A" }}>
+                D+{dPlusFromTs(pendingStorage)}
+              </span>
+            )}
+          </label>
         </div>
       </td>
       {/* 완료 체크박스 */}

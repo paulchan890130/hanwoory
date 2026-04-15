@@ -9,6 +9,9 @@ immigration_guidelines_db_v2.json 기반 정적 참조 데이터 API
   GET /rules                  - 공통 규칙 목록
   GET /exceptions             - 예외 조건 목록
   GET /docs/lookup            - 서류명 표준화 조회
+  GET /tree/entry-points      - 상담 진입점 목록
+  GET /tree/results           - quickdoc 파라미터로 해당 업무 rows 조회
+  POST /tb/evaluate           - 결핵 검사 필요 여부 평가
   GET /{row_id}               - 단건 상세 조회
 """
 import sys, os
@@ -16,7 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import json
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from pydantic import BaseModel
 from backend.auth import get_current_user
 
 router = APIRouter()
@@ -197,6 +201,147 @@ def lookup_doc(
     return {"query": name, "total": len(results), "data": results}
 
 
+# ══════════════════════════════════════════════════════════════════
+# 트리·TB 데이터 (/{row_id} 보다 먼저 정의 — 경로 충돌 방지)
+# ══════════════════════════════════════════════════════════════════
+
+_ENTRY_POINTS_DATA = [
+    {"id": "F4",   "label": "재외동포 (F-4)",    "subtitle": "체류자격 변경·연장",  "codes": "F-4",       "color": "#4299E1", "search_query": "F-4",        "action_types": ["CHANGE","EXTEND","REGISTRATION"]},
+    {"id": "E7",   "label": "특정활동 (E-7)",    "subtitle": "변경·연장·부여",      "codes": "E-7",       "color": "#9F7AEA", "search_query": "E-7",        "action_types": ["CHANGE","EXTEND","GRANT"]},
+    {"id": "D2",   "label": "유학 (D-2)",        "subtitle": "등록·변경·연장",      "codes": "D-2",       "color": "#667EEA", "search_query": "D-2",        "action_types": ["CHANGE","EXTEND","REGISTRATION","EXTRA_WORK"]},
+    {"id": "H2",   "label": "방문취업 (H-2)",    "subtitle": "등록·연장·변경",      "codes": "H-2",       "color": "#ED8936", "search_query": "H-2",        "action_types": ["CHANGE","EXTEND","REGISTRATION"]},
+    {"id": "F6",   "label": "결혼이민 (F-6)",    "subtitle": "변경·연장·부여",      "codes": "F-6",       "color": "#FC8181", "search_query": "F-6",        "action_types": ["CHANGE","EXTEND","GRANT"]},
+    {"id": "REG",  "label": "외국인 등록",        "subtitle": "최초 등록 절차",      "codes": "등록",       "color": "#38B2AC", "search_query": "외국인등록",  "action_types": ["REGISTRATION"]},
+    {"id": "REEN", "label": "재입국 허가",        "subtitle": "단수·복수 재입국",    "codes": "재입국",     "color": "#F6AD55", "search_query": "재입국허가",  "action_types": ["REENTRY"]},
+    {"id": "EX",   "label": "체류자격 외 활동",  "subtitle": "시간제취업·기타",     "codes": "자격외활동", "color": "#ED8936", "search_query": "시간제취업",  "action_types": ["EXTRA_WORK"]},
+    {"id": "WP",   "label": "근무처 변경·추가",  "subtitle": "취업자격 근무처",     "codes": "근무처",     "color": "#9F7AEA", "search_query": "근무처변경",  "action_types": ["WORKPLACE"]},
+    {"id": "GR",   "label": "체류자격 부여",     "subtitle": "출생·귀화 후 부여",   "codes": "부여",       "color": "#FC8181", "search_query": "체류자격부여","action_types": ["GRANT"]},
+    {"id": "VC",   "label": "사증발급인정서",    "subtitle": "국내 초청 사증",       "codes": "사증",       "color": "#667EEA", "search_query": "사증발급인정","action_types": ["VISA_CONFIRM"]},
+    {"id": "DR",   "label": "거소신고",          "subtitle": "재외동포 거소",        "codes": "거소",       "color": "#68D391", "search_query": "거소신고",    "action_types": ["DOMESTIC_RESIDENCE_REPORT"]},
+    {"id": "AC",   "label": "직접신청",          "subtitle": "체류지·신고 등",       "codes": "신고",       "color": "#A0AEC0", "search_query": "직접신청",    "action_types": ["APPLICATION_CLAIM"]},
+]
+
+_TB_HIGH_RISK_ISO3 = {
+    "KHM","CHN","IND","IDN","LAO","MNG","MMR","NPL","PAK","PHL","PNG","PRK","VNM","BGD","BTN","TLS",
+    "AGO","CAF","COD","COG","ETH","GAB","GNB","LSO","LBR","MDG","MWI","MLI","MOZ","NAM","NER","NGA",
+    "SOM","ZAF","SSD","SDN","SWZ","TZA","UGA","ZMB","ZWE","CMR","TCD","GIN","CIV","BFA","SLE","TGO",
+    "AZE","BLR","GEO","KAZ","KGZ","MDA","RUS","TJK","TKM","UKR","UZB","ARM",
+    "BOL","ECU","GTM","GUY","HTI","HND","PER",
+}
+
+_TB_EXEMPT_PREFIXES = ["A-", "B-", "C-"]
+_TB_STAGE_MAP = {
+    "REGISTRATION": "registration",
+    "CHANGE":       "stay_permission",
+    "EXTEND":       "stay_permission",
+    "GRANT":        "stay_permission",
+}
+
+
+class TbEvaluateRequest(BaseModel):
+    nationality_iso3: str
+    action_type: str
+    detailed_code: str = ""
+    age: Optional[int] = None
+
+
+@router.get("/tree/entry-points")
+def get_entry_points(user: dict = Depends(get_current_user)):
+    """상담 진입점 목록 + 각 진입점별 업무 건수"""
+    result = []
+    for ep in _ENTRY_POINTS_DATA:
+        q = ep["search_query"].lower()
+        at_filter = ep.get("action_types", [])
+        count = sum(
+            1 for row in _MASTER_ROWS
+            if (not at_filter or row.get("action_type", "") in at_filter)
+            and (q in str(row.get("detailed_code", "")).lower()
+                 or q in str(row.get("business_name", "")).lower())
+        )
+        result.append({**ep, "count": count})
+    return {"total": len(result), "data": result}
+
+
+@router.get("/tree/results")
+def get_tree_results(
+    category: Optional[str]    = Query(None),
+    minwon: Optional[str]      = Query(None),
+    kind: Optional[str]        = Query(None),
+    detail: Optional[str]      = Query(None),
+    action_type: Optional[str] = Query(None),
+    search_query: Optional[str]= Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    user: dict = Depends(get_current_user),
+):
+    """quickdoc 파라미터 기준으로 실무지침 rows 반환 (딥링크 연결용)"""
+    items = list(_MASTER_ROWS)
+    if category:
+        items = [r for r in items if r.get("quickdoc_category") == category]
+    if minwon:
+        items = [r for r in items if r.get("quickdoc_minwon") == minwon]
+    if kind:
+        items = [r for r in items if r.get("quickdoc_kind") == kind]
+    if detail:
+        items = [r for r in items if r.get("quickdoc_detail") == detail]
+    if action_type:
+        items = [r for r in items if r.get("action_type") == action_type]
+    if search_query:
+        q = search_query.lower()
+        items = [r for r in items
+                 if q in str(r.get("detailed_code","")).lower()
+                 or q in str(r.get("business_name","")).lower()]
+    items.sort(key=lambda r: str(r.get("detailed_code","") or ""))
+    return _paginate(items, page, limit)
+
+
+@router.post("/tb/evaluate")
+def evaluate_tb(req: TbEvaluateRequest, user: dict = Depends(get_current_user)):
+    """
+    결핵 검사 필요 여부 평가.
+    TB-001: 외국인등록 단계 / TB-002: 체류허가(변경·연장·부여) 단계
+    """
+    iso3  = req.nationality_iso3.upper().strip()
+    at    = req.action_type.upper().strip()
+    code  = req.detailed_code.strip()
+
+    is_high_risk  = iso3 in _TB_HIGH_RISK_ISO3
+    is_exempt     = any(code.startswith(p) for p in _TB_EXEMPT_PREFIXES)
+    stage         = _TB_STAGE_MAP.get(at)
+
+    if not is_high_risk:
+        return {"required": False, "stage": None,
+                "reason": f"{iso3}은(는) 결핵 고위험국이 아닙니다.",
+                "is_high_risk_country": False, "rule_id": None}
+
+    if is_exempt:
+        return {"required": False, "stage": None,
+                "reason": f"{code} 체류자격은 결핵 검사 면제 대상입니다.",
+                "is_high_risk_country": True, "rule_id": None}
+
+    if stage == "registration":
+        return {"required": True, "stage": "registration",
+                "reason": f"{iso3} 국적자는 외국인등록 신청 시 결핵 검사 증명서를 제출해야 합니다.",
+                "is_high_risk_country": True, "rule_id": "TB-001",
+                "instruction": "외국인등록 신청 전 보건소 또는 지정 의료기관에서 결핵 검사를 받고 검진 결과서를 제출하세요."}
+
+    if stage == "stay_permission":
+        return {"required": True, "stage": "stay_permission",
+                "reason": f"{iso3} 국적자는 체류허가 신청 시 결핵 검사 증명서를 제출해야 합니다.",
+                "is_high_risk_country": True, "rule_id": "TB-002",
+                "instruction": "체류허가 신청 전 보건소 또는 지정 의료기관에서 결핵 검사를 받고 검진 결과서를 제출하세요."}
+
+    return {"required": False, "stage": None,
+            "reason": f"{at} 업무는 결핵 검사 의무 단계가 아닙니다 (고위험국 참고).",
+            "is_high_risk_country": True, "rule_id": None}
+
+
+@router.get("/tb/high-risk-countries")
+def get_tb_countries(user: dict = Depends(get_current_user)):
+    """결핵 고위험국 ISO3 목록"""
+    return {"total": len(_TB_HIGH_RISK_ISO3), "countries": sorted(_TB_HIGH_RISK_ISO3)}
+
+
 @router.get("/")
 def list_guidelines(
     action_type: Optional[str] = Query(None, description="CHANGE|EXTEND|EXTRA_WORK|WORKPLACE|REGISTRATION|REENTRY|GRANT|VISA_CONFIRM|APPLICATION_CLAIM"),
@@ -252,3 +397,4 @@ def get_guideline(row_id: str, user: dict = Depends(get_current_user)):
         "related_rules": [r for r in _RULES if _rule_matches(r)],
         "related_exceptions": [e for e in _EXCEPTIONS if _exc_matches(e)],
     }
+

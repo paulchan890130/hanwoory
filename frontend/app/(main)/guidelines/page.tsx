@@ -1,12 +1,12 @@
 "use client";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, BookOpen, ChevronDown, ChevronUp, X, Loader2,
-  FileText, Paperclip, AlertCircle, BookMarked, ExternalLink,
-  ArrowRight, GitBranch,
+  FileText, Paperclip, AlertCircle, BookMarked,
+  ArrowRight, GitBranch, ShieldAlert,
 } from "lucide-react";
-import { guidelinesApi, GuidelineRow } from "@/lib/api";
+import { guidelinesApi, GuidelineRow, GuidelineEntryPoint } from "@/lib/api";
 
 // ── 업무유형 한글 라벨 ────────────────────────────────────────────────────────
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -52,130 +52,42 @@ const ACTION_TYPE_TABS = [
   { key: "ACTIVITY_EXTRA",            label: "활동범위" },
 ];
 
-// ── 상담 진입점 (트리 모드) ────────────────────────────────────────────────────
-interface EntryPoint {
-  label: string;
-  subtitle: string;
-  codes: string;
-  color: string;
-  searchQuery: string;
-  quickdoc?: { category: string; minwon: string; kind?: string; detail?: string };
-}
+// ── TB 적용 대상 action_type ───────────────────────────────────────────────────
+const TB_APPLICABLE_TYPES = new Set(["REGISTRATION", "CHANGE", "EXTEND", "GRANT"]);
+const TB_STAGE_LABEL: Record<string, string> = {
+  REGISTRATION: "외국인등록 신청 시",
+  CHANGE:       "체류자격 변경 허가 신청 시",
+  EXTEND:       "체류기간 연장 허가 신청 시",
+  GRANT:        "체류자격 부여 신청 시",
+};
 
-const ENTRY_POINTS: EntryPoint[] = [
-  {
-    label: "재외동포 (F-4)",
-    subtitle: "체류자격 변경·연장",
-    codes: "F-4",
-    color: "#4299E1",
-    searchQuery: "F-4",
-    quickdoc: { category: "체류", minwon: "변경", kind: "F", detail: "4" },
-  },
-  {
-    label: "특정활동 (E-7)",
-    subtitle: "변경·연장·부여",
-    codes: "E-7",
-    color: "#9F7AEA",
-    searchQuery: "E-7",
-    quickdoc: { category: "체류", minwon: "변경", kind: "E7" },
-  },
-  {
-    label: "유학 (D-2)",
-    subtitle: "등록·변경·연장",
-    codes: "D-2",
-    color: "#667EEA",
-    searchQuery: "D-2",
-    quickdoc: { category: "체류", minwon: "변경", kind: "D" },
-  },
-  {
-    label: "방문취업 (H-2)",
-    subtitle: "등록·연장·변경",
-    codes: "H-2",
-    color: "#ED8936",
-    searchQuery: "H-2",
-    quickdoc: { category: "체류", minwon: "변경", kind: "H2" },
-  },
-  {
-    label: "결혼이민 (F-6)",
-    subtitle: "변경·연장·부여",
-    codes: "F-6",
-    color: "#FC8181",
-    searchQuery: "F-6",
-    quickdoc: { category: "체류", minwon: "변경", kind: "F", detail: "6" },
-  },
-  {
-    label: "외국인 등록",
-    subtitle: "최초 등록 절차",
-    codes: "등록",
-    color: "#38B2AC",
-    searchQuery: "외국인등록",
-  },
-  {
-    label: "재입국 허가",
-    subtitle: "단수·복수 재입국",
-    codes: "재입국",
-    color: "#F6AD55",
-    searchQuery: "재입국허가",
-  },
-  {
-    label: "체류자격 외 활동",
-    subtitle: "시간제취업·기타",
-    codes: "자격외활동",
-    color: "#ED8936",
-    searchQuery: "시간제취업",
-  },
-  {
-    label: "근무처 변경·추가",
-    subtitle: "취업자격 근무처",
-    codes: "근무처",
-    color: "#9F7AEA",
-    searchQuery: "근무처변경",
-  },
-  {
-    label: "체류자격 부여",
-    subtitle: "출생·귀화 후 부여",
-    codes: "부여",
-    color: "#FC8181",
-    searchQuery: "체류자격부여",
-  },
-  {
-    label: "사증발급인정서",
-    subtitle: "국내 초청 사증",
-    codes: "사증",
-    color: "#667EEA",
-    searchQuery: "사증발급인정",
-  },
-  {
-    label: "거소신고",
-    subtitle: "재외동포 거소",
-    codes: "거소",
-    color: "#68D391",
-    searchQuery: "거소신고",
-  },
-  {
-    label: "직접신청",
-    subtitle: "체류지·신고 등",
-    codes: "신고",
-    color: "#A0AEC0",
-    searchQuery: "직접신청",
-  },
+// ── 상담 진입점 (트리 모드) — 초기 하드코딩 fallback ─────────────────────────
+// API 응답으로 교체됨. GuidelineEntryPoint 타입 사용.
+const ENTRY_POINTS: GuidelineEntryPoint[] = [
+  { id:"F4",   label:"재외동포 (F-4)",   subtitle:"체류자격 변경·연장", codes:"F-4",       color:"#4299E1", search_query:"F-4",        action_types:["CHANGE","EXTEND","REGISTRATION"] },
+  { id:"E7",   label:"특정활동 (E-7)",   subtitle:"변경·연장·부여",     codes:"E-7",       color:"#9F7AEA", search_query:"E-7",        action_types:["CHANGE","EXTEND","GRANT"] },
+  { id:"D2",   label:"유학 (D-2)",       subtitle:"등록·변경·연장",     codes:"D-2",       color:"#667EEA", search_query:"D-2",        action_types:["CHANGE","EXTEND","REGISTRATION","EXTRA_WORK"] },
+  { id:"H2",   label:"방문취업 (H-2)",   subtitle:"등록·연장·변경",     codes:"H-2",       color:"#ED8936", search_query:"H-2",        action_types:["CHANGE","EXTEND","REGISTRATION"] },
+  { id:"F6",   label:"결혼이민 (F-6)",   subtitle:"변경·연장·부여",     codes:"F-6",       color:"#FC8181", search_query:"F-6",        action_types:["CHANGE","EXTEND","GRANT"] },
+  { id:"REG",  label:"외국인 등록",       subtitle:"최초 등록 절차",     codes:"등록",       color:"#38B2AC", search_query:"외국인등록",  action_types:["REGISTRATION"] },
+  { id:"REEN", label:"재입국 허가",       subtitle:"단수·복수 재입국",   codes:"재입국",     color:"#F6AD55", search_query:"재입국허가",  action_types:["REENTRY"] },
+  { id:"EX",   label:"체류자격 외 활동", subtitle:"시간제취업·기타",    codes:"자격외활동", color:"#ED8936", search_query:"시간제취업",  action_types:["EXTRA_WORK"] },
+  { id:"WP",   label:"근무처 변경·추가", subtitle:"취업자격 근무처",    codes:"근무처",     color:"#9F7AEA", search_query:"근무처변경",  action_types:["WORKPLACE"] },
+  { id:"GR",   label:"체류자격 부여",    subtitle:"출생·귀화 후 부여",  codes:"부여",       color:"#FC8181", search_query:"체류자격부여",action_types:["GRANT"] },
+  { id:"VC",   label:"사증발급인정서",   subtitle:"국내 초청 사증",      codes:"사증",       color:"#667EEA", search_query:"사증발급인정",action_types:["VISA_CONFIRM"] },
+  { id:"DR",   label:"거소신고",         subtitle:"재외동포 거소",       codes:"거소",       color:"#68D391", search_query:"거소신고",    action_types:["DOMESTIC_RESIDENCE_REPORT"] },
+  { id:"AC",   label:"직접신청",         subtitle:"체류지·신고 등",      codes:"신고",       color:"#A0AEC0", search_query:"직접신청",    action_types:["APPLICATION_CLAIM"] },
 ];
 
 // ── quickdoc 딥링크 URL 생성 ───────────────────────────────────────────────────
 function buildQuickDocUrl(row: GuidelineRow): string | null {
   // row에 quickdoc 필드가 있으면 우선 사용
-  if ((row as Record<string, unknown>).quickdoc_category) {
-    const r = row as GuidelineRow & {
-      quickdoc_category?: string;
-      quickdoc_minwon?: string;
-      quickdoc_kind?: string;
-      quickdoc_detail?: string;
-    };
+  if (row.quickdoc_category) {
     const params = new URLSearchParams();
-    if (r.quickdoc_category) params.set("category", r.quickdoc_category);
-    if (r.quickdoc_minwon)   params.set("minwon",   r.quickdoc_minwon);
-    if (r.quickdoc_kind)     params.set("kind",     r.quickdoc_kind);
-    if (r.quickdoc_detail)   params.set("detail",   r.quickdoc_detail);
+    params.set("category", row.quickdoc_category);
+    if (row.quickdoc_minwon)  params.set("minwon",  row.quickdoc_minwon);
+    if (row.quickdoc_kind)    params.set("kind",    row.quickdoc_kind);
+    if (row.quickdoc_detail)  params.set("detail",  row.quickdoc_detail);
     params.set("from_label", row.business_name);
     return `/quick-doc?${params.toString()}`;
   }
@@ -430,6 +342,32 @@ function DetailPanel({
             </div>
           </div>
         )}
+
+        {/* TB 결핵 검사 안내 */}
+        {TB_APPLICABLE_TYPES.has(row.action_type) && (
+          <div
+            style={{
+              padding: "10px 14px", borderRadius: 8,
+              background: "#FFF5F5", border: "1px solid #FEB2B2",
+              display: "flex", gap: 10, alignItems: "flex-start",
+            }}
+          >
+            <ShieldAlert size={14} style={{ color: "#E53E3E", flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#C53030", marginBottom: 3 }}>
+                결핵 고위험국 국적자 주의
+              </div>
+              <div style={{ fontSize: 11, color: "#742A2A", lineHeight: 1.6 }}>
+                {TB_STAGE_LABEL[row.action_type]} 결핵 고위험국 국적자는
+                보건소 결핵 검사 결과서를 함께 제출해야 합니다.
+                <br />
+                <span style={{ color: "#9B2C2C", fontWeight: 600 }}>
+                  해당 여부: 베트남·중국·인도·필리핀·인도네시아 등 약 70개국
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -545,7 +483,7 @@ function GuidelineCard({
 function EntryPointCard({
   entry, onClick,
 }: {
-  entry: EntryPoint; onClick: () => void;
+  entry: GuidelineEntryPoint; onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -592,17 +530,30 @@ function EntryPointCard({
 
 // ── 메인 페이지 ───────────────────────────────────────────────────────────────
 export default function GuidelinesPage() {
-  const [inputValue, setInputValue]   = useState("");
-  const [activeType, setActiveType]   = useState("");
-  const [results, setResults]         = useState<GuidelineRow[]>([]);
-  const [total, setTotal]             = useState(0);
-  const [isLoading, setIsLoading]     = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [selectedRow, setSelectedRow] = useState<GuidelineRow | null>(null);
+  const [inputValue, setInputValue]         = useState("");
+  const [activeType, setActiveType]         = useState("");
+  const [results, setResults]               = useState<GuidelineRow[]>([]);
+  const [total, setTotal]                   = useState(0);
+  const [isLoading, setIsLoading]           = useState(false);
+  const [hasSearched, setHasSearched]       = useState(false);
+  const [selectedRow, setSelectedRow]       = useState<GuidelineRow | null>(null);
+  const [entryPoints, setEntryPoints]       = useState<GuidelineEntryPoint[]>(ENTRY_POINTS);
+  const [entryLoading, setEntryLoading]     = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 모드 결정: 2자 이상이면 검색 모드, 그 이하면 트리 모드
   const mode = inputValue.trim().length >= 2 ? "search" : "tree";
+
+  // 진입점 API 로딩 (트리 모드 첫 렌더시)
+  useEffect(() => {
+    setEntryLoading(true);
+    guidelinesApi.getEntryPoints()
+      .then(res => {
+        if (res.data.data.length > 0) setEntryPoints(res.data.data);
+      })
+      .catch(() => { /* 실패 시 하드코딩 fallback 유지 */ })
+      .finally(() => setEntryLoading(false));
+  }, []);
 
   const doSearch = useCallback(async (q: string, type: string) => {
     setIsLoading(true);
@@ -630,10 +581,12 @@ export default function GuidelinesPage() {
     doSearch(inputValue, activeType);
   };
 
-  const handleEntryPointClick = (entry: EntryPoint) => {
-    setInputValue(entry.searchQuery);
-    doSearch(entry.searchQuery, "");
-    setActiveType("");
+  const handleEntryPointClick = (entry: GuidelineEntryPoint) => {
+    setInputValue(entry.search_query);
+    // 진입점의 대표 action_type이 하나인 경우 탭 자동 선택, 여러 개면 전체
+    const autoType = entry.action_types?.length === 1 ? entry.action_types[0] : "";
+    setActiveType(autoType);
+    doSearch(entry.search_query, autoType);
   };
 
   const handleTypeChange = (type: string) => {
@@ -795,6 +748,7 @@ export default function GuidelinesPage() {
             <span style={{ fontSize: 12, color: "#A0AEC0" }}>
               업무 유형을 선택하거나 위에서 직접 검색하세요
             </span>
+            {entryLoading && <Loader2 size={12} className="animate-spin" style={{ color: "#A0AEC0" }} />}
           </div>
           <div
             style={{
@@ -803,9 +757,9 @@ export default function GuidelinesPage() {
               gap: 8,
             }}
           >
-            {ENTRY_POINTS.map((entry) => (
+            {entryPoints.map((entry) => (
               <EntryPointCard
-                key={entry.label}
+                key={entry.id ?? entry.label}
                 entry={entry}
                 onClick={() => handleEntryPointClick(entry)}
               />

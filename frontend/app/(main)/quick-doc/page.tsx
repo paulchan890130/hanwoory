@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -255,7 +256,9 @@ function RoleSelector({
 // ─────────────────────────────────────────────────────────────────────────
 // 메인 페이지
 // ─────────────────────────────────────────────────────────────────────────
-export default function QuickDocPage() {
+function QuickDocPageInner() {
+  const searchParams = useSearchParams();
+
   // ── 업무 선택 ──
   const [category, setCategory] = useState("");
   const [minwon, setMinwon]     = useState("");
@@ -291,6 +294,28 @@ export default function QuickDocPage() {
     if (raw) {
       try { setAgentInfo(JSON.parse(raw)); } catch { /* ignore */ }
     }
+  }, []);
+
+  // ── 딥링크 파라미터 처리 (실무지침에서 넘어올 때) ──
+  useEffect(() => {
+    const paramCategory = searchParams.get("category");
+    const paramMinwon   = searchParams.get("minwon");
+    const paramKind     = searchParams.get("kind");
+    const paramDetail   = searchParams.get("detail");
+    const fromLabel     = searchParams.get("from_label");
+
+    if (!paramCategory) return;
+
+    if (paramCategory) setCategory(paramCategory);
+    if (paramMinwon)   setMinwon(paramMinwon);
+    if (paramKind)     setKind(paramKind);
+    if (paramDetail)   setDetail(paramDetail);
+
+    if (fromLabel) {
+      toast.info(`실무지침에서 이동: ${fromLabel}`, { duration: 3000 });
+    }
+  // searchParams가 마운트 시 한 번만 실행되도록 의도적으로 빈 deps 사용
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 선택 트리 ──
@@ -977,5 +1002,13 @@ export default function QuickDocPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function QuickDocPage() {
+  return (
+    <Suspense>
+      <QuickDocPageInner />
+    </Suspense>
   );
 }

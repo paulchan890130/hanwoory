@@ -318,26 +318,8 @@ export interface FullDocGenRequest {
   direct_overrides?: Record<string, string>;
 }
 
-export interface WorkPreviewData {
-  label: string;
-  category: string;
-  minwon: string;
-  kind: string;
-  detail: string;
-  summary: string;
-  description: string;
-  process: string[];
-  typical_days: number;
-  caution: string;
-  sms_template: string;
-  form_docs: string[];
-  attach_docs: string[];
-}
-
 export const quickDocApi = {
   getTree: () => api.get<DocTree>("/api/quick-doc/tree"),
-  getPreview: (category: string, minwon: string, kind: string, detail: string) =>
-    api.get<WorkPreviewData>("/api/quick-doc/preview", { params: { category, minwon, kind, detail } }),
   getRequiredDocs: (category: string, minwon: string, kind: string, detail: string, reg_no?: string) =>
     api.post<RequiredDocsResponse>("/api/quick-doc/required-docs", {
       category, minwon, kind, detail, reg_no: reg_no ?? "",
@@ -457,12 +439,17 @@ export interface GuidelineRow {
   business_name: string;
   detailed_code: string;
   overview_short: string;
-  form_docs: string;
-  supporting_docs: string;
+  form_docs: string;           // 사무소 준비서류 (| 구분)
+  supporting_docs: string;     // 필요서류 / 고객 준비 (| 구분)
   exceptions_summary: string;
   fee_rule: string;
   basis_section: string;
   status: string;
+  // 문서자동작성 딥링크용 (데이터 마이그레이션 후 채워짐)
+  quickdoc_category?: string;
+  quickdoc_minwon?: string;
+  quickdoc_kind?: string;
+  quickdoc_detail?: string;
   search_keys?: { key_type: string; key_value: string }[];
   related_rules?: Record<string, string>[];
   related_exceptions?: Record<string, string>[];
@@ -474,6 +461,33 @@ export interface GuidelineListResponse {
   limit: number;
   pages: number;
   data: GuidelineRow[];
+}
+
+export interface GuidelineEntryPoint {
+  id: string;
+  label: string;
+  subtitle: string;
+  codes: string;
+  color: string;
+  search_query: string;
+  action_types: string[];
+  count?: number;
+}
+
+export interface TbEvaluateRequest {
+  nationality_iso3: string;
+  action_type: string;
+  detailed_code?: string;
+  age?: number;
+}
+
+export interface TbEvaluateResult {
+  required: boolean;
+  stage: string | null;
+  reason: string;
+  is_high_risk_country: boolean;
+  rule_id: string | null;
+  instruction?: string;
 }
 
 export const guidelinesApi = {
@@ -490,5 +504,18 @@ export const guidelinesApi = {
   getDetail: (row_id: string) =>
     api.get<GuidelineRow>(`/api/guidelines/${row_id}`),
   stats: () =>
-    api.get("/api/guidelines/stats"),
+    api.get<{ version: string; updated_at: string; total_rows: number }>("/api/guidelines/stats"),
+  // 트리 모드
+  getEntryPoints: () =>
+    api.get<{ total: number; data: GuidelineEntryPoint[] }>("/api/guidelines/tree/entry-points"),
+  getTreeResults: (params: {
+    category?: string; minwon?: string; kind?: string; detail?: string;
+    action_type?: string; search_query?: string; page?: number; limit?: number;
+  }) =>
+    api.get<GuidelineListResponse>("/api/guidelines/tree/results", { params }),
+  // TB 평가
+  evaluateTb: (req: TbEvaluateRequest) =>
+    api.post<TbEvaluateResult>("/api/guidelines/tb/evaluate", req),
+  getTbCountries: () =>
+    api.get<{ total: number; countries: string[] }>("/api/guidelines/tb/high-risk-countries"),
 };
