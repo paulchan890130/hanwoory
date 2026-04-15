@@ -206,6 +206,7 @@ def lookup_doc(
 # ══════════════════════════════════════════════════════════════════
 
 _ENTRY_POINTS_DATA = [
+    {"id": "F5",   "label": "영주 (F-5)",        "subtitle": "영주자격 변경",       "codes": "F-5",       "color": "#48BB78", "search_query": "F-5",        "action_types": ["CHANGE"]},
     {"id": "F4",   "label": "재외동포 (F-4)",    "subtitle": "체류자격 변경·연장",  "codes": "F-4",       "color": "#4299E1", "search_query": "F-4",        "action_types": ["CHANGE","EXTEND","REGISTRATION"]},
     {"id": "E7",   "label": "특정활동 (E-7)",    "subtitle": "변경·연장·부여",      "codes": "E-7",       "color": "#9F7AEA", "search_query": "E-7",        "action_types": ["CHANGE","EXTEND","GRANT"]},
     {"id": "D2",   "label": "유학 (D-2)",        "subtitle": "등록·변경·연장",      "codes": "D-2",       "color": "#667EEA", "search_query": "D-2",        "action_types": ["CHANGE","EXTEND","REGISTRATION","EXTRA_WORK"]},
