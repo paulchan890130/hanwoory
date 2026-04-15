@@ -166,6 +166,49 @@ ROLE_WIDGETS: dict = {
     "aggregator":    "pyin",  # 합산자
     "agent":         "ayin",  # 행정사
 }
+# ── Pydantic 요청 모델 ────────────────────────────────────────────────────────
+
+class RequiredDocsRequest(BaseModel):
+    category: str
+    minwon: str
+    kind: str = ""
+    detail: str = ""
+    reg_no: str = ""   # 신청인 등록증 앞번호 → calc_is_minor로 재학신고서 필터링
+
+
+class DocGenRequest(BaseModel):
+    category: str
+    minwon: str
+    kind: str = ""
+    detail: str = ""
+    customer_id: Optional[str] = None
+    selected_docs: list = []
+
+
+class FullDocGenRequest(BaseModel):
+    category: str
+    minwon: str
+    kind: str = ""
+    detail: str = ""
+    applicant_id: Optional[str] = None
+    accommodation_id: Optional[str] = None
+    guarantor_id: Optional[str] = None
+    guardian_id: Optional[str] = None
+    aggregator_id: Optional[str] = None
+    applicant_name: Optional[str] = None
+    accommodation_name: Optional[str] = None
+    guarantor_name: Optional[str] = None
+    guardian_name: Optional[str] = None
+    aggregator_name: Optional[str] = None
+    selected_docs: list = []
+    seal_applicant: bool = True
+    seal_accommodation: bool = True
+    seal_guarantor: bool = True
+    seal_guardian: bool = True
+    seal_aggregator: bool = True
+    seal_agent: bool = True
+    direct_overrides: Optional[dict] = None
+
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
 
 @router.get("/tree")
