@@ -112,6 +112,7 @@ export interface DailyEntry {
   exp_etc: number;
   cash_out: number;
   memo: string;
+  customer_id?: string; // 고객 자동완성 선택 시 전달 (시트에 저장 안 됨, 위임내역 연동용)
 }
 
 export interface BalanceData {

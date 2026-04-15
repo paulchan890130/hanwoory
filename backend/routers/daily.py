@@ -49,11 +49,12 @@ _ACTIVE_HEADER = [
 def _append_delegation_to_customer(rec: dict, tenant_id: str) -> None:
     """일일결산 저장 후 고객 '위임내역' 컬럼에 한 줄 추가 (append only).
     현금출금 카테고리 및 이름이 비어있는 경우는 건너뜀.
-    고객 조회는 한글이름(name 필드) 정확 매칭."""
+    customer_id가 있으면 고객ID로 정확 매칭, 없으면 한글이름 매칭으로 폴백."""
     from config import CUSTOMER_SHEET_NAME
 
-    category = str(rec.get("category", "")).strip()
-    name     = str(rec.get("name",     "")).strip()
+    category    = str(rec.get("category",    "")).strip()
+    name        = str(rec.get("name",        "")).strip()
+    customer_id = str(rec.get("customer_id", "")).strip()
     if category == "현금출금" or not name:
         return
 
@@ -87,13 +88,18 @@ def _append_delegation_to_customer(rec: dict, tenant_id: str) -> None:
     if not entry.strip():
         return
 
-    # 고객 시트에서 한글이름으로 조회
+    # 고객 시트 조회
     records = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
     if not records:
         return
 
     header_list = list(records[0].keys())
-    target = next((r for r in records if str(r.get("한글", "")).strip() == name), None)
+
+    # customer_id 우선 매칭, 없으면 한글이름 폴백
+    if customer_id:
+        target = next((r for r in records if str(r.get("고객ID", "")).strip() == customer_id), None)
+    else:
+        target = next((r for r in records if str(r.get("한글", "")).strip() == name), None)
     if not target:
         return  # 매칭 없으면 조용히 건너뜀
 

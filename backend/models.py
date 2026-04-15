@@ -100,6 +100,8 @@ class DailyEntry(BaseModel):
     exp_etc: Optional[int] = 0
     cash_out: Optional[int] = 0
     memo: Optional[str] = ""
+    # 프론트에서 고객 자동완성으로 선택된 customer_id (시트에는 저장 안 됨, 위임내역 연동용)
+    customer_id: Optional[str] = ""
 
 class BalanceData(BaseModel):
     cash: int = 0

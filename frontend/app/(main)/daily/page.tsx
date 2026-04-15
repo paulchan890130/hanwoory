@@ -191,7 +191,9 @@ export default function DailyPage() {
     const timer = setTimeout(async () => {
       try {
         const res = await customersApi.list(newName.trim());
-        const list = (res.data as Record<string, string>[]).slice(0, 8);
+        const data = res.data as { items?: Record<string, string>[] } | Record<string, string>[];
+        const items = Array.isArray(data) ? data : (data as { items?: Record<string, string>[] }).items ?? [];
+        const list = items.slice(0, 8);
         setCustomerSuggestions(list);
         setShowSuggestions(list.length > 0 || newName.trim().length > 0);
       } catch {}
@@ -311,8 +313,9 @@ export default function DailyPage() {
       exp_etc,
       cash_out,
       memo,
+      customer_id: selectedCustomerId ?? "",
     });
-  }, [newCategory, newName, newTask, newTime, newIncType, newE1Type, newE2Type, newIncAmt, newE1Amt, newE2Amt, newCashOut, newMemo, date, addMut]);
+  }, [newCategory, newName, newTask, newTime, newIncType, newE1Type, newE2Type, newIncAmt, newE1Amt, newE2Amt, newCashOut, newMemo, date, addMut, selectedCustomerId]);
 
   // 수정 시작
   const startEdit = useCallback((entry: DailyEntry) => {
