@@ -313,7 +313,12 @@ export default function CustomersPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, string> }) => customersApi.update(id, data),
-    onSuccess: () => { toast.success("저장됨"); qc.invalidateQueries({ queryKey: ["customers"] }); setSelectedCustomer(null); },
+    onSuccess: (_, variables) => {
+      toast.success("저장됨");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      // 드로어를 닫지 않고 저장된 데이터로 업데이트 → 바로 반영된 내용 확인 가능
+      setSelectedCustomer(variables.data);
+    },
     onError: () => toast.error("저장 실패"),
   });
   const addMut = useMutation({

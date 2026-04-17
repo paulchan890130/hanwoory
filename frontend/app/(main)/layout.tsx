@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 import Sidebar, {
   SIDEBAR_EXPANDED_WIDTH,
@@ -12,6 +12,7 @@ const SIDEBAR_COLLAPSED_KEY = "hw_sidebar_collapsed";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -26,6 +27,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
     setReady(true);
   }, [router]);
+
+  // 페이지 이동 시 스크롤 최상단 이동
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   useEffect(() => {
     const check = () => {

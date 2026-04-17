@@ -277,11 +277,11 @@ function ActiveTaskRow({
             )}
           </label>
           <span style={{ color: "#E2E8F0", fontSize: 10 }}>·</span>
-          {/* 진 (처리) */}
+          {/* 처 (처리) */}
           <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
             <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
               style={{ accentColor: "#D69E2E", width: 11, height: 11, flexShrink: 0 }} />
-            <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>진</span>
+            <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처</span>
             {pendingProcessing && (
               <span style={{ fontSize: 9, fontWeight: 700, color: pendingStorage ? "#CBD5E0" : "#975A16" }}>
                 D+{daysBetween(pendingProcessing, pendingStorage || null)}
@@ -432,7 +432,7 @@ export default function DashboardPage() {
   const { data: events = {} } = useQuery({
     queryKey: ["events"],
     queryFn: () => eventsApi.get().then((r) => r.data),
-    staleTime: 3_000,  // 3s — 일정 추가/수정 후 즉시 갱신 필요
+    staleTime: 0,  // 캐시 없음 — 달력 내용은 항상 최신값 사용
   });
   const { data: expiryData } = useQuery({
     queryKey: ["expiry-alerts"],
