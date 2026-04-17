@@ -246,6 +246,9 @@ class TbEvaluateRequest(BaseModel):
     age: Optional[int] = None
 
 
+import re as _re
+_CODE_PATTERN = _re.compile(r'^[A-Z]-[0-9A-Z]', _re.I)
+
 @router.get("/tree/entry-points")
 def get_entry_points(user: dict = Depends(get_current_user)):
     """상담 진입점 목록 + 각 진입점별 업무 건수"""
@@ -253,12 +256,18 @@ def get_entry_points(user: dict = Depends(get_current_user)):
     for ep in _ENTRY_POINTS_DATA:
         q = ep["search_query"].lower()
         at_filter = ep.get("action_types", [])
-        count = sum(
-            1 for row in _MASTER_ROWS
-            if (not at_filter or row.get("action_type", "") in at_filter)
-            and (q in str(row.get("detailed_code", "")).lower()
-                 or q in str(row.get("business_name", "")).lower())
-        )
+        if _CODE_PATTERN.match(ep["search_query"]):
+            # 코드 기반: detailed_code 접두사 매칭
+            count = sum(
+                1 for row in _MASTER_ROWS
+                if str(row.get("detailed_code", "")).lower().startswith(q)
+            )
+        else:
+            # 업무 기반: action_type만으로 집계
+            count = sum(
+                1 for row in _MASTER_ROWS
+                if not at_filter or row.get("action_type", "") in at_filter
+            )
         result.append({**ep, "count": count})
     return {"total": len(result), "data": result}
 

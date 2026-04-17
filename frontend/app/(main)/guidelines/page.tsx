@@ -400,7 +400,6 @@ function ActionTypeCard({ actionType, label, count, color, onClick }: { actionTy
 
 // ── 메인 페이지 ───────────────────────────────────────────────────────────────
 export default function GuidelinesPage() {
-  const [allRows, setAllRows]               = useState<GuidelineRow[]>([]);
   const [entryPoints, setEntryPoints]       = useState<GuidelineEntryPoint[]>(ENTRY_POINTS);
   const [loadingAll, setLoadingAll]         = useState(true);
 
@@ -408,6 +407,9 @@ export default function GuidelinesPage() {
   const [selectedEntry, setSelectedEntry]           = useState<GuidelineEntryPoint | null>(null);
   const [selectedActionType, setSelectedActionType] = useState<string | null>(null);
   const [selectedRow, setSelectedRow]               = useState<GuidelineRow | null>(null);
+  // 선택한 진입점의 rows (클릭 시 lazy load)
+  const [currentEntryRows, setCurrentEntryRows]     = useState<GuidelineRow[]>([]);
+  const [loadingRows, setLoadingRows]               = useState(false);
 
   // 검색 상태
   const [searchQuery, setSearchQuery]     = useState("");
@@ -419,32 +421,28 @@ export default function GuidelinesPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 전체 rows 로딩 (트리 클라이언트사이드 계산용)
+  // 진입점 목록 로딩 (count 포함)
   useEffect(() => {
-    guidelinesApi.list({ limit: 400 })
-      .then(res => setAllRows(res.data.data ?? []))
-      .catch(() => setAllRows([]))
-      .finally(() => setLoadingAll(false));
     guidelinesApi.getEntryPoints()
       .then(res => { if (res.data.data.length > 0) setEntryPoints(res.data.data); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingAll(false));
   }, []);
 
-  // L1: 진입점별 row 수 계산
+  // L1: 진입점별 row 수 — API에서 받은 count 직접 사용
   const entryRowCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const ep of entryPoints) {
-      counts[ep.id ?? ep.label] = getMatchingRows(allRows, ep).length;
+      counts[ep.id ?? ep.label] = ep.count ?? 0;
     }
     return counts;
-  }, [allRows, entryPoints]);
+  }, [entryPoints]);
 
-  // L2: 선택된 진입점의 업무유형 그룹
+  // L2: 선택된 진입점의 업무유형 그룹 (currentEntryRows 기반)
   const treeL2Items = useMemo(() => {
     if (!selectedEntry) return [];
-    const entryRows = getMatchingRows(allRows, selectedEntry);
     const grouped: Record<string, number> = {};
-    entryRows.forEach(r => { grouped[r.action_type] = (grouped[r.action_type] || 0) + 1; });
+    currentEntryRows.forEach(r => { grouped[r.action_type] = (grouped[r.action_type] || 0) + 1; });
     return Object.entries(grouped)
       .map(([at, count]) => ({ key: at, label: ACTION_TYPE_LABELS[at] || at, count, color: ACTION_TYPE_COLORS[at] || "#A0AEC0" }))
       .sort((a, b) => {
@@ -452,18 +450,17 @@ export default function GuidelinesPage() {
         const bi = ACTION_TYPE_ORDER.indexOf(b.key);
         return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
       });
-  }, [allRows, selectedEntry]);
+  }, [currentEntryRows, selectedEntry]);
 
-  const skipL2 = treeL2Items.length <= 1;
+  const skipL2 = !loadingRows && treeL2Items.length <= 1;
 
-  // L3: 최종 row 목록
+  // L3: 최종 row 목록 (currentEntryRows 기반)
   const treeL3Rows = useMemo(() => {
     if (!selectedEntry) return [];
-    const entryRows = getMatchingRows(allRows, selectedEntry);
-    if (skipL2) return entryRows;
-    if (selectedActionType) return entryRows.filter(r => r.action_type === selectedActionType);
+    if (skipL2) return currentEntryRows;
+    if (selectedActionType) return currentEntryRows.filter(r => r.action_type === selectedActionType);
     return [];
-  }, [allRows, selectedEntry, selectedActionType, skipL2]);
+  }, [currentEntryRows, selectedEntry, selectedActionType, skipL2]);
 
   // 뷰 모드
   const viewMode: "search" | "l1" | "l2" | "l3" =
@@ -471,6 +468,32 @@ export default function GuidelinesPage() {
     : !selectedEntry ? "l1"
     : (skipL2 || selectedActionType !== null) ? "l3"
     : "l2";
+
+  // ── 진입점 rows lazy load ──
+  const loadEntryRows = useCallback(async (entry: GuidelineEntryPoint) => {
+    setCurrentEntryRows([]);
+    setLoadingRows(true);
+    try {
+      let rows: GuidelineRow[] = [];
+      if (/^[A-Z]-[0-9A-Z]/i.test(entry.search_query)) {
+        // 코드 기반 진입점: listByCode (limit 없음)
+        const res = await guidelinesApi.listByCode(entry.search_query);
+        rows = res.data.data;
+      } else {
+        // 업무 기반 진입점: action_type 필터 (단일 action_type, 최대 64건)
+        const at = entry.action_types?.[0];
+        if (at) {
+          const res = await guidelinesApi.list({ action_type: at, limit: 100 });
+          rows = res.data.data ?? [];
+        }
+      }
+      setCurrentEntryRows(rows);
+    } catch {
+      setCurrentEntryRows([]);
+    } finally {
+      setLoadingRows(false);
+    }
+  }, []);
 
   // ── 핸들러 ──
   const doSearch = useCallback(async (q: string, type: string) => {
@@ -507,6 +530,7 @@ export default function GuidelinesPage() {
   const handleEntryClick = (entry: GuidelineEntryPoint) => {
     setSelectedEntry(entry); setSelectedActionType(null);
     setSelectedRow(null); setHasSearched(false);
+    loadEntryRows(entry);
   };
 
   const handleActionTypeClick = (at: string) => {
@@ -514,7 +538,8 @@ export default function GuidelinesPage() {
   };
 
   const handleBackToL1 = () => {
-    setSelectedEntry(null); setSelectedActionType(null); setSelectedRow(null);
+    setSelectedEntry(null); setSelectedActionType(null);
+    setSelectedRow(null); setCurrentEntryRows([]);
   };
 
   const handleBackToL2 = () => {
@@ -661,28 +686,38 @@ export default function GuidelinesPage() {
 
       {/* ── L2: 업무유형 선택 ── */}
       {viewMode === "l2" && selectedEntry && (
-        <div>
-          <div style={{fontSize:12,color:"#718096",marginBottom:14}}>
-            <strong style={{color:"#2D3748"}}>{selectedEntry.label}</strong> — 업무 유형을 선택하세요
+        loadingRows ? (
+          <div style={{ display:"flex", justifyContent:"center", padding:"60px 0" }}>
+            <Loader2 size={24} className="animate-spin" style={{color:"var(--hw-gold)"}}/>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
-            {treeL2Items.map(item => (
-              <ActionTypeCard
-                key={item.key}
-                actionType={item.key}
-                label={item.label}
-                count={item.count}
-                color={item.color}
-                onClick={() => handleActionTypeClick(item.key)}
-              />
-            ))}
+        ) : (
+          <div>
+            <div style={{fontSize:12,color:"#718096",marginBottom:14}}>
+              <strong style={{color:"#2D3748"}}>{selectedEntry.label}</strong> — 업무 유형을 선택하세요
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
+              {treeL2Items.map(item => (
+                <ActionTypeCard
+                  key={item.key}
+                  actionType={item.key}
+                  label={item.label}
+                  count={item.count}
+                  color={item.color}
+                  onClick={() => handleActionTypeClick(item.key)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* ── L3: 항목 목록 ── */}
       {viewMode === "l3" && (
-        treeL3Rows.length === 0 ? (
+        loadingRows ? (
+          <div style={{ display:"flex", justifyContent:"center", padding:"60px 0" }}>
+            <Loader2 size={24} className="animate-spin" style={{color:"var(--hw-gold)"}}/>
+          </div>
+        ) : treeL3Rows.length === 0 ? (
           <div style={{textAlign:"center",padding:"40px 0",color:"#A0AEC0",fontSize:13}}>해당 항목이 없습니다.</div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
