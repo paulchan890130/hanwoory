@@ -643,7 +643,7 @@ export default function GuidelinesPage() {
                 {selectedEntry.label}
               </button>
               <ChevronRight size={13} style={{color:"#CBD5E0"}}/>
-              <span style={{ fontSize:12, fontWeight:700, color:"#2D3748", padding:"4px 12px", background:`${ACTION_TYPE_COLORS[selectedActionType]}18`, borderRadius:20, border:`1px solid ${ACTION_TYPE_COLORS[selectedActionType]}40`, color:ACTION_TYPE_COLORS[selectedActionType] }}>
+              <span style={{ fontSize:12, fontWeight:700, padding:"4px 12px", background:`${ACTION_TYPE_COLORS[selectedActionType]}18`, borderRadius:20, border:`1px solid ${ACTION_TYPE_COLORS[selectedActionType]}40`, color:ACTION_TYPE_COLORS[selectedActionType] }}>
                 {ACTION_TYPE_LABELS[selectedActionType]}
               </span>
             </>

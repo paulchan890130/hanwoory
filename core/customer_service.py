@@ -3,12 +3,18 @@ import re
 import datetime
 import uuid
 import pandas as pd
-try:
-    import streamlit as st
-except ImportError:
+import os as _os
+if _os.getenv("HANWOORY_ENV") in ("local", "server"):
     class _FakeST:
         session_state: dict = {}  # type: ignore
     st = _FakeST()  # type: ignore
+else:
+    try:
+        import streamlit as st
+    except ImportError:
+        class _FakeST:
+            session_state: dict = {}  # type: ignore
+        st = _FakeST()  # type: ignore
 
 
 # ===== 날짜 입력 정규화(yyyy.mm.dd / yyyy/mm/dd / yyyymmdd → YYYY-MM-DD) =====

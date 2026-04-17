@@ -1,11 +1,21 @@
 # core/google_sheets.py
 
 # ── Streamlit 선택적 import ──────────────────────────────────────────────────
-# FastAPI(백엔드) 환경에서는 streamlit이 없을 수 있다.
-# 없을 경우 최소 스텁을 제공해서 모듈 로드 오류를 방지한다.
-try:
-    import streamlit as st
-except ImportError:
+# FastAPI(HANWOORY_ENV=local|server) 컨텍스트에서는 Streamlit이 설치되어 있더라도
+# 실제 import를 건너뛰고 stub을 사용한다.
+# 진짜 Streamlit을 import하면 AnyIO 워커 스레드에서
+# "missing ScriptRunContext" 경고가 반복 출력되기 때문.
+import os as _os
+_in_fastapi = _os.getenv("HANWOORY_ENV") in ("local", "server")
+
+if not _in_fastapi:
+    try:
+        import streamlit as st
+        _in_fastapi = False  # 실제 Streamlit 컨텍스트
+    except ImportError:
+        _in_fastapi = True
+
+if _in_fastapi:
     import types as _types
 
     class _FakeSessionState(dict):
