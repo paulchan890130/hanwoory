@@ -422,7 +422,8 @@ export default function GuidelinesPage() {
   // 전체 rows 로딩 (트리 클라이언트사이드 계산용)
   useEffect(() => {
     guidelinesApi.list({ limit: 400 })
-      .then(res => setAllRows(res.data.data))
+      .then(res => setAllRows(res.data.data ?? []))
+      .catch(() => setAllRows([]))
       .finally(() => setLoadingAll(false));
     guidelinesApi.getEntryPoints()
       .then(res => { if (res.data.data.length > 0) setEntryPoints(res.data.data); })
