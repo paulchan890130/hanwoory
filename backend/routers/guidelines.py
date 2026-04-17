@@ -350,7 +350,7 @@ def list_guidelines(
     major_action: Optional[str] = Query(None, description="업무대분류 (부분일치)"),
     status: str = Query("active", description="active|inactive|all"),
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     user: dict = Depends(get_current_user),
 ):
     """MASTER_ROWS 전체 목록 (필터 + 페이징)"""
