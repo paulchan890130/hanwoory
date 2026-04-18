@@ -500,7 +500,7 @@ export const guidelinesApi = {
     api.get<{ code: string; count: number; action_types: string[]; data: GuidelineRow[] }>(
       `/api/guidelines/code/${encodeURIComponent(code)}`
     ),
-  list: (params?: { action_type?: string; domain?: string; page?: number; limit?: number }) =>
+  list: (params?: { action_type?: string; domain?: string; page?: number; limit?: number; status?: string }) =>
     api.get<GuidelineListResponse>("/api/guidelines/", { params }),
   getDetail: (row_id: string) =>
     api.get<GuidelineRow>(`/api/guidelines/${row_id}`),

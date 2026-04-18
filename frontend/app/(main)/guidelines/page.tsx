@@ -476,19 +476,32 @@ export default function GuidelinesPage() {
     try {
       let rows: GuidelineRow[] = [];
       if (/^[A-Z]-[0-9A-Z]/i.test(entry.search_query)) {
-        // 코드 기반 진입점: listByCode (limit 없음)
+        // 코드 기반 진입점: listByCode — 코드 접두사로 전체 조회
         const res = await guidelinesApi.listByCode(entry.search_query);
-        rows = res.data.data;
+        rows = res.data.data ?? [];
       } else {
-        // 업무 기반 진입점: action_type 필터 (단일 action_type, 최대 64건)
-        const at = entry.action_types?.[0];
-        if (at) {
-          const res = await guidelinesApi.list({ action_type: at, limit: 100 });
-          rows = res.data.data ?? [];
+        // 업무 기반 진입점: action_type 필터 (여러 action_type 모두 조회 후 합산)
+        const actionTypes = entry.action_types ?? [];
+        if (actionTypes.length > 0) {
+          const fetches = await Promise.all(
+            actionTypes.map(at =>
+              guidelinesApi.list({ action_type: at, limit: 500, status: "all" })
+                .then(r => r.data.data ?? [])
+                .catch(() => [] as GuidelineRow[])
+            )
+          );
+          // 중복 제거 (row_id 기준)
+          const seen = new Set<string>();
+          for (const chunk of fetches) {
+            for (const r of chunk) {
+              if (!seen.has(r.row_id)) { seen.add(r.row_id); rows.push(r); }
+            }
+          }
         }
       }
       setCurrentEntryRows(rows);
-    } catch {
+    } catch (e) {
+      console.error("[loadEntryRows] 오류:", e);
       setCurrentEntryRows([]);
     } finally {
       setLoadingRows(false);
