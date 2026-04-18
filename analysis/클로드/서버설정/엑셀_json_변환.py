@@ -15,7 +15,7 @@ from datetime import datetime
 
 # ── 경로 설정 ──────────────────────────────────────────────────
 현재폴더 = os.path.dirname(os.path.abspath(__file__))
-엑셀경로 = os.path.join(현재폴더, '정리.xlsx')
+엑셀경로 = os.path.join(현재폴더, '..', '정리.xlsx')
 json경로 = os.path.join(현재폴더, 'immigration_guidelines_db_v2.json')
 
 
@@ -107,4 +107,3 @@ def 변환실행():
 
 if __name__ == '__main__':
     변환실행()
-    input('\n엔터를 누르면 창이 닫힙니다...')

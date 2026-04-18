@@ -142,7 +142,7 @@ function buildQuickDocUrl(row: GuidelineRow): string | null {
 // ── 서류 칩 ──────────────────────────────────────────────────────────────────
 function DocChip({ text, color }: { text: string; color: string }) {
   return (
-    <span style={{ display:"inline-block", fontSize:11, padding:"3px 9px", borderRadius:99, background:`${color}18`, color, border:`1px solid ${color}40`, whiteSpace:"nowrap", fontWeight:500 }}>
+    <span style={{ display:"inline-block", fontSize:11, padding:"3px 9px", borderRadius:99, background:`${color}18`, color, border:`1px solid ${color}40`, whiteSpace:"normal", wordBreak:"break-word", fontWeight:500 }}>
       {text}
     </span>
   );
@@ -233,7 +233,7 @@ function DetailPanel({ row, onClose }: { row: GuidelineRow; onClose: () => void 
         {row.fee_rule && (
           <div>
             <div style={{ fontSize:12, fontWeight:700, color:"#718096", marginBottom:6 }}>인지세</div>
-            <div style={{ fontSize:13, padding:"10px 14px", borderRadius:8, background:"#FFFBF0", color:"#744210", border:"1px solid #F6E05E", lineHeight:1.5 }}>
+            <div style={{ fontSize:13, padding:"10px 14px", borderRadius:8, background:"#FFFBF0", color:"#744210", border:"1px solid #F6E05E", lineHeight:1.5, wordBreak:"break-word", overflowWrap:"break-word" }}>
               {row.fee_rule}
             </div>
           </div>
@@ -277,7 +277,7 @@ function DetailPanel({ row, onClose }: { row: GuidelineRow; onClose: () => void 
               <BookMarked size={13} style={{color:"#9F7AEA"}}/>
               <span style={{ fontSize:12, fontWeight:700, color:"#9F7AEA" }}>근거</span>
             </div>
-            <div style={{ fontSize:12, color:"#718096", lineHeight:1.7 }}>{row.basis_section}</div>
+            <div style={{ fontSize:12, color:"#718096", lineHeight:1.7, wordBreak:"break-word", overflowWrap:"break-word" }}>{row.basis_section}</div>
           </div>
         )}
 
@@ -333,7 +333,7 @@ function GuidelineCard({ row, isSelected, onClick }: { row: GuidelineRow; isSele
       </div>
       {expanded && (
         <div style={{ padding:"0 16px 14px", borderTop:"1px solid #F7FAFC" }}>
-          <div style={{ paddingTop:12, display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div style={{ paddingTop:12, display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:12 }}>
             {officeDocs.length > 0 && (
               <div>
                 <div style={{ fontSize:10, fontWeight:700, color:"#4299E1", marginBottom:6 }}>사무소 준비서류 ({officeDocs.length})</div>
@@ -352,7 +352,7 @@ function GuidelineCard({ row, isSelected, onClick }: { row: GuidelineRow; isSele
             )}
           </div>
           {row.fee_rule && (
-            <div style={{ marginTop:8, fontSize:11, color:"#718096" }}>
+            <div style={{ marginTop:8, fontSize:11, color:"#718096", wordBreak:"break-word", overflowWrap:"break-word" }}>
               인지세: <span style={{color:"#744210",fontWeight:600}}>{row.fee_rule}</span>
             </div>
           )}
@@ -547,7 +547,7 @@ export default function GuidelinesPage() {
   };
 
   return (
-    <div style={{ paddingRight: selectedRow ? 460 : 0, transition: "padding-right 0.2s" }}>
+    <div style={{ paddingRight: selectedRow ? 460 : 0, transition: "padding-right 0.2s", overflowX:"hidden" }}>
 
       {/* ── 헤더 ── */}
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
