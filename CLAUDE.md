@@ -614,9 +614,23 @@ python backend/scripts/migrate_guidelines_v2.py
 
 ## In-progress / known issues
 
+### 실무지침 DB 데이터 품질 (우선순위 높음)
+- **EXTEND fee_rule 대규모 미검증** — `수수료 없음 (체류기간 연장허가)` 값이 62건에 존재 (F-2 12건, F-1 9건, E-7 8건, E-9 5건, D-10 4건 등). 실제 인지세 6만원이 부과되는 케이스가 포함되어 있을 가능성이 높음. 각 코드별 법령 확인 후 수정 필요. F-4 EXTEND는 2026-04-19 `인지세 6만원`으로 수정 완료.
+- **CHANGE fee_rule 검토 필요** — `수수료 없음 (체류자격 변경허가)` 61건. CHANGE는 대부분 인지세가 있으므로 실제 법령 기준으로 재검토 필요.
+- **실무지침 DB 전반적 데이터 누락** — 현재 369건. 체류자격별 업무 유형이 완전하지 않을 수 있음. 누락 항목 발견 시 방법 B(JSON 직접 수정)로 추가.
+
+### OCR / 스캔
 - **OCR debug mode active** — `/api/scan/passport` and `/api/scan/arc` (full-auto endpoints) still wrap responses in `{"debug": ..., "result": {...}}`. The scan workspace endpoints (`/api/scan-workspace/*`) return clean `{"result": {...}}`. Remove the debug wrapper from the full-auto endpoints when tuning is complete.
 - **ARC address accuracy** — geometry-first pipeline + dated-row parsing active in `ocr_service.parse_arc`. `_debug_geometry` key in response contains `divider_frac`, `coarse_confidence`, `addr_source`, `ambig_winner` for diagnosis.
 - **OmniMRZ vestigial** — installed in `Dockerfile.backend` from source but never called at runtime (prewarm disabled). Can be removed once Tesseract-only path is confirmed sufficient.
+
+### 기타
 - **Windows local dev** — `backend/main.py` forces stdout/stderr to UTF-8 on Windows to prevent Korean characters appearing as `???` in uvicorn logs. Do not remove this block.
 - **`react-zoom-pan-pinch`** — still in `frontend/package.json` but unused. Safe to remove. Do not reintroduce it in the scan page.
 - **메뉴얼 업데이트 자동감지** — `GET /api/board/check-manual`은 관리자가 게시판에서 수동 트리거. 스케줄러 없음. 하이코리아 페이지 스크랩(`requests`)으로 날짜 추출 — 페이지 구조 변경 시 정규식 수정 필요.
+
+### 2026-04-19 세션 수정 완료 항목 (참고)
+- `status: "정상"` → `"active"` 7개 행 수정 (list API 필터 통과 문제)
+- F-4 EXTEND fee_rule `수수료 없음` → `인지세 6만원`
+- F-5 영주 6개 항목 신규 추가 (F-5-1, F-5-2, F-5-6, F-5-10 동포영주, F-5-11, F-5-14)
+- `loadEntryRows`: action_type 기반 진입점에 `status=all` + 복수 action_type 병렬 fetch 적용
