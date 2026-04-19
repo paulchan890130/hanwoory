@@ -401,15 +401,14 @@ function ActionTypeCard({ actionType, label, count, color, onClick }: { actionTy
 // ── 메인 페이지 ───────────────────────────────────────────────────────────────
 export default function GuidelinesPage() {
   const [entryPoints, setEntryPoints]       = useState<GuidelineEntryPoint[]>(ENTRY_POINTS);
+  const [allRows, setAllRows]               = useState<GuidelineRow[]>([]);
   const [loadingAll, setLoadingAll]         = useState(true);
 
   // 트리 상태
   const [selectedEntry, setSelectedEntry]           = useState<GuidelineEntryPoint | null>(null);
   const [selectedActionType, setSelectedActionType] = useState<string | null>(null);
   const [selectedRow, setSelectedRow]               = useState<GuidelineRow | null>(null);
-  // 선택한 진입점의 rows (클릭 시 lazy load)
   const [currentEntryRows, setCurrentEntryRows]     = useState<GuidelineRow[]>([]);
-  const [loadingRows, setLoadingRows]               = useState(false);
 
   // 검색 상태
   const [searchQuery, setSearchQuery]     = useState("");
@@ -421,12 +420,15 @@ export default function GuidelinesPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 진입점 목록 로딩 (count 포함)
+  // 마운트 시 전체 rows + 진입점 동시 로딩
   useEffect(() => {
-    guidelinesApi.getEntryPoints()
-      .then(res => { if (res.data.data.length > 0) setEntryPoints(res.data.data); })
-      .catch(() => {})
-      .finally(() => setLoadingAll(false));
+    Promise.all([
+      guidelinesApi.getEntryPoints().then(res => res.data.data).catch(() => [] as GuidelineEntryPoint[]),
+      guidelinesApi.list({ limit: 500, status: "all" }).then(res => res.data.data).catch(() => [] as GuidelineRow[]),
+    ]).then(([eps, rows]) => {
+      if (eps.length > 0) setEntryPoints(eps);
+      setAllRows(rows);
+    }).finally(() => setLoadingAll(false));
   }, []);
 
   // L1: 진입점별 row 수 — API에서 받은 count 직접 사용
@@ -452,7 +454,7 @@ export default function GuidelinesPage() {
       });
   }, [currentEntryRows, selectedEntry]);
 
-  const skipL2 = !loadingRows && treeL2Items.length <= 1;
+  const skipL2 = treeL2Items.length <= 1;
 
   // L3: 최종 row 목록 (currentEntryRows 기반)
   const treeL3Rows = useMemo(() => {
@@ -469,43 +471,9 @@ export default function GuidelinesPage() {
     : (skipL2 || selectedActionType !== null) ? "l3"
     : "l2";
 
-  // ── 진입점 rows lazy load ──
-  const loadEntryRows = useCallback(async (entry: GuidelineEntryPoint) => {
-    setCurrentEntryRows([]);
-    setLoadingRows(true);
-    try {
-      let rows: GuidelineRow[] = [];
-      if (/^[A-Z]-[0-9A-Z]/i.test(entry.search_query)) {
-        // 코드 기반 진입점: listByCode — 코드 접두사로 전체 조회
-        const res = await guidelinesApi.listByCode(entry.search_query);
-        rows = res.data.data ?? [];
-      } else {
-        // 업무 기반 진입점: action_type 필터 (여러 action_type 모두 조회 후 합산)
-        const actionTypes = entry.action_types ?? [];
-        if (actionTypes.length > 0) {
-          const fetches = await Promise.all(
-            actionTypes.map(at =>
-              guidelinesApi.list({ action_type: at, limit: 500, status: "all" })
-                .then(r => r.data.data ?? [])
-                .catch(() => [] as GuidelineRow[])
-            )
-          );
-          // 중복 제거 (row_id 기준)
-          const seen = new Set<string>();
-          for (const chunk of fetches) {
-            for (const r of chunk) {
-              if (!seen.has(r.row_id)) { seen.add(r.row_id); rows.push(r); }
-            }
-          }
-        }
-      }
-      setCurrentEntryRows(rows);
-    } catch (e) {
-      console.error("[loadEntryRows] 오류:", e);
-      setCurrentEntryRows([]);
-    } finally {
-      setLoadingRows(false);
-    }
+  // ── 진입점 rows — 전체 캐시에서 필터 (API 추가 호출 없음) ──
+  const loadEntryRows = useCallback((entry: GuidelineEntryPoint, rows: GuidelineRow[]) => {
+    setCurrentEntryRows(getMatchingRows(rows, entry));
   }, []);
 
   // ── 핸들러 ──
@@ -543,7 +511,7 @@ export default function GuidelinesPage() {
   const handleEntryClick = (entry: GuidelineEntryPoint) => {
     setSelectedEntry(entry); setSelectedActionType(null);
     setSelectedRow(null); setHasSearched(false);
-    loadEntryRows(entry);
+    loadEntryRows(entry, allRows);
   };
 
   const handleActionTypeClick = (at: string) => {
@@ -699,34 +667,28 @@ export default function GuidelinesPage() {
 
       {/* ── L2: 업무유형 선택 ── */}
       {viewMode === "l2" && selectedEntry && (
-        loadingRows ? (
-          <div style={{ display:"flex", justifyContent:"center", padding:"60px 0" }}>
-            <Loader2 size={24} className="animate-spin" style={{color:"var(--hw-gold)"}}/>
+        <div>
+          <div style={{fontSize:12,color:"#718096",marginBottom:14}}>
+            <strong style={{color:"#2D3748"}}>{selectedEntry.label}</strong> — 업무 유형을 선택하세요
           </div>
-        ) : (
-          <div>
-            <div style={{fontSize:12,color:"#718096",marginBottom:14}}>
-              <strong style={{color:"#2D3748"}}>{selectedEntry.label}</strong> — 업무 유형을 선택하세요
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
-              {treeL2Items.map(item => (
-                <ActionTypeCard
-                  key={item.key}
-                  actionType={item.key}
-                  label={item.label}
-                  count={item.count}
-                  color={item.color}
-                  onClick={() => handleActionTypeClick(item.key)}
-                />
-              ))}
-            </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:10 }}>
+            {treeL2Items.map(item => (
+              <ActionTypeCard
+                key={item.key}
+                actionType={item.key}
+                label={item.label}
+                count={item.count}
+                color={item.color}
+                onClick={() => handleActionTypeClick(item.key)}
+              />
+            ))}
           </div>
-        )
+        </div>
       )}
 
       {/* ── L3: 항목 목록 ── */}
       {viewMode === "l3" && (
-        loadingRows ? (
+        loadingAll ? (
           <div style={{ display:"flex", justifyContent:"center", padding:"60px 0" }}>
             <Loader2 size={24} className="animate-spin" style={{color:"var(--hw-gold)"}}/>
           </div>
