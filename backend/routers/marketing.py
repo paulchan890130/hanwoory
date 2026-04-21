@@ -34,12 +34,12 @@ def _read_posts():
 
 def _upsert(rows):
     from core.google_sheets import upsert_rows_by_id
-    upsert_rows_by_id(_sheet_name(), rows, id_field="id", header=MARKETING_HEADER)
+    upsert_rows_by_id(_sheet_name(), MARKETING_HEADER, rows, id_field="id")
 
 
 def _delete(ids):
     from core.google_sheets import delete_rows_by_ids
-    delete_rows_by_ids(_sheet_name(), ids)
+    delete_rows_by_ids(_sheet_name(), ids, id_field="id")
 
 
 class PostCreate(BaseModel):
