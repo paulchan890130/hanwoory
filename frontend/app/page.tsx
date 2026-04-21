@@ -17,7 +17,8 @@ interface Post {
 export default function HomePage() {
   const navRef = useRef<HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("전체");
+  const [openPost, setOpenPost] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
 
@@ -64,7 +65,7 @@ export default function HomePage() {
   };
 
   const filteredPosts =
-    activeTab === "all"
+    activeTab === "전체"
       ? posts
       : posts.filter((p) => p.category === activeTab);
 
@@ -92,10 +93,11 @@ export default function HomePage() {
   ];
 
   const CATEGORIES = [
-    { key: "all", label: "전체" },
-    { key: "notice", label: "공지사항" },
-    { key: "guide", label: "업무 안내" },
-    { key: "update", label: "제도 변경" },
+    { key: "전체", label: "전체" },
+    { key: "공지사항", label: "공지사항" },
+    { key: "업무 안내", label: "업무 안내" },
+    { key: "제도 변경", label: "제도 변경" },
+    { key: "기타", label: "기타" },
   ];
 
   return (
@@ -312,13 +314,31 @@ export default function HomePage() {
             {filteredPosts.length === 0 ? (
               <div className="board-empty">등록된 게시물이 없습니다.</div>
             ) : (
-              filteredPosts.map((post) => (
-                <div key={post.id} className="board-item" data-category={post.category}>
-                  <span className="board-category">{post.category || "공지"}</span>
-                  <span className="board-title">{post.title}</span>
-                  <span className="board-date">{fmtDate(post.updated_at || post.created_at)}</span>
-                </div>
-              ))
+              filteredPosts.map((post) => {
+                const isOpen = openPost === post.id;
+                return (
+                  <div
+                    key={post.id}
+                    className={`board-item${isOpen ? " open" : ""}`}
+                    data-category={post.category}
+                    onClick={() => setOpenPost(isOpen ? null : post.id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div className="board-item-row">
+                      <span className="board-category">{post.category || "공지"}</span>
+                      <span className="board-title">{post.title}</span>
+                      <span className="board-date">{fmtDate(post.updated_at || post.created_at)}</span>
+                      <span className="board-chevron">{isOpen ? "▲" : "▼"}</span>
+                    </div>
+                    {isOpen && (
+                      <div className="board-content">
+                        {post.summary && <p className="board-summary">{post.summary}</p>}
+                        <div className="board-body">{post.content}</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
