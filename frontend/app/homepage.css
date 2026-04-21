@@ -52,7 +52,10 @@
     text-decoration: none;
   }
   .nav-logo img {
-    height: 42px; width: auto;
+    height: 36px; width: 36px;
+    border-radius: 6px;
+    object-fit: contain;
+    flex-shrink: 0;
   }
   .nav-logo-text {
     font-family: 'Noto Serif KR', serif;
@@ -98,7 +101,7 @@
 
   /* ── HERO ── */
   .hero {
-    padding: 150px 24px 90px;
+    padding: 118px 24px 64px;
     background: linear-gradient(180deg, var(--gold-50) 0%, var(--bg-white) 100%);
     text-align: center;
     position: relative;
@@ -146,6 +149,35 @@
     line-height: 1.8;
   }
   .hero-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .hero-trust {
+    margin-top: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+  }
+  .hero-trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hero-trust-item::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 4px;
+    background: var(--gold-400);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .hero-trust-sep {
+    color: var(--border-gold);
+    font-size: 0.85rem;
+    margin: 0 2px;
+  }
   .btn-primary {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 14px 30px;
@@ -579,7 +611,8 @@
   @media (max-width: 768px) {
     .nav-links { display: none; }
     .nav-mobile-toggle { display: block; }
-    .hero { padding: 125px 20px 65px; }
+    .hero { padding: 100px 20px 48px; }
+    .hero-trust { gap: 6px; font-size: 0.75rem; }
     .hero h1 { font-size: 1.75rem; }
     .hero-sub { font-size: 0.9rem; }
     .hero-logo { width: 70px; }

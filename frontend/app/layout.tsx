@@ -4,8 +4,19 @@ import { Providers } from "./providers";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "K.ID 출입국 업무관리",
-  description: "행정사 출입국 업무관리 시스템",
+  title: {
+    default: "한우리행정사사무소 | 출입국·체류·사증 전문",
+    template: "%s | 한우리행정사사무소",
+  },
+  description:
+    "출입국·체류자격·사증 관련 업무를 전문적으로 처리하는 행정사사무소입니다. 체류자격 연장·변경, 외국인등록, 사증 발급, 국적·귀화 업무 대행.",
+  openGraph: {
+    title: "한우리행정사사무소 | 출입국·체류·사증 전문",
+    description:
+      "체류자격 연장·변경, 외국인등록, 사증 업무 전문 행정사사무소. 경기도 시흥시.",
+    type: "website",
+    locale: "ko_KR",
+  },
 };
 
 export const viewport: Viewport = {

@@ -105,6 +105,8 @@ export default function HomePage() {
       <nav className="nav" ref={navRef} role="navigation" aria-label="메인 내비게이션">
         <div className="nav-inner">
           <a href="#" className="nav-logo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/hanwoori-logo-new.png" alt="한우리행정사사무소 로고" />
             <div className="nav-logo-text">
               한우리행정사사무소<span>출입국·체류·사증 전문</span>
             </div>
@@ -155,7 +157,7 @@ export default function HomePage() {
               <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
               </svg>
-              상담 문의하기
+              상담 문의
             </a>
             <Link href="/login" className="btn-secondary">
               <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -163,6 +165,13 @@ export default function HomePage() {
               </svg>
               기존 사용자 로그인
             </Link>
+          </div>
+          <div className="hero-trust">
+            <span className="hero-trust-item">체류자격 연장·변경</span>
+            <span className="hero-trust-sep">|</span>
+            <span className="hero-trust-item">외국인등록·사증 업무</span>
+            <span className="hero-trust-sep">|</span>
+            <span className="hero-trust-item">서류 검토·진행 관리</span>
           </div>
         </div>
       </header>
