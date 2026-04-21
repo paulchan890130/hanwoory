@@ -18,7 +18,6 @@ export default function HomePage() {
   const navRef = useRef<HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("전체");
-  const [openPost, setOpenPost] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
 
@@ -314,33 +313,33 @@ export default function HomePage() {
             {filteredPosts.length === 0 ? (
               <div className="board-empty">등록된 게시물이 없습니다.</div>
             ) : (
-              filteredPosts.map((post) => {
-                const isOpen = openPost === post.id;
-                return (
-                  <div
-                    key={post.id}
-                    className={`board-item${isOpen ? " open" : ""}`}
-                    data-category={post.category}
-                    onClick={() => setOpenPost(isOpen ? null : post.id)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <div className="board-item-row">
-                      <span className="board-category">{post.category || "공지"}</span>
-                      <span className="board-title">{post.title}</span>
-                      <span className="board-date">{fmtDate(post.updated_at || post.created_at)}</span>
-                      <span className="board-chevron">{isOpen ? "▲" : "▼"}</span>
-                    </div>
-                    {isOpen && (
-                      <div className="board-content">
-                        {post.summary && <p className="board-summary">{post.summary}</p>}
-                        <div className="board-body">{post.content}</div>
-                      </div>
-                    )}
+              filteredPosts.map((post) => (
+                <Link
+                  key={post.id}
+                  href={`/posts/${post.id}`}
+                  className="board-item"
+                  style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                >
+                  <div className="board-item-row">
+                    <span className="board-category">{post.category || "공지"}</span>
+                    <span className="board-title">{post.title}</span>
+                    <span className="board-date">{fmtDate(post.updated_at || post.created_at)}</span>
+                    <span className="board-chevron">→</span>
                   </div>
-                );
-              })
+                  {post.summary && (
+                    <p className="board-summary-preview">{post.summary}</p>
+                  )}
+                </Link>
+              ))
             )}
           </div>
+          {filteredPosts.length > 0 && (
+            <div className="fade-in" style={{ textAlign: "center", marginTop: 28 }}>
+              <Link href="/posts" className="board-more-link">
+                전체 안내 보기 →
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

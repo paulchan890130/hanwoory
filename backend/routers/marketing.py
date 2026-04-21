@@ -77,6 +77,19 @@ def public_list_posts():
     return published
 
 
+@router.get("/posts/{post_id}")
+def public_get_post(post_id: str):
+    """ID 또는 slug로 단건 공개 게시물 반환 (공개, is_published=TRUE만)"""
+    posts = _read_posts()
+    is_pub = lambda p: str(p.get("is_published", "")).upper() in ("TRUE", "Y", "1")
+    post = next((p for p in posts if p.get("slug") == post_id and is_pub(p)), None)
+    if not post:
+        post = next((p for p in posts if p.get("id") == post_id and is_pub(p)), None)
+    if not post:
+        raise HTTPException(status_code=404, detail="게시물을 찾을 수 없습니다.")
+    return post
+
+
 # ── 관리자 전용 엔드포인트 ─────────────────────────────────────────────────────
 
 @router.get("/admin/posts")
