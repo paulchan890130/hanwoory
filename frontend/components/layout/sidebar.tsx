@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { href: "/guidelines",  label: "실무지침",       icon: Library },
   { href: "/search",     label: "통합검색",       icon: Search },
   { href: "/memos",      label: "메모",           icon: FileText },
-  { href: "/board",      label: "게시판",         icon: MessageSquare },
+  { href: "/noticeboard", label: "게시판",         icon: MessageSquare },
   // { href: "/manual", label: "메뉴얼 검색", icon: HelpCircle },
 ];
 

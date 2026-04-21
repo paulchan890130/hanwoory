@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // 공개 경로 — 인증 없이 접근 가능
-  if (pathname === "/" || pathname.startsWith("/posts")) {
+  if (pathname === "/" || pathname.startsWith("/board")) {
     return NextResponse.next();
   }
   const authed = request.cookies.has("kid_auth");

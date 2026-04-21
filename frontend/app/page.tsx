@@ -316,7 +316,7 @@ export default function HomePage() {
               filteredPosts.map((post) => (
                 <Link
                   key={post.id}
-                  href={`/posts/${post.id}`}
+                  href={`/board/${post.id}`}
                   className="board-item"
                   style={{ textDecoration: "none", color: "inherit", display: "block" }}
                 >
@@ -335,7 +335,7 @@ export default function HomePage() {
           </div>
           {filteredPosts.length > 0 && (
             <div className="fade-in" style={{ textAlign: "center", marginTop: 28 }}>
-              <Link href="/posts" className="board-more-link">
+              <Link href="/board" className="board-more-link">
                 전체 안내 보기 →
               </Link>
             </div>
@@ -350,14 +350,32 @@ export default function HomePage() {
           <h2 className="section-title fade-in" id="faq-title">자주 묻는 질문</h2>
           <p className="section-desc fade-in">업무 의뢰 전 자주 문의하시는 내용을 정리했습니다.</p>
           <div className="faq-list">
-            {FAQS.map((item, idx) => (
-              <div key={idx} className={`faq-item${openFaq === idx ? " open" : ""}`}>
-                <button className="faq-question" onClick={() => toggleFaq(idx)}>
-                  {item.q}
-                </button>
-                <div className="faq-answer">{item.a}</div>
-              </div>
-            ))}
+            {FAQS.map((item, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div key={idx} className="faq-item">
+                  <button
+                    className="faq-question"
+                    onClick={() => toggleFaq(idx)}
+                    aria-expanded={isOpen}
+                  >
+                    {item.q}
+                    <span style={{
+                      fontSize: "1.2rem", color: "var(--gold-400)",
+                      fontWeight: 400, flexShrink: 0, marginLeft: 12,
+                      lineHeight: 1,
+                    }}>
+                      {isOpen ? "−" : "+"}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="faq-answer" role="region">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

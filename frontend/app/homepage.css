@@ -470,24 +470,12 @@
     display: flex; justify-content: space-between; align-items: center;
     font-family: inherit;
   }
-  .faq-question::after {
-    content: '+';
-    font-size: 1.2rem;
-    color: var(--gold-400);
-    font-weight: 400;
-    transition: transform 0.2s;
-    flex-shrink: 0;
-    margin-left: 12px;
-  }
-  .faq-item.open .faq-question::after { content: '−'; }
   .faq-answer {
-    display: none;
     padding: 0 22px 18px;
     font-size: 0.86rem;
     color: var(--text-secondary);
     line-height: 1.8;
   }
-  .faq-item.open .faq-answer { display: block; }
 
   /* ── CTA ── */
   .cta-section {
