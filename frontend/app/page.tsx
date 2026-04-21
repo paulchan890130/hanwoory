@@ -352,7 +352,7 @@ export default function HomePage() {
           <p className="section-desc fade-in">업무 의뢰 전 자주 문의하시는 내용을 정리했습니다.</p>
           <div className="faq-list">
             {FAQS.map((item, idx) => (
-              <div key={idx} className={`faq-item fade-in${openFaq === idx ? " open" : ""}`}>
+              <div key={idx} className={`faq-item${openFaq === idx ? " open" : ""}`}>
                 <button className="faq-question" onClick={() => toggleFaq(idx)}>
                   {item.q}
                 </button>
