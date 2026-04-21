@@ -73,6 +73,7 @@ MEMO_MID_SHEET_NAME        = "중기메모"
 MEMO_SHORT_SHEET_NAME      = "단기메모"
 BOARD_SHEET_NAME           = "게시판"
 BOARD_COMMENT_SHEET_NAME   = "게시판댓글"
+MARKETING_POSTS_SHEET_NAME = "홈페이지게시물"
 
 
 # ===== Session Keys =====

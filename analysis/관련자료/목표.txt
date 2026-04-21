@@ -1,0 +1,1080 @@
+● 실무지침 관련 파일 전체 목록입니다.
+
+  ---
+  원본 참고 자료
+
+  ┌────────────────────────────────────────┬───────────────────────┐
+  │                  파일                  │         위치          │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 260310 체류민원 자격별 안내 매뉴얼.pdf │ analysis/스크린샷/    │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 260310 체류민원 자격별 안내 매뉴얼.pdf │ analysis/지피티 정리/ │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 260310 체류민원 자격별 안내 매뉴얼.pdf │ analysis/클로드/      │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 260310 사증민원 자격별 안내 매뉴얼.pdf │ analysis/스크린샷/    │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 260310 사증민원 자격별 안내 매뉴얼.pdf │ analysis/클로드/      │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 정리.xlsx (원본 엑셀)                  │ analysis/스크린샷/    │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 정리.xlsx (원본 엑셀)                  │ analysis/클로드/      │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 4. 업무정리.xlsx                       │ analysis/스크린샷/    │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 4. 업무정리.xlsx                       │ analysis/클로드/      │
+  ├────────────────────────────────────────┼───────────────────────┤
+  │ 출입국_실무지침_DB구축_마스터플랜.xlsx │ analysis/클로드/      │
+  └────────────────────────────────────────┴───────────────────────┘
+
+  ---
+  DB / 데이터 파일
+
+  파일: immigration_guidelines_db_v2.json
+  위치: backend/data/
+  설명: 운영 DB (실제 서버가 읽는 파일)
+  ────────────────────────────────────────
+  파일: immigration_guidelines_db_v2.json
+  위치: analysis/클로드/
+  설명: 중간 작업본 (현재 outdated)
+  ────────────────────────────────────────
+  파일: immigration_guidelines_db_v2.json
+  위치: analysis/클로드/서버설정/
+  설명: 중간 작업본 (현재 outdated)
+  ────────────────────────────────────────
+  파일: immigration_guidelines_db_v1.json
+  위치: analysis/클로드/
+  설명: v1 구버전
+  ────────────────────────────────────────
+  파일: step3_guidelines.json
+  위치: analysis/클로드/
+  설명: 중간 변환 단계 파일
+
+  ---
+  변환 / 마이그레이션 스크립트
+
+  파일: 엑셀_json_변환.py
+  위치: analysis/클로드/서버설정/
+  설명: 정리.xlsx → JSON 변환 (방법 A 재생성 시 사용)
+  ────────────────────────────────────────
+  파일: migrate_guidelines_v2.py
+  위치: backend/scripts/
+  설명: quickdoc 매핑 필드 재빌드 (JSON 수정 후 항상 실행)
+
+  ---
+  수정 스크립트 (방법 B 패치 이력)
+
+  ┌──────────────────────┬───────────────────────┬─────────────────┐
+  │         파일         │         위치          │      내용       │
+  ├──────────────────────┼───────────────────────┼─────────────────┤
+  │ fix_fee_rules.py     │ analysis/클로드/서버  │ fee_rule 초기   │
+  │                      │ 설정/                 │ 정규화          │
+  ├──────────────────────┼───────────────────────┼─────────────────┤
+  │ fix_db_comprehensive │ analysis/클로드/서버  │ 이전 종합       │
+  │ .py                  │ 설정/                 │ 수정본          │
+  ├──────────────────────┼───────────────────────┼─────────────────┤
+  │ fix_f5_11_14.py      │ analysis/클로드/서버  │ F-5-11/F-5-14   │
+  │                      │ 설정/                 │ 수정            │
+  ├──────────────────────┼───────────────────────┼─────────────────┤
+  │ fix_comprehensive_v1 │ analysis/클로드/서버  │ 가족관계/fee/OC │
+  │ .py                  │ 설정/                 │ R 15건 수정     │
+  ├──────────────────────┼───────────────────────┼─────────────────┤
+  │ fix_add_daehang.py   │ analysis/클로드/서버  │ 대행업무수행확  │
+  │                      │ 설정/                 │ 인서 348건 추가 │
+  └──────────────────────┴───────────────────────┴─────────────────┘
+
+  ---
+  백엔드 / 프론트엔드 코드
+
+  ┌───────────────┬─────────────────────────────────┬────────────────┐
+  │     파일      │              위치               │      설명      │
+  ├───────────────┼─────────────────────────────────┼────────────────┤
+  │               │                                 │ FastAPI 라우터 │
+  │ guidelines.py │ backend/routers/                │  (API          │
+  │               │                                 │ 엔드포인트)    │
+  ├───────────────┼─────────────────────────────────┼────────────────┤
+  │ page.tsx      │ frontend/app/(main)/guidelines/ │ 실무지침 뷰어  │
+  │               │                                 │ UI             │
+  └───────────────┴─────────────────────────────────┴────────────────┘
+
+  ---
+  주의: 운영 DB는 backend/data/immigration_guidelines_db_v2.json
+  하나입니다. analysis/ 하위의 동명 파일들은 작업 중간본으로 현재 내용이
+   다를 수 있습니다.
+
+1. 지금 목표는 내가 구축해놓은 출입국 업무관리 시스템(Node.js+Fast Api)에 출입국 실무 지침 데이터베이스를 만드는거야 
+2. 기존에 사용하는 것은 하나하나 클릭해서 타고들어가야 해서 번거롭고 내가 원하는 것을 모르면 찾기가 어려워, 내가 원하는 것은 최신화된 실무참고 초직을 적용한 실무지침 데이터베이스를 만들어서 출입국 업무관리에 이식하는 거야 
+3. '정리된 분석자료 일부'는 기존의 출입국 업무 실무를 전체 정리해놓을 것을 내가 일일이 캡쳐 후 ocr 돌린거야 그런데 양이 너무 방대해서 하나하나 클릭해서 캡쳐할수가 없어 따라서 '정리된 분석자료 일부'를 분석해서 반복되는 일정한 규칙을 찾아내 이때 대조해서 참고할 자료는 '221230 체류관리편람', '260310 체류민원 자격별 안내 매뉴얼', '260310 사증민원 자격별 안내 매뉴얼'인데 여기서 가장 세부적으로 내용이 나온 메뉴얼은 '221230 체류관리편람'이지만 구형이고,  '260310 체류민원 자격별 안내 매뉴얼', '260310 사증민원 자격별 안내 매뉴얼'은 최신화되있지만 세부적으로 나와있지 않으니 면밀히 대조하고 그 규칙을 정교화해야해
+4. 거대 LLM 모델은 인간의 언어 규칙을 찾아내서 적용시킨것으로 알고있어서 AI가 내가 원하는 작업을 하기 최적이라고 생각해
+5. 한번에 처리하기에 데이터가 너무 많으면하고 세부 자격별 어떤 내용을 넣을건지까지 스텝바이스텝 계획 작성해서 전체본을 만들 수 있도록 , 
+6. 가능하면 엑셀로 만들어도되고 규칙을 찾으면 그 규칙 로직을 넣어서 돌리면 해당 자격에 맞는 필요서류 작성서류가 나올 수 있게할것 
+7. 예외도 필히 포함할 것 
+
+
+8. 소스에 파일로 올라가 있는 정리된 분석자료 일부.pdf 를 기준삼아서 각 업무 세세분류 별 개요(간략히), 작성서류, 필요서류 로 분류하는게 목표야 6. 221230 체류관리편람 이 아주 자세하게 나와있어서 이 파일을 주로 참고할 것 7. 정리된 분석자료 일부 는 하나하나 클릭하기도 힘든데 최신화된 업무플로로 타고갈 수 있는지 제시 8. 정리방식 및 검색방식도 최신하된 방식 있으면 제시 9. 나머지 자료는 근거법령 및 기타 자료이니 참고할것
+
+기준 자료 역할
+1) 정리된 분석자료 일부.pdf
+
+이 파일은 최종 구조의 출발점으로 쓰는 게 맞습니다. 이유는 이 자료가 실제 업무 화면의 반복 구조를 보여주기 때문입니다. 이미 확인된 핵심은 이 UI가 업무분야 / 업무명 / 세부코드 / 개요 / 양식서류 / 첨부서류의 6필드 반복 구조라는 점입니다. 즉, 이 파일은 “무엇을 어떤 칸으로 나눌지”를 정하는 기준입니다.
+
+여기서 중요한 건:
+
+양식서류 = 작성서류(form_docs)
+첨부서류 = 필요서류(supporting_docs)
+
+이 둘은 절대 합치면 안 됩니다. 기존 정리에서도 이 부분이 시스템 이식의 핵심 전제로 잡혀 있습니다.
+
+2) 221230 체류관리편람.pdf
+
+이 파일은 주된 실질 근거로 쓰는 게 맞습니다. 편람 자체가 체류관리 일반사항, 체류자격별 관리기준, 그리고 체류자격외 활동 / 근무처 변경·추가 / 체류자격 부여 / 체류자격 변경허가 / 체류기간 연장 / 재입국허가 / 외국인 등록 등으로 체계화돼 있어, 세세분류별 데이터를 만들 때 가장 좋은 기준축입니다.
+
+또한 편람은 제출서류 일반원칙도 명확히 잡고 있습니다. 예를 들어:
+
+이미 제출해 보관 중인 서류는 생략 가능
+불필요한 분량 많은 서류는 발췌 제출
+심사를 위해 제출서류를 가감할 수 있음
+이건 나중에 예외/공통 규칙 필드로 반드시 들어가야 합니다.
+3) 260310 체류민원 자격별 안내 매뉴얼.pdf
+
+이 파일은 최신 운영형 보정 자료로 쓰는 게 맞습니다. 목차 구조가 체류자격별 안내 + 공통사항으로 잘 정리돼 있고, 최근 실무에 맞는 항목이 반영돼 있습니다. 다만 이 파일은 최신 운영 보정용이고, 깊이와 세부 판단 기준은 여전히 221230 편람이 더 강합니다.
+
+4) 나머지 자료
+법령/시행령/시행규칙: 최종 법적 근거
+사증 매뉴얼: 체류 쪽 보완 자료
+경쟁사/스크린샷류: UI 보조 참고
+OCR 이미지 기반 자료: 문구 보정 필요, 구조 참고용
+
+특히 정리된 분석자료 일부.pdf는 OCR 오염이 있어서 문구를 그대로 신뢰하면 안 됩니다. 구조는 쓸 수 있지만, 항목명과 서류명은 편람·매뉴얼로 교차검증해야 합니다.
+
+당신이 말한 목표, 정확히 이렇게 잡으면 됩니다
+최종 목표
+
+정리된 분석자료 일부.pdf를 기준으로 각 업무 세세분류별로 아래 3가지를 뽑아내는 것:
+
+개요(간략히)
+작성서류
+필요서류
+
+그런데 실제로는 3칸만 만들면 나중에 다시 막힙니다.
+실무상 최소 아래 8칸은 같이 가야 합니다.
+
+업무분야
+업무명
+세부코드
+개요_short
+작성서류(form_docs)
+필요서류(supporting_docs)
+예외/추가심사사항
+근거(basis_file / basis_section / basis_page)
+
+이렇게 해야 나중에 검색, 자동 추천, 엑셀 이식, GPT 질의응답까지 다 됩니다. 이 방향은 기존 규칙엔진 정리와도 일치합니다.
+
+“하나하나 클릭하기 힘든데 최신화된 업무플로로 타고갈 수 있는지”에 대한 답
+
+결론부터 말하면 가능합니다.
+그리고 기존처럼 업무분야 → 업무명 → 세부코드를 끝없이 클릭하는 방식은 이미 비효율적입니다.
+
+더 나은 최신형 업무플로
+
+기존 UI는 3단 드롭다운 구조입니다. 이것 자체는 유지하더라도, 내부 데이터 구조는 아래처럼 바꾸는 게 맞습니다.
+
+기존 탐색 방식
+업무분야 선택
+업무명 선택
+세부코드 선택
+개요/양식/첨부 확인
+
+이 방식은 업무를 알고 있을 때만 빠릅니다.
+모를 때는 너무 느립니다.
+
+추천하는 최신 탐색 방식
+
+A. 액션 중심 1차 진입
+
+체류자격외활동
+근무처변경·추가
+체류자격부여
+체류자격변경
+체류기간연장
+재입국허가
+외국인등록
+기타/국적/각종신청청구
+
+이 구분은 편람의 대분류와도 맞습니다.
+
+B. 그 다음 자격코드 진입
+
+D-2
+D-4
+D-10
+E-7
+F-4
+F-5
+F-6
+지역특화 등
+
+C. 그 다음 세부코드/사유 진입
+
+예: F-4-12, F-4-19, D-10-1, D-10-2
+
+D. 마지막에 결과 출력
+
+개요(짧게)
+작성서류
+필요서류
+공통 유의사항
+예외
+최신 보정 필요 여부
+
+이렇게 바꾸면 클릭 수가 크게 줄고, “업무 종류는 아는데 세부코드가 기억 안 남”인 경우도 훨씬 빨라집니다.
+
+정리방식: 지금보다 좋은 방식
+지금 방식의 문제
+
+지금 자료는 화면 기반이라 보기에는 편하지만:
+
+공통서류가 반복됨
+예외가 메모처럼 섞임
+최신 변경분 추적이 어려움
+검색어가 제목 기반이라 누락이 많음
+OCR 오류 때문에 명칭이 오염됨
+추천 정리방식
+1. MASTER_ROWS
+
+실제 한 줄 한 업무
+
+예시 컬럼:
+
+major_action
+business_name
+detail_code
+overview_short
+form_docs
+supporting_docs
+exceptions
+risk_notes
+basis_file
+basis_section
+basis_page
+keywords
+synonyms
+update_status
+2. RULES
+
+공통 규칙
+
+예:
+
+여권 유효기간 범위 내 체류 확인서가 필요한 경우
+외국인 직업 신고서가 필요한 자격군
+결핵진단서가 필요한 경우
+재학증명서가 필요한 경우
+이미 제출된 서류 생략 가능 규칙
+
+221230 편람과 260310 매뉴얼은 이런 공통 규칙을 따로 빼기 좋게 구성돼 있습니다. 예를 들어 260310 매뉴얼은 공통사항으로 심사수수료, 여권 유효기간, 직업 및 소득 신고, 재학증명서, 결핵진단서까지 분리해 둡니다.
+
+3. EXCEPTIONS
+
+예외 분기
+
+예:
+
+해당자만 제출
+소득금액증명원 해당자
+여권 유효기간 범위 내 체류 확인서 해당자
+본인 명의 숙소가 아닌 경우 숙소제공자 신분증
+결핵고위험국 장기체류 이력 있는 경우만 결핵진단서
+4. DOC_DICTIONARY
+
+서류명 표준화 사전
+
+예:
+
+통합신청서 = 통합 신청서 = 틈합신청서(OCR 오류)
+외국인직업신고서 = 외국인 직업 신고서
+숙소제공확인서 = 숙소 제공 확인서
+
+이걸 안 만들면 같은 서류가 중복으로 쌓입니다.
+
+검색방식: 지금보다 좋은 방식
+1) 코드 검색 + 키워드 검색을 같이 써야 합니다
+
+지금처럼 제목만 찾는 방식은 불완전합니다.
+
+추천 검색 키
+세부코드 정확검색: F-4-12, D-10-1
+자격코드 검색: F-4, D-10
+액션 검색: 체류자격변경, 외국인등록, 연장
+서류 검색: 외국인 직업 신고서, 여권 유효기간 범위 내 체류 확인서
+별칭 검색: 거소증, 영주증, 동포, 지역특화
+2) 검색 인덱스는 이렇게 나눠야 합니다
+exact_code: 세부코드 정확 매칭
+status_code: 자격코드 매칭
+action_type: 액션 매칭
+keywords: 일반 키워드
+synonyms: 실무 별칭
+3) 검색 결과 정렬 우선순위
+exact_code 일치
+status_code + action_type 동시 일치
+business_name 일치
+keywords 일치
+synonyms 일치
+
+이 순서가 가장 실무적입니다.
+
+실제 구축 원칙
+원칙 1
+
+정리된 분석자료 일부.pdf는 구조 기준
+
+어떤 필드로 보여줄지
+어떤 세부코드가 존재하는지
+사용자가 어떤 이름으로 업무를 인식하는지
+원칙 2
+
+221230 체류관리편람.pdf는 내용 기준
+
+개요
+자격별 요건
+액션별 제출서류
+예외
+공통 규칙
+원칙 3
+
+260310 체류민원 자격별 안내 매뉴얼.pdf는 최신 보정
+
+최근 공통사항
+실무상 최신 표현
+변경된 운영문구 보정
+원칙 4
+
+법령/시행령/시행규칙은 최종 근거 고정
+
+수수료
+허가권한
+법적 정의
+제출의무 근거
+바로 적용 가능한 작업순서
+1단계
+
+정리된 분석자료 일부.pdf에서
+
+업무분야
+업무명
+세부코드
+를 먼저 전부 추출
+2단계
+
+각 행마다
+
+개요
+작성서류
+필요서류
+를 분리
+
+단, 이 단계에서는 OCR 오염 문구를 그대로 확정하지 말고 임시값으로 둡니다.
+
+3단계
+
+221230 체류관리편람.pdf로 각 행을 대조해
+
+개요를 짧고 정확하게 교정
+작성서류/필요서류 재정렬
+공통 규칙/예외 추가
+4단계
+
+260310 체류민원 자격별 안내 매뉴얼.pdf로
+
+최신 공통사항 보정
+수수료/여권유효기간/직업신고/결핵/재학증명 같은 공통 규칙 최신화
+5단계
+
+법령/시행령/시행규칙으로
+
+논란 있는 항목만 근거 재고정
+내가 권하는 더 좋은 방향
+
+당신 목표가 단순히 “정리표 만들기”가 아니라 나중에 시스템에 넣는 것이라면, 처음부터 엑셀을 아래 구조로 가야 합니다.
+
+최소 시트 구성
+MASTER_ROWS
+RULES
+EXCEPTIONS
+DOC_DICTIONARY
+SOURCE_INDEX
+LEGACY_UI_MAP
+
+이 구성이 가장 안전합니다. 기존 인수인계 방향과도 맞습니다.
+
+한 줄 결론
+
+당신이 지금 정한 기준은 맞습니다.
+
+정리된 분석자료 일부.pdf = UI/세세분류 기준
+221230 체류관리편람.pdf = 주 근거
+260310 체류민원 자격별 안내 매뉴얼.pdf = 최신 보정
+나머지 법령 = 최종 법적 근거
+
+그리고 클릭식 업무미리보기 구조 그대로 따라가는 건 비효율적이므로,
+앞으로는 액션 중심 → 자격코드 → 세부코드 → 개요/작성서류/필요서류 자동출력 구조로 재정리하는 게 맞습니다.
+
+원하면 다음 답변에서 바로
+**“MASTER_ROWS 컬럼 설계안”**부터 실무형으로 끊어서 작성하겠습니다.
+
+너가 소화할 수 있는 범위에서 목표를 단계별로 세분화해서 최종산물은 내가 원하는 결과가 나오게 세팅할 것 너가 파일을 만들어서 나에게 주는 형식이야 내가 추가되는 부분을 기존파일에 추가하던 너가 만들고 붙이고 만들고 붙이고 하던
+
+지금부터는 말로만 설계하지 않고, 증분 방식으로 계속 이어붙일 수 있는 작업 파일 형태로 바꾸겠습니다.
+먼저 기존 업로드 파일 구조를 확인해서, 당신이 원하는 최종 산물에 맞는 기본 워크북 뼈대 + 단계별 작업 시트를 만들겠습니다.
+
+분석 중지됨
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.dimensions import ColumnDimension
+from pathlib import Path
+from datetime import datetime
+
+base_dir = Path("/mnt/data")
+
+# Try to inspect an existing workbook to align naming/continuity if present.
+existing_candidates = [
+    base_dir / "업무정리_실무판_v2_코드수정.xlsx",
+    base_dir / "4. 업무정리.xlsx",
+    base_dir / "업무정리_실무판_v1.xlsx",
+]
+
+existing_info = []
+for p in existing_candidates:
+    if p.exists():
+        try:
+            wb_tmp = load_workbook(p, read_only=True)
+            existing_info.append((p.name, wb_tmp.sheetnames))
+            wb_tmp.close()
+        except Exception as e:
+            existing_info.append((p.name, [f"read_error: {e}"]))
+
+# Create a new incremental workbook that can be appended in later turns.
+wb = Workbook()
+ws = wb.active
+ws.title = "ROADMAP"
+
+# Styles
+header_fill = PatternFill("solid", fgColor="1F4E78")
+sub_fill = PatternFill("solid", fgColor="D9EAF7")
+section_fill = PatternFill("solid", fgColor="E2F0D9")
+white_font = Font(color="FFFFFF", bold=True)
+bold = Font(bold=True)
+thin = Side(style="thin", color="BFBFBF")
+border = Border(left=thin, right=thin, top=thin, bottom=thin)
+center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+wrap = Alignment(vertical="top", wrap_text=True)
+
+def style_header(ws, row_idx):
+    for cell in ws[row_idx]:
+        if cell.value is not None:
+            cell.fill = header_fill
+            cell.font = white_font
+            cell.border = border
+            cell.alignment = center
+
+def style_table(ws, start_row, end_row, cols):
+    for r in range(start_row, end_row + 1):
+        for c in range(1, cols + 1):
+            cell = ws.cell(r, c)
+            cell.border = border
+            cell.alignment = wrap
+    ws.freeze_panes = "A2"
+
+# ROADMAP content
+roadmap_headers = ["phase_no", "phase_name", "goal", "main_input", "work_method", "deliverable_in_file", "done_condition", "notes"]
+ws.append(roadmap_headers)
+style_header(ws, 1)
+
+roadmap_rows = [
+    [0, "프로젝트 기준 고정", "UI는 구조 기준, 221230 편람은 주 근거, 260310 매뉴얼은 최신 보정, 법령은 최종 근거로 고정",
+     "정리된 분석자료 일부.pdf / 221230 체류관리편람 / 260310 체류민원 매뉴얼 / 법령",
+     "소스 우선순위와 필드 정의 고정",
+     "ROADMAP / SOURCE_INDEX / README",
+     "자료 우선순위와 필드 정의가 흔들리지 않음",
+     "양식서류=form_docs, 첨부서류=supporting_docs 분리 필수"],
+    [1, "택소노미 확정", "액션축과 자격코드축을 확정",
+     "편람 목차 / UI 반복 구조",
+     "major_action, action_type, detailed_code, status_group 분류",
+     "TAXONOMY 시트",
+     "모든 후속 행이 action_type + detailed_code로 연결 가능",
+     "예: EXTRA_WORK / CHANGE / EXTEND / REGISTRATION / REENTRY"],
+    [2, "문서명 표준화", "OCR 오염 제거 및 동일 서류명 통합",
+     "UI OCR 명칭 / 편람·매뉴얼 정식 명칭",
+     "표준명, 별칭, OCR오류명, 설명 등록",
+     "DOC_DICTIONARY 시트",
+     "같은 서류가 하나의 표준명으로 통일됨",
+     "예: 통합신청서, 외국인 직업 신고서"],
+    [3, "공통 RULES 구축", "자격공통/액션공통 규칙 작성",
+     "221230 편람 공통사항 / 체류민원 매뉴얼 공통사항",
+     "StatusTemplate, ActionTemplate 작성",
+     "RULES 시트 초안",
+     "공통 제출서류·수수료·공통예외가 규칙화됨",
+     "MASTER_ROWS보다 먼저 구축"],
+    [4, "Override 구축", "특정 자격×액션 조합 추가·제외 규칙 작성",
+     "자격별 세부 단락",
+     "StatusActionOverride 작성",
+     "RULES 시트 추가행",
+     "코드별 특수서류 차이가 규칙으로 반영됨",
+     "예: D-2 시간제취업, F-6 특례"],
+    [5, "예외 분기 구축", "조건부 예외를 메모가 아니라 분기로 작성",
+     "결핵 / 재학증명 / 여권유효기간 / 본인명의아님 등",
+     "if/then 방식으로 ExceptionBranch 작성",
+     "EXCEPTIONS 시트 초안",
+     "트리거 조건과 추가/제외서류가 분리됨",
+     "예외는 필수"],
+    [6, "MASTER_ROWS 생성", "RULES + EXCEPTIONS를 바탕으로 실제 업무행 생성",
+     "TAXONOMY / RULES / EXCEPTIONS",
+     "행 단위 생성 및 basis 고정",
+     "MASTER_ROWS 시트",
+     "세세분류별 개요/작성서류/필요서류/예외/근거가 한 행으로 표현됨",
+     "직접 손입력보다 조합 생성 우선"],
+    [7, "LEGACY UI 매핑", "UI 화면명과 신규 행 매핑",
+     "정리된 분석자료 일부.pdf / 경쟁사 정리본 앞부분.pdf",
+     "legacy 업무명, 코드, 노출항목 매핑",
+     "LEGACY_UI_MAP 시트",
+     "기존 화면에서 새 데이터로 역추적 가능",
+     "근거 시트가 아니라 마지막 연결용"],
+    [8, "검색/운영 고도화", "검색 키워드와 증분 작업 절차 고정",
+     "실무 별칭 / 코드 / 자주 찾는 문구",
+     "exact code, status code, action, keyword, synonym 구성",
+     "SEARCH_KEYS / CHANGE_LOG 시트",
+     "추후 신규 추가분도 동일 방식으로 이어붙일 수 있음",
+     "계속 추가 가능한 운영형 구조"],
+]
+for row in roadmap_rows:
+    ws.append(row)
+style_table(ws, 2, 1 + len(roadmap_rows), len(roadmap_headers))
+
+for idx, width in enumerate([10, 22, 38, 30, 30, 28, 32, 28], start=1):
+    ws.column_dimensions[get_column_letter(idx)].width = width
+
+# README sheet
+readme = wb.create_sheet("README")
+readme_rows = [
+    ["항목", "내용"],
+    ["파일 목적", "출입국 업무 마스터데이터 규칙엔진 리뉴얼을 증분 방식으로 계속 이어붙이기 위한 작업 워크북"],
+    ["핵심 원칙 1", "UI는 구조 기준, 근거는 편람·매뉴얼·법령"],
+    ["핵심 원칙 2", "양식서류(form_docs)와 첨부서류(supporting_docs)는 절대 합치지 않음"],
+    ["핵심 원칙 3", "예외는 메모가 아니라 조건부 분기(EXCEPTIONS)로 관리"],
+    ["핵심 원칙 4", "MASTER_ROWS는 RULES/EXCEPTIONS를 먼저 구축한 뒤 생성"],
+    ["증분 방식", "다음 작업부터는 이 파일에 신규 RULES/EXCEPTIONS/MASTER_ROWS를 계속 추가"],
+    ["현재 상태", "뼈대 + 단계별 작업 시트 + 빈 데이터 시트 생성 완료"],
+]
+for row in readme_rows:
+    readme.append(row)
+style_header(readme, 1)
+style_table(readme, 2, len(readme_rows), 2)
+readme.column_dimensions["A"].width = 20
+readme.column_dimensions["B"].width = 95
+
+# TAXONOMY
+tax = wb.create_sheet("TAXONOMY")
+tax_headers = [
+    "domain", "major_action_ko", "action_type", "status_group", "detailed_code",
+    "status_name_ko", "ui_business_name", "ui_detail_code", "priority_scope", "note"
+]
+tax.append(tax_headers)
+style_header(tax, 1)
+seed_tax = [
+    ["체류민원", "체류자격외활동허가", "EXTRA_WORK", "A", "A-1", "외교", "외교A-1(주한 외국공관원 가족)", "A-1(외교)", "phase1", ""],
+    ["체류민원", "체류자격외활동허가", "EXTRA_WORK", "D", "D-2-2", "유학(학사과정)", "", "D-2-2", "phase1", ""],
+    ["체류민원", "체류자격변경허가", "CHANGE", "F", "F-6-1", "결혼이민", "", "F-6-1", "phase1", ""],
+]
+for row in seed_tax:
+    tax.append(row)
+style_table(tax, 2, 1 + len(seed_tax), len(tax_headers))
+for idx, width in enumerate([12, 22, 16, 12, 14, 18, 34, 18, 14, 20], start=1):
+    tax.column_dimensions[get_column_letter(idx)].width = width
+
+# RULES
+rules = wb.create_sheet("RULES")
+rules_headers = [
+    "rule_id", "rule_type", "applies_to_domain", "applies_to_major", "applies_to_code_pattern",
+    "add_form_docs", "add_supporting_docs", "remove_docs", "priority",
+    "basis_file", "basis_section", "basis_page", "note", "status"
+]
+rules.append(rules_headers)
+style_header(rules, 1)
+seed_rules = [
+    ["R-0001", "ActionTemplate", "체류민원", "체류자격외활동허가", "*", "통합신청서", "", "", 100,
+     "221230 체류관리편람.pdf", "체류자격외 활동", "", "기본 신청서류", "seed"],
+    ["R-0002", "ActionTemplate", "체류민원", "체류자격외활동허가", "취업가능자격군", "외국인 직업 신고서", "", "", 90,
+     "260310 체류민원 자격별 안내 매뉴얼.pdf", "공통사항-직업 및 연간소득금액 신고", "", "취업가능 체류자격자 해당", "seed"],
+    ["R-0003", "ExceptionBridgeHint", "체류민원", "체류기간연장허가", "*", "", "여권 유효기간 범위 내 체류 확인서", "", 80,
+     "260310 체류민원 자격별 안내 매뉴얼.pdf", "공통사항-여권 유효기간 범위 내 체류기간 부여 안내", "", "해당자만", "seed"],
+]
+for row in seed_rules:
+    rules.append(row)
+style_table(rules, 2, 1 + len(seed_rules), len(rules_headers))
+for idx, width in enumerate([12, 20, 14, 22, 20, 26, 32, 18, 10, 28, 32, 12, 28, 12], start=1):
+    rules.column_dimensions[get_column_letter(idx)].width = width
+
+# EXCEPTIONS
+exc = wb.create_sheet("EXCEPTIONS")
+exc_headers = [
+    "exc_id", "applies_to_record_or_pattern", "trigger_condition_text", "decision",
+    "add_form_docs", "add_supporting_docs", "remove_docs", "risk_notes",
+    "basis_file", "basis_section", "basis_page", "certainty", "status"
+]
+exc.append(exc_headers)
+style_header(exc, 1)
+seed_exc = [
+    ["E-0001", "체류민원/*", "결핵고위험국가 국민 + 장기체류 관련 요건 충족", "추가제출",
+     "", "결핵진단서", "", "고위험국/기제출 여부 확인 필요", "260310 체류민원 자격별 안내 매뉴얼.pdf", "공통사항-결핵진단서", "", "high", "seed"],
+    ["E-0002", "체류민원/*", "만 6세 이상 만 18세 이하 + 재학 중", "추가제출",
+     "", "재학증명서", "", "학교 정보 통합신청서 기재 병행", "260310 체류민원 자격별 안내 매뉴얼.pdf", "공통사항-재학증명서", "", "high", "seed"],
+    ["E-0003", "체류민원/*", "숙소 제공자가 본인 명의가 아님", "추가제출",
+     "", "숙소 제공자 신분증", "", "체류지 입증과 묶여 점검", "정리된 분석자료 일부.pdf", "UI 첨부서류 반복패턴", "", "medium", "seed"],
+]
+for row in seed_exc:
+    exc.append(row)
+style_table(exc, 2, 1 + len(seed_exc), len(exc_headers))
+for idx, width in enumerate([12, 24, 34, 12, 24, 28, 18, 24, 28, 28, 12, 10, 12], start=1):
+    exc.column_dimensions[get_column_letter(idx)].width = width
+
+# MASTER_ROWS
+mr = wb.create_sheet("MASTER_ROWS")
+mr_headers = [
+    "row_id", "domain", "major_action_ko", "action_type", "business_name", "detailed_code",
+    "overview_short", "form_docs", "supporting_docs", "exceptions_summary",
+    "basis_file", "basis_section", "basis_page", "source_priority", "status"
+]
+mr.append(mr_headers)
+style_header(mr, 1)
+seed_master = [
+    ["M-0001", "체류민원", "체류자격외활동허가", "EXTRA_WORK", "외교A-1(주한 외국공관원 가족)", "A-1",
+     "주한 외국공관원 가족의 국내 취업 관련 체류자격외활동 허가 업무", "통합신청서",
+     "여권 | 외교부 고용추천서 | 해당 체류자격별 자격요건 서류", "미국 공관원 가족은 상호주의에 따른 수수료 면제 가능",
+     "221230 체류관리편람.pdf", "외교(A-1)-체류자격외활동", "", "1", "sample"],
+    ["M-0002", "체류민원", "체류자격외활동허가", "EXTRA_WORK", "유학 D-2 시간제취업", "D-2",
+     "유학생의 허용 범위 내 시간제취업 또는 자격외활동 허가 업무", "통합신청서 | 외국인유학생 시간제취업 확인서",
+     "여권 | 외국인등록증 | 성적/출석 등 요건입증 서류", "학기·성적·체류상태 요건 점검 필요",
+     "221230 체류관리편람.pdf", "외국인유학생(D-2, D-4) 통합지침", "", "1", "sample"],
+]
+for row in seed_master:
+    mr.append(row)
+style_table(mr, 2, 1 + len(seed_master), len(mr_headers))
+for idx, width in enumerate([12, 12, 22, 16, 30, 14, 32, 28, 34, 28, 28, 28, 12, 12, 12], start=1):
+    mr.column_dimensions[get_column_letter(idx)].width = width
+
+# LEGACY_UI_MAP
+legacy = wb.create_sheet("LEGACY_UI_MAP")
+legacy_headers = [
+    "legacy_domain", "legacy_business_name", "legacy_detail_code", "new_row_id",
+    "mapping_status", "mapping_note", "source_file"
+]
+legacy.append(legacy_headers)
+style_header(legacy, 1)
+seed_legacy = [
+    ["체류자격외활동", "외교A-1(주한 외국공관원 가족)", "A-1(외교)", "M-0001", "mapped", "UI 구조 기준 연결", "정리된 분석자료 일부.pdf"],
+    ["체류자격외활동", "유학 관련 체류자격외활동", "D-2-*", "M-0002", "tentative", "세부코드별 세분화 필요", "정리된 분석자료 일부.pdf"],
+]
+for row in seed_legacy:
+    legacy.append(row)
+style_table(legacy, 2, 1 + len(seed_legacy), len(legacy_headers))
+for idx, width in enumerate([18, 34, 18, 12, 14, 24, 24], start=1):
+    legacy.column_dimensions[get_column_letter(idx)].width = width
+
+# DOC_DICTIONARY
+docd = wb.create_sheet("DOC_DICTIONARY")
+doc_headers = ["doc_key", "standard_name", "doc_class", "aliases_or_ocr_variants", "usage_note", "status"]
+docd.append(doc_headers)
+style_header(docd, 1)
+seed_docs = [
+    ["DOC-0001", "통합신청서", "form_doc", "통합 신청서 | 틈합신청서", "기본 신청서류", "seed"],
+    ["DOC-0002", "외국인 직업 신고서", "form_doc", "외극인 직업 신고서", "취업가능 체류자격 관련 공통", "seed"],
+    ["DOC-0003", "여권", "supporting_doc", "", "기본 신분서류", "seed"],
+    ["DOC-0004", "재학증명서", "supporting_doc", "", "미성년 재학 관련 예외", "seed"],
+]
+for row in seed_docs:
+    docd.append(row)
+style_table(docd, 2, 1 + len(seed_docs), len(doc_headers))
+for idx, width in enumerate([12, 22, 14, 30, 24, 12], start=1):
+    docd.column_dimensions[get_column_letter(idx)].width = width
+
+# SOURCE_INDEX
+src = wb.create_sheet("SOURCE_INDEX")
+src_headers = ["source_id", "source_file", "source_role", "priority", "use_rule", "note"]
+src.append(src_headers)
+style_header(src, 1)
+seed_sources = [
+    ["S-001", "정리된 분석자료 일부.pdf", "UI/현행 노출 구조 참고", 4, "구조 기준으로만 사용", "OCR 오염 가능"],
+    ["S-002", "221230 체류관리편람.pdf", "주 근거", 1, "세부 요건·제출서류·예외 기준", "가장 상세한 실무 기준"],
+    ["S-003", "260310 체류민원 자격별 안내 매뉴얼.pdf", "최신 보정", 2, "최신 공통사항 및 최근 운영 표현 반영", ""],
+    ["S-004", "출입국관리법/시행령/시행규칙", "최종 법적 근거", 1, "법적 근거 고정", ""],
+]
+for row in seed_sources:
+    src.append(row)
+style_table(src, 2, 1 + len(seed_sources), len(src_headers))
+for idx, width in enumerate([10, 34, 24, 10, 28, 22], start=1):
+    src.column_dimensions[get_column_letter(idx)].width = width
+
+# SEARCH_KEYS
+search = wb.create_sheet("SEARCH_KEYS")
+search_headers = ["key_type", "key_value", "target_sheet", "target_id", "priority", "note"]
+search.append(search_headers)
+style_header(search, 1)
+seed_keys = [
+    ["exact_code", "A-1", "MASTER_ROWS", "M-0001", 1, ""],
+    ["business_name", "외교A-1(주한 외국공관원 가족)", "MASTER_ROWS", "M-0001", 1, ""],
+    ["status_code", "D-2", "MASTER_ROWS", "M-0002", 2, ""],
+    ["keyword", "시간제취업", "MASTER_ROWS", "M-0002", 2, ""],
+]
+for row in seed_keys:
+    search.append(row)
+style_table(search, 2, 1 + len(seed_keys), len(search_headers))
+for idx, width in enumerate([14, 28, 16, 14, 10, 22], start=1):
+    search.column_dimensions[get_column_letter(idx)].width = width
+
+# CHANGE_LOG
+cl = wb.create_sheet("CHANGE_LOG")
+cl_headers = ["version", "change_date", "change_type", "sheet_name", "summary", "next_action"]
+cl.append(cl_headers)
+style_header(cl, 1)
+cl.append(["v1", datetime.now().strftime("%Y-%m-%d"), "initial_create", "all", "증분 작업용 기본 워크북 생성", "다음 단계에서 RULES/EXCEPTIONS/MASTER_ROWS를 계속 추가"])
+style_table(cl, 2, 2, len(cl_headers))
+for idx, width in enumerate([10, 14, 16, 16, 40, 30], start=1):
+    cl.column_dimensions[get_column_letter(idx)].width = width
+
+# Add sheet showing what existing files were detected
+inv = wb.create_sheet("FILE_INVENTORY")
+inv_headers = ["file_name", "detected", "sheet_names_or_note"]
+inv.append(inv_headers)
+style_header(inv, 1)
+if existing_info:
+    for name, sheets in existing_info:
+        inv.append([name, "yes", " | ".join(sheets)])
+else:
+    inv.append(["(detected workbook)", "no", "inspection skipped or file unavailable"])
+style_table(inv, 2, inv.max_row, len(inv_headers))
+for idx, width in enumerate([34, 10, 80], start=1):
+    inv.column_dimensions[get_column_letter(idx)].width = width
+
+out_path = base_dir / "출입국_업무마스터_증분작업_로드맵_v1.xlsx"
+wb.save(out_path)
+
+print(f"Created: {out_path}")
+print("Detected existing workbook info:")
+for item in existing_info:
+    print(item)
+
+Thought for 4m 6s
+
+좋습니다.
+이제 방식은 “한 번에 완성본”이 아니라, 내가 매 턴 파일을 만들어 주고 그 파일에 계속 누적 추가하는 증분 방식으로 고정하겠습니다. 이 방향은 이미 정리된 프로젝트 기준과도 맞습니다. 핵심은 MASTER_ROWS / RULES / EXCEPTIONS / LEGACY_UI_MAP를 축으로 두고, DOC_DICTIONARY / SOURCE_INDEX를 보강하는 구조입니다. 또 MASTER_ROWS를 먼저 손으로 다 치는 게 아니라 RULES → EXCEPTIONS → MASTER_ROWS 순으로 가야 한다는 점도 이미 정리돼 있습니다.
+
+다만 이번 턴에서는 파일 생성 도구 쪽 오류가 나서 실제 .xlsx 파일을 저장해 전달하는 데 실패했습니다. 이건 숨기지 않겠습니다. 대신 지금 바로 최종 산물이 나오도록 세팅한 단계별 작업 체계를 확정해 두겠습니다. 다음 파일 생성이 정상 동작하는 턴에서는 이 구조 그대로 워크북으로 내보내면 됩니다.
+
+1. 작업 운영 방식 고정
+
+앞으로는 아래 두 방식 중 하나로 갑니다.
+
+기본 원칙
+원칙은 단일 마스터 워크북 1개를 계속 누적 갱신
+내가 새 데이터를 만들면
+기존 파일에 시트/행 추가하거나
+버전업 파일(v2, v3)로 만들어 전달
+매번 “설명”보다 파일 반영 결과가 우선
+권장 방식
+
+가장 안전한 방식은 이것입니다.
+
+방식 A: 단일 누적 파일
+파일명 예시: 출입국_업무마스터_증분작업.xlsx
+매 턴마다 같은 파일을 업데이트
+장점: 이력 일관성 좋음
+단점: 중간 실수 수정 시 롤백 관리 필요
+방식 B: 버전 누적 파일
+파일명 예시:
+출입국_업무마스터_v1.xlsx
+출입국_업무마스터_v2.xlsx
+출입국_업무마스터_v3.xlsx
+장점: 변경 이력 분명함
+단점: 파일 수 증가
+
+내 권고는 방식 B입니다.
+실무형 리뉴얼은 중간 수정이 많아서 버전 관리가 안전합니다.
+
+2. 최종 산물 목표 재정의
+
+최종 산물은 단순 정리표가 아닙니다.
+아래 입력값을 넣으면 결과가 나오는 구조여야 합니다.
+
+입력
+major_action
+예: 체류자격외활동허가 / 체류자격변경허가 / 체류기간연장허가 / 외국인등록 / 재입국허가
+detailed_code
+예: D-2-2 / F-6-1 / E-7-1 / F-4-12
+condition
+예: 미성년 / 결핵고위험국 / 숙소 본인명의 아님 / 여권 유효기간 이슈
+출력
+개요(간략히)
+작성서류(form_docs)
+필요서류(supporting_docs)
+예외
+리스크
+근거
+
+이 구조는 기존 인수인계 기준과 정확히 일치합니다. 특히 양식서류=form_docs, 첨부서류=supporting_docs는 강제 분리해야 하고, 예외는 메모가 아니라 분기로 처리해야 합니다.
+
+3. 단계별 세분화: 내가 소화 가능한 범위로 끊은 실행계획
+Phase 0. 기준축 고정
+목표
+
+자료 우선순위와 필드 정의를 고정합니다.
+
+근거 우선순위
+법령 / 시행규칙 + 221230 체류관리편람
+260310 체류민원 자격별 안내 매뉴얼
+기존 업무정리 엑셀
+정리된 분석자료 일부.pdf 같은 UI 스냅샷
+
+이미 정리된 바와 같이 UI는 근거가 아니라 구조 참고용입니다.
+
+산출물
+README
+SOURCE_INDEX
+프로젝트 기준 문서
+Phase 1. 택소노미 확정
+목표
+
+업무를 검색 가능한 공통 축으로 분해합니다.
+
+고정할 축
+domain = 체류민원 / 사증민원 / 기타
+major_action_ko
+action_type
+detailed_code
+status_group
+action_type 표준
+EXTRA_WORK
+WORKPLACE
+GRANT
+CHANGE
+EXTEND
+REGISTRATION
+REENTRY
+
+이 구조 역시 이미 프로젝트 기준으로 잡혀 있습니다.
+
+산출물
+TAXONOMY 시트
+Phase 2. UI 구조 추출
+목표
+
+정리된 분석자료 일부.pdf에서 세세분류 뼈대를 뽑습니다.
+
+할 일
+업무분야
+업무명
+세부코드
+개요
+양식서류
+첨부서류
+
+이 6필드 반복 구조를 기본 키로 추출합니다. 이 반복 구조가 규칙화의 출발점이라는 점은 이미 명확합니다.
+
+주의
+OCR 오염 문구는 확정 금지
+여기서는 구조만 채택
+명칭 확정은 편람/매뉴얼 대조 후
+산출물
+LEGACY_UI_MAP 초안
+UI_RAW_EXTRACT 보조 시트
+Phase 3. 문서명 표준화
+목표
+
+같은 서류가 여러 이름으로 흩어지는 걸 막습니다.
+
+예
+통합신청서 / 통합 신청서 / 틈합신청서
+외국인 직업 신고서 / 외국인직업신고서
+숙소제공확인서 / 숙소 제공 확인서
+산출물
+DOC_DICTIONARY
+
+이 단계가 없으면 나중에 form_docs/supporting_docs가 중복 오염됩니다.
+
+Phase 4. 공통 RULES 구축
+목표
+
+업무마다 반복되는 공통 규칙을 먼저 만듭니다.
+
+rule_type
+StatusTemplate
+ActionTemplate
+StatusActionOverride
+
+이 분류도 기존 기준과 맞습니다.
+
+우선 넣을 공통 규칙
+통합신청서 기본 적용
+여권 기본 적용
+취업 가능 체류자격의 외국인 직업 신고서
+여권 유효기간 범위 내 체류 확인서
+미성년 재학증명서
+결핵진단서
+수수료
+기제출 서류 생략 가능
+심사 시 가감 가능
+
+260310 체류민원 자격별 안내 매뉴얼은 공통사항으로 심사수수료, 여권 유효기간, 직업/소득 신고, 재학증명서, 결핵진단서 구조를 분리해 두고 있어 공통 RULES 작성에 적합합니다.
+
+산출물
+RULES 시트 초안 1차
+Phase 5. 예외 분기 구축
+목표
+
+예외를 “비고”가 아니라 조건부 분기로 만듭니다.
+
+예외 예시
+결핵고위험국가 + 장기체류 조건 충족 시 결핵진단서 추가
+만 6세 이상 만 18세 이하 + 재학 중이면 재학증명서 추가
+숙소 본인 명의가 아니면 숙소제공자 신분증 추가
+해당자만 소득금액증명원 추가
+기제출 서류가 있으면 생략
+
+예외는 반드시 포함해야 하며, 메모 처리 금지라는 기준도 이미 확정돼 있습니다.
+
+산출물
+EXCEPTIONS 시트 초안 1차
+Phase 6. MASTER_ROWS 생성
+목표
+
+실제 업무행을 만듭니다.
+
+생성 방식
+
+TAXONOMY + RULES + EXCEPTIONS 조합으로 생성
+
+1행 구조
+업무분야
+업무명
+세부코드
+개요_short
+form_docs
+supporting_docs
+exceptions_summary
+risk_notes
+basis_file
+basis_section
+basis_page
+
+이 단계가 사용자가 실제로 원하는 결과물입니다. 기존 정리문에서도 “이번엔 설계가 아니라 행 데이터가 나와야 한다”고 정리돼 있습니다.
+
+산출물
+MASTER_ROWS 시트
+Phase 7. 검색 고도화
+목표
+
+클릭 없이도 업무를 찾게 만듭니다.
+
+검색 키
+exact_code
+status_code
+action_type
+business_name
+keyword
+synonym
+예
+F-4-12
+D-10-1
+시간제취업
+거소증
+영주증
+H2에서 통합
+산출물
+SEARCH_KEYS
+Phase 8. 운영 로그
+목표
+
+매번 어디까지 반영됐는지 추적합니다.
+
+산출물
+CHANGE_LOG
+4. 내가 앞으로 실제로 만들어 줄 파일 구성
+
+파일 생성이 정상화되면, 내가 줄 기본 워크북은 아래 구조로 가겠습니다.
+
+기본 시트
+README
+ROADMAP
+SOURCE_INDEX
+TAXONOMY
+DOC_DICTIONARY
+RULES
+EXCEPTIONS
+MASTER_ROWS
+LEGACY_UI_MAP
+SEARCH_KEYS
+CHANGE_LOG
+
+이건 기존에 확정된 4개 핵심 시트에 보강 시트를 추가한 운영형 구조입니다.
+
+5. 매 턴 작업 단위도 고정하겠습니다
+
+앞으로는 내가 감당 가능한 범위를 작업 묶음(batch) 으로 나눠서 파일로 줍니다.
+
+Batch 1
+SOURCE_INDEX
+TAXONOMY
+DOC_DICTIONARY
+RULES 초기 20~30개
+Batch 2
+RULES 누적 50개 이상
+EXCEPTIONS 20개 이상
+Batch 3
+MASTER_ROWS 샘플 30개 이상
+Batch 4
+LEGACY_UI_MAP 연결
+SEARCH_KEYS 구축
+Batch 5 이후
+자격군별 확장
+D군, E군, F군, 동포, 결혼이민, 지역특화 등 순차 확장
+
+이렇게 해야 매 턴 결과가 파일에 누적되고, 중간에 방향이 흔들리지 않습니다.
+
+6. 작업 규칙도 미리 고정
+문서 해석 규칙
+UI는 구조 참고
+편람은 실질 근거
+매뉴얼은 최신 보정
+법령은 최종 근거
+데이터 입력 규칙
+form_docs / supporting_docs 절대 분리
+예외는 EXCEPTIONS 시트로 분기
+basis_file / basis_section / basis_page 반드시 기입
+OCR 문구는 표준명으로 교정 후 입력
+파일 운영 규칙
+기존 파일 업데이트 시 CHANGE_LOG 남김
+버전업 파일 생성 시 v1 → v2 → v3
+같은 서류명 중복 생성 금지
+7. 지금 이 턴 기준으로 내가 확정한 운영 선언
+
+앞으로 이 프로젝트는 이렇게 진행합니다.
+
+고정 선언
+당신이 원하는 최종 산물은 파일로 전달
+나는 기존 파일에 이어붙이는 방식으로 작업
+한 번에 다 끝내려 하지 않고 증분 누적 방식으로 확장
+매번 산출물 중심으로 진행
+설명보다 실제 시트 반영 우선
+8. 이번 턴의 결론
+
+이번 턴에서 실제 파일 저장은 도구 오류로 실패했습니다.
+하지만 작업 방식은 확정됐습니다.
+
+확정된 방식
+증분 워크북 방식
+RULES → EXCEPTIONS → MASTER_ROWS 순서
+UI는 구조 기준, 221230 편람은 주 근거
+파일로 계속 이어붙이는 운영
+
+원하면 다음 턴에서 바로
+**RULES 시트 컬럼 확정안 + 초안 행 구조**부터 시작해서 실제 데이터 단위로 밀어붙이겠습니다.

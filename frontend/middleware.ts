@@ -9,6 +9,10 @@ import type { NextRequest } from "next/server";
  * Matcher excludes: /login, /_next/*, /api/*, and common static asset extensions.
  */
 export function middleware(request: NextRequest) {
+  // 공개 홈페이지 — 인증 없이 접근 가능
+  if (request.nextUrl.pathname === "/") {
+    return NextResponse.next();
+  }
   const authed = request.cookies.has("kid_auth");
   if (!authed) {
     const loginUrl = new URL("/login", request.url);

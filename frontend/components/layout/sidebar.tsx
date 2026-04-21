@@ -6,7 +6,7 @@ import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, BookOpen, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
-  ExternalLink, X, Library,
+  ExternalLink, X, Library, Globe,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -29,6 +29,7 @@ const HIKOREA_MANUAL_URL =
   "https://www.hikorea.go.kr/board/BoardNtcDetailR.pt?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1";
 
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: Settings };
+const MARKETING_ITEM = { href: "/marketing", label: "마케팅", icon: Globe };
 
 export const SIDEBAR_EXPANDED_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -144,6 +145,17 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
           {/* 구분선 */}
           <div className="my-2 mx-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />
 
+          {user?.is_admin && (
+            <Link
+              href={MARKETING_ITEM.href}
+              title={!showExpanded ? MARKETING_ITEM.label : undefined}
+              className={`hw-sidebar-item ${isActive(MARKETING_ITEM.href) ? "active" : ""}`}
+              onClick={isMobile ? onMobileClose : undefined}
+            >
+              <MARKETING_ITEM.icon size={16} className="shrink-0" />
+              {showExpanded && <span className="truncate">{MARKETING_ITEM.label}</span>}
+            </Link>
+          )}
           {user?.is_admin && (
             <Link
               href={ADMIN_ITEM.href}

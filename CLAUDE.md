@@ -85,7 +85,7 @@ backend/
   models.py             — All Pydantic request/response models
   routers/              — auth, tasks, customers, daily, memos, events, board,
                           scan, scan_workspace, admin, search, reference, quick_doc, manual,
-                          guidelines
+                          guidelines, marketing
   services/
     tenant_service.py   — Core Google Sheets abstraction (thread-safe, TTL-cached gspread)
     accounts_service.py — Accounts sheet CRUD + password hashing; defines ACCOUNTS_SCHEMA (16 cols)
@@ -116,7 +116,7 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 `tenant_service._resolve_sheet_key()` routes each tab name to the correct workbook using `_CUSTOMER_WORKBOOK_SHEETS` and `_WORK_WORKBOOK_SHEETS` sets (cached 10 min). **Do not fall back to admin sheet keys for non-default tenants** — a missing key must raise `ValueError`. Exception: `DEFAULT_TENANT_ID` (`"hanwoory"`) falls back to `SHEET_KEY` for backwards compatibility.
 
 **Tabs that route to admin `SHEET_KEY` for all tenants (shared global data):**
-`"게시판"`, `"게시판댓글"` — board/notice system is intentionally shared across all tenants. `core/google_sheets.get_worksheet()` falls through to `sheet_key = SHEET_KEY` for any tab not in the customer or work workbook sets.
+`"게시판"`, `"게시판댓글"` — board/notice system is intentionally shared across all tenants. `"홈페이지게시물"` — marketing posts for the public homepage. `core/google_sheets.get_worksheet()` falls through to `sheet_key = SHEET_KEY` for any tab not in the customer or work workbook sets.
 
 ### Tenant workspace provisioning
 
@@ -145,6 +145,8 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 
 ```
 frontend/app/
+  page.tsx              — Public homepage (한우리행정사사무소 marketing site); NO auth required
+  homepage.css          — Homepage-only CSS (Noto fonts, gold theme, sections); isolated from internal app
   (auth)/login/         — Login page (no layout wrapper)
   (main)/layout.tsx     — Protected layout: checks isLoggedIn(), renders Sidebar + Topbar
   (main)/dashboard/     — Active tasks, planned tasks, calendar, expiry alerts, notice popup
@@ -161,6 +163,7 @@ frontend/app/
   (main)/manual/        — GPT-powered manual search (비활성; 사이드바에서 숨김)
   (main)/guidelines/    — 출입국 실무지침 DB viewer; 3단계 트리 탐색(L1 진입점→L2 업무유형→L3 항목) + 직접검색 + TB배너 + quickdoc 딥링크
   (main)/admin/         — Admin: account list + workspace provisioning
+  (main)/marketing/     — Admin-only: homepage post list, new, [id]/edit
 ```
 
 All API calls go through `frontend/lib/api.ts` (axios) — attaches `Authorization: Bearer <token>` on every request; on 401 clears auth state and redirects to `/login`.
@@ -168,13 +171,14 @@ All API calls go through `frontend/lib/api.ts` (axios) — attaches `Authorizati
 Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLoggedIn`). `setUser` stores two separate localStorage keys: `user_info` (full JSON object) and `access_token` (bare token string). `api.ts` reads `access_token` directly for the `Authorization` header.
 
 **Auth guard — two layers:**
-1. **`frontend/middleware.ts`** (Edge): checks `kid_auth` cookie, redirects before page renders
+1. **`frontend/middleware.ts`** (Edge): checks `kid_auth` cookie, redirects before page renders. **Exception: `pathname === "/"` is allowed through unconditionally** — the public homepage must be accessible without login.
 2. **`(main)/layout.tsx`** (client): `useEffect` checks `isLoggedIn()` via localStorage, keeps `ready=false` until confirmed
 
 ### Sidebar (`frontend/components/layout/sidebar.tsx`)
 
 - `메뉴얼 검색` (`/manual`) — 코드는 유지, `NAV_ITEMS`에서 주석 처리하여 숨김 (추후 활성화 예정)
 - `메뉴얼` — `<a target="_blank">` 외부 링크로 하이코리아 URL 직접 연결 (Next.js `router.push` 아님)
+- `마케팅` (`/marketing`) — `user?.is_admin` 조건으로 관리자에게만 표시. `MARKETING_ITEM` 상수로 정의됨 (관리자 섹션 구분선 위)
 
 ### Key frontend dependencies
 
@@ -267,6 +271,50 @@ const renderEventContent = useCallback((arg: { event: { title: string } }) => (
 - `events` 쿼리 로드 후 오늘 날짜(`YYYY-MM-DD`) 키로 일정 존재 여부 확인
 - `localStorage.today_schedule_seen`에 오늘 날짜가 없으면 팝업 표시
 - "오늘 하루 보지 않기" 클릭 시 `localStorage.today_schedule_seen = 오늘(YYYY-MM-DD)` (ISO timestamp 아님)
+
+---
+
+## 홈페이지 공개 사이트 & 마케팅 게시물
+
+### 공개 홈페이지 (`app/page.tsx`)
+
+- `www.hanwory.com` 공개 마케팅 페이지 — 인증 없이 접근 가능
+- 미들웨어 예외: `pathname === "/"` → 쿠키 검사 없이 통과
+- CSS는 `frontend/app/homepage.css`에 분리 (전용 CSS 변수 `--hp-radius`, `--hp-radius-sm` 사용 — globals.css의 `--radius: 0.5rem`과 충돌 방지)
+- "업무 안내" 섹션(#board)이 `/api/marketing/posts`를 동적 fetch하여 게시된 글 표시
+- 로그인 버튼(`<Link href="/login">`) → 기존 내부 로그인 페이지로 이동
+
+### 마케팅 라우터 (`backend/routers/marketing.py`)
+
+Google Sheets 기반 (어드민 `SHEET_KEY`의 `"홈페이지게시물"` 탭). 탭이 없으면 첫 upsert 시 자동 생성됨.
+
+**MARKETING_HEADER** (12 columns):
+`id, title, slug, category, summary, content, thumbnail_url, is_published, is_featured, created_by, created_at, updated_at`
+
+`is_published = "TRUE"` 인 행만 공개 홈페이지에 노출됨.
+
+### 엔드포인트 (prefix: `/api/marketing`)
+
+| 엔드포인트 | 인증 | 설명 |
+|---|---|---|
+| `GET /posts` | **없음** | 게시된 홈페이지 포스트만 반환 (공개) |
+| `GET /admin/posts` | 인증 + admin | 전체 목록 (미게시 포함) |
+| `POST /admin/posts` | 인증 + admin | 새 게시물 생성 (기본 `is_published=FALSE`) |
+| `PUT /admin/posts/{id}` | 인증 + admin | 게시물 수정 (read-merge-write) |
+| `DELETE /admin/posts/{id}` | 인증 + admin | 게시물 삭제 |
+| `PATCH /admin/posts/{id}/publish` | 인증 + admin | 게시/미게시 토글 |
+
+### 관리자 UI (`frontend/app/(main)/marketing/`)
+
+- `/marketing` — 게시물 목록, 게시 토글(배지 클릭), 삭제
+- `/marketing/new` — 새 게시물 작성 (저장 후 미게시 상태)
+- `/marketing/[id]/edit` — 수정 및 게시 상태 직접 변경
+
+**접근 제어**: 각 페이지 `useEffect`에서 `user?.is_admin` 확인 → 비관리자는 `/dashboard`로 리다이렉트. 백엔드도 `is_admin` 이중 검사.
+
+### CSS 격리 주의사항
+
+`homepage.css`를 `app/page.tsx`에서 import하면 Next.js는 해당 CSS를 페이지 이동 후에도 `<link>`로 유지한다. 내부 앱과 충돌하는 CSS 변수는 `--hp-` 접두사로 격리해야 함. 현재 격리된 변수: `--hp-radius` (12px), `--hp-radius-sm` (8px).
 
 ---
 
@@ -632,6 +680,13 @@ python backend/scripts/migrate_guidelines_v2.py
 - **Windows local dev** — `backend/main.py` forces stdout/stderr to UTF-8 on Windows to prevent Korean characters appearing as `???` in uvicorn logs. Do not remove this block.
 - **`react-zoom-pan-pinch`** — still in `frontend/package.json` but unused. Safe to remove. Do not reintroduce it in the scan page.
 - **메뉴얼 업데이트 자동감지** — `GET /api/board/check-manual`은 관리자가 게시판에서 수동 트리거. 스케줄러 없음. 하이코리아 페이지 스크랩(`requests`)으로 날짜 추출 — 페이지 구조 변경 시 정규식 수정 필요.
+
+### 2026-04-21 세션 수정 완료 항목 (참고)
+- 공개 홈페이지 구현: `app/page.tsx` (homepage.txt 기반 React 변환) + `app/homepage.css`
+- 미들웨어 `/` 경로 인증 게이트 제외
+- 마케팅 게시물 시스템 신규 추가: `backend/routers/marketing.py` + `(main)/marketing/` 3개 페이지
+- 사이드바에 관리자 전용 "마케팅" 메뉴 항목 추가
+- CSS 격리: `homepage.css`의 `--radius` → `--hp-radius` (globals.css 충돌 방지)
 
 ### 2026-04-19 세션 수정 완료 항목 (참고)
 - `status: "정상"` → `"active"` 7개 행 수정 (list API 필터 통과 문제)

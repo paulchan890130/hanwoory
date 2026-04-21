@@ -491,6 +491,35 @@ export interface TbEvaluateResult {
   instruction?: string;
 }
 
+// ── 마케팅 (홈페이지 게시물) ──────────────────────────────────────────────────
+
+export interface MarketingPost {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  summary: string;
+  content: string;
+  thumbnail_url: string;
+  is_published: string;   // "TRUE" | "FALSE"
+  is_featured: string;    // "TRUE" | "FALSE"
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const marketingApi = {
+  publicList: () => api.get<MarketingPost[]>("/api/marketing/posts"),
+  adminList: () => api.get<MarketingPost[]>("/api/marketing/admin/posts"),
+  create: (data: Omit<MarketingPost, "id" | "is_published" | "created_by" | "created_at" | "updated_at">) =>
+    api.post<MarketingPost>("/api/marketing/admin/posts", data),
+  update: (id: string, data: Partial<MarketingPost>) =>
+    api.put<MarketingPost>(`/api/marketing/admin/posts/${id}`, data),
+  delete: (id: string) => api.delete(`/api/marketing/admin/posts/${id}`),
+  togglePublish: (id: string) =>
+    api.patch<MarketingPost>(`/api/marketing/admin/posts/${id}/publish`),
+};
+
 export const guidelinesApi = {
   search: (q: string, action_type?: string, page = 1, limit = 30) =>
     api.get<GuidelineListResponse>("/api/guidelines/search/query", {
