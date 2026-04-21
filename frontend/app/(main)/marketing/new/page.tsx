@@ -38,7 +38,10 @@ export default function MarketingNewPage() {
     if (!form.title.trim()) { toast.error("제목을 입력하세요."); return; }
     setLoading(true);
     try {
-      await marketingApi.create(form as Parameters<typeof marketingApi.create>[0]);
+      await marketingApi.create({
+        ...form,
+        is_featured: form.is_featured ? "TRUE" : "FALSE",
+      });
       toast.success("게시물이 저장되었습니다. (미게시 상태)");
       router.push("/marketing");
     } catch {
