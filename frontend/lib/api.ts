@@ -521,10 +521,11 @@ export const marketingApi = {
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append("file", file);
+    // Content-Type을 명시하지 않아야 axios가 FormData를 감지해
+    // multipart/form-data; boundary=... 를 자동 설정함
     return api.post<{ url: string; file_id: string }>(
       "/api/marketing/admin/upload-image",
-      form,
-      { headers: { "Content-Type": "multipart/form-data" } }
+      form
     );
   },
 };
