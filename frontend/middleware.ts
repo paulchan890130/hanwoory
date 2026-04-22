@@ -6,12 +6,17 @@ import type { NextRequest } from "next/server";
  * The cookie is set by setUser() in lib/auth.ts on successful login and
  * cleared by clearUser() on logout / 401.
  *
- * Matcher excludes: /login, /_next/*, /api/*, and common static asset extensions.
+ * Matcher excludes: /login, /_next/*, /api/*, sitemap/robots files, and common static asset extensions.
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // 공개 경로 — 인증 없이 접근 가능
-  if (pathname === "/" || pathname.startsWith("/board")) {
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/board") ||
+    pathname === "/sitemap.xml" ||
+    pathname === "/robots.txt"
+  ) {
     return NextResponse.next();
   }
   const authed = request.cookies.has("kid_auth");
@@ -24,6 +29,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!login|_next|api|favicon\\.ico|.*\\.(?:jpg|jpeg|png|gif|svg|ico|webp|woff2?|ttf|otf|css|js)).*)",
+    "/((?!login|_next|api|favicon\\.ico|.*\\.(?:jpg|jpeg|png|gif|svg|ico|webp|woff2?|ttf|otf|css|js|xml|txt)).*)",
   ],
 };
