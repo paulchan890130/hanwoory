@@ -521,12 +521,10 @@ export const marketingApi = {
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append("file", file);
-    // Content-Type을 명시하지 않아야 axios가 FormData를 감지해
-    // multipart/form-data; boundary=... 를 자동 설정함
-    return api.post<{ url: string; file_id: string }>(
-      "/api/marketing/admin/upload-image",
-      form
-    );
+    // /api/upload-image 는 Next.js API Route (app/api/upload-image/route.ts).
+    // rewrites()를 통한 multipart 포워딩이 불안정하므로 이 경로를 사용.
+    // Content-Type 헤더를 명시하지 않아야 axios가 boundary를 자동 생성함.
+    return api.post<{ url: string; file_id: string }>("/api/upload-image", form);
   },
 };
 
