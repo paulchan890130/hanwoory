@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MarkdownContent } from "@/components/MarkdownContent";
 
 interface Post {
   id: string;
@@ -9,6 +10,7 @@ interface Post {
   category: string;
   summary: string;
   content: string;
+  thumbnail_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -35,7 +37,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const post = await getPost(params.id);
   if (!post) return { title: "게시물 없음 | 한우리행정사사무소" };
-  const desc = post.summary || post.content?.slice(0, 120) || "";
+  const desc = post.summary || post.content?.replace(/[#*>`[\]!()-]/g, "").slice(0, 120) || "";
   return {
     title: `${post.title} | 한우리행정사사무소`,
     description: desc,
@@ -45,8 +47,9 @@ export async function generateMetadata({
       type: "article",
       publishedTime: post.created_at,
       modifiedTime: post.updated_at,
+      ...(post.thumbnail_url ? { images: [{ url: post.thumbnail_url }] } : {}),
     },
-    alternates: { canonical: `/board/${post.id}` },
+    alternates: { canonical: `/board/${post.slug || post.id}` },
   };
 }
 
@@ -63,10 +66,6 @@ export default async function BoardDetailPage({
 }) {
   const post = await getPost(params.id);
   if (!post) notFound();
-
-  const paragraphs = post.content
-    ? post.content.split(/\n+/).filter((l) => l.trim())
-    : [];
 
   return (
     <>
@@ -117,6 +116,7 @@ export default async function BoardDetailPage({
         }}
       >
         <article>
+          {/* 게시글 헤더 */}
           <header style={{ marginBottom: 36, borderBottom: "1px solid #EAE4D8", paddingBottom: 24 }}>
             {post.category && (
               <p
@@ -145,6 +145,26 @@ export default async function BoardDetailPage({
             </div>
           </header>
 
+          {/* 대표 이미지 (썸네일이 있을 경우) */}
+          {post.thumbnail_url && (
+            <figure style={{ margin: "0 0 32px", textAlign: "center" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.thumbnail_url}
+                alt={`${post.title} 대표 이미지`}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 400,
+                  borderRadius: 10,
+                  objectFit: "cover",
+                  display: "inline-block",
+                }}
+                loading="lazy"
+              />
+            </figure>
+          )}
+
+          {/* 요약 */}
           {post.summary && (
             <p
               style={{
@@ -158,19 +178,12 @@ export default async function BoardDetailPage({
             </p>
           )}
 
+          {/* 본문 — 마크다운 렌더링 (시맨틱 HTML, AI·크롤러 친화) */}
           <section
             aria-label="본문"
             style={{ fontSize: 15, lineHeight: 1.9, color: "#333" }}
           >
-            {paragraphs.length > 0 ? (
-              paragraphs.map((para, i) => (
-                <p key={i} style={{ margin: "0 0 18px" }}>
-                  {para}
-                </p>
-              ))
-            ) : (
-              <p style={{ color: "#999" }}>내용이 없습니다.</p>
-            )}
+            <MarkdownContent content={post.content} />
           </section>
         </article>
 

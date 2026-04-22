@@ -18,6 +18,7 @@ interface Post {
   slug: string;
   category: string;
   summary: string;
+  thumbnail_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -113,39 +114,55 @@ export default async function BoardListPage() {
               <article key={post.id} style={{ borderBottom: "1px solid #EAE4D8", padding: "28px 0" }}>
                 <Link
                   href={`/board/${post.id}`}
-                  style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                  style={{ textDecoration: "none", color: "inherit", display: "flex", gap: 20, alignItems: "flex-start" }}
                 >
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                    {post.category && (
-                      <span
-                        style={{
-                          fontSize: 11, fontWeight: 700, color: "#7A5C10",
-                          background: "#FBF2DC", padding: "3px 10px", borderRadius: 4,
-                        }}
-                      >
-                        {post.category}
-                      </span>
-                    )}
-                    <time dateTime={post.created_at} style={{ fontSize: 12, color: "#999" }}>
-                      {fmtDate(post.updated_at || post.created_at)}
-                    </time>
-                  </div>
-                  <h2
-                    style={{
-                      fontSize: 18, fontWeight: 600, color: "#1A1A1A",
-                      margin: "0 0 8px", lineHeight: 1.45,
-                    }}
-                  >
-                    {post.title}
-                  </h2>
-                  {post.summary && (
-                    <p style={{ fontSize: 14, color: "#555", margin: "0 0 12px", lineHeight: 1.7 }}>
-                      {post.summary}
-                    </p>
+                  {/* 썸네일 (있을 때만) */}
+                  {post.thumbnail_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.thumbnail_url}
+                      alt={post.title}
+                      style={{
+                        width: 96, height: 72, objectFit: "cover",
+                        borderRadius: 6, flexShrink: 0,
+                        border: "1px solid #EAE4D8",
+                      }}
+                      loading="lazy"
+                    />
                   )}
-                  <span style={{ fontSize: 13, color: "#8B6914", fontWeight: 500 }}>
-                    자세히 보기 →
-                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                      {post.category && (
+                        <span
+                          style={{
+                            fontSize: 11, fontWeight: 700, color: "#7A5C10",
+                            background: "#FBF2DC", padding: "3px 10px", borderRadius: 4,
+                          }}
+                        >
+                          {post.category}
+                        </span>
+                      )}
+                      <time dateTime={post.created_at} style={{ fontSize: 12, color: "#999" }}>
+                        {fmtDate(post.updated_at || post.created_at)}
+                      </time>
+                    </div>
+                    <h2
+                      style={{
+                        fontSize: 18, fontWeight: 600, color: "#1A1A1A",
+                        margin: "0 0 8px", lineHeight: 1.45,
+                      }}
+                    >
+                      {post.title}
+                    </h2>
+                    {post.summary && (
+                      <p style={{ fontSize: 14, color: "#555", margin: "0 0 12px", lineHeight: 1.7 }}>
+                        {post.summary}
+                      </p>
+                    )}
+                    <span style={{ fontSize: 13, color: "#8B6914", fontWeight: 500 }}>
+                      자세히 보기 →
+                    </span>
+                  </div>
                 </Link>
               </article>
             ))}

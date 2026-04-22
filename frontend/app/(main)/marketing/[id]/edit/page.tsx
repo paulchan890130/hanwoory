@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { getUser } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
+import { RichEditor } from "@/components/RichEditor";
 
 const CATEGORIES = ["공지사항", "업무 안내", "제도 변경", "기타"];
 
@@ -22,12 +23,14 @@ export default function MarketingEditPage() {
   const params = useParams();
   const postId = params?.id as string;
   const user = getUser();
+  const thumbFileRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [thumbUploading, setThumbUploading] = useState(false);
   const [form, setForm] = useState({
-    title: "", slug: "", category: "공지사항", summary: "", content: "",
-    thumbnail_url: "", is_featured: false, is_published: false,
+    title: "", slug: "", category: "공지사항", summary: "",
+    content: "", thumbnail_url: "", is_featured: false, is_published: false,
   });
 
   useEffect(() => {
@@ -61,6 +64,24 @@ export default function MarketingEditPage() {
   const set = (k: string, v: string | boolean) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
+  const uploadImage = async (file: File): Promise<string> => {
+    const res = await marketingApi.uploadImage(file);
+    return res.data.url;
+  };
+
+  const handleThumbUpload = async (file: File) => {
+    setThumbUploading(true);
+    try {
+      const url = await uploadImage(file);
+      set("thumbnail_url", url);
+      toast.success("썸네일 업로드 완료");
+    } catch {
+      toast.error("썸네일 업로드에 실패했습니다.");
+    } finally {
+      setThumbUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) { toast.error("제목을 입력하세요."); return; }
@@ -81,10 +102,12 @@ export default function MarketingEditPage() {
   };
 
   if (!user?.is_admin) return null;
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#718096" }}>불러오는 중...</div>;
+  if (loading) return (
+    <div style={{ padding: 40, textAlign: "center", color: "#718096" }}>불러오는 중...</div>
+  );
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 760, margin: "0 auto" }}>
+    <div style={{ padding: "32px 24px", maxWidth: 820, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <button
           onClick={() => router.push("/marketing")}
@@ -94,64 +117,147 @@ export default function MarketingEditPage() {
         </button>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A202C" }}>게시물 수정</h1>
       </div>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        {/* 제목 */}
         <div>
           <label style={labelStyle}>제목 *</label>
-          <input value={form.title} onChange={(e) => set("title", e.target.value)}
-            style={inputStyle} placeholder="게시물 제목" />
+          <input
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+            style={inputStyle}
+            placeholder="게시물 제목"
+          />
         </div>
+
+        {/* 카테고리 */}
         <div>
           <label style={labelStyle}>카테고리</label>
-          <select value={form.category} onChange={(e) => set("category", e.target.value)}
-            style={{ ...inputStyle }}>
+          <select
+            value={form.category}
+            onChange={(e) => set("category", e.target.value)}
+            style={inputStyle}
+          >
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
+
+        {/* 요약 */}
         <div>
-          <label style={labelStyle}>요약</label>
-          <input value={form.summary} onChange={(e) => set("summary", e.target.value)}
-            style={inputStyle} placeholder="짧은 요약" />
-        </div>
-        <div>
-          <label style={labelStyle}>본문</label>
-          <textarea
-            value={form.content}
-            onChange={(e) => set("content", e.target.value)}
-            style={{ ...inputStyle, minHeight: 200, resize: "vertical" }}
-            placeholder="본문 내용을 입력하세요."
+          <label style={labelStyle}>요약 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(목록에서 보이는 한 줄 설명)</span></label>
+          <input
+            value={form.summary}
+            onChange={(e) => set("summary", e.target.value)}
+            style={inputStyle}
+            placeholder="독자에게 보여줄 짧은 요약 (1~2문장)"
           />
         </div>
+
+        {/* 대표 이미지 썸네일 */}
         <div>
-          <label style={labelStyle}>슬러그</label>
-          <input value={form.slug} onChange={(e) => set("slug", e.target.value)}
-            style={inputStyle} placeholder="예: 2026-notice-01" />
+          <label style={labelStyle}>대표 이미지 (썸네일)</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={form.thumbnail_url}
+              onChange={(e) => set("thumbnail_url", e.target.value)}
+              style={{ ...inputStyle, flex: 1 }}
+              placeholder="이미지 URL 직접 입력 또는 파일 업로드"
+            />
+            <button
+              type="button"
+              onClick={() => thumbFileRef.current?.click()}
+              disabled={thumbUploading}
+              style={{
+                padding: "10px 14px", borderRadius: 8, border: "1.5px solid #D4A843",
+                background: "#fff", color: "#D4A843", fontWeight: 600, fontSize: 13,
+                cursor: thumbUploading ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+              }}
+            >
+              {thumbUploading ? "업로드 중..." : "파일 업로드"}
+            </button>
+            <input
+              ref={thumbFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleThumbUpload(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          {form.thumbnail_url && (
+            <div style={{ marginTop: 8 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={form.thumbnail_url}
+                alt="thumbnail preview"
+                style={{ maxHeight: 140, maxWidth: "100%", borderRadius: 6, border: "1px solid #E2E8F0", objectFit: "cover" }}
+              />
+            </div>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 24 }}>
+
+        {/* 본문 — RichEditor */}
+        <div>
+          <label style={labelStyle}>본문</label>
+          <RichEditor
+            value={form.content}
+            onChange={(v) => set("content", v)}
+            onImageUpload={uploadImage}
+          />
+        </div>
+
+        {/* 슬러그 */}
+        <div>
+          <label style={labelStyle}>슬러그 (URL용)</label>
+          <input
+            value={form.slug}
+            onChange={(e) => set("slug", e.target.value)}
+            style={inputStyle}
+            placeholder="예: 2026-visa-notice-01"
+          />
+        </div>
+
+        {/* 체크박스 */}
+        <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input type="checkbox" id="is_featured" checked={form.is_featured}
+            <input
+              type="checkbox"
+              id="is_featured"
+              checked={form.is_featured}
               onChange={(e) => set("is_featured", e.target.checked)}
-              style={{ width: 16, height: 16, cursor: "pointer" }} />
+              style={{ width: 16, height: 16, cursor: "pointer" }}
+            />
             <label htmlFor="is_featured" style={{ ...labelStyle, marginBottom: 0, cursor: "pointer" }}>
               주요 게시물
             </label>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input type="checkbox" id="is_published" checked={form.is_published}
+            <input
+              type="checkbox"
+              id="is_published"
+              checked={form.is_published}
               onChange={(e) => set("is_published", e.target.checked)}
-              style={{ width: 16, height: 16, cursor: "pointer" }} />
+              style={{ width: 16, height: 16, cursor: "pointer" }}
+            />
             <label htmlFor="is_published" style={{ ...labelStyle, marginBottom: 0, cursor: "pointer" }}>
               홈페이지에 게시
             </label>
           </div>
         </div>
+
+        {/* 버튼 */}
         <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
           <button
             type="submit"
             disabled={saving}
             style={{
-              padding: "12px 28px", borderRadius: 8, background: saving ? "#ccc" : "#D4A843",
-              color: "#fff", fontWeight: 700, fontSize: 15, border: "none",
-              cursor: saving ? "not-allowed" : "pointer",
+              padding: "12px 28px", borderRadius: 8,
+              background: saving ? "#ccc" : "#D4A843",
+              color: "#fff", fontWeight: 700, fontSize: 15,
+              border: "none", cursor: saving ? "not-allowed" : "pointer",
             }}
           >
             {saving ? "저장 중..." : "저장"}

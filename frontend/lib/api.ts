@@ -518,6 +518,15 @@ export const marketingApi = {
   delete: (id: string) => api.delete(`/api/marketing/admin/posts/${id}`),
   togglePublish: (id: string) =>
     api.patch<MarketingPost>(`/api/marketing/admin/posts/${id}/publish`),
+  uploadImage: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<{ url: string; file_id: string }>(
+      "/api/marketing/admin/upload-image",
+      form,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+  },
 };
 
 export const guidelinesApi = {
