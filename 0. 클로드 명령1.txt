@@ -1,0 +1,91 @@
+The public homepage is now live at `/`, but it still needs polish.
+
+Use the existing current homepage implementation as the base.
+Do not redesign it from scratch.
+Make targeted improvements only.
+
+Important known asset:
+- Logo image exists at:
+  C:\Users\윤찬\K.ID soft\frontend\public\hanwoori-logo-new.png
+
+Your task:
+Refine the current public homepage UI/metadata based on the following requirements.
+
+Priority 1 — must fix
+1. Fix browser tab title and metadata
+- The homepage must NOT use any old internal system title like "K.ID 출입국 업무관리"
+- Set homepage title to something like:
+  "한우리행정사사무소 | 출입국·체류·사증 전문"
+- Update meta description accordingly
+- Update Open Graph title/description accordingly
+- Ensure the homepage metadata clearly describes the public office website, not the internal system
+
+2. Add the logo to the homepage header
+- Use the existing file:
+  frontend/public/hanwoori-logo-new.jpeg
+- Put the logo in the top-left navigation/header branding area
+- Keep the office name text next to the logo
+- Do not make the logo too large
+- Aim for a clean professional appearance
+- Preserve current layout balance
+
+Priority 2 — improve hero section without changing the brand direction
+3. Reduce the feeling of empty space in the hero
+- The current hero looks too tall / too empty on desktop
+- Tighten vertical spacing so the first screen feels more complete
+- Keep the clean premium tone, but reduce visual emptiness
+
+4. Add a small trust/info strip or 3-point highlight directly below the hero CTA area
+The goal is to make the first screen communicate practical value faster.
+Use short direct phrases such as examples like:
+- 체류자격 연장·변경
+- 외국인등록·사증 업무
+- 서류 검토·진행 관리
+
+Do not make this loud or overly promotional.
+Keep it subtle, elegant, and information-first.
+
+Priority 3 — wording and clarity
+5. Review the hero CTA wording
+Current tone is acceptable, but improve clarity if helpful.
+Prefer practical wording over vague wording.
+Example direction:
+- "상담 문의"
+- "업무관리 로그인" or keep "기존 사용자 로그인" only if it is clearly better in context
+
+6. Keep the homepage tone:
+- trustworthy
+- practical
+- structured
+- professional
+- not startup flashy
+- not government old-fashioned
+- not too legal-heavy
+
+Important design constraints
+- Do not break the current homepage structure
+- Do not touch `/login`
+- Do not break internal app routes
+- Do not redesign the whole page
+- Do not replace the current style system unless necessary
+- Keep the white / warm neutral / gold-toned elegant direction already in place
+- Preserve mobile responsiveness
+
+What I want you to do
+1. Inspect the current homepage code and metadata setup
+2. Implement the improvements directly
+3. Use the logo file from public/
+4. Give me a Korean handoff report with:
+- 1) what was wrong
+- 2) what you changed
+- 3) exact files modified
+- 4) logo placement
+- 5) metadata/title changes
+- 6) hero spacing changes
+- 7) CTA wording changes
+- 8) how I should test it locally
+
+Very important:
+Do not give theory only.
+Make the changes in code directly.
+Use the smallest clean patch set that improves the live homepage.
