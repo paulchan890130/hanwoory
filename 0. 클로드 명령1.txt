@@ -1,91 +1,49 @@
-The public homepage is now live at `/`, but it still needs polish.
+● 최종 확인합니다.
 
-Use the existing current homepage implementation as the base.
-Do not redesign it from scratch.
-Make targeted improvements only.
+  Read 1 file (ctrl+o to expand)
 
-Important known asset:
-- Logo image exists at:
-  C:\Users\윤찬\K.ID soft\frontend\public\hanwoori-logo-new.png
+● 완료입니다.
 
-Your task:
-Refine the current public homepage UI/metadata based on the following requirements.
+  ---
+  보고서
 
-Priority 1 — must fix
-1. Fix browser tab title and metadata
-- The homepage must NOT use any old internal system title like "K.ID 출입국 업무관리"
-- Set homepage title to something like:
-  "한우리행정사사무소 | 출입국·체류·사증 전문"
-- Update meta description accordingly
-- Update Open Graph title/description accordingly
-- Ensure the homepage metadata clearly describes the public office website, not the internal system
+  1) 어떤 방식으로 공개 루트에 노출했는지
 
-2. Add the logo to the homepage header
-- Use the existing file:
-  frontend/public/hanwoori-logo-new.jpeg
-- Put the logo in the top-left navigation/header branding area
-- Keep the office name text next to the logo
-- Do not make the logo too large
-- Aim for a clean professional appearance
-- Preserve current layout balance
+  robots.txt가 인증 없이 서빙되는 것과 동일한 패턴입니다.
 
-Priority 2 — improve hero section without changing the brand direction
-3. Reduce the feeling of empty space in the hero
-- The current hero looks too tall / too empty on desktop
-- Tighten vertical spacing so the first screen feels more complete
-- Keep the clean premium tone, but reduce visual emptiness
+  - 네이버 검증 파일을 frontend/public/ 에 놓으면 Next.js가 해당 파일을 사이트 루트(/파일명)로 직접 서빙합니다.
+  - Next.js 미들웨어의 matcher 정규식에서 .html 확장자를 제외 목록에 추가(|html)해 인증 체크 없이 통과시킵니다. 파일이
+  public/에 있어도 matcher가 매칭되면 로그인으로 리다이렉트 되기 때문에 이 변경이 필수입니다.
 
-4. Add a small trust/info strip or 3-point highlight directly below the hero CTA area
-The goal is to make the first screen communicate practical value faster.
-Use short direct phrases such as examples like:
-- 체류자격 연장·변경
-- 외국인등록·사증 업무
-- 서류 검토·진행 관리
+  2) 수정한 파일 목록
 
-Do not make this loud or overly promotional.
-Keep it subtle, elegant, and information-first.
+  ┌────────────────────────────────────────────────────────────┬─────────────────────────────────┐
+  │                            파일                            │            변경 내용            │
+  ├────────────────────────────────────────────────────────────┼─────────────────────────────────┤
+  │ frontend/public/naverb609d9cc03f9b6a5a4a281f0f3888310.html │ 신규 생성 — 검증 파일 복사      │
+  ├────────────────────────────────────────────────────────────┼─────────────────────────────────┤
+  │ frontend/middleware.ts                                     │ matcher에 |html 추가 (1자 변경) │
+  └────────────────────────────────────────────────────────────┴─────────────────────────────────┘
 
-Priority 3 — wording and clarity
-5. Review the hero CTA wording
-Current tone is acceptable, but improve clarity if helpful.
-Prefer practical wording over vague wording.
-Example direction:
-- "상담 문의"
-- "업무관리 로그인" or keep "기존 사용자 로그인" only if it is clearly better in context
+  3) 확인해야 할 최종 주소
 
-6. Keep the homepage tone:
-- trustworthy
-- practical
-- structured
-- professional
-- not startup flashy
-- not government old-fashioned
-- not too legal-heavy
+  https://www.hanwory.com/naverb609d9cc03f9b6a5a4a281f0f3888310.html
 
-Important design constraints
-- Do not break the current homepage structure
-- Do not touch `/login`
-- Do not break internal app routes
-- Do not redesign the whole page
-- Do not replace the current style system unless necessary
-- Keep the white / warm neutral / gold-toned elegant direction already in place
-- Preserve mobile responsiveness
+  배포(Render git push) 후 이 URL이 아래 내용을 반환하면 네이버 등록 진행하세요:
 
-What I want you to do
-1. Inspect the current homepage code and metadata setup
-2. Implement the improvements directly
-3. Use the logo file from public/
-4. Give me a Korean handoff report with:
-- 1) what was wrong
-- 2) what you changed
-- 3) exact files modified
-- 4) logo placement
-- 5) metadata/title changes
-- 6) hero spacing changes
-- 7) CTA wording changes
-- 8) how I should test it locally
+  naver-site-verification: naverb609d9cc03f9b6a5a4a281f0f3888310.html
 
-Very important:
-Do not give theory only.
-Make the changes in code directly.
-Use the smallest clean patch set that improves the live homepage.
+  4) 검증 완료 후 원복 방법
+
+  파일 하나만 삭제하면 됩니다:
+
+  rm frontend/public/naverb609d9cc03f9b6a5a4a281f0f3888310.html
+
+  middleware.ts의 |html 변경은 public/에 .html 파일이 없으면 아무 영향이 없으므로 그대로 두어도 무방합니다. 완전히
+  원상복구 원하면 middleware.ts matcher에서 |html만 제거하면 됩니다.
+
+✻ Brewed for 1m 23s
+
+※ recap: 마케팅 게시물 이미지 업로드 수정 및 네이버 서치어드바이저 사이트 소유확인 파일 노출 작업을 완료했습니다. 다음
+  단계는 Render에 배포 후 https://www.hanwory.com/naverb609d9cc03f9b6a5a4a281f0f3888310.html 접근 확인 및 네이버 인증
+  진행입니다. (disable recaps in /config)
