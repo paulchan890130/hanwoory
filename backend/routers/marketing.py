@@ -14,8 +14,8 @@ from typing import Optional
 
 from backend.auth import get_current_user
 
-# 마케팅 이미지 Google Drive 폴더 ID (모듈 초기화 시 캐시)
-_MARKETING_IMG_FOLDER: Optional[str] = None
+# 마케팅 게시물 이미지 전용 Google Drive 폴더 (공개 접근 설정됨)
+_MARKETING_IMG_FOLDER_ID = "1XuoDA0YHyeOGEVeKA7nTe0qTY-xllFNn"
 
 
 def _get_drive():
@@ -30,33 +30,9 @@ def _get_drive():
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
-def _get_or_create_img_folder() -> str:
-    """PARENT_DRIVE_FOLDER_ID 하위 'marketing-images' 폴더 ID 반환 (없으면 생성)"""
-    global _MARKETING_IMG_FOLDER
-    if _MARKETING_IMG_FOLDER:
-        return _MARKETING_IMG_FOLDER
-    import config
-    drive = _get_drive()
-    q = (
-        f"name='marketing-images' and "
-        f"'{config.PARENT_DRIVE_FOLDER_ID}' in parents and "
-        f"mimeType='application/vnd.google-apps.folder' and trashed=false"
-    )
-    res = drive.files().list(q=q, fields="files(id)").execute()
-    files = res.get("files", [])
-    if files:
-        _MARKETING_IMG_FOLDER = files[0]["id"]
-    else:
-        folder = drive.files().create(
-            body={
-                "name": "marketing-images",
-                "mimeType": "application/vnd.google-apps.folder",
-                "parents": [config.PARENT_DRIVE_FOLDER_ID],
-            },
-            fields="id",
-        ).execute()
-        _MARKETING_IMG_FOLDER = folder["id"]
-    return _MARKETING_IMG_FOLDER
+def _get_img_folder() -> str:
+    """마케팅 이미지 업로드 대상 폴더 ID 반환"""
+    return _MARKETING_IMG_FOLDER_ID
 
 router = APIRouter()
 
@@ -64,6 +40,8 @@ MARKETING_HEADER = [
     "id", "title", "slug", "category", "summary", "content",
     "thumbnail_url", "is_published", "is_featured",
     "created_by", "created_at", "updated_at",
+    "image_file_id", "image_url", "image_alt",
+    "meta_description", "tags",
 ]
 
 
@@ -95,6 +73,11 @@ class PostCreate(BaseModel):
     content: str = ""
     thumbnail_url: str = ""
     is_featured: bool = False
+    image_file_id: str = ""
+    image_url: str = ""
+    image_alt: str = ""
+    meta_description: str = ""
+    tags: str = ""
 
 
 class PostUpdate(BaseModel):
@@ -106,6 +89,11 @@ class PostUpdate(BaseModel):
     thumbnail_url: Optional[str] = None
     is_featured: Optional[bool] = None
     is_published: Optional[bool] = None
+    image_file_id: Optional[str] = None
+    image_url: Optional[str] = None
+    image_alt: Optional[str] = None
+    meta_description: Optional[str] = None
+    tags: Optional[str] = None
 
 
 # ── 공개 엔드포인트 (인증 불필요) ─────────────────────────────────────────────
@@ -157,7 +145,7 @@ async def upload_image(
     try:
         from googleapiclient.http import MediaIoBaseUpload
         drive = _get_drive()
-        folder_id = _get_or_create_img_folder()
+        folder_id = _get_img_folder()
 
         safe_name = file.filename or "image"
         ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else "jpg"
@@ -211,6 +199,11 @@ def create_post(body: PostCreate, user: dict = Depends(get_current_user)):
         "created_by": user.get("login_id", ""),
         "created_at": now,
         "updated_at": now,
+        "image_file_id": body.image_file_id,
+        "image_url": body.image_url,
+        "image_alt": body.image_alt,
+        "meta_description": body.meta_description,
+        "tags": body.tags,
     }
     _upsert([post])
     return post

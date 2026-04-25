@@ -28,9 +28,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       next: { revalidate: 3600 },
     });
     if (res.ok) {
-      const posts: Array<{ id: string; updated_at?: string }> = await res.json();
+      const posts: Array<{ id: string; slug?: string; updated_at?: string }> = await res.json();
+      // /api/marketing/posts 는 is_published=TRUE 인 게시물만 반환하므로 추가 필터 불필요
       dynamicEntries = posts.map((post) => ({
-        url: `${BASE_URL}/board/${post.id}`,
+        url: `${BASE_URL}/board/${post.slug || post.id}`,
         lastModified: post.updated_at ? new Date(post.updated_at) : now,
         changeFrequency: "weekly" as const,
         priority: 0.6,

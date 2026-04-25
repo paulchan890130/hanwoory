@@ -506,6 +506,11 @@ export interface MarketingPost {
   created_by: string;
   created_at: string;
   updated_at: string;
+  image_file_id?: string;
+  image_url?: string;
+  image_alt?: string;
+  meta_description?: string;
+  tags?: string;
 }
 
 export const marketingApi = {

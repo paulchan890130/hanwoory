@@ -12,6 +12,17 @@ export const metadata: Metadata = {
   },
 };
 
+const BOARD_CATEGORIES = [
+  "공지사항",
+  "업무 안내",
+  "준비서류 안내",
+  "출입국 업무안내",
+  "중국 공증·아포스티유",
+  "영주권·귀화",
+  "제도 변경",
+  "기타",
+];
+
 interface Post {
   id: string;
   title: string;
@@ -43,8 +54,16 @@ function fmtDate(iso: string) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default async function BoardListPage() {
+export default async function BoardListPage({
+  searchParams,
+}: {
+  searchParams?: { category?: string };
+}) {
   const posts = await getPosts();
+  const activeCategory = searchParams?.category ?? "";
+  const filtered = activeCategory
+    ? posts.filter((p) => p.category === activeCategory)
+    : posts;
 
   return (
     <>
@@ -86,7 +105,7 @@ export default async function BoardListPage() {
           fontFamily: "'Noto Sans KR', 'Pretendard', sans-serif",
         }}
       >
-        <header style={{ marginBottom: 40, borderBottom: "2px solid #C8A84B", paddingBottom: 24 }}>
+        <header style={{ marginBottom: 32, borderBottom: "2px solid #C8A84B", paddingBottom: 24 }}>
           <p
             style={{
               fontSize: 12, fontWeight: 700, color: "#8B6914",
@@ -104,13 +123,46 @@ export default async function BoardListPage() {
           </p>
         </header>
 
-        {posts.length === 0 ? (
+        {/* 카테고리 필터 */}
+        <nav aria-label="카테고리 필터" style={{ marginBottom: 32, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            href="/board"
+            style={{
+              fontSize: 13, fontWeight: activeCategory === "" ? 700 : 500,
+              color: activeCategory === "" ? "#7A5C10" : "#888",
+              background: activeCategory === "" ? "#FBF2DC" : "#F5F5F5",
+              border: `1px solid ${activeCategory === "" ? "#C8A84B" : "#E0E0E0"}`,
+              padding: "5px 14px", borderRadius: 99, textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            전체
+          </Link>
+          {BOARD_CATEGORIES.map((cat) => (
+            <Link
+              key={cat}
+              href={`/board?category=${encodeURIComponent(cat)}`}
+              style={{
+                fontSize: 13, fontWeight: activeCategory === cat ? 700 : 500,
+                color: activeCategory === cat ? "#7A5C10" : "#888",
+                background: activeCategory === cat ? "#FBF2DC" : "#F5F5F5",
+                border: `1px solid ${activeCategory === cat ? "#C8A84B" : "#E0E0E0"}`,
+                padding: "5px 14px", borderRadius: 99, textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {cat}
+            </Link>
+          ))}
+        </nav>
+
+        {filtered.length === 0 ? (
           <p style={{ color: "#999", textAlign: "center", padding: "60px 0", fontSize: 15 }}>
-            등록된 게시물이 없습니다.
+            {activeCategory ? `'${activeCategory}' 카테고리의 게시물이 없습니다.` : "등록된 게시물이 없습니다."}
           </p>
         ) : (
           <section aria-label="게시물 목록">
-            {posts.map((post) => (
+            {filtered.map((post) => (
               <article key={post.id} style={{ borderBottom: "1px solid #EAE4D8", padding: "28px 0" }}>
                 <Link
                   href={`/board/${post.id}`}

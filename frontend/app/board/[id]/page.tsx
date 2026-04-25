@@ -11,6 +11,11 @@ interface Post {
   summary: string;
   content: string;
   thumbnail_url?: string;
+  image_file_id?: string;
+  image_url?: string;
+  image_alt?: string;
+  meta_description?: string;
+  tags?: string;
   created_at: string;
   updated_at: string;
 }
@@ -37,7 +42,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const post = await getPost(params.id);
   if (!post) return { title: "게시물 없음 | 한우리행정사사무소" };
-  const desc = post.summary || post.content?.replace(/[#*>`[\]!()-]/g, "").slice(0, 120) || "";
+  const desc = post.meta_description || post.summary || post.content?.replace(/[#*>`[\]!()-]/g, "").slice(0, 120) || "";
   return {
     title: `${post.title} | 한우리행정사사무소`,
     description: desc,
@@ -145,24 +150,34 @@ export default async function BoardDetailPage({
             </div>
           </header>
 
-          {/* 대표 이미지 (썸네일이 있을 경우) */}
-          {post.thumbnail_url && (
-            <figure style={{ margin: "0 0 32px", textAlign: "center" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.thumbnail_url}
-                alt={`${post.title} 대표 이미지`}
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 400,
-                  borderRadius: 10,
-                  objectFit: "cover",
-                  display: "inline-block",
-                }}
-                loading="lazy"
-              />
-            </figure>
-          )}
+          {/* 대표 이미지 — image_url 우선, image_file_id 파생 URL 차선, thumbnail_url 폴백 */}
+          {(() => {
+            const src =
+              post.image_url ||
+              (post.image_file_id
+                ? `https://drive.google.com/uc?export=view&id=${post.image_file_id}`
+                : undefined) ||
+              post.thumbnail_url;
+            const alt = post.image_alt || `${post.title} 대표 이미지`;
+            if (!src) return null;
+            return (
+              <figure style={{ margin: "0 0 32px", textAlign: "center" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={alt}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: 400,
+                    borderRadius: 10,
+                    objectFit: "cover",
+                    display: "inline-block",
+                  }}
+                  loading="lazy"
+                />
+              </figure>
+            );
+          })()}
 
           {/* 요약 */}
           {post.summary && (
@@ -186,6 +201,24 @@ export default async function BoardDetailPage({
             <MarkdownContent content={post.content} />
           </section>
         </article>
+
+        {/* 태그 */}
+        {post.tags && (
+          <div style={{ marginTop: 32, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {post.tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => (
+              <span
+                key={tag}
+                style={{
+                  fontSize: 12, color: "#718096",
+                  background: "#F7FAFC", border: "1px solid #E2E8F0",
+                  padding: "3px 10px", borderRadius: 99,
+                }}
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         <footer
           style={{

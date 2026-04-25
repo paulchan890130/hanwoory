@@ -6,7 +6,16 @@ import { getUser } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
 import { RichEditor } from "@/components/RichEditor";
 
-const CATEGORIES = ["공지사항", "업무 안내", "제도 변경", "기타"];
+const CATEGORIES = [
+  "공지사항",
+  "업무 안내",
+  "준비서류 안내",
+  "출입국 업무안내",
+  "중국 공증·아포스티유",
+  "영주권·귀화",
+  "제도 변경",
+  "기타",
+];
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 12px", fontSize: 14,
@@ -24,13 +33,17 @@ export default function MarketingEditPage() {
   const postId = params?.id as string;
   const user = getUser();
   const thumbFileRef = useRef<HTMLInputElement>(null);
+  const imgFileRef   = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [thumbUploading, setThumbUploading] = useState(false);
+  const [imgUploading,   setImgUploading]   = useState(false);
   const [form, setForm] = useState({
     title: "", slug: "", category: "공지사항", summary: "",
     content: "", thumbnail_url: "", is_featured: false, is_published: false,
+    image_file_id: "", image_url: "", image_alt: "",
+    meta_description: "", tags: "",
   });
 
   useEffect(() => {
@@ -53,6 +66,11 @@ export default function MarketingEditPage() {
         thumbnail_url: post.thumbnail_url || "",
         is_featured: post.is_featured?.toUpperCase() === "TRUE",
         is_published: post.is_published?.toUpperCase() === "TRUE",
+        image_file_id:    post.image_file_id    || "",
+        image_url:        post.image_url        || "",
+        image_alt:        post.image_alt        || "",
+        meta_description: post.meta_description || "",
+        tags:             post.tags             || "",
       });
     } catch {
       toast.error("게시물을 불러오지 못했습니다.");
@@ -79,6 +97,20 @@ export default function MarketingEditPage() {
       toast.error("썸네일 업로드에 실패했습니다.");
     } finally {
       setThumbUploading(false);
+    }
+  };
+
+  const handleImgUpload = async (file: File) => {
+    setImgUploading(true);
+    try {
+      const res = await marketingApi.uploadImage(file);
+      set("image_url",     res.data.url);
+      set("image_file_id", res.data.file_id);
+      toast.success("이미지 업로드 완료");
+    } catch {
+      toast.error("이미지 업로드 실패");
+    } finally {
+      setImgUploading(false);
     }
   };
 
@@ -153,6 +185,28 @@ export default function MarketingEditPage() {
           />
         </div>
 
+        {/* SEO 설명 */}
+        <div>
+          <label style={labelStyle}>SEO 설명 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(비워두면 요약 자동 사용, 160자 이내 권장)</span></label>
+          <input
+            value={form.meta_description}
+            onChange={(e) => set("meta_description", e.target.value)}
+            style={inputStyle}
+            placeholder="검색엔진에 표시될 설명"
+          />
+        </div>
+
+        {/* 태그 */}
+        <div>
+          <label style={labelStyle}>태그 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(쉼표로 구분)</span></label>
+          <input
+            value={form.tags}
+            onChange={(e) => set("tags", e.target.value)}
+            style={inputStyle}
+            placeholder="예: F-4, 연장, 서류안내"
+          />
+        </div>
+
         {/* 대표 이미지 썸네일 */}
         <div>
           <label style={labelStyle}>대표 이미지 (썸네일)</label>
@@ -197,6 +251,55 @@ export default function MarketingEditPage() {
               />
             </div>
           )}
+        </div>
+
+        {/* 게시물 이미지 (상세 페이지 표시용) */}
+        <div>
+          <label style={labelStyle}>게시물 이미지</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={form.image_url}
+              onChange={(e) => set("image_url", e.target.value)}
+              style={{ ...inputStyle, flex: 1 }}
+              placeholder="이미지 URL 직접 입력 또는 파일 업로드"
+            />
+            <button
+              type="button"
+              onClick={() => imgFileRef.current?.click()}
+              disabled={imgUploading}
+              style={{
+                padding: "10px 14px", borderRadius: 8, border: "1.5px solid #D4A843",
+                background: "#fff", color: "#D4A843", fontWeight: 600, fontSize: 13,
+                cursor: imgUploading ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+              }}
+            >
+              {imgUploading ? "업로드 중..." : "파일 업로드"}
+            </button>
+            <input
+              ref={imgFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImgUpload(f); e.target.value = ""; }}
+            />
+          </div>
+          {form.image_url && (
+            <div style={{ marginTop: 8 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={form.image_url} alt="preview" style={{ maxHeight: 140, maxWidth: "100%", borderRadius: 6, border: "1px solid #E2E8F0", objectFit: "cover" }} />
+            </div>
+          )}
+        </div>
+
+        {/* 이미지 설명 (alt) */}
+        <div>
+          <label style={labelStyle}>이미지 설명 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(접근성·SEO용 대체 텍스트)</span></label>
+          <input
+            value={form.image_alt}
+            onChange={(e) => set("image_alt", e.target.value)}
+            style={inputStyle}
+            placeholder="이미지를 설명하는 짧은 문구"
+          />
         </div>
 
         {/* 본문 — RichEditor */}
