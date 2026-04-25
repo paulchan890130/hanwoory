@@ -1,26 +1,9 @@
 User-agent: *
 Allow: /
-Allow: /board
-Allow: /board/
-Allow: /documents
-
 Disallow: /login
 Disallow: /dashboard
-Disallow: /customers
-Disallow: /tasks
-Disallow: /daily
-Disallow: /monthly
-Disallow: /scan
-Disallow: /reference
-Disallow: /search
-Disallow: /memos
 Disallow: /admin
 Disallow: /marketing
-Disallow: /quick-doc
-Disallow: /quick-poa
-Disallow: /guidelines
-Disallow: /noticeboard
-Disallow: /manual
-Disallow: /api/
+Disallow: /private
 
 Sitemap: https://www.hanwory.com/sitemap.xml

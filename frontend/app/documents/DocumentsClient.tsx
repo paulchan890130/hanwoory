@@ -9,12 +9,44 @@ interface DocItem {
 }
 
 interface DocGroup {
+  id: string;
   group: string;
   items: DocItem[];
 }
 
 const GROUPS: DocGroup[] = [
   {
+    id: "f1",
+    group: "F-1",
+    items: [
+      { label: "F-1 초청(양육지원) 준비서류", href: "/board/f1-childcare-support-invitation-documents" },
+      { label: "F-1-5 초청 준비서류", href: "/board/f15-invitation-documents" },
+    ],
+  },
+  {
+    id: "f2",
+    group: "F-2",
+    items: [
+      { label: "F-2 초청·변경 준비서류", href: "/board/f2-invitation-change-documents" },
+      { label: "F-2 변경(미성년) 준비서류", href: "/board/f2-change-minor-documents" },
+      { label: "F-2 등록 및 연장(배우자)", href: "/board/f2-registration-extension-spouse-documents" },
+      { label: "F-2 등록 및 연장(미성년자)", href: "/board/f2-registration-extension-minor-documents" },
+    ],
+  },
+  {
+    id: "f3",
+    group: "F-3",
+    items: [
+      { label: "F-3 초청 준비서류", href: "/board/f3-invitation-documents" },
+      { label: "F-3 변경(배우자) 준비서류", href: "/board/f3-change-spouse-documents" },
+      { label: "F-3 변경(자녀) 준비서류", href: "/board/f3-change-child-documents" },
+      { label: "F-3 등록 및 연장(배우자)", href: "/board/f3-registration-extension-spouse-documents" },
+      { label: "F-3 등록 및 연장(미성년자)", href: "/board/f3-registration-extension-minor-documents" },
+      { label: "F-3-R 변경 준비서류", href: "/board/f3r-change-documents" },
+    ],
+  },
+  {
+    id: "f4",
     group: "F-4",
     items: [
       { label: "F-4 등록 준비서류", href: "/board/f4-registration-documents" },
@@ -28,14 +60,7 @@ const GROUPS: DocGroup[] = [
     ],
   },
   {
-    group: "H-2",
-    items: [
-      { label: "H-2 등록 준비서류", href: "/board/h2-registration-documents" },
-      { label: "H-2 연장 준비서류", href: "/board/h2-extension-documents" },
-      { label: "C-3-8에서 H-2 변경 준비서류", href: "/board/c38-to-h2-change-documents" },
-    ],
-  },
-  {
+    id: "f5",
     group: "F-5 / 영주권",
     items: [
       { label: "F-4 2년 영주권 신청 준비서류(4대보험)", href: "/board/f4-two-year-pr-four-insurance-documents" },
@@ -49,6 +74,7 @@ const GROUPS: DocGroup[] = [
     ],
   },
   {
+    id: "f6",
     group: "F-6",
     items: [
       { label: "F-6 초청 준비서류", href: "/board/f6-invitation-documents" },
@@ -57,33 +83,16 @@ const GROUPS: DocGroup[] = [
     ],
   },
   {
-    group: "F-3",
+    id: "h2",
+    group: "H-2",
     items: [
-      { label: "F-3 초청 준비서류", href: "/board/f3-invitation-documents" },
-      { label: "F-3 변경(배우자) 준비서류", href: "/board/f3-change-spouse-documents" },
-      { label: "F-3 변경(자녀) 준비서류", href: "/board/f3-change-child-documents" },
-      { label: "F-3 등록 및 연장(배우자)", href: "/board/f3-registration-extension-spouse-documents" },
-      { label: "F-3 등록 및 연장(미성년자)", href: "/board/f3-registration-extension-minor-documents" },
-      { label: "F-3-R 변경 준비서류", href: "/board/f3r-change-documents" },
+      { label: "H-2 등록 준비서류", href: "/board/h2-registration-documents" },
+      { label: "H-2 연장 준비서류", href: "/board/h2-extension-documents" },
+      { label: "C-3-8에서 H-2 변경 준비서류", href: "/board/c38-to-h2-change-documents" },
     ],
   },
   {
-    group: "F-2",
-    items: [
-      { label: "F-2 초청·변경 준비서류", href: "/board/f2-invitation-change-documents" },
-      { label: "F-2 변경(미성년) 준비서류", href: "/board/f2-change-minor-documents" },
-      { label: "F-2 등록 및 연장(배우자)", href: "/board/f2-registration-extension-spouse-documents" },
-      { label: "F-2 등록 및 연장(미성년자)", href: "/board/f2-registration-extension-minor-documents" },
-    ],
-  },
-  {
-    group: "F-1",
-    items: [
-      { label: "F-1 초청(양육지원) 준비서류", href: "/board/f1-childcare-support-invitation-documents" },
-      { label: "F-1-5 초청 준비서류", href: "/board/f15-invitation-documents" },
-    ],
-  },
-  {
+    id: "nationality",
     group: "국적 / 귀화",
     items: [
       { label: "일반귀화 준비서류", href: "/board/naturalization-general-documents" },
@@ -98,6 +107,7 @@ const GROUPS: DocGroup[] = [
     ],
   },
   {
+    id: "china-notarization",
     group: "중국 공증·아포스티유",
     items: [
       { label: "친속공증 준비서류", href: "/board/family-notarization-documents" },
@@ -160,11 +170,13 @@ export function DocumentsClient() {
           {filteredGroups.map((group) => (
             <section
               key={group.group}
+              id={group.id}
               style={{
                 background: "#FAF8F4",
                 border: "1px solid #EAE4D8",
                 borderRadius: 10,
                 padding: "18px 20px 16px",
+                scrollMarginTop: 80,
               }}
             >
               <h2

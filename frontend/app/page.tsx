@@ -72,6 +72,18 @@ export default function HomePage() {
       ? boardPosts
       : boardPosts.filter((p) => p.category === activeTab);
 
+  const DOCUMENT_GROUPS = [
+    { label: "F-1", anchor: "f1" },
+    { label: "F-2", anchor: "f2" },
+    { label: "F-3", anchor: "f3" },
+    { label: "F-4", anchor: "f4" },
+    { label: "F-5 / 영주권", anchor: "f5" },
+    { label: "F-6", anchor: "f6" },
+    { label: "H-2", anchor: "h2" },
+    { label: "국적 / 귀화", anchor: "nationality" },
+    { label: "중국 공증·아포스티유", anchor: "china-notarization" },
+  ];
+
   const FAQS = [
     {
       q: "어떤 업무를 상담할 수 있나요?",
@@ -391,6 +403,61 @@ export default function HomePage() {
               </Link>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* DOCUMENTS */}
+      <section id="documents-section" aria-labelledby="docs-title">
+        <div className="container">
+          <p className="section-label fade-in">Documents</p>
+          <h2 className="section-title fade-in" id="docs-title">업무별 준비서류</h2>
+          <p className="section-desc fade-in">
+            외국인등록, 체류기간 연장, 체류자격 변경, 영주권, 귀화, 가족초청, 중국 공증·아포스티유
+            업무에 필요한 준비서류를 체류자격별로 확인할 수 있습니다.
+          </p>
+          <div
+            className="fade-in"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: 12,
+              marginBottom: 28,
+            }}
+          >
+            {DOCUMENT_GROUPS.map((g) => (
+              <Link
+                key={g.anchor}
+                href={`/documents#${g.anchor}`}
+                style={{
+                  display: "block",
+                  background: "#FAF8F4",
+                  border: "1px solid #E4DAC8",
+                  borderRadius: 8,
+                  padding: "16px 18px",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#7A5C10",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {g.label}
+                </span>
+                <span style={{ fontSize: 12, color: "#999" }}>준비서류 보기 →</span>
+              </Link>
+            ))}
+          </div>
+          <div className="fade-in" style={{ textAlign: "center" }}>
+            <Link href="/documents" className="board-more-link">
+              전체 준비서류 보기 →
+            </Link>
+          </div>
         </div>
       </section>
 

@@ -3,14 +3,14 @@ import Link from "next/link";
 import { BoardClient } from "./BoardClient";
 
 export const metadata: Metadata = {
-  title: "업무 안내 | 한우리행정사사무소",
-  description:
-    "출입국·체류자격·사증 관련 업무 안내 및 공지사항. 한우리행정사사무소의 최신 안내 정보를 확인하세요.",
+  title: "업무 안내",
+  description: "출입국·체류자격·사증 관련 업무 안내 및 최신 제도 변경 사항을 확인하세요.",
   openGraph: {
     title: "업무 안내 | 한우리행정사사무소",
-    description: "출입국·체류자격·사증 관련 업무 안내 및 공지사항.",
+    description: "출입국·체류자격·사증 관련 업무 안내 및 최신 제도 변경 사항을 확인하세요.",
     type: "website",
   },
+  alternates: { canonical: "https://www.hanwory.com/board" },
 };
 
 interface Post {

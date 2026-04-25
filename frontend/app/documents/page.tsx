@@ -3,21 +3,40 @@ import Link from "next/link";
 import { DocumentsClient } from "./DocumentsClient";
 
 export const metadata: Metadata = {
-  title: "업무별 준비서류 | 한우리행정사사무소",
+  title: "업무별 준비서류",
   description:
-    "체류자격별·업무별로 필요한 준비서류를 확인할 수 있습니다. 개인의 체류이력, 가족관계, 소득자료, 거주지 상황에 따라 추가서류가 요구될 수 있습니다.",
+    "F-1, F-2, F-3, F-4, F-5 영주권, F-6, H-2, 국적·귀화, 중국 공증·아포스티유 업무별 준비서류를 체류자격별로 확인할 수 있습니다.",
   openGraph: {
     title: "업무별 준비서류 | 한우리행정사사무소",
     description:
       "F-4, H-2, F-5(영주권), F-6, F-3, 귀화, 중국 공증 등 체류자격별·업무별 준비서류 안내.",
     type: "website",
   },
-  alternates: { canonical: "/documents" },
+  alternates: { canonical: "https://www.hanwory.com/documents" },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "홈", item: "https://www.hanwory.com/" },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "업무별 준비서류",
+      item: "https://www.hanwory.com/documents",
+    },
+  ],
 };
 
 export default function DocumentsPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
       <nav
         aria-label="breadcrumb"
         style={{
