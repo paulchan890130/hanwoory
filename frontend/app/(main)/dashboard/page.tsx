@@ -417,12 +417,12 @@ export default function DashboardPage() {
   const { data: activeTasks = [] } = useQuery({
     queryKey: ["tasks", "active"],
     queryFn: () => tasksApi.getActive().then((r) => r.data),
-    staleTime: 30_000,
+    staleTime: 2_000,
   });
   const { data: plannedTasks = [] } = useQuery({
     queryKey: ["tasks", "planned"],
     queryFn: () => tasksApi.getPlanned().then((r) => r.data),
-    staleTime: 30_000,
+    staleTime: 2_000,
   });
   const { data: shortMemo } = useQuery({
     queryKey: ["memo", "short"],

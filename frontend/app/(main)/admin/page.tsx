@@ -586,7 +586,16 @@ export default function AdminPage() {
                       <td className="text-xs" style={{ color: "#A0AEC0" }}>{acc.created_at}</td>
                       <td>
                         <button
-                          onClick={() => toggle(acc.login_id, "is_active", acc.is_active || "")}
+                          onClick={() => {
+                            const newVal = !(acc.is_active?.toLowerCase() === "true" || acc.is_active === "1");
+                            const hasWorkspace = !!(acc.folder_id && acc.customer_sheet_key && acc.work_sheet_key);
+                            // 비활성 계정을 활성화할 때 워크스페이스가 없으면 자동 생성 (생성 완료 시 is_active=TRUE 자동 설정됨)
+                            if (newVal && !hasWorkspace) {
+                              handleRowWorkspace(acc);
+                            } else {
+                              toggle(acc.login_id, "is_active", acc.is_active || "");
+                            }
+                          }}
                           className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
                         >
                           {isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}

@@ -62,6 +62,12 @@ const selBtnStyle: React.CSSProperties = {
 const selActiveBtnStyle: React.CSSProperties = {
   ...selBtnStyle, background: "#3182ce", color: "#fff",
 };
+const overlayBtnStyle: React.CSSProperties = {
+  height: 30, minWidth: 52, padding: "0 8px", borderRadius: 5,
+  border: "1px solid rgba(255,255,255,0.25)",
+  background: "rgba(0,0,0,0.55)", color: "#e2e8f0",
+  fontSize: 11, fontWeight: 600, cursor: "pointer",
+};
 
 // ── Workspace transform types ─────────────────────────────────────────────────
 
@@ -166,7 +172,7 @@ function roiToContainerBox(
 
 const PASSPORT_MRZ_GUIDE = {
   key: "mrz", label: "MRZ",
-  x: 0.160, y: 0.635, w: 0.630, h: 0.085,
+  x: 0.129, y: 0.635, w: 0.693, h: 0.085,   // 좌우 5%씩 확장
   color: "#D69E2E",
   labelPos: "inside" as const,
 };
@@ -182,18 +188,18 @@ const ARC_GUIDE_BOXES: Array<{
   color: string;
   labelPos: "inside" | "above" | "below" | "right";
 }> = [
-  // A. 등록증 앞 — label above box
-  { key: "등록증", label: "등록증 앞",  x: 0.368, y: 0.174, w: 0.075, h: 0.024, color: "#dd6b20", labelPos: "above" },
-  // B. 등록증 뒤 — label above, width 1.2× 등록증 앞
-  { key: "번호",   label: "등록증 뒤",  x: 0.451, y: 0.174, w: 0.090, h: 0.024, color: "#d69e2e", labelPos: "above" },
-  // C. 한글 이름 — label below, shifted down 2 box-units (2×0.018=0.036)
-  { key: "한글",   label: "한글 이름",  x: 0.374, y: 0.241, w: 0.058, h: 0.018, color: "#e53e3e", labelPos: "below" },
-  // D. 발급일 — label above, shifted down 2.8 box-units (×0.028=0.078) and left 0.8 box-units (×0.110=0.088)
-  { key: "발급일", label: "발급일",    x: 0.477, y: 0.339, w: 0.110, h: 0.028, color: "#38a169", labelPos: "above" },
-  // E. 만기일 — label right, horizontal rectangle
-  { key: "만기일", label: "만기일",    x: 0.290, y: 0.665, w: 0.180, h: 0.030, color: "#3182ce", labelPos: "right" },
-  // F. 주소 — label right, taller box to capture 2-3 address lines
-  { key: "주소",   label: "주소",     x: 0.265, y: 0.700, w: 0.250, h: 0.085, color: "#805ad5", labelPos: "right" },
+  // A. 등록증 앞 — 우로 20% 확장
+  { key: "등록증", label: "등록증 앞",  x: 0.368, y: 0.174, w: 0.090, h: 0.024, color: "#dd6b20", labelPos: "above" },
+  // B. 등록증 뒤 — 우로 30% 이동, 우로 30% 확장
+  { key: "번호",   label: "등록증 뒤",  x: 0.478, y: 0.174, w: 0.117, h: 0.024, color: "#d69e2e", labelPos: "above" },
+  // C. 한글 이름 — 위로 50% 이동, 좌로 10% 이동
+  { key: "한글",   label: "한글 이름",  x: 0.368, y: 0.232, w: 0.058, h: 0.018, color: "#e53e3e", labelPos: "below" },
+  // D. 발급일 — 위로 10% 이동, 우로 180% 이동, 우측 80%로 축소
+  { key: "발급일", label: "발급일",    x: 0.675, y: 0.336, w: 0.088, h: 0.028, color: "#38a169", labelPos: "above" },
+  // E. 만기일 — 우측 60%로 축소
+  { key: "만기일", label: "만기일",    x: 0.290, y: 0.665, w: 0.108, h: 0.030, color: "#3182ce", labelPos: "right" },
+  // F. 주소 — 아래로 150% 이동, 높이 50% 축소, 너비 80% 축소
+  { key: "주소",   label: "주소",     x: 0.265, y: 0.828, w: 0.200, h: 0.043, color: "#805ad5", labelPos: "right" },
 ];
 
 // ── SampleBox ─────────────────────────────────────────────────────────────────
@@ -365,25 +371,17 @@ function WorkspaceCanvas({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {/* Toolbar */}
-      <div style={{ display: "flex", gap: 6, justifyContent: "space-between", alignItems: "center" }}>
+      {/* 선택식 모드일 때만 상태 표시 */}
+      {isSelecting && (
         <div>
-          {isSelecting && (
-            <span style={{
-              fontSize: 11, color: "#3182ce", fontWeight: 600,
-              background: "#ebf8ff", padding: "2px 8px", borderRadius: 4,
-            }}>
-              ✏️ {guides.find(g => g.key === selectingFor)?.label ?? selectingFor} 영역 드래그 선택 중
-            </span>
-          )}
+          <span style={{
+            fontSize: 11, color: "#3182ce", fontWeight: 600,
+            background: "#ebf8ff", padding: "2px 8px", borderRadius: 4,
+          }}>
+            ✏️ {guides.find(g => g.key === selectingFor)?.label ?? selectingFor} 영역 드래그 선택 중
+          </span>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" onClick={zoomIn}   style={smallToolBtnStyle}>확대 +</button>
-          <button type="button" onClick={zoomOut}  style={smallToolBtnStyle}>축소 −</button>
-          <button type="button" onClick={rotate90} style={smallToolBtnStyle}>90° 회전</button>
-          <button type="button" onClick={reset}    style={smallToolBtnStyle}>원위치</button>
-        </div>
-      </div>
+      )}
 
       {/* Viewport */}
       <div
@@ -490,6 +488,17 @@ function WorkspaceCanvas({
               </div>
             );
           })()}
+        </div>
+
+        {/* 확대/축소/회전/원위치 — 캔버스 우측 중앙 세로 정렬 */}
+        <div style={{
+          position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+          display: "flex", flexDirection: "column", gap: 4, zIndex: 10,
+        }}>
+          <button type="button" onClick={zoomIn}   onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>확대 +</button>
+          <button type="button" onClick={zoomOut}  onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>축소 −</button>
+          <button type="button" onClick={rotate90} onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>90°↻</button>
+          <button type="button" onClick={reset}    onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>원위치</button>
         </div>
       </div>
 
@@ -1156,9 +1165,16 @@ export default function ScanPage() {
                     <label style={labelStyle}>{ARC_FIELD_LABELS[key]}</label>
                     <div style={{
                       display: "grid",
-                      gridTemplateColumns: wsMode === "선택식" ? "1fr auto auto" : "1fr auto",
+                      gridTemplateColumns: wsMode === "선택식" ? "auto 1fr auto" : "auto 1fr",
                       gap: 6, alignItems: "center",
                     }}>
+                      <button
+                        onClick={() => runArcFieldOcr(key)}
+                        disabled={!arcFile || arcLoadingField !== null}
+                        style={!arcFile || arcLoadingField !== null ? disabledBtnStyle : smallBtnStyle}
+                      >
+                        {loading ? "추출 중..." : "추출"}
+                      </button>
                       <input
                         style={{
                           ...inputStyle,
@@ -1182,13 +1198,6 @@ export default function ScanPage() {
                           {isActiveSelect ? "취소" : "영역선택"}
                         </button>
                       )}
-                      <button
-                        onClick={() => runArcFieldOcr(key)}
-                        disabled={!arcFile || arcLoadingField !== null}
-                        style={!arcFile || arcLoadingField !== null ? disabledBtnStyle : smallBtnStyle}
-                      >
-                        {loading ? "추출 중..." : "추출"}
-                      </button>
                     </div>
                     {wsMode === "선택식" && arcCustomRois[key] && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>

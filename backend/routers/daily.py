@@ -210,6 +210,11 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
         }
         upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [new_task], id_field="id")
 
+    # 백엔드 캐시 무효화 — tasks.py get_active_tasks가 30초 TTL 캐시를 사용하므로
+    # 여기서 직접 sheet에 쓴 뒤 캐시를 비워야 프론트 refetch 시 최신 데이터가 반환됨
+    from backend.services.cache_service import cache_invalidate
+    cache_invalidate(tenant_id, "tasks:active")
+
 
 @router.post("/entries", response_model=dict)
 def add_entry(entry: DailyEntry, user: dict = Depends(get_current_user)):

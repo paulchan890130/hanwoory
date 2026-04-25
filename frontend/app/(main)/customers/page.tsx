@@ -285,7 +285,7 @@ export default function CustomersPage() {
         page_size: number;
         total_pages: number;
       }),
-    staleTime: 30_000,
+    staleTime: 2_000,
   });
 
   const customers = pageData?.items ?? [];
@@ -300,7 +300,7 @@ export default function CustomersPage() {
       queryFn: () =>
         customersApi.list(debouncedSearch || undefined, page + 1, PAGE_SIZE)
           .then((r) => r.data),
-      staleTime: 30_000,
+      staleTime: 2_000,
     });
   }, [pageData, page, debouncedSearch, qc]);
 
