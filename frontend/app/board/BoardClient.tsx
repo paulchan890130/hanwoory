@@ -3,75 +3,11 @@
 import { useState, useMemo, type CSSProperties } from "react";
 import Link from "next/link";
 
-const CATEGORIES = [
-  "준비서류 안내",
-  "출입국 업무안내",
-  "중국 공증·아포스티유",
-  "영주권·귀화",
-  "공지사항",
-  "업무 안내",
-  "제도 변경",
-  "기타",
-];
+// 일반 게시판 카테고리 (준비서류 계열 제외)
+const CATEGORIES = ["공지사항", "업무 안내", "제도 변경", "기타"];
 
-const QUICK_LINKS = [
-  {
-    group: "체류기간 연장",
-    items: [
-      { label: "F-4 연장 준비서류", href: "/board/f4-extension-documents" },
-      { label: "H-2 연장 준비서류", href: "/board/h2-extension-documents" },
-      { label: "F-6 연장 준비서류", href: "/board/f6-extension-documents" },
-    ],
-  },
-  {
-    group: "외국인등록",
-    items: [
-      { label: "F-4 등록 준비서류", href: "/board/f4-registration-documents" },
-      { label: "H-2 등록 준비서류", href: "/board/h2-registration-documents" },
-      { label: "F-2 미성년자 등록·연장", href: "/board/f2-registration-extension-minor-documents" },
-      { label: "F-3 미성년자 등록·연장", href: "/board/f3-registration-extension-minor-documents" },
-    ],
-  },
-  {
-    group: "체류자격 변경",
-    items: [
-      { label: "C-3-8 → H-2", href: "/board/c38-to-h2-change-documents" },
-      { label: "H-2 → F-4", href: "/board/h2-to-f4-change-documents" },
-      { label: "기타 → F-4", href: "/board/other-status-to-f4-change-documents" },
-      { label: "F-3 배우자 변경", href: "/board/f3-change-spouse-documents" },
-      { label: "F-3 자녀 변경", href: "/board/f3-change-child-documents" },
-    ],
-  },
-  {
-    group: "영주권·귀화",
-    items: [
-      { label: "F-4 2년 영주권", href: "/board/f4-two-year-pr-four-insurance-documents" },
-      { label: "H-2 4년 영주권", href: "/board/h2-four-year-permanent-residence-documents" },
-      { label: "일반귀화 준비서류", href: "/board/naturalization-general-documents" },
-      { label: "간이귀화 준비서류", href: "/board/naturalization-simple-marriage-two-years-documents" },
-      { label: "특별귀화 준비서류", href: "/board/naturalization-special-parent-nationality-documents" },
-    ],
-  },
-  {
-    group: "가족초청",
-    items: [
-      { label: "친족 단기초청", href: "/board/family-short-term-invitation-documents" },
-      { label: "F-3 초청 준비서류", href: "/board/f3-invitation-documents" },
-      { label: "F-6 초청 준비서류", href: "/board/f6-invitation-documents" },
-      { label: "F-1 양육지원 초청", href: "/board/f1-childcare-support-invitation-documents" },
-      { label: "F-1-5 초청 준비서류", href: "/board/f15-invitation-documents" },
-    ],
-  },
-  {
-    group: "중국 공증·아포스티유",
-    items: [
-      { label: "친속공증", href: "/board/family-notarization-documents" },
-      { label: "결혼공증", href: "/board/marriage-notarization-documents" },
-      { label: "무범죄공증", href: "/board/criminal-record-notarization-documents" },
-      { label: "미혼·재혼공증", href: "/board/single-remarriage-notarization-documents" },
-    ],
-  },
-];
+// 이 카테고리 또는 빈 카테고리만 /board에 표시 — 나머지는 /documents로 분리됨
+const BOARD_ONLY = new Set(["공지사항", "업무 안내", "제도 변경", "기타"]);
 
 interface Post {
   id: string;
@@ -100,8 +36,14 @@ export function BoardClient({ posts, initialCategory = "" }: Props) {
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [query, setQuery] = useState("");
 
+  // 일반 게시판 게시물만 (준비서류 안내 등 제외)
+  const boardPosts = useMemo(
+    () => posts.filter((p) => !p.category || BOARD_ONLY.has(p.category)),
+    [posts]
+  );
+
   const filtered = useMemo(() => {
-    let result = posts;
+    let result = boardPosts;
     if (activeCategory) {
       result = result.filter((p) => p.category === activeCategory);
     }
@@ -116,7 +58,7 @@ export function BoardClient({ posts, initialCategory = "" }: Props) {
       );
     }
     return result;
-  }, [posts, activeCategory, query]);
+  }, [boardPosts, activeCategory, query]);
 
   const catBtn = (cat: string): CSSProperties => ({
     fontSize: 13,
@@ -133,76 +75,35 @@ export function BoardClient({ posts, initialCategory = "" }: Props) {
 
   return (
     <>
-      {/* ── 자주 찾는 준비서류 ─────────────────────────────────────────── */}
-      <section
-        aria-label="자주 찾는 준비서류"
+      {/* ── 준비서류 안내 링크 ──────────────────────────────────────────── */}
+      <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           background: "#FAF8F4",
           border: "1px solid #EAE4D8",
-          borderRadius: 10,
-          padding: "22px 24px 18px",
-          marginBottom: 36,
+          borderRadius: 8,
+          padding: "10px 18px",
+          marginBottom: 28,
         }}
       >
-        <h2
+        <span style={{ fontSize: 13, color: "#666" }}>
+          체류자격별 준비서류를 찾고 계신가요?
+        </span>
+        <Link
+          href="/documents"
           style={{
             fontSize: 13,
-            fontWeight: 700,
-            color: "#7A5C10",
-            margin: "0 0 18px",
-            letterSpacing: "0.04em",
+            color: "#8B6914",
+            fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
           }}
         >
-          자주 찾는 준비서류
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-            gap: "20px 28px",
-          }}
-        >
-          {QUICK_LINKS.map((group) => (
-            <div key={group.group}>
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#8B6914",
-                  margin: "0 0 8px",
-                  paddingBottom: 6,
-                  borderBottom: "1px solid #E4DAC8",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {group.group}
-              </p>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                {group.items.map((item) => (
-                  <li key={item.href} style={{ marginBottom: 5 }}>
-                    <Link
-                      href={item.href}
-                      style={{
-                        fontSize: 13,
-                        color: "#444",
-                        textDecoration: "none",
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: 5,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      <span style={{ color: "#C8A84B", flexShrink: 0, fontSize: 10 }}>›</span>
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
+          업무별 준비서류 →
+        </Link>
+      </div>
 
       {/* ── 검색 ───────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 14 }}>
@@ -282,12 +183,7 @@ export function BoardClient({ posts, initialCategory = "" }: Props) {
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "center",
-                      marginBottom: 10,
-                    }}
+                    style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}
                   >
                     {post.category && (
                       <span
@@ -320,12 +216,7 @@ export function BoardClient({ posts, initialCategory = "" }: Props) {
                   </h2>
                   {post.summary && (
                     <p
-                      style={{
-                        fontSize: 14,
-                        color: "#555",
-                        margin: "0 0 12px",
-                        lineHeight: 1.7,
-                      }}
+                      style={{ fontSize: 14, color: "#555", margin: "0 0 12px", lineHeight: 1.7 }}
                     >
                       {post.summary}
                     </p>

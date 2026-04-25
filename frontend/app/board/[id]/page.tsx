@@ -64,6 +64,8 @@ function fmtDate(iso: string) {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
+const BASE_URL = "https://www.hanwory.com";
+
 export default async function BoardDetailPage({
   params,
 }: {
@@ -72,8 +74,47 @@ export default async function BoardDetailPage({
   const post = await getPost(params.id);
   if (!post) notFound();
 
+  const postUrl = `${BASE_URL}/board/${post.slug || post.id}`;
+  const desc =
+    post.meta_description ||
+    post.summary ||
+    post.content?.replace(/[#*>`[\]!()-]/g, "").slice(0, 120) ||
+    "";
+
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: desc,
+    url: postUrl,
+    datePublished: post.created_at,
+    dateModified: post.updated_at || post.created_at,
+    author: { "@type": "Organization", name: "한우리행정사사무소", url: BASE_URL },
+    publisher: { "@type": "Organization", name: "한우리행정사사무소", url: BASE_URL },
+    ...(post.tags ? { keywords: post.tags } : {}),
+    ...(post.thumbnail_url ? { image: post.thumbnail_url } : {}),
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: `${BASE_URL}/` },
+      { "@type": "ListItem", position: 2, name: "업무 안내", item: `${BASE_URL}/board` },
+      { "@type": "ListItem", position: 3, name: post.title, item: postUrl },
+    ],
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <nav
         aria-label="breadcrumb"
         style={{

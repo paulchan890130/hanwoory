@@ -60,7 +60,7 @@ export default async function BoardListPage({
       >
         <div
           style={{
-            maxWidth: 1040,
+            maxWidth: 820,
             margin: "0 auto",
             height: 56,
             display: "flex",
@@ -86,7 +86,7 @@ export default async function BoardListPage({
 
       <main
         style={{
-          maxWidth: 1040,
+          maxWidth: 820,
           margin: "0 auto",
           padding: "48px 24px 80px",
           fontFamily: "'Noto Sans KR', 'Pretendard', sans-serif",

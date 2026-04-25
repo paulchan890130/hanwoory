@@ -14,6 +14,7 @@ export function middleware(request: NextRequest) {
   if (
     pathname === "/" ||
     pathname.startsWith("/board") ||
+    pathname === "/documents" ||
     pathname === "/sitemap.xml" ||
     pathname === "/robots.txt"
   ) {

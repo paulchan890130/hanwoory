@@ -63,10 +63,14 @@ export default function HomePage() {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
   };
 
+  const HOMEPAGE_BOARD_ONLY = new Set(["공지사항", "업무 안내", "제도 변경", "기타"]);
+  const boardPosts = posts.filter(
+    (p) => !p.category || HOMEPAGE_BOARD_ONLY.has(p.category)
+  );
   const filteredPosts =
     activeTab === "전체"
-      ? posts
-      : posts.filter((p) => p.category === activeTab);
+      ? boardPosts
+      : boardPosts.filter((p) => p.category === activeTab);
 
   const FAQS = [
     {
@@ -99,8 +103,44 @@ export default function HomePage() {
     { key: "기타", label: "기타" },
   ];
 
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LegalService",
+    name: "한우리행정사사무소",
+    alternateName: "Hanwoori Administrative Office",
+    url: "https://www.hanwory.com",
+    telephone: "031-488-8862",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "시흥시",
+      addressRegion: "경기도",
+      addressCountry: "KR",
+    },
+    description:
+      "출입국·체류자격·사증 관련 업무 전문 행정사사무소. 체류자격 연장·변경, 외국인등록, 사증 발급, 영주권·귀화, 중국 공증·아포스티유 업무 대행.",
+    areaServed: { "@type": "Country", name: "대한민국" },
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "출입국 행정 서비스",
+      itemListElement: [
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "체류자격 연장" } },
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "체류자격 변경" } },
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "외국인등록" } },
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "사증(비자) 발급" } },
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "영주권(F-5) 신청" } },
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "귀화 신청" } },
+        { "@type": "Offer", itemOffered: { "@type": "Service", name: "중국 공증·아포스티유" } },
+      ],
+    },
+    sameAs: ["https://www.hanwory.com"],
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+      />
       {/* NAV */}
       <nav className="nav" ref={navRef} role="navigation" aria-label="메인 내비게이션">
         <div className="nav-inner">
@@ -115,6 +155,7 @@ export default function HomePage() {
             <a href="#about">사무소 소개</a>
             <a href="#services">업무 분야</a>
             <a href="#board">업무 안내</a>
+            <Link href="/documents">업무별 준비서류</Link>
             <a href="#faq">FAQ</a>
             <a href="#contact">상담 문의</a>
             <Link href="/login" className="nav-login">로그인 →</Link>
@@ -134,6 +175,7 @@ export default function HomePage() {
         <a href="#about" onClick={closeMenu}>사무소 소개</a>
         <a href="#services" onClick={closeMenu}>업무 분야</a>
         <a href="#board" onClick={closeMenu}>업무 안내</a>
+        <Link href="/documents" onClick={closeMenu}>업무별 준비서류</Link>
         <a href="#faq" onClick={closeMenu}>FAQ</a>
         <a href="#contact" onClick={closeMenu}>상담 문의</a>
         <Link href="/login" style={{ color: "var(--gold-600)" }} onClick={closeMenu}>
