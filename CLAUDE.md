@@ -740,10 +740,12 @@ python backend/scripts/migrate_guidelines_v2.py
 
 - `viewMode`: `"l1"` / `"l2"` / `"l3"` / `"search"` — 검색어 입력 시 별도 search 뷰
 - `skipL2`: `treeL2Items.length <= 1`이면 L2 스킵 → L3 직행 (단일 action_type 진입점)
-- **preload-all 아키텍처** — 마운트 시 `GET /api/guidelines/?limit=500&status=all` 1회 호출로 전체 rows를 `allRows` state에 캐시. 진입점 클릭은 API 호출 없이 `getMatchingRows(allRows, entry)` 클라이언트 필터만 실행.
-  - `loadEntryRows(entry, rows)` — 동기 함수. 코드 기반 진입점(`/^[A-Z]-[0-9]/i`): `startsWith` 필터. 업무 기반: `action_types` Set 필터.
-  - 기존 per-click lazy-load 방식 제거됨 (`.catch(() => [])` silent fail 패턴 제거)
-- **`_ENTRY_POINTS_DATA`** (백엔드 `guidelines.py`): 14개 진입점. 코드 기반 7개(F-5/F-4/E-7/D-2/H-2/F-6/F-2) + 업무 기반 7개(REG/REEN/EX/WP/GR/VC/DR) + AC(직접신청)
+- **preload-all 아키텍처** — 마운트 시 `Promise.all([getEntryPoints(), list({ limit:500, status:"all" })])` 동시 호출. 두 API 모두 `.catch(() => [])` 로 감싸져 있어 실패 시 빈 배열 반환. `allRows`에 전체 rows 캐시. 진입점 클릭은 `getMatchingRows(allRows, entry)` 클라이언트 필터만 실행.
+  - `loadEntryRows(entry, rows)` — `getMatchingRows(rows, entry)`를 호출하고 결과를 `setCurrentEntryRows`에 저장. 코드 기반 진입점(`/^[A-Z]-[0-9A-Z]/i`): `detailed_code.startsWith` 필터. 업무 기반: `action_types` Set 필터.
+  - **카드 count와 클릭 결과 반드시 동일한 소스 사용**: `entryRowCounts`는 `allRows.length > 0`이면 `getMatchingRows(allRows, ep).length`로 계산, 로딩 중에만 `ep.count`를 임시 표시. 두 소스가 달라지면 "9건" 카드 클릭 시 0건이 표시되는 버그 발생 (2026-04-26 수정).
+  - **`allRows` 비어있을 때 fallback**: `handleEntryClick`에서 `allRows.length === 0`이면 `list({ limit:500, status:"all" })`을 재요청한 뒤 `loadEntryRows` 실행. `list` API silent fail 시 카드 클릭이 0건을 표시하는 버그 방지.
+- **`_ENTRY_POINTS_DATA`** (백엔드 `guidelines.py`): **14개** 진입점. 코드 기반 6개(F-5/F-4/E-7/D-2/H-2/F-6) + 업무 기반 7개(REG/REEN/EX/WP/GR/VC/DR) + AC(직접신청). **F-2는 백엔드에 없음** — 프론트엔드 fallback `ENTRY_POINTS`에는 있지만 API 응답이 오면 덮어씌워짐.
+- 직접 검색 (`doSearch`)은 서버사이드 `GET /api/guidelines/search/query?q=...`를 호출하므로 `allRows` 상태와 무관하게 동작.
 
 ---
 
@@ -765,6 +767,15 @@ python backend/scripts/migrate_guidelines_v2.py
 - **메뉴얼 업데이트 자동감지** — `GET /api/board/check-manual`은 관리자가 게시판에서 수동 트리거. 스케줄러 없음. 하이코리아 페이지 스크랩(`requests`)으로 날짜 추출 — 페이지 구조 변경 시 정규식 수정 필요.
 
 ### 2026-04-26 세션 수정 완료 항목 (참고)
+
+**실무지침 `/guidelines` 클릭 버그 수정 (`frontend/app/(main)/guidelines/page.tsx`):**
+- **버그**: 카드에 9건 표시되어 있어도 클릭 시 0건 + "해당 항목이 없습니다." 표시
+- **원인**: `entryRowCounts`가 `ep.count`(서버 API)를 사용하고, 클릭 결과는 `getMatchingRows(allRows, entry)` (클라이언트 필터)를 사용 — 데이터 소스 분리. `list` API silent fail 시 `allRows = []`가 되면서 두 값이 불일치.
+- **수정**:
+  1. `entryRowCounts` → `allRows.length > 0`이면 `getMatchingRows(allRows, ep).length`로 계산 (카드 count = 클릭 결과 항상 동일)
+  2. `handleEntryClick` → `allRows.length === 0`이면 `list` API 재요청 후 `loadEntryRows` 실행 (fallback)
+  3. `setAllRows` → `Array.isArray(rows) ? rows : []` 안전 가드 추가
+  4. `loadEntryRows` → `console.debug` 로그 추가 (inputRows/matched/sample 확인용)
 
 **모바일 공개 헤더/연락처 바:**
 - `frontend/components/PublicMobileNav.tsx` + `public-mobile.css` 신규 생성
