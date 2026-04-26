@@ -630,6 +630,7 @@
     .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
     .cta-info { gap: 20px; }
     .board-tabs { flex-wrap: wrap; }
+    footer { padding-bottom: 72px; }
   }
 
   .fade-in {

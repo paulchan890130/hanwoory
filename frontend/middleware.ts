@@ -15,6 +15,8 @@ export function middleware(request: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/board") ||
     pathname === "/documents" ||
+    pathname === "/siheung-immigration-agent" ||
+    pathname === "/jeongwang-immigration-agent" ||
     pathname === "/sitemap.xml" ||
     pathname === "/robots.txt"
   ) {

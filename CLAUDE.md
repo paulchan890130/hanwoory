@@ -148,9 +148,11 @@ frontend/app/
   page.tsx              — Public homepage (한우리행정사사무소 marketing site); NO auth required
   homepage.css          — Homepage-only CSS (Noto fonts, gold theme, sections); isolated from internal app
   sitemap.ts            — Dynamic sitemap.xml (fetches /api/marketing/posts, revalidate 1h)
-  board/page.tsx        — Public post list (server component); fetches all published posts, passes to BoardClient
-  board/BoardClient.tsx — Client component: client-side category filter, search (title/summary/category/tags), quick-link grid, post list
+  board/page.tsx        — Public post list (server component); fetches all published posts, passes to BoardClient; maxWidth 820
+  board/BoardClient.tsx — Client component: BOARD_ONLY whitelist pre-filter, category filter (공지사항/업무 안내/제도 변경/기타), search, post list; /documents callout
   board/[id]/page.tsx   — Public post detail; NO auth required; renders MarkdownContent; injects Article + BreadcrumbList JSON-LD
+  documents/page.tsx    — Public required-document guide hub; NO auth required; server component; injects BreadcrumbList JSON-LD
+  documents/DocumentsClient.tsx — Client component: search + 9-group grid (F-1/F-2/F-3/F-4/F-5/F-6/H-2/귀화/중국공증); stable `id` attrs for anchor links
   (auth)/login/         — Login page (no layout wrapper)
   (main)/layout.tsx     — Protected layout: checks isLoggedIn(), renders Sidebar + Topbar
   (main)/dashboard/     — Active tasks, planned tasks, calendar, expiry alerts, notice popup
@@ -176,7 +178,7 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 
 **Auth guard — two layers:**
 1. **`frontend/middleware.ts`** (Edge): checks `kid_auth` cookie, redirects before page renders.
-   - **Public paths** (no auth): `/`, `/board/*`, `/sitemap.xml`, `/robots.txt`
+   - **Public paths** (no auth): `/`, `/board/*`, `/documents`, `/sitemap.xml`, `/robots.txt`
    - **Matcher** excludes extensions: `jpg|png|gif|svg|ico|webp|css|js|xml|txt` — `.xml`/`.txt` exclusion is what lets sitemap and robots.txt pass without auth.
 2. **`(main)/layout.tsx`** (client): `useEffect` checks `isLoggedIn()` via localStorage, keeps `ready=false` until confirmed
 
@@ -341,17 +343,40 @@ The first 12 columns are the original schema; the last 5 were added in the 2026-
 ### 공개 사이트 SEO 인프라
 
 - **`frontend/app/sitemap.ts`** — Next.js App Router 동적 sitemap. 빌드/요청 시 `GET /api/marketing/posts` 호출하여 게시된 게시물을 `/board/{slug || id}` URL로 포함 (revalidate 1시간). API 접근 불가 시 정적 항목(`/`, `/board`)만 반환. 공개 API 자체가 `is_published=TRUE` 필터를 적용하므로 추가 필터 불필요.
-- **`frontend/public/robots.txt`** — 정적 파일. `Allow: /`, `Allow: /board`, `Allow: /board/`. 차단: `/login`, `/dashboard`, `/noticeboard`, `/manual`, 내부 앱 경로 전체. `Sitemap: https://www.hanwory.com/sitemap.xml` 포함.
+- **`frontend/public/robots.txt`** — 정적 파일. `Allow: /`. 차단: `/login`, `/dashboard`, `/admin`, `/marketing`, `/private`. `Sitemap: https://www.hanwory.com/sitemap.xml` 포함. (단순 형식 — 보안은 미들웨어에서 담당)
 - **JSON-LD 구조화 데이터**:
-  - `app/page.tsx` — `LegalService` JSON-LD (사무소명, 전화, 주소, 제공 서비스 목록). `<script type="application/ld+json">` 태그로 SSR HTML에 포함.
+  - `app/page.tsx` — `LegalService` JSON-LD (사무소명, 전화 031-488-8862, 경기도 시흥시, 서비스 카탈로그 7개). SSR HTML에 포함 (`"use client"` 컴포넌트이지만 Pre-render됨).
   - `board/[id]/page.tsx` — `Article` + `BreadcrumbList` JSON-LD. 게시물별 서버 렌더링. `desc`는 `generateMetadata`의 description 로직과 동일.
-- 공개 라우트: `app/board/page.tsx` (목록), `app/board/[id]/page.tsx` (상세). 두 경로 모두 미들웨어에서 인증 없이 통과.
+  - `documents/page.tsx` — `BreadcrumbList` JSON-LD (홈 › 업무별 준비서류).
+- **Sitemap** (`sitemap.ts`): `/` (priority 1.0), `/board` (0.7), `/documents` (0.9), 전체 published `/board/{slug}` (0.6)
+- 공개 라우트: `/`, `/board/*`, `/documents`, `/sitemap.xml`, `/robots.txt` — 미들웨어 인증 없이 통과.
 
-### `/board` 페이지 — 카테고리 및 퀵링크 관리
+### 공개 사이트 구조 — 3개 주요 라우트
 
-`board/BoardClient.tsx`에 두 가지 상수가 있다:
-- **`CATEGORIES`** — 카테고리 필터 버튼 표시 순서. 새 카테고리를 사용하는 게시물을 추가하면 이 배열도 업데이트 해야 표시됨. 현재 순서: 준비서류 안내 / 출입국 업무안내 / 중국 공증·아포스티유 / 영주권·귀화 / 공지사항 / 업무 안내 / 제도 변경 / 기타.
-- **`QUICK_LINKS`** — 상단 바로가기 그룹(6개). 각 항목은 `{ group, desc, items: [{label, href}] }`. `href`는 `/board/{slug}` 형식. 준비서류 안내 게시물 추가 시 여기도 추가할 것.
+| 라우트 | 역할 | 메모 |
+|---|---|---|
+| `/` | 공개 홈페이지 | HERO / ABOUT / SERVICES / **업무별 준비서류 카드 그리드** / 업무 안내(BOARD 섹션) / FAQ / CTA |
+| `/board` | 일반 게시판(업무 안내) | BOARD_ONLY 필터: 공지사항 / 업무 안내 / 제도 변경 / 기타 카테고리만 표시. 46개 준비서류 게시물은 제외됨. |
+| `/documents` | 준비서류 안내 허브 | 9개 체류자격 그룹 + 검색. 각 링크는 `/board/{slug}` 상세 페이지로 연결. ID 앵커(`#f4` 등) 지원. |
+
+### `/board` 페이지 — 카테고리 필터 관리
+
+`board/BoardClient.tsx`의 주요 상수:
+- **`BOARD_ONLY`** — `Set(["공지사항", "업무 안내", "제도 변경", "기타"])`. 서버에서 받은 전체 게시물 중 이 카테고리(또는 빈 카테고리)만 `/board`에 표시. 46개 준비서류 게시물(카테고리: 준비서류 안내 등)은 이 필터로 자동 제외됨.
+- **`CATEGORIES`** — 카테고리 필터 버튼: `["공지사항", "업무 안내", "제도 변경", "기타"]`. `/board`에 새 일반 카테고리 추가 시 BOARD_ONLY 세트와 CATEGORIES 배열 둘 다 업데이트.
+
+### `/documents` 페이지 — 준비서류 그룹 관리
+
+`documents/DocumentsClient.tsx`의 `GROUPS` 배열:
+- 각 그룹: `{ id, group, items: [{label, href}] }`. `id`는 앵커 ID (예: `"f4"`, `"nationality"`)
+- 링크는 `/board/{slug}` 형식. 새 준비서류 게시물 추가 시 여기 항목도 추가해야 /documents에 표시됨.
+- 그룹 순서: F-1 → F-2 → F-3 → F-4 → F-5(영주권) → F-6 → H-2 → 국적/귀화 → 중국공증
+- 앵커 ID 매핑: F-1=`f1`, F-2=`f2`, F-3=`f3`, F-4=`f4`, F-5=`f5`, F-6=`f6`, H-2=`h2`, 국적/귀화=`nationality`, 중국공증=`china-notarization`
+- `scrollMarginTop: 80` — 내비게이션 바에 의한 앵커 가림 방지
+
+### 홈페이지 `업무별 준비서류` 섹션
+
+`app/page.tsx`의 `DOCUMENT_GROUPS` 상수 — 9개 체류자격 카드. 각 카드: `{ label, anchor }`. 클릭 시 `/documents#${anchor}`로 이동. `/documents` 페이지의 `GROUPS[*].id`와 앵커가 일치해야 함. 두 파일을 수정할 때 앵커 ID 동기화 필수.
 
 ### 관리자 UI (`frontend/app/(main)/marketing/`)
 
@@ -744,16 +769,31 @@ python backend/scripts/migrate_guidelines_v2.py
 - `공개여부: 공개` → `is_published=TRUE`; 나머지 → `FALSE`
 - Upsert 키: `slug` (영문 슬러그). 기존 게시물의 slug와 충돌하지 않으면 신규 생성
 
-**`/board` UI 개선:**
-- `board/page.tsx` → server component로 분리 (data fetch), `BoardClient.tsx` → 인터랙티브 client component
-- `BoardClient.tsx` — 카테고리 필터(클라이언트 state), 검색(title/summary/category/tags), 자주 찾는 준비서류 퀵링크 그리드(6그룹 26링크), 게시물 목록
-- 게시물 목록 링크: `post.slug || post.id` (slug 우선)
-- `maxWidth` 820 → 1040 (퀵링크 그리드 레이아웃 확보)
+**`/board` UI 개선 (현재 최종 상태):**
+- `board/page.tsx` → server component (data fetch), `BoardClient.tsx` → client component
+- `BoardClient.tsx` — `BOARD_ONLY` 세트로 준비서류 카테고리 제외, 일반 카테고리(공지사항/업무 안내/제도 변경/기타) 필터, 검색, `/documents` 바로가기 callout, 게시물 목록
+- 게시물 목록 링크: `post.slug || post.id` (slug 우선), maxWidth 820
+
+**`/documents` 신규 생성 (현재 최종 상태):**
+- `documents/page.tsx` — server component; metadata(title: "업무별 준비서류 | 한우리행정사사무소"), BreadcrumbList JSON-LD
+- `documents/DocumentsClient.tsx` — 9그룹 44링크; 검색; 각 `<section id="f4">` 등 stable anchor; `scrollMarginTop: 80`
+- 미들웨어에 `/documents` 공개 경로 추가; sitemap에 priority 0.9로 추가
+
+**홈페이지 `업무별 준비서류` 섹션:**
+- `app/page.tsx` — BOARD 섹션과 FAQ 사이에 `<section id="documents-section">` 추가
+- `DOCUMENT_GROUPS` 상수: 9개 카드, 각 `/documents#${anchor}` 링크
+- 홈페이지 "전체" 탭 필터에 `HOMEPAGE_BOARD_ONLY` 세트 적용 → 46개 준비서류 게시물 홈페이지에서 제외
+
+**메타데이터 업데이트:**
+- `layout.tsx` default title: "한우리행정사사무소 | 출입국·체류·사증 업무 안내" (홈페이지에 적용)
+- `board/page.tsx` title: "업무 안내", canonical: `https://www.hanwory.com/board`
+- `documents/page.tsx` canonical: `https://www.hanwory.com/documents`
 
 **SEO / 구조화 데이터:**
-- `app/page.tsx` — `LegalService` JSON-LD 추가 (전화 031-488-8862, 경기도 시흥시, 서비스 카탈로그 7개)
-- `board/[id]/page.tsx` — `Article` + `BreadcrumbList` JSON-LD 추가 (서버 렌더링, 게시물별 동적)
-- `robots.txt` — `Allow: /board/`, `Disallow: /noticeboard`, `Disallow: /manual` 추가
+- `app/page.tsx` — `LegalService` JSON-LD (전화 031-488-8862, 경기도 시흥시, 서비스 카탈로그 7개)
+- `board/[id]/page.tsx` — `Article` + `BreadcrumbList` JSON-LD
+- `documents/page.tsx` — `BreadcrumbList` JSON-LD (홈 › 업무별 준비서류)
+- `robots.txt` — 단순화: `Allow: /`, `Disallow: /login|/dashboard|/admin|/marketing|/private`
 - MARKETING_HEADER: 12 → 17 columns (`image_file_id`, `image_url`, `image_alt`, `meta_description`, `tags` 추가)
 
 ### 2026-04-22 세션 수정 완료 항목 (참고)

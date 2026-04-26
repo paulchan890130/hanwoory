@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BoardClient } from "./BoardClient";
+import { PublicMobileNav } from "@/components/PublicMobileNav";
 
 export const metadata: Metadata = {
   title: "업무 안내",
@@ -49,6 +50,7 @@ export default async function BoardListPage({
 
   return (
     <>
+      <PublicMobileNav />
       <nav
         aria-label="breadcrumb"
         style={{

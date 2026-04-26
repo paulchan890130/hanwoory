@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import "./homepage.css";
+import { PublicMobileNav } from "@/components/PublicMobileNav";
 
 interface Post {
   id: string;
@@ -117,38 +118,36 @@ export default function HomePage() {
 
   const localBusinessJsonLd = {
     "@context": "https://schema.org",
-    "@type": "LegalService",
+    "@type": "LocalBusiness",
     name: "한우리행정사사무소",
-    alternateName: "Hanwoori Administrative Office",
-    url: "https://www.hanwory.com",
-    telephone: "031-488-8862",
+    url: "https://www.hanwory.com/",
+    logo: "https://www.hanwory.com/hanwoori-logo-new.png",
+    telephone: "010-4702-8886",
     address: {
       "@type": "PostalAddress",
+      streetAddress: "군로서마을로 12, 1층",
       addressLocality: "시흥시",
       addressRegion: "경기도",
       addressCountry: "KR",
     },
-    description:
-      "출입국·체류자격·사증 관련 업무 전문 행정사사무소. 체류자격 연장·변경, 외국인등록, 사증 발급, 영주권·귀화, 중국 공증·아포스티유 업무 대행.",
-    areaServed: { "@type": "Country", name: "대한민국" },
-    hasOfferCatalog: {
-      "@type": "OfferCatalog",
-      name: "출입국 행정 서비스",
-      itemListElement: [
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "체류자격 연장" } },
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "체류자격 변경" } },
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "외국인등록" } },
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "사증(비자) 발급" } },
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "영주권(F-5) 신청" } },
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "귀화 신청" } },
-        { "@type": "Offer", itemOffered: { "@type": "Service", name: "중국 공증·아포스티유" } },
-      ],
-    },
-    sameAs: ["https://www.hanwory.com"],
+    areaServed: ["시흥", "정왕", "정왕동", "안산", "인천", "경기도"],
+    knowsAbout: [
+      "행정사",
+      "출입국 업무",
+      "외국인등록",
+      "체류기간 연장",
+      "체류자격 변경",
+      "영주권",
+      "귀화",
+      "가족초청",
+      "중국 공증",
+      "아포스티유",
+    ],
   };
 
   return (
     <>
+      <PublicMobileNav />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
@@ -240,10 +239,10 @@ export default function HomePage() {
                 출입국 실무 중심의<br />행정사사무소입니다
               </h2>
               <p className="section-desc">
-                한우리행정사사무소는 외국인의 체류자격, 사증, 국적 관련 업무를
-                전문적으로 다루는 행정사사무소입니다.
-                단순 서류 대행이 아니라, 출입국관리법에 기반한 절차 이해와
-                정확한 서류 검토, 일정 관리까지 체계적으로 진행합니다.
+                한우리행정사사무소는 경기도 시흥시 정왕동 인근에서 출입국·체류·사증 업무를
+                지원하는 시흥 행정사입니다.
+                외국인등록, 체류기간 연장, 체류자격 변경, 영주권, 귀화, 가족초청,
+                중국 공증·아포스티유 관련 업무를 실무 중심으로 안내합니다.
               </p>
               <div className="about-highlights">
                 <div className="about-highlight">
@@ -274,8 +273,15 @@ export default function HomePage() {
               <p>
                 행정사법에 따라 등록된 정식 행정사사무소로서,<br />
                 법적 책임 하에 업무를 수행합니다.<br /><br />
-                소재지: 경기도 시흥시<br />
-                전화: 031-488-8862
+                소재지: 경기도 시흥시 정왕동<br />
+                전화: 010-4702-8886<br /><br />
+                시흥·정왕 지역에서 외국인 체류기간 연장,<br />
+                체류자격 변경, 외국인등록, 영주권, 귀화,<br />
+                중국 공증·아포스티유 업무를 상담합니다.
+              </p>
+              <p style={{ marginTop: 12, fontSize: "0.82rem" }}>
+                <Link href="/siheung-immigration-agent" style={{ color: "var(--gold-600)", textDecoration: "none", marginRight: 12 }}>시흥 지역 안내 →</Link>
+                <Link href="/jeongwang-immigration-agent" style={{ color: "var(--gold-600)", textDecoration: "none" }}>정왕 지역 안내 →</Link>
               </p>
             </div>
           </div>
@@ -508,7 +514,7 @@ export default function HomePage() {
             부담 없이 연락해 주세요.
           </p>
           <div className="hero-buttons fade-in">
-            <a href="tel:031-488-8862" className="btn-primary">
+            <a href="tel:01047028886" className="btn-primary">
               <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
               </svg>
@@ -518,11 +524,11 @@ export default function HomePage() {
           <div className="cta-info fade-in">
             <div className="cta-info-item">
               <div className="cta-info-label">전화번호</div>
-              <div className="cta-info-value">031-488-8862</div>
+              <div className="cta-info-value">010-4702-8886</div>
             </div>
             <div className="cta-info-item">
               <div className="cta-info-label">소재지</div>
-              <div className="cta-info-value">경기도 시흥시</div>
+              <div className="cta-info-value">경기도 시흥시 정왕동</div>
             </div>
             <div className="cta-info-item">
               <div className="cta-info-label">상담 가능 시간</div>
@@ -557,13 +563,15 @@ export default function HomePage() {
             <a href="#contact">상담 문의</a>
           </div>
           <div className="footer-col">
-            <h4>기타</h4>
+            <h4>지역 안내</h4>
+            <Link href="/siheung-immigration-agent">시흥 행정사 안내</Link>
+            <Link href="/jeongwang-immigration-agent">정왕 행정사 안내</Link>
             <Link href="/login">로그인 (기존 사용자)</Link>
-            <a href="tel:031-488-8862">전화 문의: 031-488-8862</a>
+            <a href="tel:01047028886">전화 문의: 010-4702-8886</a>
           </div>
         </div>
         <div className="footer-bottom">
-          <span>한우리행정사사무소 · 경기도 시흥시</span>
+          <span>한우리행정사사무소 · 경기도 시흥시 정왕동 · 시흥 행정사</span>
           <span>사업자등록번호: 213-12-37464</span>
         </div>
       </footer>

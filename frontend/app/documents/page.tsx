@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentsClient } from "./DocumentsClient";
+import { PublicMobileNav } from "@/components/PublicMobileNav";
 
 export const metadata: Metadata = {
   title: "업무별 준비서류",
@@ -32,6 +33,7 @@ const breadcrumbJsonLd = {
 export default function DocumentsPage() {
   return (
     <>
+      <PublicMobileNav />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}

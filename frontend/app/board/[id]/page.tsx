@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { PublicMobileNav } from "@/components/PublicMobileNav";
 
 interface Post {
   id: string;
@@ -87,6 +88,7 @@ export default async function BoardDetailPage({
     headline: post.title,
     description: desc,
     url: postUrl,
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
     datePublished: post.created_at,
     dateModified: post.updated_at || post.created_at,
     author: { "@type": "Organization", name: "한우리행정사사무소", url: BASE_URL },
@@ -107,6 +109,7 @@ export default async function BoardDetailPage({
 
   return (
     <>
+      <PublicMobileNav />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}

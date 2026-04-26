@@ -1,0 +1,130 @@
+/* PublicMobileNav — hidden on desktop, shown on mobile only */
+.pmn-header,
+.pmn-top-spacer,
+.pmn-contact-bar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* ── Fixed top breadcrumb header ── */
+  .pmn-header {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 500;
+    height: 56px;
+    background: rgba(255, 255, 255, 0.97);
+    border-bottom: 1px solid #E8E0D4;
+    padding: 0 16px;
+    gap: 6px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 1px 6px rgba(180, 160, 120, 0.12);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  /* Space in normal flow so content is not hidden behind the fixed header */
+  .pmn-top-spacer {
+    display: block;
+    height: 56px;
+    flex-shrink: 0;
+  }
+
+  .pmn-logo-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .pmn-logo-img {
+    height: 28px;
+    width: auto;
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .pmn-logo-text {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1A1A1A;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+  }
+
+  .pmn-sep {
+    color: #CCC;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .pmn-page-label {
+    font-size: 0.8rem;
+    color: #8B6914;
+    text-decoration: none;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  /* ── Fixed bottom contact bar ── */
+  .pmn-contact-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 500;
+    height: 56px;
+    background: #1A1A1A;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+
+  .pmn-contact-text {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    white-space: nowrap;
+  }
+
+  .pmn-contact-text a {
+    color: #D4A843;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .pmn-contact-icons {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .pmn-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: rgba(212, 168, 67, 0.15);
+    border-radius: 50%;
+    color: #D4A843;
+    text-decoration: none;
+  }
+
+  .pmn-icon-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+}
