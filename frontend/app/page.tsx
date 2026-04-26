@@ -125,7 +125,7 @@ export default function HomePage() {
     telephone: "010-4702-8886",
     address: {
       "@type": "PostalAddress",
-      streetAddress: "군로서마을로 12, 1층",
+      streetAddress: "군서마을로 12, 101호",
       addressLocality: "시흥시",
       addressRegion: "경기도",
       addressCountry: "KR",

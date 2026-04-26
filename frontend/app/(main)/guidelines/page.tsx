@@ -86,10 +86,14 @@ const ENTRY_POINTS: GuidelineEntryPoint[] = [
 ];
 
 // ── 트리 헬퍼 ──────────────────────────────────────────────────────────────────
+function isCodeEntry(entry: GuidelineEntryPoint): boolean {
+  return /^[A-Z]-[0-9A-Z]/i.test(entry.search_query);
+}
+
 function getMatchingRows(rows: GuidelineRow[], entry: GuidelineEntryPoint): GuidelineRow[] {
   const q = entry.search_query.toLowerCase();
   // 코드 기반 진입점: search_query가 비자 코드 패턴 (예: F-5, D-2, E-7, H-2)
-  if (/^[A-Z]-[0-9A-Z]/i.test(entry.search_query)) {
+  if (isCodeEntry(entry)) {
     return rows.filter(r =>
       (r.detailed_code || "").toLowerCase().startsWith(q)
     );
@@ -97,6 +101,28 @@ function getMatchingRows(rows: GuidelineRow[], entry: GuidelineEntryPoint): Guid
   // 업무 기반 진입점: action_type으로 필터
   const atFilter = new Set(entry.action_types || []);
   return rows.filter(r => atFilter.size === 0 || atFilter.has(r.action_type));
+}
+
+async function fetchRowsForEntry(entry: GuidelineEntryPoint): Promise<GuidelineRow[]> {
+  if (isCodeEntry(entry)) {
+    const res = await guidelinesApi.getTreeResults({
+      search_query: entry.search_query,
+      limit: 100,
+    });
+    return Array.isArray(res.data.data) ? res.data.data : [];
+  }
+
+  const actionTypes = entry.action_types || [];
+  if (actionTypes.length === 1) {
+    const res = await guidelinesApi.getTreeResults({
+      action_type: actionTypes[0],
+      limit: 100,
+    });
+    return Array.isArray(res.data.data) ? res.data.data : [];
+  }
+
+  const res = await guidelinesApi.list({ limit: 500, status: "all" });
+  return getMatchingRows(Array.isArray(res.data.data) ? res.data.data : [], entry);
 }
 
 // ── quickdoc 딥링크 URL 생성 ───────────────────────────────────────────────────
@@ -403,12 +429,15 @@ export default function GuidelinesPage() {
   const [entryPoints, setEntryPoints]       = useState<GuidelineEntryPoint[]>(ENTRY_POINTS);
   const [allRows, setAllRows]               = useState<GuidelineRow[]>([]);
   const [loadingAll, setLoadingAll]         = useState(true);
+  const [loadError, setLoadError]           = useState("");
 
   // 트리 상태
   const [selectedEntry, setSelectedEntry]           = useState<GuidelineEntryPoint | null>(null);
   const [selectedActionType, setSelectedActionType] = useState<string | null>(null);
   const [selectedRow, setSelectedRow]               = useState<GuidelineRow | null>(null);
   const [currentEntryRows, setCurrentEntryRows]     = useState<GuidelineRow[]>([]);
+  const [treeLoading, setTreeLoading]               = useState(false);
+  const [treeError, setTreeError]                   = useState("");
 
   // 검색 상태
   const [searchQuery, setSearchQuery]     = useState("");
@@ -422,9 +451,13 @@ export default function GuidelinesPage() {
 
   // 마운트 시 전체 rows + 진입점 동시 로딩
   useEffect(() => {
+    setLoadError("");
     Promise.all([
       guidelinesApi.getEntryPoints().then(res => res.data.data).catch(() => [] as GuidelineEntryPoint[]),
-      guidelinesApi.list({ limit: 500, status: "all" }).then(res => res.data.data).catch(() => [] as GuidelineRow[]),
+      guidelinesApi.list({ limit: 500, status: "all" }).then(res => res.data.data).catch(() => {
+        setLoadError("실무지침 목록을 불러오지 못했습니다. 로그인 상태 또는 서버 연결을 확인해 주세요.");
+        return [] as GuidelineRow[];
+      }),
     ]).then(([eps, rows]) => {
       if (eps.length > 0) setEntryPoints(eps);
       setAllRows(Array.isArray(rows) ? rows : []);
@@ -474,16 +507,40 @@ export default function GuidelinesPage() {
     : (skipL2 || selectedActionType !== null) ? "l3"
     : "l2";
 
-  // ── 진입점 rows — 전체 캐시에서 필터 (API 추가 호출 없음) ──
-  const loadEntryRows = useCallback((entry: GuidelineEntryPoint, rows: GuidelineRow[]) => {
-    const matched = getMatchingRows(rows, entry);
-    console.debug("[guidelines:loadEntryRows]", {
-      id: entry.id, search_query: entry.search_query,
-      inputRows: rows.length, matched: matched.length,
-      sample: matched.slice(0, 2).map(r => `${r.detailed_code}/${r.action_type}`),
-    });
-    setCurrentEntryRows(matched);
-  }, []);
+  // ── 진입점 rows — 전체 캐시 우선, 실패/미로딩 시 read-only tree endpoint 폴백 ──
+  const loadEntryRows = useCallback(async (entry: GuidelineEntryPoint) => {
+    setTreeLoading(true);
+    setTreeError("");
+    setCurrentEntryRows([]);
+
+    try {
+      let matched = allRows.length > 0 ? getMatchingRows(allRows, entry) : [];
+      if (matched.length === 0) {
+        matched = await fetchRowsForEntry(entry);
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[guidelines:tree]", {
+          id: entry.id,
+          label: entry.label,
+          search_query: entry.search_query,
+          action_types: entry.action_types,
+          cachedRows: allRows.length,
+          matched: matched.length,
+        });
+      }
+
+      setCurrentEntryRows(matched);
+      if (matched.length === 0) {
+        setTreeError("이 분류에 연결된 실무지침이 없습니다.");
+      }
+    } catch {
+      setCurrentEntryRows([]);
+      setTreeError("이 분류에 연결된 실무지침이 없습니다.");
+    } finally {
+      setTreeLoading(false);
+    }
+  }, [allRows]);
 
   // ── 핸들러 ──
   const doSearch = useCallback(async (q: string, type: string) => {
@@ -520,19 +577,7 @@ export default function GuidelinesPage() {
   const handleEntryClick = (entry: GuidelineEntryPoint) => {
     setSelectedEntry(entry); setSelectedActionType(null);
     setSelectedRow(null); setHasSearched(false);
-    if (allRows.length > 0) {
-      // 정상 경로: 캐시된 allRows에서 클라이언트 필터
-      loadEntryRows(entry, allRows);
-    } else {
-      // allRows가 비어있음 (초기 로딩 실패): 해당 진입점 rows를 직접 재요청
-      guidelinesApi.list({ limit: 500, status: "all" })
-        .then(res => {
-          const rows = Array.isArray(res.data.data) ? res.data.data : [];
-          setAllRows(rows);
-          loadEntryRows(entry, rows);
-        })
-        .catch(() => setCurrentEntryRows([]));
-    }
+    void loadEntryRows(entry);
   };
 
   const handleActionTypeClick = (at: string) => {
@@ -591,6 +636,23 @@ export default function GuidelinesPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: "12px 14px",
+            borderRadius: 10,
+            background: "#FFF5F5",
+            border: "1px solid #FEB2B2",
+            color: "#C53030",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {loadError}
+        </div>
+      )}
 
       {/* ── 검색 결과 뷰 ── */}
       {viewMode === "search" && (
@@ -709,12 +771,14 @@ export default function GuidelinesPage() {
 
       {/* ── L3: 항목 목록 ── */}
       {viewMode === "l3" && (
-        loadingAll ? (
+        treeLoading ? (
           <div style={{ display:"flex", justifyContent:"center", padding:"60px 0" }}>
             <Loader2 size={24} className="animate-spin" style={{color:"var(--hw-gold)"}}/>
           </div>
         ) : treeL3Rows.length === 0 ? (
-          <div style={{textAlign:"center",padding:"40px 0",color:"#A0AEC0",fontSize:13}}>해당 항목이 없습니다.</div>
+          <div style={{textAlign:"center",padding:"40px 0",color:"#A0AEC0",fontSize:13}}>
+            {treeError || "이 분류에 연결된 실무지침이 없습니다."}
+          </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {treeL3Rows.map(row => (

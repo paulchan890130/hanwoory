@@ -35,7 +35,7 @@ const localBusinessJsonLd = {
   telephone: "010-4702-8886",
   address: {
     "@type": "PostalAddress",
-    streetAddress: "군로서마을로 12, 1층",
+    streetAddress: "군서마을로 12, 101호",
     addressLocality: "시흥시",
     addressRegion: "경기도",
     addressCountry: "KR",
@@ -87,7 +87,7 @@ export default function JeongwangImmigrationAgentPage() {
             정왕 행정사 외국인 체류·비자 업무 안내
           </h1>
           <p style={{ fontSize: 15, color: "#555", margin: 0, lineHeight: 1.8 }}>
-            한우리행정사사무소는 경기도 시흥시 군로서마을로 12, 1층에 위치한 정왕동 행정사입니다.
+            한우리행정사사무소는 경기도 시흥시 군서마을로 12, 101호에 위치한 정왕동 행정사입니다.
             정왕 출입국 행정사로서 정왕·정왕동 인근 외국인 의뢰인의 외국인등록, 체류기간 연장,
             체류자격 변경, 영주권, 귀화, 중국 공증·아포스티유 업무를 처리합니다.
           </p>
@@ -235,7 +235,7 @@ export default function JeongwangImmigrationAgentPage() {
           <dl style={{ margin: 0, display: "grid", gap: "10px 0" }}>
             {[
               { dt: "사무소명", dd: "한우리행정사사무소" },
-              { dt: "소재지", dd: "경기도 시흥시 군로서마을로 12, 1층" },
+              { dt: "소재지", dd: "경기도 시흥시 군서마을로 12, 101호" },
               { dt: "문의전화", dd: "010-4702-8886" },
               { dt: "상담 시간", dd: "평일 09:00 ~ 18:00" },
             ].map(({ dt, dd }) => (

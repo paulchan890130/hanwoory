@@ -42,10 +42,10 @@ export async function generateMetadata({
   params: { id: string };
 }): Promise<Metadata> {
   const post = await getPost(params.id);
-  if (!post) return { title: "게시물 없음 | 한우리행정사사무소" };
+  if (!post) return { title: { absolute: "게시물 없음 | 한우리행정사사무소" } };
   const desc = post.meta_description || post.summary || post.content?.replace(/[#*>`[\]!()-]/g, "").slice(0, 120) || "";
   return {
-    title: `${post.title} | 한우리행정사사무소`,
+    title: { absolute: `${post.title} | 한우리행정사사무소` },
     description: desc,
     openGraph: {
       title: post.title,
@@ -66,6 +66,18 @@ function fmtDate(iso: string) {
 }
 
 const BASE_URL = "https://www.hanwory.com";
+const BOARD_CATEGORIES = new Set(["공지사항", "업무 안내", "제도 변경", "기타"]);
+
+function isRequiredDocumentPost(post: Post) {
+  const category = post.category?.trim();
+  if (category && !BOARD_CATEGORIES.has(category)) return true;
+  const text = `${post.slug} ${post.title} ${post.tags ?? ""}`.toLowerCase();
+  return (
+    text.includes("documents") ||
+    text.includes("pr-income-70-percent-condition") ||
+    post.title.includes("준비서류")
+  );
+}
 
 export default async function BoardDetailPage({
   params,
@@ -76,6 +88,10 @@ export default async function BoardDetailPage({
   if (!post) notFound();
 
   const postUrl = `${BASE_URL}/board/${post.slug || post.id}`;
+  const requiredDocumentPost = isRequiredDocumentPost(post);
+  const breadcrumbParent = requiredDocumentPost
+    ? { name: "업무별 준비서류", href: "/documents", url: `${BASE_URL}/documents` }
+    : { name: "업무 안내", href: "/board", url: `${BASE_URL}/board` };
   const desc =
     post.meta_description ||
     post.summary ||
@@ -102,7 +118,7 @@ export default async function BoardDetailPage({
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "홈", item: `${BASE_URL}/` },
-      { "@type": "ListItem", position: 2, name: "업무 안내", item: `${BASE_URL}/board` },
+      { "@type": "ListItem", position: 2, name: breadcrumbParent.name, item: breadcrumbParent.url },
       { "@type": "ListItem", position: 3, name: post.title, item: postUrl },
     ],
   };
@@ -141,8 +157,8 @@ export default async function BoardDetailPage({
             한우리행정사사무소
           </Link>
           <span style={{ color: "#CCC", fontSize: 14 }}>›</span>
-          <Link href="/board" style={{ color: "#8B6914", fontSize: 14, textDecoration: "none" }}>
-            업무 안내
+          <Link href={breadcrumbParent.href} style={{ color: "#8B6914", fontSize: 14, textDecoration: "none" }}>
+            {breadcrumbParent.name}
           </Link>
           <span style={{ color: "#CCC", fontSize: 14 }}>›</span>
           <span

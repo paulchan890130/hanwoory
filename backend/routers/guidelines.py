@@ -352,6 +352,7 @@ def get_tb_countries(user: dict = Depends(get_current_user)):
     return {"total": len(_TB_HIGH_RISK_ISO3), "countries": sorted(_TB_HIGH_RISK_ISO3)}
 
 
+@router.get("")
 @router.get("/")
 def list_guidelines(
     action_type: Optional[str] = Query(None, description="CHANGE|EXTEND|EXTRA_WORK|WORKPLACE|REGISTRATION|REENTRY|GRANT|VISA_CONFIRM|APPLICATION_CLAIM"),
@@ -407,4 +408,3 @@ def get_guideline(row_id: str, user: dict = Depends(get_current_user)):
         "related_rules": [r for r in _RULES if _rule_matches(r)],
         "related_exceptions": [e for e in _EXCEPTIONS if _exc_matches(e)],
     }
-

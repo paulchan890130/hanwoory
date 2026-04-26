@@ -1,0 +1,14 @@
+cd "C:\Users\윤찬\K.ID soft"
+uvicorn backend.main:app --reload --port 8000
+
+cd "C:\Users\윤찬\K.ID soft\frontend"
+npm run dev
+
+http://localhost:3000/
+
+
+cd "C:\Users\윤찬\K.ID soft"
+python -m uvicorn backend.main:app --reload --port 8000
+
+cd "C:\Users\윤찬\K.ID soft\frontend"
+npm run dev

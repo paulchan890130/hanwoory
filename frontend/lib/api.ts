@@ -18,6 +18,12 @@ api.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    if (
+      process.env.NODE_ENV !== "production" &&
+      /^\/api\/guidelines\/(?:\?|$)/.test(String(config.url ?? ""))
+    ) {
+      console.debug("[guidelines:list] Authorization header present:", Boolean(token));
+    }
   }
   return config;
 });
@@ -32,6 +38,13 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
+      const headers = err.config?.headers;
+      const skipAuthRedirect =
+        headers?.["X-Skip-Auth-Redirect"] === "1" ||
+        headers?.get?.("X-Skip-Auth-Redirect") === "1";
+      if (skipAuthRedirect) {
+        return Promise.reject(err);
+      }
       if (typeof window !== "undefined" && !_redirecting401) {
         _redirecting401 = true;
         localStorage.removeItem("access_token");
@@ -542,8 +555,18 @@ export const guidelinesApi = {
     api.get<{ code: string; count: number; action_types: string[]; data: GuidelineRow[] }>(
       `/api/guidelines/code/${encodeURIComponent(code)}`
     ),
-  list: (params?: { action_type?: string; domain?: string; page?: number; limit?: number; status?: string }) =>
-    api.get<GuidelineListResponse>("/api/guidelines/", { params }),
+  list: (params?: { action_type?: string; domain?: string; page?: number; limit?: number; status?: string }) => {
+    const search = new URLSearchParams();
+    Object.entries(params ?? {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        search.set(key, String(value));
+      }
+    });
+    const query = search.toString();
+    return api.get<GuidelineListResponse>(`/api/guidelines/${query ? `?${query}` : ""}`, {
+      headers: { "X-Skip-Auth-Redirect": "1" },
+    });
+  },
   getDetail: (row_id: string) =>
     api.get<GuidelineRow>(`/api/guidelines/${row_id}`),
   stats: () =>
