@@ -178,14 +178,19 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
 
 **Auth guard — two layers:**
 1. **`frontend/middleware.ts`** (Edge): checks `kid_auth` cookie, redirects before page renders.
-   - **Public paths** (no auth): `/`, `/board/*`, `/documents`, `/sitemap.xml`, `/robots.txt`
+   - **Public paths** (no auth): `/`, `/board/*`, `/documents`, `/siheung-immigration-agent`, `/jeongwang-immigration-agent`, `/sitemap.xml`, `/robots.txt`
    - **Matcher** excludes extensions: `jpg|png|gif|svg|ico|webp|css|js|xml|txt` — `.xml`/`.txt` exclusion is what lets sitemap and robots.txt pass without auth.
+   - **Adding a new public page:** add its `pathname` check in the `if` block at the top of `middleware()`, AND add it to `sitemap.ts` static entries.
 2. **`(main)/layout.tsx`** (client): `useEffect` checks `isLoggedIn()` via localStorage, keeps `ready=false` until confirmed
 
 ### Shared components (`frontend/components/`)
 
 - **`MarkdownContent.tsx`** — 마크다운 → 시맨틱 HTML 렌더러 (`"use client"`, 외부 의존 없음). `board/[id]/page.tsx`와 `RichEditor` 미리보기에서 사용.
 - **`RichEditor.tsx`** — 관리자용 마크다운 툴바 에디터 (`"use client"`). `marketing/new`, `marketing/[id]/edit`에서 사용. `onImageUpload` prop으로 이미지 업로드 핸들러 주입.
+- **`PublicMobileNav.tsx`** + **`public-mobile.css`** — 공개 페이지 전용 모바일 고정 상단 헤더 + 하단 연락처 바. 두 요소 모두 데스크톱에서 `display: none`, 모바일(`≤768px`)에서만 표시. 모든 공개 페이지(`/`, `/board`, `/board/[id]`, `/documents`, `/siheung-immigration-agent`, `/jeongwang-immigration-agent`)에 `<PublicMobileNav />` 추가 필수.
+  - `pathname === "/"` 이면 상단 헤더/스페이서는 렌더링하지 않음 (홈페이지의 기존 `.nav`가 담당). 하단 연락처 바는 모든 공개 페이지에 표시.
+  - 새 공개 페이지 추가 시: `PAGE_MAP` 상수에 `{ label, href }` 추가.
+  - 스페이서 `div.pmn-top-spacer` (높이 56px)가 DOM 흐름에 포함되어 고정 헤더 뒤로 컨텐츠가 가리지 않게 함. 별도 padding-top 필요 없음.
 
 ### Sidebar (`frontend/components/layout/sidebar.tsx`)
 
@@ -345,19 +350,23 @@ The first 12 columns are the original schema; the last 5 were added in the 2026-
 - **`frontend/app/sitemap.ts`** — Next.js App Router 동적 sitemap. 빌드/요청 시 `GET /api/marketing/posts` 호출하여 게시된 게시물을 `/board/{slug || id}` URL로 포함 (revalidate 1시간). API 접근 불가 시 정적 항목(`/`, `/board`)만 반환. 공개 API 자체가 `is_published=TRUE` 필터를 적용하므로 추가 필터 불필요.
 - **`frontend/public/robots.txt`** — 정적 파일. `Allow: /`. 차단: `/login`, `/dashboard`, `/admin`, `/marketing`, `/private`. `Sitemap: https://www.hanwory.com/sitemap.xml` 포함. (단순 형식 — 보안은 미들웨어에서 담당)
 - **JSON-LD 구조화 데이터**:
-  - `app/page.tsx` — `LegalService` JSON-LD (사무소명, 전화 031-488-8862, 경기도 시흥시, 서비스 카탈로그 7개). SSR HTML에 포함 (`"use client"` 컴포넌트이지만 Pre-render됨).
-  - `board/[id]/page.tsx` — `Article` + `BreadcrumbList` JSON-LD. 게시물별 서버 렌더링. `desc`는 `generateMetadata`의 description 로직과 동일.
+  - `app/page.tsx` — `LocalBusiness` JSON-LD (전화 010-4702-8886, 경기도 시흥시 정왕동, `areaServed`, `knowsAbout`). `"use client"` 컴포넌트이므로 `export const metadata` 불가 — 루트 `layout.tsx`의 default title/description이 홈페이지 메타로 사용됨.
+  - `board/[id]/page.tsx` — `Article` (+ `mainEntityOfPage`) + `BreadcrumbList` JSON-LD. 게시물별 서버 렌더링.
   - `documents/page.tsx` — `BreadcrumbList` JSON-LD (홈 › 업무별 준비서류).
-- **Sitemap** (`sitemap.ts`): `/` (priority 1.0), `/board` (0.7), `/documents` (0.9), 전체 published `/board/{slug}` (0.6)
-- 공개 라우트: `/`, `/board/*`, `/documents`, `/sitemap.xml`, `/robots.txt` — 미들웨어 인증 없이 통과.
+  - `siheung-immigration-agent/page.tsx` — `LocalBusiness` + `BreadcrumbList` JSON-LD (홈 › 시흥 행정사).
+  - `jeongwang-immigration-agent/page.tsx` — `LocalBusiness` + `BreadcrumbList` JSON-LD (홈 › 정왕 행정사).
+- **Sitemap** (`sitemap.ts`): `/` (1.0), `/board` (0.7), `/documents` (0.9), `/siheung-immigration-agent` (0.8), `/jeongwang-immigration-agent` (0.8), 전체 published `/board/{slug}` (0.6, dynamic)
+- 공개 라우트: `/`, `/board/*`, `/documents`, `/siheung-immigration-agent`, `/jeongwang-immigration-agent`, `/sitemap.xml`, `/robots.txt` — 미들웨어 인증 없이 통과.
 
-### 공개 사이트 구조 — 3개 주요 라우트
+### 공개 사이트 구조 — 5개 주요 라우트
 
 | 라우트 | 역할 | 메모 |
 |---|---|---|
-| `/` | 공개 홈페이지 | HERO / ABOUT / SERVICES / **업무별 준비서류 카드 그리드** / 업무 안내(BOARD 섹션) / FAQ / CTA |
-| `/board` | 일반 게시판(업무 안내) | BOARD_ONLY 필터: 공지사항 / 업무 안내 / 제도 변경 / 기타 카테고리만 표시. 46개 준비서류 게시물은 제외됨. |
-| `/documents` | 준비서류 안내 허브 | 9개 체류자격 그룹 + 검색. 각 링크는 `/board/{slug}` 상세 페이지로 연결. ID 앵커(`#f4` 등) 지원. |
+| `/` | 공개 홈페이지 | HERO / ABOUT(지역 SEO 문구 포함) / SERVICES / **업무별 준비서류 카드** / 업무 안내(BOARD) / FAQ / CTA |
+| `/board` | 일반 게시판(업무 안내) | BOARD_ONLY 필터: 공지사항 / 업무 안내 / 제도 변경 / 기타 카테고리만 표시. 46개 준비서류 게시물 제외. |
+| `/documents` | 준비서류 안내 허브 | 9개 체류자격 그룹 + 검색. `/board/{slug}` 상세 페이지로 연결. ID 앵커(`#f4` 등) 지원. |
+| `/siheung-immigration-agent` | 시흥 지역 SEO 랜딩 | 서버 컴포넌트. 시흥 행정사 키워드 타겟. `LocalBusiness` + `BreadcrumbList` JSON-LD. |
+| `/jeongwang-immigration-agent` | 정왕·정왕동 SEO 랜딩 | 서버 컴포넌트. 정왕 행정사 키워드 타겟. `LocalBusiness` + `BreadcrumbList` JSON-LD. |
 
 ### `/board` 페이지 — 카테고리 필터 관리
 
@@ -755,6 +764,35 @@ python backend/scripts/migrate_guidelines_v2.py
 - **`react-zoom-pan-pinch`** — still in `frontend/package.json` but unused. Safe to remove. Do not reintroduce it in the scan page.
 - **메뉴얼 업데이트 자동감지** — `GET /api/board/check-manual`은 관리자가 게시판에서 수동 트리거. 스케줄러 없음. 하이코리아 페이지 스크랩(`requests`)으로 날짜 추출 — 페이지 구조 변경 시 정규식 수정 필요.
 
+### 2026-04-26 세션 수정 완료 항목 (참고)
+
+**모바일 공개 헤더/연락처 바:**
+- `frontend/components/PublicMobileNav.tsx` + `public-mobile.css` 신규 생성
+- 모바일(`≤768px`) 전용: 고정 상단 헤더 `[로고] 한우리행정사사무소 > 현재 페이지명`, 고정 하단 연락처 바 `문의전화 : 010-4702-8886 [전화 아이콘] [SMS 아이콘]`
+- 홈페이지(`/`)는 기존 `.nav`가 상단 담당 → 하단 바만 추가. 비홈페이지 공개 페이지는 상단+하단 모두 표시.
+- `homepage.css` 모바일 미디어쿼리에 `footer { padding-bottom: 72px }` 추가 (하단 바 가림 방지)
+
+**로컬 SEO 페이지 신규 생성:**
+- `app/siheung-immigration-agent/page.tsx` — 시흥 행정사 랜딩 (서버 컴포넌트, `LocalBusiness` + `BreadcrumbList` JSON-LD)
+- `app/jeongwang-immigration-agent/page.tsx` — 정왕 행정사 랜딩 (서버 컴포넌트, `LocalBusiness` + `BreadcrumbList` JSON-LD)
+- 두 페이지 모두: 주요 업무 카드 그리드, 상담 준비 체크리스트, 준비서류 바로가기(`/board/f4-extension-documents` 등), 사무소 연락처 카드 포함
+
+**메타데이터 / JSON-LD 업데이트:**
+- `layout.tsx` default title: "한우리행정사사무소 | **시흥·정왕 출입국 행정사**"
+- `app/page.tsx` JSON-LD: `LegalService` → `LocalBusiness` (telephone `010-4702-8886`, streetAddress `군로서마을로 12, 1층`, `areaServed` 배열, `knowsAbout` 배열)
+- `board/[id]/page.tsx` Article JSON-LD에 `mainEntityOfPage` 추가
+- CTA 섹션 전화번호 `031-488-8862` → `010-4702-8886`
+
+**미들웨어 / 사이트맵:**
+- `middleware.ts`: `/siheung-immigration-agent`, `/jeongwang-immigration-agent` 공개 경로 추가
+- `sitemap.ts`: 두 페이지 정적 항목 추가 (priority 0.8, changeFrequency: monthly)
+
+**홈페이지 로컬 SEO 텍스트:**
+- About 섹션 소개 문구: "경기도 시흥시 정왕동 인근 … 시흥 행정사" 포함
+- `about-visual` 박스: 소재지 → "경기도 시흥시 정왕동", 연락처 → "010-4702-8886", 지역 안내 링크 2개 추가
+- 푸터 컬럼 → "지역 안내" 헤딩 + 시흥/정왕 링크
+- 푸터 하단 라인 → "경기도 시흥시 정왕동 · 시흥 행정사" 포함
+
 ### 2026-04-25 세션 수정 완료 항목 (참고)
 
 **준비서류 안내 게시물 일괄 import:**
@@ -785,12 +823,12 @@ python backend/scripts/migrate_guidelines_v2.py
 - 홈페이지 "전체" 탭 필터에 `HOMEPAGE_BOARD_ONLY` 세트 적용 → 46개 준비서류 게시물 홈페이지에서 제외
 
 **메타데이터 업데이트:**
-- `layout.tsx` default title: "한우리행정사사무소 | 출입국·체류·사증 업무 안내" (홈페이지에 적용)
+- `layout.tsx` default title: ~~"한우리행정사사무소 | 출입국·체류·사증 업무 안내"~~ → 2026-04-26 세션에서 변경됨 (아래 참고)
 - `board/page.tsx` title: "업무 안내", canonical: `https://www.hanwory.com/board`
 - `documents/page.tsx` canonical: `https://www.hanwory.com/documents`
 
 **SEO / 구조화 데이터:**
-- `app/page.tsx` — `LegalService` JSON-LD (전화 031-488-8862, 경기도 시흥시, 서비스 카탈로그 7개)
+- `app/page.tsx` — ~~`LegalService` JSON-LD (031-488-8862)~~ → 2026-04-26 세션에서 `LocalBusiness`로 교체됨
 - `board/[id]/page.tsx` — `Article` + `BreadcrumbList` JSON-LD
 - `documents/page.tsx` — `BreadcrumbList` JSON-LD (홈 › 업무별 준비서류)
 - `robots.txt` — 단순화: `Allow: /`, `Disallow: /login|/dashboard|/admin|/marketing|/private`

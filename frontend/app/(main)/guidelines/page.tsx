@@ -427,18 +427,21 @@ export default function GuidelinesPage() {
       guidelinesApi.list({ limit: 500, status: "all" }).then(res => res.data.data).catch(() => [] as GuidelineRow[]),
     ]).then(([eps, rows]) => {
       if (eps.length > 0) setEntryPoints(eps);
-      setAllRows(rows);
+      setAllRows(Array.isArray(rows) ? rows : []);
     }).finally(() => setLoadingAll(false));
   }, []);
 
-  // L1: 진입점별 row 수 — API에서 받은 count 직접 사용
+  // L1: 진입점별 row 수 — allRows가 로드된 경우 getMatchingRows로 계산 (클릭 결과와 동일한 소스/로직 사용)
+  // allRows가 비어있는 동안(로딩 중)에만 API count 임시 표시
   const entryRowCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const ep of entryPoints) {
-      counts[ep.id ?? ep.label] = ep.count ?? 0;
+      counts[ep.id ?? ep.label] = allRows.length > 0
+        ? getMatchingRows(allRows, ep).length
+        : (ep.count ?? 0);
     }
     return counts;
-  }, [entryPoints]);
+  }, [entryPoints, allRows]);
 
   // L2: 선택된 진입점의 업무유형 그룹 (currentEntryRows 기반)
   const treeL2Items = useMemo(() => {
@@ -473,7 +476,13 @@ export default function GuidelinesPage() {
 
   // ── 진입점 rows — 전체 캐시에서 필터 (API 추가 호출 없음) ──
   const loadEntryRows = useCallback((entry: GuidelineEntryPoint, rows: GuidelineRow[]) => {
-    setCurrentEntryRows(getMatchingRows(rows, entry));
+    const matched = getMatchingRows(rows, entry);
+    console.debug("[guidelines:loadEntryRows]", {
+      id: entry.id, search_query: entry.search_query,
+      inputRows: rows.length, matched: matched.length,
+      sample: matched.slice(0, 2).map(r => `${r.detailed_code}/${r.action_type}`),
+    });
+    setCurrentEntryRows(matched);
   }, []);
 
   // ── 핸들러 ──
@@ -511,7 +520,19 @@ export default function GuidelinesPage() {
   const handleEntryClick = (entry: GuidelineEntryPoint) => {
     setSelectedEntry(entry); setSelectedActionType(null);
     setSelectedRow(null); setHasSearched(false);
-    loadEntryRows(entry, allRows);
+    if (allRows.length > 0) {
+      // 정상 경로: 캐시된 allRows에서 클라이언트 필터
+      loadEntryRows(entry, allRows);
+    } else {
+      // allRows가 비어있음 (초기 로딩 실패): 해당 진입점 rows를 직접 재요청
+      guidelinesApi.list({ limit: 500, status: "all" })
+        .then(res => {
+          const rows = Array.isArray(res.data.data) ? res.data.data : [];
+          setAllRows(rows);
+          loadEntryRows(entry, rows);
+        })
+        .catch(() => setCurrentEntryRows([]));
+    }
   };
 
   const handleActionTypeClick = (at: string) => {
