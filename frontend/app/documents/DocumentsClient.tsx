@@ -3,132 +3,174 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 
-interface DocItem {
-  label: string;
-  href: string;
+interface Post {
+  id: string;
+  title: string;
+  slug: string;
+  tags?: string;
 }
 
-interface DocGroup {
+interface GroupDef {
   id: string;
   group: string;
-  items: DocItem[];
+  slugOrder: string[];
 }
 
-const GROUPS: DocGroup[] = [
+// Group scaffold: defines section labels, anchor IDs, and the display order for
+// already-imported posts. New posts appear at the end of their group via
+// the "doc_group:<id>" tag convention (see migrate_doc_groups.py).
+const GROUP_DEFS: GroupDef[] = [
   {
     id: "f1",
     group: "F-1",
-    items: [
-      { label: "F-1 초청(양육지원) 준비서류", href: "/board/f1-childcare-support-invitation-documents" },
-      { label: "F-1-5 초청 준비서류", href: "/board/f15-invitation-documents" },
+    slugOrder: [
+      "f1-childcare-support-invitation-documents",
+      "f15-invitation-documents",
     ],
   },
   {
     id: "f2",
     group: "F-2",
-    items: [
-      { label: "F-2 초청·변경 준비서류", href: "/board/f2-invitation-change-documents" },
-      { label: "F-2 변경(미성년) 준비서류", href: "/board/f2-change-minor-documents" },
-      { label: "F-2 등록 및 연장(배우자)", href: "/board/f2-registration-extension-spouse-documents" },
-      { label: "F-2 등록 및 연장(미성년자)", href: "/board/f2-registration-extension-minor-documents" },
+    slugOrder: [
+      "f2-invitation-change-documents",
+      "f2-change-minor-documents",
+      "f2-registration-extension-spouse-documents",
+      "f2-registration-extension-minor-documents",
     ],
   },
   {
     id: "f3",
     group: "F-3",
-    items: [
-      { label: "F-3 초청 준비서류", href: "/board/f3-invitation-documents" },
-      { label: "F-3 변경(배우자) 준비서류", href: "/board/f3-change-spouse-documents" },
-      { label: "F-3 변경(자녀) 준비서류", href: "/board/f3-change-child-documents" },
-      { label: "F-3 등록 및 연장(배우자)", href: "/board/f3-registration-extension-spouse-documents" },
-      { label: "F-3 등록 및 연장(미성년자)", href: "/board/f3-registration-extension-minor-documents" },
-      { label: "F-3-R 변경 준비서류", href: "/board/f3r-change-documents" },
+    slugOrder: [
+      "f3-invitation-documents",
+      "f3-change-spouse-documents",
+      "f3-change-child-documents",
+      "f3-registration-extension-spouse-documents",
+      "f3-registration-extension-minor-documents",
+      "f3r-change-documents",
     ],
   },
   {
     id: "f4",
     group: "F-4",
-    items: [
-      { label: "F-4 등록 준비서류", href: "/board/f4-registration-documents" },
-      { label: "F-4 연장 준비서류", href: "/board/f4-extension-documents" },
-      { label: "H-2에서 F-4 변경 준비서류", href: "/board/h2-to-f4-change-documents" },
-      { label: "기타 체류자격에서 F-4 변경 준비서류", href: "/board/other-status-to-f4-change-documents" },
-      { label: "F-4 변경(만 60세 / 시험) 준비서류", href: "/board/f4-change-age-60-or-test-documents" },
-      { label: "F-4 변경(초중고 재학) 준비서류", href: "/board/f4-change-school-student-documents" },
-      { label: "F-4 변경(지방 제조업 2년) 준비서류", href: "/board/f4-change-local-manufacturing-documents" },
-      { label: "F-4-R 변경 준비서류", href: "/board/f4r-change-documents" },
+    slugOrder: [
+      "f4-registration-documents",
+      "f4-extension-documents",
+      "h2-to-f4-change-documents",
+      "other-status-to-f4-change-documents",
+      "f4-change-age-60-or-test-documents",
+      "f4-change-school-student-documents",
+      "f4-change-local-manufacturing-documents",
+      "f4r-change-documents",
     ],
   },
   {
     id: "f5",
     group: "F-5 / 영주권",
-    items: [
-      { label: "F-4 2년 영주권 신청 준비서류(4대보험)", href: "/board/f4-two-year-pr-four-insurance-documents" },
-      { label: "F-4 2년 영주권 신청 준비서류(일용직)", href: "/board/f4-two-year-pr-daily-worker-documents" },
-      { label: "F-4 2년 영주권 신청 준비서류(재산세)", href: "/board/f4-two-year-pr-property-tax-documents" },
-      { label: "F-4 2년 영주권 신청 준비서류(자산)", href: "/board/f4-two-year-pr-assets-documents" },
-      { label: "F-4 2년 영주권 신청 준비서류(사업자)", href: "/board/f4-two-year-pr-business-owner-documents" },
-      { label: "H-2 4년 영주권 신청 준비서류", href: "/board/h2-four-year-permanent-residence-documents" },
-      { label: "C-3-8 영주권 신청 준비서류(부모님 국적)", href: "/board/c38-permanent-residence-parent-nationality-documents" },
-      { label: "F-4 영주권 소득 70% 조건", href: "/board/f4-pr-income-70-percent-condition" },
+    slugOrder: [
+      "f4-two-year-pr-four-insurance-documents",
+      "f4-two-year-pr-daily-worker-documents",
+      "f4-two-year-pr-property-tax-documents",
+      "f4-two-year-pr-assets-documents",
+      "f4-two-year-pr-business-owner-documents",
+      "h2-four-year-permanent-residence-documents",
+      "c38-permanent-residence-parent-nationality-documents",
+      "f4-pr-income-70-percent-condition",
     ],
   },
   {
     id: "f6",
     group: "F-6",
-    items: [
-      { label: "F-6 초청 준비서류", href: "/board/f6-invitation-documents" },
-      { label: "F-6 변경 준비서류", href: "/board/f6-change-documents" },
-      { label: "F-6 연장 준비서류", href: "/board/f6-extension-documents" },
+    slugOrder: [
+      "f6-invitation-documents",
+      "f6-change-documents",
+      "f6-extension-documents",
     ],
   },
   {
     id: "h2",
     group: "H-2",
-    items: [
-      { label: "H-2 등록 준비서류", href: "/board/h2-registration-documents" },
-      { label: "H-2 연장 준비서류", href: "/board/h2-extension-documents" },
-      { label: "C-3-8에서 H-2 변경 준비서류", href: "/board/c38-to-h2-change-documents" },
+    slugOrder: [
+      "h2-registration-documents",
+      "h2-extension-documents",
+      "c38-to-h2-change-documents",
     ],
   },
   {
     id: "nationality",
     group: "국적 / 귀화",
-    items: [
-      { label: "일반귀화 준비서류", href: "/board/naturalization-general-documents" },
-      { label: "간이귀화(결혼 2년) 준비서류", href: "/board/naturalization-simple-marriage-two-years-documents" },
-      { label: "간이귀화(혼인단절) 준비서류", href: "/board/naturalization-simple-marriage-breakdown-documents" },
-      { label: "혼인귀화(미성년 양육) 준비서류", href: "/board/naturalization-marriage-minor-child-documents" },
-      { label: "특별귀화(부모국적) 준비서류", href: "/board/naturalization-special-parent-nationality-documents" },
-      {
-        label: "간이귀화(3년거주 + 사망한 부모국적) 준비서류",
-        href: "/board/naturalization-simple-three-years-deceased-parent-documents",
-      },
+    slugOrder: [
+      "naturalization-general-documents",
+      "naturalization-simple-marriage-two-years-documents",
+      "naturalization-simple-marriage-breakdown-documents",
+      "naturalization-marriage-minor-child-documents",
+      "naturalization-special-parent-nationality-documents",
+      "naturalization-simple-three-years-deceased-parent-documents",
     ],
   },
   {
     id: "china-notarization",
     group: "중국 공증·아포스티유",
-    items: [
-      { label: "친속공증 준비서류", href: "/board/family-notarization-documents" },
-      { label: "결혼공증 준비서류", href: "/board/marriage-notarization-documents" },
-      { label: "미혼·재혼공증 준비서류", href: "/board/single-remarriage-notarization-documents" },
-      { label: "무범죄공증 준비서류", href: "/board/criminal-record-notarization-documents" },
+    slugOrder: [
+      "family-notarization-documents",
+      "marriage-notarization-documents",
+      "single-remarriage-notarization-documents",
+      "criminal-record-notarization-documents",
     ],
   },
 ];
 
-export function DocumentsClient() {
+export function DocumentsClient({ posts }: { posts: Post[] }) {
   const [query, setQuery] = useState("");
 
+  const postBySlug = useMemo(() => {
+    const map: Record<string, Post> = {};
+    for (const p of posts) {
+      if (p.slug) map[p.slug] = p;
+    }
+    return map;
+  }, [posts]);
+
+  // Posts tagged "doc_group:<id>" that are not in the slugOrder list (new additions)
+  const extraByGroup = useMemo(() => {
+    const map: Record<string, Post[]> = {};
+    for (const p of posts) {
+      const m = (p.tags || "").match(/\bdoc_group:(\S+)/);
+      if (!m) continue;
+      const gid = m[1];
+      if (!map[gid]) map[gid] = [];
+      map[gid].push(p);
+    }
+    return map;
+  }, [posts]);
+
+  const groups = useMemo(() => {
+    return GROUP_DEFS.map((g) => {
+      const orderedSet = new Set(g.slugOrder);
+      const ordered = g.slugOrder
+        .map((slug) => postBySlug[slug])
+        .filter(Boolean) as Post[];
+      const extra = (extraByGroup[g.id] || []).filter(
+        (p) => !orderedSet.has(p.slug)
+      );
+      const items = [...ordered, ...extra].map((p) => ({
+        label: p.title,
+        href: `/board/${p.slug}`,
+      }));
+      return { ...g, items };
+    }).filter((g) => g.items.length > 0);
+  }, [postBySlug, extraByGroup]);
+
   const filteredGroups = useMemo(() => {
-    if (!query.trim()) return GROUPS;
+    if (!query.trim()) return groups;
     const q = query.trim().toLowerCase();
-    return GROUPS.map((g) => ({
-      ...g,
-      items: g.items.filter((item) => item.label.toLowerCase().includes(q)),
-    })).filter((g) => g.items.length > 0);
-  }, [query]);
+    return groups
+      .map((g) => ({
+        ...g,
+        items: g.items.filter((item) => item.label.toLowerCase().includes(q)),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [groups, query]);
 
   return (
     <>

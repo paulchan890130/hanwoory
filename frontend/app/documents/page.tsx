@@ -3,6 +3,27 @@ import Link from "next/link";
 import { DocumentsClient } from "./DocumentsClient";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
 
+interface Post {
+  id: string;
+  title: string;
+  slug: string;
+  tags?: string;
+}
+
+async function getPosts(): Promise<Post[]> {
+  try {
+    const base = process.env.API_URL || "http://127.0.0.1:8000";
+    const res = await fetch(`${base}/api/marketing/posts`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 export const metadata: Metadata = {
   title: "업무별 준비서류",
   description:
@@ -30,7 +51,8 @@ const breadcrumbJsonLd = {
   ],
 };
 
-export default function DocumentsPage() {
+export default async function DocumentsPage() {
+  const posts = await getPosts();
   return (
     <>
       <PublicMobileNav />
@@ -116,7 +138,7 @@ export default function DocumentsPage() {
           </p>
         </header>
 
-        <DocumentsClient />
+        <DocumentsClient posts={posts} />
 
         <footer
           style={{
