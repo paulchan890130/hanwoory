@@ -273,6 +273,8 @@ export const adminApi = {
       message?: string;
       warning?: string;
     }>("/api/admin/workspace", { login_id, office_name }),
+  deleteAccount: (loginId: string) =>
+    api.delete(`/api/admin/accounts/${loginId}`),
 };
 
 // 업무참고
@@ -445,6 +447,24 @@ export const oneClickApi = {
 
 // ── 실무지침 ──────────────────────────────────────────────────────────────────
 
+export interface GuidelineSubType {
+  label: string;
+  condition: string;
+  form_docs: string;
+  supporting_docs: string;
+  practical_notes?: string;
+}
+
+export interface ManualRef {
+  manual: "체류민원" | "사증민원";
+  page_from: number;
+  page_to: number;
+  match_text?: string;
+  match_type?: "action_exact" | "action_prefix" | "section_only";
+  section_pf?: number;
+  section_pt?: number;
+}
+
 export interface GuidelineRow {
   row_id: string;
   domain: string;
@@ -459,6 +479,12 @@ export interface GuidelineRow {
   fee_rule: string;
   basis_section: string;
   status: string;
+  // 실무 확장 필드
+  practical_notes?: string;    // 실무 주의사항 (| 구분)
+  step_after?: string;         // 허가 후 다음 단계 (| 구분)
+  apply_channel?: string;      // 신청 경로 안내
+  sub_types?: GuidelineSubType[]; // 조건별 분기 (L4)
+  manual_ref?: ManualRef[];    // 매뉴얼 PDF 페이지 매핑
   // 문서자동작성 딥링크용 (데이터 마이그레이션 후 채워짐)
   quickdoc_category?: string;
   quickdoc_minwon?: string;

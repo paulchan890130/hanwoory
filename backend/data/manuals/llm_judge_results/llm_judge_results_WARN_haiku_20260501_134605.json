@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_warn_cluster_lt3_20260501_134459.json",
+    "tier": "WARN",
+    "model": "claude-haiku-4-5-20251001",
+    "run_timestamp": "2026-05-01T13:46:05",
+    "total_rows": 7,
+    "api_called": true,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0131",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.143-144에 '2) 기술창업준비(D-10-2)'라는 명확한 heading이 존재하며, 해당 세부코드 아래에 신청요건(학사 이상 학위 + 4가지 충족요건)과 제한대상(3년 이수 기한)이 직접 기술됨. '대한민국 특허권·실용신안권·디자인권 보유 또는 출원', 'OASIS 교육과정 참여·이수', 'K-Startup 그랜드챌린지', '해외 OECD 지식재산권'이 구체적 신청요건으로 제시됨.",
+      "negative_evidence": "없음. 현재 페이지는 D-10-2만의 상세 규정을 다루며 다른 subtype과 혼재되지 않음. 자격 설명이나 활동범위만 나열하는 것이 아니라 신청요건과 제한대상을 직접 포함.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5923,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 373
+      }
+    },
+    {
+      "row_id": "M1-0209",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.298에 '2. 주한 외국공관원의 가사보조인으로서 공관원과 동일국적을 가진 자에 대한 체류기간 1년 이하의 단수사증 (F-1-21)'이 heading으로 명시되어 있으며, 신청요건(공관원과 동일국적), 첨부서류(사증발급신청서, 여권, 사진, 수수료, 외국공관 협조공문, 고용계약서, 고용인 신분증명서 사본)가 직접 제시되어 있음. 주재국 이외 국민에 대한 사증발급인정서 요건도 명시됨.",
+      "negative_evidence": "없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5514,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 293
+      }
+    },
+    {
+      "row_id": "M1-0211",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.349-350에 '8. 우수인재, 투자자 및 유학생 부모' heading이 명시되어 있으며, 해당 섹션에서 제출서류(①신청서·여권·외국인등록증·수수료 ②신원보증서 ③가족관계입증서류 ④체류지입증서류)가 직접 기재되어 있음. F-1-15 업무의 '우수인재·투자자·유학생 부모 방문동거' 체류기간연장허가에 필요한 신청요건과 제출서류가 명확히 존재함.",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5641,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 267
+      }
+    },
+    {
+      "row_id": "M1-0227",
+      "decision": "BROAD",
+      "confidence": "high",
+      "page_role": "BROAD_FAMILY_PAGE",
+      "positive_evidence": "페이지 348-350에 '체류기간연장허가' 섹션에서 6번 항목 '외국인투자자 및 우수전문인력의 가사보조인'이 존재하며, 제출서류가 명시되어 있음. 고액투자가(외국인투자자) 가사보조인의 체류기간연장에 대한 내용 포함.",
+      "negative_evidence": "F-1-22 세부코드나 '고액투자가 가사보조인 방문동거'라는 구체적인 업무명이 heading으로 등장하지 않음. 6번 항목은 '외국인투자자 및 우수전문인력의 가사보조인'이라는 더 광범위한 제목으로, 다수의 subtype을 포괄하는 broad family 섹션 형태. 페이지는 체류기간연장허가의 1번부터 12번까지 다양한 케이스를 다루는 개요 형식.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5961,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 372
+      }
+    },
+    {
+      "row_id": "M1-0230",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "BODY_KEYWORD_ONLY",
+      "positive_evidence": "페이지 348-350에 '체류기간연장허가' 섹션 내 6번 항목에서 '외국인투자자 및 우수전문인력의 가사보조인'이 본문에 등장",
+      "negative_evidence": "1. 세부코드 'F-1-24'가 heading으로 등장하지 않음. 2. '해외우수인재 가사보조인 방문동거'에 해당하는 명확한 heading 없음. 3. 6번 항목은 '외국인투자자 및 우수전문인력의 가사보조인'으로 해외우수인재의 부양 가족 신청요건이 아님. 4. 키워드(우수인재, 가사보조인)가 본문에만 산재하고 F-1-24로 특정되는 heading이 없음. 5. 구체적인 신청요건과 제출서류가 이 subtype에 직접 있지 않음.",
+      "recommended_page": "F-1-24에 해당하는 '해외우수인재 가사보조인 방문동거'의 체류기간연장허가 조항이 별도로 존재하는지 재확인 필요",
+      "_usage": {
+        "input_tokens": 5962,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 427
+      }
+    },
+    {
+      "row_id": "M1-0276",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "QUALIFICATION_OVERVIEW",
+      "positive_evidence": "H-2 자격명이 heading(□방문취업 자격으로 변경허가)에 명시됨",
+      "negative_evidence": "페이지 내용이 '다른 체류자격에서 방문취업(H-2) 자격으로 자격변경할 수 없습니다'라는 부정 규정만 포함. 변경허가 신청요건, 제출서류, 허가기준이 직접 없음. 대신 체류기간연장, 법위반처리, 취업활동범위, 취업개시신고 등 H-2 자격 전반의 관리 사항만 기술. 업무정의상 요구하는 '변경 신청요건·제출서류가 직접 있어야 함'을 만족하지 않음. BROAD 수준의 자격 설명 페이지",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4099,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 324
+      }
+    },
+    {
+      "row_id": "M1-0277",
+      "decision": "BROAD",
+      "confidence": "high",
+      "page_role": "BROAD_FAMILY_PAGE",
+      "positive_evidence": "p.521에 'Ⅰ 현행 재외동포 정책 개요'와 '2. 방문취업제(H-2)' 섹션이 heading으로 등장하며, H-2 체류기간연장에 관한 내용('체류기간연장이 가능합니다', '일정한 요건을 충족할 경우')이 본문에 포함됨",
+      "negative_evidence": "p.521은 '정책 개요' 섹션으로 여러 동포 체류자격(C-3, H-2, F-4, F-5)을 함께 다루는 broad family 페이지임. H-2 체류기간연장의 신청요건, 제출서류, 허가기준이 직접 명시되어 있지 않으며, 세부절차는 p.522 이후('제도별 세부절차' 섹션 '3. 방문취업제(H-2) 체류관리 세부절차')에 위치함. 판정 금지조건 1번('broad family 섹션')에 해당.",
+      "recommended_page": "p.522 이후의 'Ⅱ 제도별 세부절차' 중 '3. 방문취업제(H-2) 체류관리 세부절차' 섹션",
+      "_usage": {
+        "input_tokens": 3289,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 449
+      }
+    }
+  ]
+}

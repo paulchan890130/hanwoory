@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_fail_cluster_lt3_20260501_125555.json",
+    "tier": "FAIL",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T13:11:01",
+    "total_rows": 3,
+    "api_called": true,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true,
+    "parent_judge_results": "backend/data/manuals/llm_judge_results/llm_judge_results_FAIL_sonnet_20260501_131101.json",
+    "filter_criteria": "PARSE_FAIL retry — verifier originally hit max_tokens before producing JSON",
+    "filter_timestamp": "2026-05-01T13:32:04",
+    "retry_row_ids": [
+      "M1-0097",
+      "M1-0159",
+      "M1-0368"
+    ]
+  },
+  "results": [
+    {
+      "row_id": "M1-0097",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "페이지 상단에 '4) 최우수인재(D-10-T)'가 heading으로 등장하며, 세계 대학 순위 100위 이내 대학 석사 이상 학위 취득 후 구직활동 요건(신청요건)이 직접 기술되어 있음. '최우수인재 구직(D-10-T) 자격 부여' 조건 명시. 또한 제한대상(나. 제한대상) 항목 내 D-10-T 관련 결격사유가 포함되어 있어 허가기준이 직접 존재함.",
+      "negative_evidence": "D-10-1, D-10-2 등 다른 subtype의 제한대상도 같은 페이지에 존재하나, D-10-T heading 하에 신청요건이 명확히 기술되어 있어 EXACT 조건 충족에 방해되지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5675,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 346
+      }
+    },
+    {
+      "row_id": "M1-0159",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.196(체류민원 p.197)에 '재입국허가' 섹션이 명시되어 있으며, 기술지도(E-4) 자격에 대한 재입국허가 면제 제도 및 복수재입국허가 신청서류(신청서, 여권 원본, 외국인등록증, 수수료)가 직접 기재되어 있음. 또한 같은 페이지에 '체류기간연장허가' 섹션에 E-4 관련 제출서류도 포함되어 있어 E-4 기술지도 재입국허가 업무의 요건·서류가 직접 존재함.",
+      "negative_evidence": "heading이 'E-4 기술지도'로 명시적으로 등장하지는 않으나, p.196은 E-4(기술지도) 섹션 내 하위 업무들(체류자격변경허가, 체류기간연장허가, 재입국허가, 외국인등록)을 다루는 페이지로, 인접 페이지(p.195)에서 E-4 기술지도 체류자격변경허가 내용이 시작되고 p.196이 그 연속임. 다만 E-4 heading이 해당 페이지에 직접 없는 점은 heading_not_found 위험과 일치함.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5569,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 476
+      }
+    },
+    {
+      "row_id": "M1-0368",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "페이지 하단에 '8. 특정분야 능력 소유자〔F-5-11〕' heading이 명시되어 있으며, '가. 대상', '나. 요건(생계유지능력요건 면제)' 항목이 시작되고, 인접 페이지(p.459)에 점수제 요건표(필수항목/선택항목)와 제출서류가 이어짐. F-5-11의 heading이 직접 등장하고 신청요건이 해당 섹션 내에 존재함.",
+      "negative_evidence": "페이지 상단에 F-5-10(학사·석사 학위증 및 자격증 소지자) 섹션의 일부 내용이 포함되어 있으나, F-5-11 heading이 명확히 등장하고 해당 업무의 요건이 시작됨.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5605,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 332
+      }
+    }
+  ]
+}

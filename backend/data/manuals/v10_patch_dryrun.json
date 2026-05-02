@@ -1,0 +1,321 @@
+{
+  "patch_meta": {
+    "version": "v10",
+    "mode": "DRY_RUN",
+    "scope": "6 rows: D-10-2/D-8-2/D-8-1/E-2/F-1-5/D-10-3"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 6,
+    "diff_row_ids": [
+      "M1-0114",
+      "M1-0115",
+      "M1-0132",
+      "M1-0134",
+      "M1-0146",
+      "M1-0205"
+    ],
+    "diff_count": 6,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1006144
+  },
+  "rows": [
+    {
+      "row_id": "M1-0134",
+      "detailed_code": "D-10-2",
+      "action_type": "EXTEND",
+      "title": "기술창업준비",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 129,
+          "page_to": 129,
+          "match_text": "체류기간 연장",
+          "section_pf": 123,
+          "section_pt": 129,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 155,
+          "page_to": 155,
+          "match_type": "manual_override",
+          "match_text": "D-10-2 기술창업준비 EXTEND 체류기간연장허가 (체류민원 p.155) — LLM judge + verifier 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 155,
+          "page_to": 155,
+          "match_type": "manual_override",
+          "match_text": "D-10-2 기술창업준비 EXTEND 체류기간연장허가 (체류민원 p.155) — LLM judge + verifier 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.155: '체류기간연장허가 가. 첨부서류 / 2) 기술창업준비(D-10-2)' heading + 기술창업활동계획서·체류지입증서류 등 제출서류. LLM judge EXACT + verifier ACCEPTED."
+    },
+    {
+      "row_id": "M1-0115",
+      "detailed_code": "D-8-2",
+      "action_type": "VISA_CONFIRM",
+      "title": "벤처투자",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 113,
+          "page_to": 117,
+          "match_text": "사증발급",
+          "section_pf": 113,
+          "section_pt": 118,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 113,
+          "page_to": 117,
+          "match_text": "사증발급",
+          "section_pf": 113,
+          "section_pt": 118,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 110,
+          "page_to": 110,
+          "match_type": "manual_override",
+          "match_text": "D-8-2 벤처투자 VISA_CONFIRM 사증발급인정서 (사증민원 p.110) — LLM judge + 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 110,
+          "page_to": 110,
+          "match_type": "manual_override",
+          "match_text": "D-8-2 벤처투자 VISA_CONFIRM 사증발급인정서 (사증민원 p.110) — LLM judge + 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.110: '사증발급인정서 / 발급대상 / 2. 벤처기업 육성에 관한 특별조치법에 따라 벤처기업을 설립한 자 및 예비벤처기업 확인을 받은 자' — D-8-2 item 명시 + req + doc. LLM judge recommended_page='p.110'."
+    },
+    {
+      "row_id": "M1-0114",
+      "detailed_code": "D-8-1",
+      "action_type": "VISA_CONFIRM",
+      "title": "법인투자",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 113,
+          "page_to": 120,
+          "match_text": "사증발급",
+          "section_pf": 113,
+          "section_pt": 120,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 113,
+          "page_to": 120,
+          "match_text": "사증발급",
+          "section_pf": 113,
+          "section_pt": 120,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 108,
+          "page_to": 109,
+          "match_type": "manual_override",
+          "match_text": "D-8-1 법인투자 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.108-109) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 108,
+          "page_to": 109,
+          "match_type": "manual_override",
+          "match_text": "D-8-1 법인투자 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.108-109) — 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.108-109: D-8-1 코드 확인 (p.109) + ina=True + req + doc. p.108 '공관장재량으로 발급할수있는사증 / 대한민국 법인을 설립하고 법인등기 및 사업자등록을 완료하였을 것' + p.109 '7. 한·우즈벡 협정 대상자' (D-8-1 법인투자 세부). LLM judge recommended_page=109."
+    },
+    {
+      "row_id": "M1-0146",
+      "detailed_code": "E-2",
+      "action_type": "VISA_CONFIRM",
+      "title": "회화지도",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 170,
+          "page_to": 180,
+          "match_text": "사증발급",
+          "section_pf": 169,
+          "section_pt": 180,
+          "score": 30,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 170,
+          "page_to": 180,
+          "match_text": "사증발급",
+          "section_pf": 169,
+          "section_pt": 180,
+          "score": 30,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 146,
+          "page_to": 146,
+          "match_type": "manual_override",
+          "match_text": "E-2 회화지도 VISA_CONFIRM 사증발급인정서 (사증민원 p.146) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 146,
+          "page_to": 146,
+          "match_type": "manual_override",
+          "match_text": "E-2 회화지도 VISA_CONFIRM 사증발급인정서 (사증민원 p.146) — 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.146: '회화지도(E-2)' 코드 + ina=True + req=True — '원어민 영어 보조교사 또는 원어민 중국어보조교사 합격증 / Talk 장학생 초청장(국립국제교육원장 발급)' E-2 전용 첨부서류 명시."
+    },
+    {
+      "row_id": "M1-0205",
+      "detailed_code": "F-1-5",
+      "action_type": "VISA_CONFIRM",
+      "title": "결혼이민자의 부모 등 가족 방문동거",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 354,
+          "page_to": 354,
+          "match_text": "사증발급",
+          "section_pf": 350,
+          "section_pt": 354,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 354,
+          "page_to": 354,
+          "match_text": "사증발급",
+          "section_pf": 350,
+          "section_pt": 354,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 303,
+          "page_to": 304,
+          "match_type": "manual_override",
+          "match_text": "F-1-5 결혼이민자 부모 VISA_CONFIRM 공관장재량 사증 (사증민원 p.303-304) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 303,
+          "page_to": 304,
+          "match_type": "manual_override",
+          "match_text": "F-1-5 결혼이민자 부모 VISA_CONFIRM 공관장재량 사증 (사증민원 p.303-304) — 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.303-304: F-1-5 명시 + 첨부서류/공통서류 — 결혼이민자의 부모 공관장재량 사증 섹션. p.303 'F-1-5 비자 발급 제한 / 4) 초청 인원', p.304 '첨부서류 / 공통서류'."
+    },
+    {
+      "row_id": "M1-0132",
+      "detailed_code": "D-10-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "첨단기술인턴",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 156,
+          "page_to": 158,
+          "match_text": "사증발급",
+          "section_pf": 155,
+          "section_pt": 159,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 156,
+          "page_to": 158,
+          "match_text": "사증발급",
+          "section_pf": 155,
+          "section_pt": 159,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 130,
+          "page_to": 131,
+          "match_type": "manual_override",
+          "match_text": "D-10-3 첨단기술인턴 VISA_CONFIRM 사증발급인정서 (사증민원 p.130-131) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 130,
+          "page_to": 131,
+          "match_type": "manual_override",
+          "match_text": "D-10-3 첨단기술인턴 VISA_CONFIRM 사증발급인정서 (사증민원 p.130-131) — 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.130: D-10-3/첨단기술인턴 코드 + ina=True + req=True — 사증민원 D-10 사증발급인정서 섹션 내 첨단기술인턴 부분. p.131 계속 '첨단기술인턴 초청이 가능한 기업(기관)임을 입증할 수 있는 서류'."
+    }
+  ]
+}

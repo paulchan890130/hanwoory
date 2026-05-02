@@ -1,0 +1,361 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_e9_cluster_20260501_135636.json",
+    "tier": "ALL",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T13:59:00",
+    "total_rows": 23,
+    "api_called": true,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0010",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.33에 '체류자격변경허가' 섹션이 heading으로 존재하며, 그 하위에 '문화예술(D-1) 체류자격변경이 가능한 경우'가 명시됨. 제출서류(필수서류: 신청서, 여권 원본, 수수료, 연수기관이 작성한 연수일정표, 문화예술단체 입증서류 등)와 심사에 필요한 추가서류가 직접 기재되어 있음.",
+      "negative_evidence": "페이지에 근무처 변경·추가 신고 등 다른 업무 내용도 포함되어 있으나, D-1 체류자격변경허가의 신청요건과 제출서류가 직접 명시되어 있어 EXACT 조건 충족.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4886,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 319
+      }
+    },
+    {
+      "row_id": "M1-0018",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.34에 '외국인등록' 섹션이 heading으로 등장하며, D-1 문화예술에 대한 외국인등록 신청서류(①신청서(별지34호 서식), 여권원본, 표준규격사진1장, 수수료 ②사업자등록증 등 문화예술 단체입증 서류 ③체류지 입증서류)가 직접 명시되어 있음. 또한 외국인등록사항 변경신고의 신고사항·신고대상·신고기한·신청서류도 포함되어 있음.",
+      "negative_evidence": "페이지 상단에 체류기간연장허가 관련 내용(연수기관 연수일정표, 재입국허가 등)도 포함되어 있으나, 이는 D-1 문화예술 섹션 내의 내용으로 다른 subtype이 아님.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5844,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 346
+      }
+    },
+    {
+      "row_id": "M1-0178",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격변경허가 및 근무처 변경·추가 신고 관련 내용이며, E-9-1(비전문취업-농축산업) 관련 heading이나 신청요건·제출서류가 전혀 없음. 비전문취업(E-9) 관련 내용은 독일인 대상 체류자격변경 허가 대상에서 제외 언급(E-9 제외) 정도만 있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4920,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 223
+      }
+    },
+    {
+      "row_id": "M1-0179",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지(p.33)는 문화예술(D-1) 체류자격변경허가, 근무처 변경·추가 신고, 독일인/캐나다인 특례 등을 다루고 있으며, E-9-2(비전문취업-건설업) 체류자격변경허가에 관한 신청요건·제출서류·허가기준이 전혀 없음. E-9 또는 비전문취업 관련 heading이 존재하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4919,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 221
+      }
+    },
+    {
+      "row_id": "M1-0180",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 p.33은 문화예술(D-1) 체류자격변경허가, 근무처 변경·추가 신고, 독일인·캐나다인 특례 등을 다루며 E-9-3(비전문취업-제조업) 체류자격변경허가에 대한 신청요건·제출서류·허가기준이 전혀 없음. E-9-3 또는 비전문취업 제조업 관련 heading도 존재하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4919,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 220
+      }
+    },
+    {
+      "row_id": "M1-0181",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격변경허가 및 근무처 변경·추가 신고에 관한 내용을 다루고 있음. E-9-4(비전문취업-어업) 관련 heading이 전혀 없으며, 해당 세부코드의 신청요건·제출서류·허가기준이 직접 존재하지 않음. 비전문취업(E-9)은 오히려 D-1 변경 불가 자격으로 언급되어 있을 뿐임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4918,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 237
+      }
+    },
+    {
+      "row_id": "M1-0182",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격변경허가 및 근무처 변경·추가 신고 관련 내용이다. E-9-5(비전문취업-서비스업) 체류자격변경허가에 대한 heading이나 신청요건·제출서류가 전혀 없다. 비전문취업(E-9) 관련 내용은 허가 제외 대상으로 언급(독일인 장기체류자격 변경 시 E-9 제외)될 뿐이며, E-9-5 서비스업 subtype에 대한 직접 내용이 없다.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4920,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 263
+      }
+    },
+    {
+      "row_id": "M1-0183",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격에 대한 근무처 변경·추가, 체류자격부여, 체류자격변경허가, 체류기간연장허가 내용을 다루고 있으며, E-9-1(비전문취업-농축산업) 관련 heading이나 신청요건·제출서류가 전혀 없음. 비전문취업(E-9) 자체도 heading으로 등장하지 않으며, D-1 자격 관련 내용이 주를 이룸.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4896,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 238
+      }
+    },
+    {
+      "row_id": "M1-0184",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 근무처 변경·추가 신고, 문화예술(D-1) 체류자격변경허가 내용을 담고 있으며, E-9-2(비전문취업-건설업) 체류기간연장허가에 대한 신청요건·제출서류가 없음. E-9 또는 비전문취업 관련 heading이 전혀 등장하지 않음. 페이지 하단에 체류기간연장허가 필수서류 첫 줄만 시작되나, 이는 문화예술(D-1)에 해당하는 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4895,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 254
+      }
+    },
+    {
+      "row_id": "M1-0185",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33 페이지는 문화예술(D-1) 체류자격 관련 근무처 변경·추가, 체류자격부여, 체류자격변경허가(독일인, 캐나다인), 체류기간연장허가(문화예술 D-1) 내용을 다루고 있음. E-9-3 비전문취업-제조업 체류기간연장허가에 대한 신청요건, 제출서류, 허가기준이 전혀 없음. E-9 관련 heading도 등장하지 않으며, 페이지 전체가 D-1(문화예술) 자격 중심의 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4895,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 271
+      }
+    },
+    {
+      "row_id": "M1-0186",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격변경허가, 근무처 변경·추가 신고, 체류자격부여 등을 다루는 페이지로, E-9-4(비전문취업-어업) 체류기간연장허가에 대한 신청요건·제출서류가 전혀 없음. E-9-4 또는 비전문취업-어업이 heading으로 등장하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4894,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 207
+      }
+    },
+    {
+      "row_id": "M1-0187",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격의 근무처 변경·추가, 체류자격부여, 체류자격변경허가, 체류기간연장허가(D-1 관련, 서류 일부만 있음) 내용을 다루고 있음. E-9-5(비전문취업-서비스업) 체류기간연장허가에 대한 heading이나 신청요건·제출서류가 전혀 없음. 비전문취업(E-9) 관련 내용 자체가 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4896,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 238
+      }
+    },
+    {
+      "row_id": "M1-0188",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지(p.33)는 문화예술(D-1) 자격의 근무처 변경·추가 신고, 체류자격부여, 체류자격변경허가(독일인, 캐나다인 대상) 내용을 다루고 있음. E-9-1(비전문취업-농축산업) 외국인등록에 관한 신청요건·제출서류가 전혀 없으며, E-9 또는 비전문취업 관련 heading도 없음. D-1 자격 관련 내용이 주를 이루는 페이지임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4917,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 249
+      }
+    },
+    {
+      "row_id": "M1-0189",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 p.33은 근무처 변경·추가 신고, 체류자격부여, 체류자격변경허가(문화예술 D-1 관련) 내용을 다루고 있음. E-9-2(비전문취업-건설업) 외국인등록에 대한 신청요건이나 제출서류가 전혀 없음. E-9 관련 heading도 없고, 비전문취업 건설업 관련 내용이 전혀 등장하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4916,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 225
+      }
+    },
+    {
+      "row_id": "M1-0190",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격의 근무처 변경·추가 신고, 체류자격부여, 체류자격변경허가(독일인, 캐나다인 등) 관련 내용이며, E-9-3(비전문취업-제조업) 외국인등록에 관한 신청요건·제출서류가 전혀 없음. E-9 비전문취업 heading도 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4916,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 206
+      }
+    },
+    {
+      "row_id": "M1-0191",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 체류자격의 근무처 변경·추가, 체류자격부여, 체류자격변경허가, 체류기간연장허가 내용을 다루는 페이지임. E-9-4(비전문취업-어업) 외국인등록 관련 신청요건·제출서류가 전혀 없으며, E-9-4 heading도 등장하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4915,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 204
+      }
+    },
+    {
+      "row_id": "M1-0192",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.33은 문화예술(D-1) 관련 근무처 변경·추가 신고 및 체류자격변경허가 내용을 다루고 있으며, E-9-5(비전문취업-서비스업) 외국인등록에 대한 신청요건이나 제출서류가 전혀 없음. 페이지 heading에 E-9-5 또는 비전문취업-서비스업 관련 내용이 등장하지 않음. 주로 D-1, D-2, D-4, D-9, D-10, H-2 자격에 대한 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4917,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 255
+      }
+    },
+    {
+      "row_id": "M1-0193",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지는 문화예술(D-1) 비자의 재입국허가, 외국인등록 관련 내용을 다루고 있음. E-9-1(비전문취업-농축산업) 관련 heading이나 신청요건·제출서류가 전혀 없음. 재입국허가 섹션이 있으나 이는 D-1 문화예술 체류자격에 해당하는 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5855,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 205
+      }
+    },
+    {
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 전체가 문화예술(D-1) 자격의 재입국허가, 외국인등록 등에 관한 내용이다. E-9-2(비전문취업-건설업) 관련 heading이 전혀 없고, E-9 계열 내용도 없다. 재입국허가 섹션이 있으나 이는 D-1 문화예술 자격에 속한 내용이다.",
+      "recommended_page": null,
+      "row_id": "M1-0194",
+      "_usage": {
+        "input_tokens": 5854,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 202
+      }
+    },
+    {
+      "row_id": "M1-0195",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지는 문화예술(D-1) 자격에 관한 내용(재입국허가, 외국인등록, 근무처 변경·추가 등)을 다루고 있음. E-9-3(비전문취업-제조업) 관련 heading이나 신청요건·제출서류가 전혀 없음. 재입국허가 섹션이 있으나 이는 D-1 자격에 대한 것이며 E-9-3에 해당하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5854,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 224
+      }
+    },
+    {
+      "row_id": "M1-0196",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지(p.34)는 문화예술(D-1) 체류자격의 재입국허가, 외국인등록 관련 내용을 다루고 있음. E-9-4(비전문취업-어업) 관련 heading이 전혀 없으며, E-9-4의 신청요건·제출서류도 없음. 재입국허가 섹션이 있으나 이는 D-1(문화예술) 자격에 해당하는 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5853,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 219
+      }
+    },
+    {
+      "row_id": "M1-0197",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지는 문화예술(D-1) 자격의 재입국허가, 외국인등록 관련 내용을 다루고 있음. E-9-5(비전문취업-서비스업) 관련 heading이나 신청요건·제출서류가 전혀 없음. 재입국허가 섹션이 있으나 이는 D-1 체류자격에 해당하는 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5855,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 200
+      }
+    },
+    {
+      "row_id": "M1-0358",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.34는 D-1 문화예술 섹션 내 '재입국허가' 항목을 직접 포함하며, 신청요건(출국 후 1년 이내 면제, 복수재입국허가 조건, 면제국가 목록)과 제출서류(신청서 별지34호서식, 여권 원본, 외국인등록증, 수수료)가 명시되어 있음.",
+      "negative_evidence": "페이지 상단이 D-1 체류기간연장 추가서류로 시작하나, 재입국허가 섹션이 D-1 맥락 안에서 heading으로 등장하며 신청서류가 직접 기재됨.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5845,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 283
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "stage": "4_verifier",
+    "version": "v1",
+    "judge_results_file": "backend\\data\\manuals\\llm_judge_results\\llm_judge_results_ALL_sonnet_20260501_145824.json",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_wrong_v7_20260501_145452.json",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T15:04:57",
+    "total_rows": 2,
+    "api_called": true,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0367",
+      "verifier_decision": "REJECTED",
+      "reject_reason": "업무 정의는 'F-5-10 CHANGE — 재외동포(F-4) 2년 이상 체류'이나, p.457의 F-5-10 섹션(가.대상, 나.요건)에는 재외동포(F-4) 체류자격 보유자에 대한 2년 이상 체류 요건이 직접 기술되어 있지 않다. 해당 페이지의 F-5-10 요건은 학사/석사 학위증·기술자격증 소지자의 일반 영주 요건(3년 이상 국내 체류, 학위/자격증 종류, 근무 요건 등)을 다루고 있으며, 재외동포(F-4) 특화 변경허가 요건(F-4 자격으로 2년 이상 체류 등)은 나타나지 않는다. 따라서 업무 정의에서 요구하는 '재외동포(F-4) 2년 이상 체류' 변경 신청요건·제출서류가 직접 존재하지 않아 no direct evidence에 해당한다.",
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5867,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 385
+      }
+    },
+    {
+      "row_id": "M1-0284",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 4229,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 49
+      }
+    }
+  ]
+}

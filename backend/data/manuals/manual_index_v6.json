@@ -1,0 +1,6223 @@
+{
+  "manuals": {
+    "체류민원": {
+      "file": "backend\\data\\manuals\\unlocked_체류민원.pdf",
+      "total_pages": 764,
+      "code_count": 76
+    },
+    "사증민원": {
+      "file": "backend\\data\\manuals\\unlocked_사증민원.pdf",
+      "total_pages": 482,
+      "code_count": 38
+    }
+  },
+  "code_index": {
+    "F-5-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 445,
+        "page_to": 452,
+        "score": 100,
+        "page_count": 8,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-4": [
+      {
+        "manual": "체류민원",
+        "page_from": 453,
+        "page_to": 453,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 454,
+        "page_to": 454,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-8": [
+      {
+        "manual": "체류민원",
+        "page_from": 455,
+        "page_to": 455,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-15": [
+      {
+        "manual": "체류민원",
+        "page_from": 456,
+        "page_to": 455,
+        "score": 100,
+        "page_count": 0,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-9": [
+      {
+        "manual": "체류민원",
+        "page_from": 456,
+        "page_to": 456,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-10": [
+      {
+        "manual": "체류민원",
+        "page_from": 457,
+        "page_to": 457,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-11": [
+      {
+        "manual": "체류민원",
+        "page_from": 458,
+        "page_to": 461,
+        "score": 100,
+        "page_count": 4,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-12": [
+      {
+        "manual": "체류민원",
+        "page_from": 462,
+        "page_to": 462,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-13": [
+      {
+        "manual": "체류민원",
+        "page_from": 463,
+        "page_to": 462,
+        "score": 100,
+        "page_count": 0,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-16": [
+      {
+        "manual": "체류민원",
+        "page_from": 463,
+        "page_to": 462,
+        "score": 100,
+        "page_count": 0,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-18": [
+      {
+        "manual": "체류민원",
+        "page_from": 463,
+        "page_to": 464,
+        "score": 100,
+        "page_count": 2,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-17": [
+      {
+        "manual": "체류민원",
+        "page_from": 465,
+        "page_to": 464,
+        "score": 100,
+        "page_count": 0,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-19": [
+      {
+        "manual": "체류민원",
+        "page_from": 465,
+        "page_to": 465,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-20": [
+      {
+        "manual": "체류민원",
+        "page_from": 466,
+        "page_to": 466,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-22": [
+      {
+        "manual": "체류민원",
+        "page_from": 467,
+        "page_to": 467,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-21": [
+      {
+        "manual": "체류민원",
+        "page_from": 468,
+        "page_to": 467,
+        "score": 100,
+        "page_count": 0,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-23": [
+      {
+        "manual": "체류민원",
+        "page_from": 468,
+        "page_to": 468,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-24": [
+      {
+        "manual": "체류민원",
+        "page_from": 469,
+        "page_to": 469,
+        "score": 100,
+        "page_count": 1,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-25": [
+      {
+        "manual": "체류민원",
+        "page_from": 470,
+        "page_to": 469,
+        "score": 100,
+        "page_count": 0,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "F-5-26": [
+      {
+        "manual": "체류민원",
+        "page_from": 470,
+        "page_to": 500,
+        "score": 100,
+        "page_count": 31,
+        "kind": "subcategory_formal"
+      }
+    ],
+    "A-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 13,
+        "page_to": 16,
+        "score": 25,
+        "page_count": 4,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 6,
+        "page_to": 15,
+        "score": 29,
+        "page_count": 7,
+        "kind": "general"
+      }
+    ],
+    "A-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 18,
+        "page_to": 20,
+        "score": 16,
+        "page_count": 3,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 10,
+        "page_to": 15,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "C-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 27,
+        "page_to": 27,
+        "score": 17,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 27,
+        "page_to": 41,
+        "score": 35,
+        "page_count": 9,
+        "kind": "general"
+      }
+    ],
+    "C-3-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 28,
+        "page_to": 28,
+        "score": 15,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 27,
+        "page_to": 32,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 675,
+        "page_to": 701,
+        "score": 42,
+        "page_count": 14,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 73,
+        "page_to": 73,
+        "score": 12,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "D-10-T": [
+      {
+        "manual": "체류민원",
+        "page_from": 144,
+        "page_to": 144,
+        "score": 10,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 130,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-10": [
+      {
+        "manual": "체류민원",
+        "page_from": 162,
+        "page_to": 179,
+        "score": 30,
+        "page_count": 5,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 123,
+        "page_to": 129,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "E-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 179,
+        "page_to": 195,
+        "score": 42,
+        "page_count": 11,
+        "kind": "general"
+      }
+    ],
+    "E-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 161,
+        "page_to": 169,
+        "score": 38,
+        "page_count": 8,
+        "kind": "general"
+      }
+    ],
+    "E-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 169,
+        "page_to": 180,
+        "score": 30,
+        "page_count": 7,
+        "kind": "general"
+      }
+    ],
+    "E-7": [
+      {
+        "manual": "체류민원",
+        "page_from": 214,
+        "page_to": 231,
+        "score": 63,
+        "page_count": 12,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 181,
+        "page_to": 185,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "F-2-7": [
+      {
+        "manual": "체류민원",
+        "page_from": 291,
+        "page_to": 291,
+        "score": 10,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 249,
+        "page_to": 249,
+        "score": 20,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "E-7-4": [
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "score": 11,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 252,
+        "page_to": 252,
+        "score": 10,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "E-10": [
+      {
+        "manual": "체류민원",
+        "page_from": 332,
+        "page_to": 332,
+        "score": 15,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "F-6-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 488,
+        "page_to": 495,
+        "score": 31,
+        "page_count": 6,
+        "kind": "general"
+      }
+    ],
+    "F-2-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 361,
+        "page_to": 361,
+        "score": 11,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "F-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 371,
+        "page_to": 427,
+        "score": 101,
+        "page_count": 26,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 308,
+        "page_to": 319,
+        "score": 34,
+        "page_count": 7,
+        "kind": "general"
+      }
+    ],
+    "F-2-99": [
+      {
+        "manual": "체류민원",
+        "page_from": 394,
+        "page_to": 401,
+        "score": 31,
+        "page_count": 7,
+        "kind": "general"
+      }
+    ],
+    "F-6-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 419,
+        "page_to": 419,
+        "score": 10,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "F-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 425,
+        "page_to": 440,
+        "score": 41,
+        "page_count": 8,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 407,
+        "page_to": 412,
+        "score": 23,
+        "page_count": 5,
+        "kind": "general"
+      }
+    ],
+    "F-6": [
+      {
+        "manual": "체류민원",
+        "page_from": 474,
+        "page_to": 488,
+        "score": 48,
+        "page_count": 10,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 336,
+        "score": 37,
+        "page_count": 10,
+        "kind": "general"
+      }
+    ],
+    "F-6-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 489,
+        "page_to": 496,
+        "score": 37,
+        "page_count": 7,
+        "kind": "general"
+      }
+    ],
+    "H-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 518,
+        "page_to": 527,
+        "score": 24,
+        "page_count": 8,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 379,
+        "page_to": 388,
+        "score": 24,
+        "page_count": 8,
+        "kind": "general"
+      }
+    ],
+    "G-1-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 502,
+        "page_to": 508,
+        "score": 25,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "F-4": [
+      {
+        "manual": "체류민원",
+        "page_from": 568,
+        "page_to": 578,
+        "score": 65,
+        "page_count": 4,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 429,
+        "page_to": 439,
+        "score": 65,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "F-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "score": 17,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "score": 17,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "F-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "score": 12,
+        "page_count": 1,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "score": 12,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "F-4-R": [
+      {
+        "manual": "체류민원",
+        "page_from": 619,
+        "page_to": 626,
+        "score": 27,
+        "page_count": 6,
+        "kind": "general"
+      }
+    ],
+    "F-2-R": [
+      {
+        "manual": "체류민원",
+        "page_from": 593,
+        "page_to": 601,
+        "score": 21,
+        "page_count": 7,
+        "kind": "general"
+      }
+    ],
+    "D-9": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 114,
+        "score": 30,
+        "page_count": 10,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 114,
+        "page_to": 121,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "A-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 22,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "F-1-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 350,
+        "page_to": 354,
+        "score": 15,
+        "page_count": 5,
+        "kind": "general"
+      }
+    ],
+    "D-10-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 140,
+        "page_to": 160,
+        "score": 48,
+        "page_count": 16,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 123,
+        "page_to": 128,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 108,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-10-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 155,
+        "page_to": 159,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "E-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 195,
+        "page_to": 199,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "F-5-7": [
+      {
+        "manual": "체류민원",
+        "page_from": 535,
+        "page_to": 538,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 396,
+        "page_to": 399,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "E-4": [
+      {
+        "manual": "체류민원",
+        "page_from": 189,
+        "page_to": 195,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 155,
+        "page_to": 160,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "G-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 338,
+        "page_to": 343,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 279,
+        "page_to": 279,
+        "score": 10,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "E-9": [
+      {
+        "manual": "체류민원",
+        "page_from": 33,
+        "page_to": 40,
+        "score": 15,
+        "page_count": 5,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 284,
+        "page_to": 286,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-8-3": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 118,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-6": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-2-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 680,
+        "page_to": 685,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 64,
+        "page_to": 66,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-5": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 106,
+        "score": 15,
+        "page_count": 5,
+        "kind": "general"
+      }
+    ],
+    "E-6": [
+      {
+        "manual": "체류민원",
+        "page_from": 199,
+        "page_to": 206,
+        "score": 15,
+        "page_count": 5,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 163,
+        "page_to": 165,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-8-4": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 119,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-8-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 118,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-4": [
+      {
+        "manual": "체류민원",
+        "page_from": 39,
+        "page_to": 41,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 73,
+        "page_to": 76,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-8": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 120,
+        "score": 30,
+        "page_count": 10,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 114,
+        "page_to": 116,
+        "score": 17,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "F-3-18": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 401,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-8-1": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 120,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "E-7-Y": [
+      {
+        "manual": "체류민원",
+        "page_from": 645,
+        "page_to": 650,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "D-7": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 114,
+        "score": 24,
+        "page_count": 8,
+        "kind": "general"
+      }
+    ],
+    "F-5-S1": [
+      {
+        "manual": "체류민원",
+        "page_from": 736,
+        "page_to": 740,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 454,
+        "page_to": 458,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-10-2": [
+      {
+        "manual": "체류민원",
+        "page_from": 140,
+        "page_to": 144,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 123,
+        "page_to": 129,
+        "score": 12,
+        "page_count": 4,
+        "kind": "general"
+      }
+    ],
+    "H-1": [
+      {
+        "manual": "사증민원",
+        "page_from": 336,
+        "page_to": 336,
+        "score": 10,
+        "page_count": 1,
+        "kind": "general"
+      }
+    ],
+    "E-7-S": [
+      {
+        "manual": "사증민원",
+        "page_from": 247,
+        "page_to": 249,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "C-3-9": [
+      {
+        "manual": "사증민원",
+        "page_from": 27,
+        "page_to": 32,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "D-2-6": [
+      {
+        "manual": "사증민원",
+        "page_from": 64,
+        "page_to": 66,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "E-10-2": [
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 296,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "E-10-1": [
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 296,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "E-10-3": [
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 296,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "C-4-5": [
+      {
+        "manual": "사증민원",
+        "page_from": 57,
+        "page_to": 59,
+        "score": 9,
+        "page_count": 3,
+        "kind": "general"
+      }
+    ],
+    "C-3-1": [
+      {
+        "manual": "사증민원",
+        "page_from": 41,
+        "page_to": 48,
+        "score": 18,
+        "page_count": 6,
+        "kind": "general"
+      }
+    ]
+  },
+  "action_index": {
+    "F-5-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 445,
+        "page_to": 452,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 445,
+        "section_pt": 452,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 447,
+        "page_to": 452,
+        "match_text": "외국인등록",
+        "section_pf": 445,
+        "section_pt": 452,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 445,
+        "page_to": 445,
+        "match_text": "체류자격외 활동",
+        "section_pf": 445,
+        "section_pt": 452,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-4|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 453,
+        "page_to": 453,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 453,
+        "section_pt": 453,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 454,
+        "page_to": 454,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 454,
+        "section_pt": 454,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-8|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 455,
+        "page_to": 455,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 455,
+        "section_pt": 455,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-15|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 456,
+        "page_to": 455,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 456,
+        "section_pt": 455,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-9|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 456,
+        "page_to": 456,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 456,
+        "section_pt": 456,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-9|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 456,
+        "page_to": 456,
+        "match_text": "근무처 변경",
+        "section_pf": 456,
+        "section_pt": 456,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-10|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 457,
+        "page_to": 457,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 457,
+        "section_pt": 457,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-11|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 458,
+        "page_to": 461,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 458,
+        "section_pt": 461,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-11|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 459,
+        "page_to": 459,
+        "match_text": "외국인등록",
+        "section_pf": 458,
+        "section_pt": 461,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-11|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 458,
+        "page_to": 458,
+        "match_text": "근무처 변경",
+        "section_pf": 458,
+        "section_pt": 461,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-12|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 462,
+        "page_to": 462,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 462,
+        "section_pt": 462,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-13|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 463,
+        "page_to": 462,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 463,
+        "section_pt": 462,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-16|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 463,
+        "page_to": 462,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 463,
+        "section_pt": 462,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-18|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 463,
+        "page_to": 464,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 463,
+        "section_pt": 464,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-17|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 465,
+        "page_to": 464,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 465,
+        "section_pt": 464,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-19|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 465,
+        "page_to": 465,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 465,
+        "section_pt": 465,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-19|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 465,
+        "page_to": 465,
+        "match_text": "재입국허가",
+        "section_pf": 465,
+        "section_pt": 465,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-20|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 466,
+        "page_to": 466,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 466,
+        "section_pt": 466,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-20|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 466,
+        "page_to": 466,
+        "match_text": "체류자격 부여",
+        "section_pf": 466,
+        "section_pt": 466,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-22|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 467,
+        "page_to": 467,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 467,
+        "section_pt": 467,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-21|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 468,
+        "page_to": 467,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 468,
+        "section_pt": 467,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-23|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 468,
+        "page_to": 468,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 468,
+        "section_pt": 468,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-23|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 468,
+        "page_to": 468,
+        "match_text": "외국인등록",
+        "section_pf": 468,
+        "section_pt": 468,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-24|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 469,
+        "page_to": 469,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 469,
+        "section_pt": 469,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-25|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 470,
+        "page_to": 469,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 470,
+        "section_pt": 469,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-26|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 470,
+        "page_to": 500,
+        "match_text": "sub-category 정식 섹션",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_change_default"
+      }
+    ],
+    "F-5-26|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 471,
+        "page_to": 495,
+        "match_text": "연장허가",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 471,
+        "page_to": 499,
+        "match_text": "외국인등록",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 471,
+        "page_to": 496,
+        "match_text": "재입국허가",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 498,
+        "page_to": 499,
+        "match_text": "체류자격외 활동",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 471,
+        "page_to": 471,
+        "match_text": "근무처 변경",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 474,
+        "page_to": 475,
+        "match_text": "체류자격 부여",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 473,
+        "page_to": 499,
+        "match_text": "사증발급",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "F-5-26|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 483,
+        "page_to": 483,
+        "match_text": "사실증명",
+        "section_pf": 470,
+        "section_pt": 500,
+        "score": 100,
+        "match_kind": "subcategory_with_action"
+      }
+    ],
+    "A-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 16,
+        "page_to": 16,
+        "match_text": "체류자격 변경",
+        "section_pf": 13,
+        "section_pt": 16,
+        "score": 25,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-1|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 16,
+        "page_to": 16,
+        "match_text": "연장허가",
+        "section_pf": 13,
+        "section_pt": 16,
+        "score": 25,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-1|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 16,
+        "page_to": 16,
+        "match_text": "재입국허가",
+        "section_pf": 13,
+        "section_pt": 16,
+        "score": 25,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 15,
+        "page_to": 15,
+        "match_text": "재입국허가",
+        "section_pf": 6,
+        "section_pt": 15,
+        "score": 29,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 14,
+        "page_to": 15,
+        "match_text": "체류자격외 활동",
+        "section_pf": 13,
+        "section_pt": 16,
+        "score": 25,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 12,
+        "page_to": 12,
+        "match_text": "체류자격외 활동",
+        "section_pf": 6,
+        "section_pt": 15,
+        "score": 29,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 20,
+        "match_text": "변경허가",
+        "section_pf": 18,
+        "section_pt": 20,
+        "score": 16,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 20,
+        "match_text": "연장허가",
+        "section_pf": 18,
+        "section_pt": 20,
+        "score": 16,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-2|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 20,
+        "match_text": "외국인등록",
+        "section_pf": 18,
+        "section_pt": 20,
+        "score": 16,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 13,
+        "page_to": 13,
+        "match_text": "외국인등록",
+        "section_pf": 10,
+        "section_pt": 15,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-2|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 20,
+        "match_text": "재입국허가",
+        "section_pf": 18,
+        "section_pt": 20,
+        "score": 16,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 15,
+        "page_to": 15,
+        "match_text": "재입국허가",
+        "section_pf": 10,
+        "section_pt": 15,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-2|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 18,
+        "page_to": 19,
+        "match_text": "체류자격외 활동",
+        "section_pf": 18,
+        "section_pt": 20,
+        "score": 16,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 12,
+        "page_to": 12,
+        "match_text": "체류자격외 활동",
+        "section_pf": 10,
+        "section_pt": 15,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 27,
+        "page_to": 27,
+        "match_text": "체류기간 연장",
+        "section_pf": 27,
+        "section_pt": 27,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 30,
+        "page_to": 30,
+        "match_text": "체류기간 연장",
+        "section_pf": 27,
+        "section_pt": 41,
+        "score": 35,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 27,
+        "page_to": 27,
+        "match_text": "사증발급인정서",
+        "section_pf": 27,
+        "section_pt": 27,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 27,
+        "page_to": 41,
+        "match_text": "사증발급인정서",
+        "section_pf": 27,
+        "section_pt": 41,
+        "score": 35,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 28,
+        "page_to": 28,
+        "match_text": "체류자격 변경",
+        "section_pf": 28,
+        "section_pt": 28,
+        "score": 15,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 30,
+        "page_to": 30,
+        "match_text": "체류자격변경",
+        "section_pf": 27,
+        "section_pt": 32,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 28,
+        "page_to": 28,
+        "match_text": "체류기간 연장",
+        "section_pf": 28,
+        "section_pt": 28,
+        "score": 15,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 30,
+        "page_to": 30,
+        "match_text": "체류기간 연장",
+        "section_pf": 27,
+        "section_pt": 32,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-2|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 28,
+        "page_to": 28,
+        "match_text": "외국인등록",
+        "section_pf": 28,
+        "section_pt": 28,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 677,
+        "page_to": 700,
+        "match_text": "변경허가",
+        "section_pf": 675,
+        "section_pt": 701,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 677,
+        "page_to": 699,
+        "match_text": "체류기간 연장",
+        "section_pf": 675,
+        "section_pt": 701,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 677,
+        "page_to": 701,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 675,
+        "section_pt": 701,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 677,
+        "page_to": 701,
+        "match_text": "사증발급인정서",
+        "section_pf": 675,
+        "section_pt": 701,
+        "score": 42,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 73,
+        "page_to": 73,
+        "match_text": "사증발급인정서",
+        "section_pf": 73,
+        "section_pt": 73,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-T|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 144,
+        "page_to": 144,
+        "match_text": "변경허가",
+        "section_pf": 144,
+        "section_pt": 144,
+        "score": 10,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 126,
+        "match_text": "변경허가",
+        "section_pf": 125,
+        "section_pt": 130,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 168,
+        "page_to": 179,
+        "match_text": "체류자격 변경",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 124,
+        "page_to": 126,
+        "match_text": "변경허가",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 169,
+        "page_to": 177,
+        "match_text": "연장허가",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 129,
+        "page_to": 129,
+        "match_text": "체류기간 연장",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 163,
+        "page_to": 179,
+        "match_text": "외국인등록",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 170,
+        "page_to": 170,
+        "match_text": "재입국허가",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 162,
+        "page_to": 175,
+        "match_text": "시간제취업",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 167,
+        "page_to": 177,
+        "match_text": "근무처 추가",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 163,
+        "page_to": 176,
+        "match_text": "사증발급",
+        "section_pf": 162,
+        "section_pt": 179,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 124,
+        "page_to": 129,
+        "match_text": "사증발급",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 123,
+        "page_to": 129,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "visa_section"
+      }
+    ],
+    "E-3|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 179,
+        "page_to": 195,
+        "match_text": "변경허가",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-3|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 180,
+        "page_to": 190,
+        "match_text": "연장허가",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-3|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 179,
+        "page_to": 195,
+        "match_text": "외국인등록",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-3|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 180,
+        "page_to": 191,
+        "match_text": "재입국허가",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-3|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 183,
+        "page_to": 193,
+        "match_text": "체류자격외 활동",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-3|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 194,
+        "page_to": 194,
+        "match_text": "근무처 변경",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-3|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 180,
+        "page_to": 193,
+        "match_text": "사증발급",
+        "section_pf": 179,
+        "section_pt": 195,
+        "score": 42,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 161,
+        "page_to": 168,
+        "match_text": "자격변경",
+        "section_pf": 161,
+        "section_pt": 169,
+        "score": 38,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-1|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 169,
+        "page_to": 169,
+        "match_text": "연장허가",
+        "section_pf": 161,
+        "section_pt": 169,
+        "score": 38,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 163,
+        "page_to": 169,
+        "match_text": "외국인등록",
+        "section_pf": 161,
+        "section_pt": 169,
+        "score": 38,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 162,
+        "page_to": 166,
+        "match_text": "시간제취업",
+        "section_pf": 161,
+        "section_pt": 169,
+        "score": 38,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-1|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 167,
+        "page_to": 167,
+        "match_text": "근무처 추가",
+        "section_pf": 161,
+        "section_pt": 169,
+        "score": 38,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 163,
+        "page_to": 166,
+        "match_text": "사증발급",
+        "section_pf": 161,
+        "section_pt": 169,
+        "score": 38,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 177,
+        "page_to": 179,
+        "match_text": "변경허가",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 169,
+        "page_to": 180,
+        "match_text": "연장허가",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 169,
+        "page_to": 180,
+        "match_text": "외국인등록",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 170,
+        "page_to": 180,
+        "match_text": "재입국허가",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 172,
+        "page_to": 175,
+        "match_text": "자격외활동",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 177,
+        "page_to": 177,
+        "match_text": "근무처 추가",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-2|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 170,
+        "page_to": 180,
+        "match_text": "사증발급",
+        "section_pf": 169,
+        "section_pt": 180,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 214,
+        "page_to": 226,
+        "match_text": "체류자격 변경",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 221,
+        "page_to": 227,
+        "match_text": "체류기간 연장",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 181,
+        "page_to": 181,
+        "match_text": "기간연장",
+        "section_pf": 181,
+        "section_pt": 185,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 215,
+        "page_to": 225,
+        "match_text": "외국인등록",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 224,
+        "page_to": 224,
+        "match_text": "재입국허가",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 214,
+        "page_to": 225,
+        "match_text": "체류자격외 활동",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 219,
+        "page_to": 227,
+        "match_text": "근무처 변경",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 214,
+        "page_to": 231,
+        "match_text": "사증발급인정서",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 185,
+        "page_to": 185,
+        "match_text": "사증발급",
+        "section_pf": 181,
+        "section_pt": 185,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 181,
+        "page_to": 185,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 181,
+        "section_pt": 185,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "E-7|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 219,
+        "page_to": 219,
+        "match_text": "사실증명",
+        "section_pf": 214,
+        "section_pt": 231,
+        "score": 63,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-7|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 291,
+        "page_to": 291,
+        "match_text": "자격변경",
+        "section_pf": 291,
+        "section_pt": 291,
+        "score": 10,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 249,
+        "page_to": 249,
+        "match_text": "자격변경",
+        "section_pf": 249,
+        "section_pt": 249,
+        "score": 20,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-4|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "자격변경",
+        "section_pf": 585,
+        "section_pt": 585,
+        "score": 11,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-10|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 332,
+        "page_to": 332,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 332,
+        "section_pt": 332,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-3|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 488,
+        "page_to": 495,
+        "match_text": "변경허가",
+        "section_pf": 488,
+        "section_pt": 495,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-3|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 488,
+        "page_to": 495,
+        "match_text": "체류기간 연장",
+        "section_pf": 488,
+        "section_pt": 495,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-3|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 488,
+        "page_to": 495,
+        "match_text": "외국인등록",
+        "section_pf": 488,
+        "section_pt": 495,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 361,
+        "page_to": 361,
+        "match_text": "변경허가",
+        "section_pf": 361,
+        "section_pt": 361,
+        "score": 11,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-2|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 361,
+        "page_to": 361,
+        "match_text": "자격부여",
+        "section_pf": 361,
+        "section_pt": 361,
+        "score": 11,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-2|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 361,
+        "page_to": 361,
+        "match_text": "사증발급",
+        "section_pf": 361,
+        "section_pt": 361,
+        "score": 11,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 371,
+        "page_to": 424,
+        "match_text": "변경허가",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 311,
+        "match_text": "체류자격 변경",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 384,
+        "page_to": 425,
+        "match_text": "체류기간연장",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 373,
+        "page_to": 425,
+        "match_text": "외국인등록",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 311,
+        "page_to": 316,
+        "match_text": "외국인등록",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 419,
+        "page_to": 425,
+        "match_text": "재입국허가",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 401,
+        "page_to": 423,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 371,
+        "page_to": 426,
+        "match_text": "자격부여",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 310,
+        "page_to": 318,
+        "match_text": "자격부여",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 371,
+        "page_to": 425,
+        "match_text": "사증발급인정서",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 319,
+        "match_text": "사증발급",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 308,
+        "page_to": 319,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "visa_section"
+      }
+    ],
+    "F-2|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 417,
+        "page_to": 417,
+        "match_text": "사실증명",
+        "section_pf": 371,
+        "section_pt": 427,
+        "score": 101,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 314,
+        "page_to": 317,
+        "match_text": "사실증명",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-99|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 394,
+        "page_to": 401,
+        "match_text": "자격변경",
+        "section_pf": 394,
+        "section_pt": 401,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-99|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 394,
+        "page_to": 401,
+        "match_text": "기간연장",
+        "section_pf": 394,
+        "section_pt": 401,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-99|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 399,
+        "match_text": "외국인등록",
+        "section_pf": 394,
+        "section_pt": 401,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-99|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 401,
+        "page_to": 401,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 394,
+        "section_pt": 401,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-99|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 399,
+        "page_to": 399,
+        "match_text": "체류자격 부여",
+        "section_pf": 394,
+        "section_pt": 401,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-99|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 398,
+        "match_text": "사증발급",
+        "section_pf": 394,
+        "section_pt": 401,
+        "score": 31,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 419,
+        "page_to": 419,
+        "match_text": "자격변경",
+        "section_pf": 419,
+        "section_pt": 419,
+        "score": 10,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 419,
+        "page_to": 419,
+        "match_text": "체류기간 연장",
+        "section_pf": 419,
+        "section_pt": 419,
+        "score": 10,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-2|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 419,
+        "page_to": 419,
+        "match_text": "재입국허가",
+        "section_pf": 419,
+        "section_pt": 419,
+        "score": 10,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 428,
+        "page_to": 440,
+        "match_text": "변경허가",
+        "section_pf": 425,
+        "section_pt": 440,
+        "score": 41,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 407,
+        "page_to": 412,
+        "match_text": "체류자격 변경",
+        "section_pf": 407,
+        "section_pt": 412,
+        "score": 23,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 425,
+        "page_to": 425,
+        "match_text": "연장허가",
+        "section_pf": 425,
+        "section_pt": 440,
+        "score": 41,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 412,
+        "page_to": 412,
+        "match_text": "체류기간 연장",
+        "section_pf": 407,
+        "section_pt": 412,
+        "score": 23,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 425,
+        "page_to": 436,
+        "match_text": "외국인등록",
+        "section_pf": 425,
+        "section_pt": 440,
+        "score": 41,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 407,
+        "page_to": 412,
+        "match_text": "외국인 등록",
+        "section_pf": 407,
+        "section_pt": 412,
+        "score": 23,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 425,
+        "page_to": 425,
+        "match_text": "재입국허가",
+        "section_pf": 425,
+        "section_pt": 440,
+        "score": 41,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 426,
+        "page_to": 428,
+        "match_text": "체류자격 부여",
+        "section_pf": 425,
+        "section_pt": 440,
+        "score": 41,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 425,
+        "page_to": 430,
+        "match_text": "사증발급",
+        "section_pf": 425,
+        "section_pt": 440,
+        "score": 41,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 407,
+        "page_to": 412,
+        "match_text": "사증발급",
+        "section_pf": 407,
+        "section_pt": 412,
+        "score": 23,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 475,
+        "page_to": 488,
+        "match_text": "체류자격 변경",
+        "section_pf": 474,
+        "section_pt": 488,
+        "score": 48,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 475,
+        "page_to": 488,
+        "match_text": "체류기간 연장",
+        "section_pf": 474,
+        "section_pt": 488,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 335,
+        "match_text": "체류기간 연장",
+        "section_pf": 324,
+        "section_pt": 336,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 488,
+        "page_to": 488,
+        "match_text": "외국인등록",
+        "section_pf": 474,
+        "section_pt": 488,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 335,
+        "match_text": "외국인등록",
+        "section_pf": 324,
+        "section_pt": 336,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 474,
+        "page_to": 475,
+        "match_text": "체류자격 부여",
+        "section_pf": 474,
+        "section_pt": 488,
+        "score": 48,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 475,
+        "page_to": 480,
+        "match_text": "사증발급",
+        "section_pf": 474,
+        "section_pt": 488,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 325,
+        "page_to": 336,
+        "match_text": "사증발급",
+        "section_pf": 324,
+        "section_pt": 336,
+        "score": 37,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 336,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 324,
+        "section_pt": 336,
+        "score": 37,
+        "match_kind": "visa_section"
+      }
+    ],
+    "F-6|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 483,
+        "page_to": 483,
+        "match_text": "사실증명",
+        "section_pf": 474,
+        "section_pt": 488,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 327,
+        "page_to": 332,
+        "match_text": "사실증명",
+        "section_pf": 324,
+        "section_pt": 336,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 489,
+        "page_to": 495,
+        "match_text": "체류자격 변경",
+        "section_pf": 489,
+        "section_pt": 496,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-1|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 489,
+        "page_to": 495,
+        "match_text": "체류기간 연장",
+        "section_pf": 489,
+        "section_pt": 496,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 489,
+        "page_to": 496,
+        "match_text": "외국인등록",
+        "section_pf": 489,
+        "section_pt": 496,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-6-1|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 496,
+        "page_to": 496,
+        "match_text": "재입국허가",
+        "section_pf": 489,
+        "section_pt": 496,
+        "score": 37,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 527,
+        "page_to": 527,
+        "match_text": "변경허가",
+        "section_pf": 518,
+        "section_pt": 527,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 388,
+        "page_to": 388,
+        "match_text": "변경허가",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-2|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 521,
+        "page_to": 527,
+        "match_text": "체류기간 연장",
+        "section_pf": 518,
+        "section_pt": 527,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 382,
+        "page_to": 388,
+        "match_text": "체류기간 연장",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-2|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 521,
+        "page_to": 527,
+        "match_text": "외국인 등록",
+        "section_pf": 518,
+        "section_pt": 527,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 382,
+        "page_to": 388,
+        "match_text": "외국인 등록",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-2|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 522,
+        "page_to": 522,
+        "match_text": "근무처 변경",
+        "section_pf": 518,
+        "section_pt": 527,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 383,
+        "page_to": 383,
+        "match_text": "근무처 변경",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-2|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 519,
+        "page_to": 522,
+        "match_text": "자격부여",
+        "section_pf": 518,
+        "section_pt": 527,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 380,
+        "page_to": 383,
+        "match_text": "자격부여",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-2|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 519,
+        "page_to": 527,
+        "match_text": "사증발급",
+        "section_pf": 518,
+        "section_pt": 527,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 380,
+        "page_to": 388,
+        "match_text": "사증발급",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 379,
+        "page_to": 388,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 379,
+        "section_pt": 388,
+        "score": 24,
+        "match_kind": "visa_section"
+      }
+    ],
+    "G-1-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 504,
+        "page_to": 507,
+        "match_text": "변경허가",
+        "section_pf": 502,
+        "section_pt": 508,
+        "score": 25,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1-5|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 505,
+        "page_to": 506,
+        "match_text": "체류기간 연장",
+        "section_pf": 502,
+        "section_pt": 508,
+        "score": 25,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1-5|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 502,
+        "page_to": 508,
+        "match_text": "외국인등록",
+        "section_pf": 502,
+        "section_pt": 508,
+        "score": 25,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1-5|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 502,
+        "page_to": 502,
+        "match_text": "체류자격외 활동",
+        "section_pf": 502,
+        "section_pt": 508,
+        "score": 25,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 576,
+        "page_to": 578,
+        "match_text": "체류기간 연장",
+        "section_pf": 568,
+        "section_pt": 578,
+        "score": 65,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 437,
+        "page_to": 439,
+        "match_text": "체류기간 연장",
+        "section_pf": 429,
+        "section_pt": 439,
+        "score": 65,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 576,
+        "page_to": 577,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 568,
+        "section_pt": 578,
+        "score": 65,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 437,
+        "page_to": 438,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 429,
+        "section_pt": 439,
+        "score": 65,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "자격변경",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "자격변경",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "외국인 등록",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "외국인 등록",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "자격부여",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "자격부여",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "사증발급",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "사증발급",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3|DOMESTIC_RESIDENCE_REPORT": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "거소신고",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 17,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "거소신고",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "자격변경",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "자격변경",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "외국인 등록",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "외국인 등록",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "자격부여",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "자격부여",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "사증발급",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "사증발급",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1|DOMESTIC_RESIDENCE_REPORT": [
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "거소신고",
+        "section_pf": 543,
+        "section_pt": 543,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 404,
+        "page_to": 404,
+        "match_text": "거소신고",
+        "section_pf": 404,
+        "section_pt": 404,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4-R|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 622,
+        "page_to": 625,
+        "match_text": "자격변경",
+        "section_pf": 619,
+        "section_pt": 626,
+        "score": 27,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4-R|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 619,
+        "page_to": 626,
+        "match_text": "체류기간 연장",
+        "section_pf": 619,
+        "section_pt": 626,
+        "score": 27,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4-R|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 625,
+        "page_to": 626,
+        "match_text": "외국인등록",
+        "section_pf": 619,
+        "section_pt": 626,
+        "score": 27,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4-R|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 625,
+        "page_to": 626,
+        "match_text": "체류자격외 활동",
+        "section_pf": 619,
+        "section_pt": 626,
+        "score": 27,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4-R|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 619,
+        "page_to": 619,
+        "match_text": "사증발급",
+        "section_pf": 619,
+        "section_pt": 626,
+        "score": 27,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-4-R|DOMESTIC_RESIDENCE_REPORT": [
+      {
+        "manual": "체류민원",
+        "page_from": 620,
+        "page_to": 621,
+        "match_text": "거소신고",
+        "section_pf": 619,
+        "section_pt": 626,
+        "score": 27,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 594,
+        "page_to": 600,
+        "match_text": "체류자격 변경",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 593,
+        "page_to": 600,
+        "match_text": "체류기간 연장",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 593,
+        "page_to": 601,
+        "match_text": "외국인등록",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 601,
+        "page_to": 601,
+        "match_text": "체류자격외 활동",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 594,
+        "page_to": 597,
+        "match_text": "근무처 변경",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 600,
+        "page_to": 600,
+        "match_text": "체류자격 부여",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2-R|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 595,
+        "page_to": 595,
+        "match_text": "사실증명",
+        "section_pf": 593,
+        "section_pt": 601,
+        "score": 21,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 113,
+        "match_text": "변경허가",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 115,
+        "page_to": 116,
+        "match_text": "체류자격 변경",
+        "section_pf": 114,
+        "section_pt": 121,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 110,
+        "match_text": "연장허가",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "체류기간연장",
+        "section_pf": 114,
+        "section_pt": 121,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 114,
+        "match_text": "외국인등록",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 111,
+        "match_text": "재입국허가",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 114,
+        "match_text": "체류자격외 활동",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 113,
+        "match_text": "사증발급",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 114,
+        "page_to": 121,
+        "match_text": "사증발급인정서",
+        "section_pf": 114,
+        "section_pt": 121,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-9|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 107,
+        "page_to": 114,
+        "match_text": "사실증명",
+        "section_pf": 100,
+        "section_pt": 114,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 117,
+        "page_to": 121,
+        "match_text": "사실증명",
+        "section_pf": 114,
+        "section_pt": 121,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-3|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 22,
+        "match_text": "변경허가",
+        "section_pf": 20,
+        "section_pt": 22,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-3|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 22,
+        "match_text": "연장허가",
+        "section_pf": 20,
+        "section_pt": 22,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-3|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 21,
+        "match_text": "외국인등록",
+        "section_pf": 20,
+        "section_pt": 22,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-3|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 20,
+        "page_to": 22,
+        "match_text": "재입국허가",
+        "section_pf": 20,
+        "section_pt": 22,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-3|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 21,
+        "page_to": 21,
+        "match_text": "체류자격외 활동",
+        "section_pf": 20,
+        "section_pt": 22,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 350,
+        "page_to": 350,
+        "match_text": "변경허가",
+        "section_pf": 350,
+        "section_pt": 354,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1-5|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 351,
+        "page_to": 354,
+        "match_text": "체류기간 연장",
+        "section_pf": 350,
+        "section_pt": 354,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1-5|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 350,
+        "page_to": 354,
+        "match_text": "외국인등록",
+        "section_pf": 350,
+        "section_pt": 354,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1-5|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 354,
+        "page_to": 354,
+        "match_text": "재입국허가",
+        "section_pf": 350,
+        "section_pt": 354,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-1-5|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 354,
+        "page_to": 354,
+        "match_text": "사증발급",
+        "section_pf": 350,
+        "section_pt": 354,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 142,
+        "page_to": 159,
+        "match_text": "변경허가",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 124,
+        "page_to": 126,
+        "match_text": "변경허가",
+        "section_pf": 123,
+        "section_pt": 128,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-1|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 153,
+        "page_to": 157,
+        "match_text": "연장허가",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 158,
+        "match_text": "외국인등록",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-1|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 156,
+        "page_to": 157,
+        "match_text": "재입국허가",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 141,
+        "page_to": 159,
+        "match_text": "자격외활동",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 149,
+        "page_to": 158,
+        "match_text": "사증발급",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 124,
+        "page_to": 127,
+        "match_text": "사증발급",
+        "section_pf": 123,
+        "section_pt": 128,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 123,
+        "page_to": 128,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 123,
+        "section_pt": 128,
+        "score": 12,
+        "match_kind": "visa_section"
+      }
+    ],
+    "D-10-1|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 143,
+        "page_to": 149,
+        "match_text": "사실증명",
+        "section_pf": 140,
+        "section_pt": 160,
+        "score": 48,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 125,
+        "match_text": "사실증명",
+        "section_pf": 123,
+        "section_pt": 128,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 108,
+        "match_text": "변경허가",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "연장허가",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 108,
+        "match_text": "외국인등록",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "재입국허가",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 103,
+        "page_to": 107,
+        "match_text": "체류자격외 활동",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 107,
+        "match_text": "근무처 변경",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "사증발급",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-1|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 107,
+        "page_to": 107,
+        "match_text": "사실증명",
+        "section_pf": 101,
+        "section_pt": 108,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-3|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 156,
+        "page_to": 159,
+        "match_text": "변경허가",
+        "section_pf": 155,
+        "section_pt": 159,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-3|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 157,
+        "match_text": "체류기간 연장",
+        "section_pf": 155,
+        "section_pt": 159,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-3|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 158,
+        "match_text": "외국인등록",
+        "section_pf": 155,
+        "section_pt": 159,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-3|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 156,
+        "page_to": 157,
+        "match_text": "재입국허가",
+        "section_pf": 155,
+        "section_pt": 159,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-3|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 159,
+        "page_to": 159,
+        "match_text": "시간제취업",
+        "section_pf": 155,
+        "section_pt": 159,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-3|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 156,
+        "page_to": 158,
+        "match_text": "사증발급",
+        "section_pf": 155,
+        "section_pt": 159,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 195,
+        "page_to": 199,
+        "match_text": "변경허가",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 196,
+        "page_to": 196,
+        "match_text": "연장허가",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 195,
+        "page_to": 199,
+        "match_text": "외국인등록",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 196,
+        "page_to": 196,
+        "match_text": "재입국허가",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 197,
+        "page_to": 197,
+        "match_text": "자격외활동",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 199,
+        "page_to": 199,
+        "match_text": "근무처 변경",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-5|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 196,
+        "page_to": 198,
+        "match_text": "사증발급",
+        "section_pf": 195,
+        "section_pt": 199,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5-7|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 538,
+        "page_to": 538,
+        "match_text": "외국인등록",
+        "section_pf": 535,
+        "section_pt": 538,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 399,
+        "page_to": 399,
+        "match_text": "외국인등록",
+        "section_pf": 396,
+        "section_pt": 399,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5-7|DOMESTIC_RESIDENCE_REPORT": [
+      {
+        "manual": "체류민원",
+        "page_from": 537,
+        "page_to": 538,
+        "match_text": "거소신고",
+        "section_pf": 535,
+        "section_pt": 538,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 398,
+        "page_to": 399,
+        "match_text": "거소신고",
+        "section_pf": 396,
+        "section_pt": 399,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 189,
+        "page_to": 195,
+        "match_text": "체류자격 변경",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 190,
+        "page_to": 190,
+        "match_text": "연장허가",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 155,
+        "page_to": 155,
+        "match_text": "체류기간 연장",
+        "section_pf": 155,
+        "section_pt": 160,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 189,
+        "page_to": 195,
+        "match_text": "외국인등록",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 190,
+        "page_to": 191,
+        "match_text": "재입국허가",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 192,
+        "page_to": 193,
+        "match_text": "자격외활동",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 194,
+        "page_to": 194,
+        "match_text": "근무처 변경",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-4|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 191,
+        "page_to": 193,
+        "match_text": "사증발급",
+        "section_pf": 189,
+        "section_pt": 195,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 155,
+        "page_to": 160,
+        "match_text": "사증발급인정서",
+        "section_pf": 155,
+        "section_pt": 160,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 343,
+        "match_text": "체류자격 변경",
+        "section_pf": 338,
+        "section_pt": 343,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 338,
+        "page_to": 343,
+        "match_text": "외국인등록",
+        "section_pf": 338,
+        "section_pt": 343,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 338,
+        "page_to": 338,
+        "match_text": "체류자격외 활동",
+        "section_pf": 338,
+        "section_pt": 343,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 338,
+        "page_to": 340,
+        "match_text": "체류자격 부여",
+        "section_pf": 338,
+        "section_pt": 343,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 341,
+        "page_to": 343,
+        "match_text": "사증발급인정서",
+        "section_pf": 338,
+        "section_pt": 343,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 279,
+        "page_to": 279,
+        "match_text": "사증발급",
+        "section_pf": 279,
+        "section_pt": 279,
+        "score": 10,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "G-1|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 342,
+        "page_to": 342,
+        "match_text": "사실증명",
+        "section_pf": 338,
+        "section_pt": 343,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-9|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 33,
+        "page_to": 40,
+        "match_text": "체류자격 변경",
+        "section_pf": 33,
+        "section_pt": 40,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-9|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 33,
+        "page_to": 33,
+        "match_text": "연장허가",
+        "section_pf": 33,
+        "section_pt": 40,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-9|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 33,
+        "page_to": 40,
+        "match_text": "외국인등록",
+        "section_pf": 33,
+        "section_pt": 40,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-9|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 34,
+        "page_to": 34,
+        "match_text": "재입국허가",
+        "section_pf": 33,
+        "section_pt": 40,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-9|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 35,
+        "page_to": 40,
+        "match_text": "체류자격외 활동",
+        "section_pf": 33,
+        "section_pt": 40,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-9|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 34,
+        "page_to": 38,
+        "match_text": "사증발급",
+        "section_pf": 33,
+        "section_pt": 40,
+        "score": 15,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 285,
+        "page_to": 286,
+        "match_text": "사증발급인정서",
+        "section_pf": 284,
+        "section_pt": 286,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 284,
+        "page_to": 286,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 284,
+        "section_pt": 286,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "D-8-3|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 118,
+        "match_text": "체류자격 변경",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-3|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 118,
+        "match_text": "외국인등록",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-3|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "자격외활동",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-3|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-3|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 117,
+        "match_text": "사증발급",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-3|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "사실증명",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 104,
+        "match_text": "변경허가",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "연장허가",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "외국인등록",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "재입국허가",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "체류자격외 활동",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 104,
+        "match_text": "근무처 변경",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-6|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "사증발급",
+        "section_pf": 101,
+        "section_pt": 105,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 682,
+        "page_to": 685,
+        "match_text": "체류자격변경",
+        "section_pf": 680,
+        "section_pt": 685,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2-5|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 680,
+        "page_to": 685,
+        "match_text": "체류기간 연장",
+        "section_pf": 680,
+        "section_pt": 685,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2-5|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 681,
+        "page_to": 685,
+        "match_text": "시간제취업",
+        "section_pf": 680,
+        "section_pt": 685,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2-5|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 681,
+        "page_to": 685,
+        "match_text": "사증발급",
+        "section_pf": 680,
+        "section_pt": 685,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 64,
+        "page_to": 66,
+        "match_text": "사증발급",
+        "section_pf": 64,
+        "section_pt": 66,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 104,
+        "match_text": "변경허가",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "연장허가",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 106,
+        "match_text": "외국인등록",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 105,
+        "match_text": "재입국허가",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 106,
+        "match_text": "체류자격외 활동",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 104,
+        "match_text": "근무처 변경",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-5|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 100,
+        "page_to": 105,
+        "match_text": "사증발급",
+        "section_pf": 100,
+        "section_pt": 106,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 199,
+        "page_to": 206,
+        "match_text": "변경허가",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 200,
+        "page_to": 200,
+        "match_text": "연장허가",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 199,
+        "page_to": 206,
+        "match_text": "외국인등록",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 200,
+        "page_to": 200,
+        "match_text": "재입국허가",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 202,
+        "page_to": 203,
+        "match_text": "체류자격외 활동",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 199,
+        "page_to": 199,
+        "match_text": "근무처 변경",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-6|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 200,
+        "page_to": 203,
+        "match_text": "사증발급",
+        "section_pf": 199,
+        "section_pt": 206,
+        "score": 15,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 163,
+        "page_to": 165,
+        "match_text": "사증발급인정서",
+        "section_pf": 163,
+        "section_pt": 165,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-4|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 119,
+        "match_text": "체류자격 변경",
+        "section_pf": 113,
+        "section_pt": 119,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-4|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 118,
+        "match_text": "외국인등록",
+        "section_pf": 113,
+        "section_pt": 119,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-4|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "자격외활동",
+        "section_pf": 113,
+        "section_pt": 119,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-4|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 113,
+        "section_pt": 119,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-4|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 117,
+        "match_text": "사증발급",
+        "section_pf": 113,
+        "section_pt": 119,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-4|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "사실증명",
+        "section_pf": 113,
+        "section_pt": 119,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 118,
+        "match_text": "체류자격 변경",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-2|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 118,
+        "match_text": "외국인등록",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-2|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "자격외활동",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-2|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-2|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 117,
+        "match_text": "사증발급",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-2|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "사실증명",
+        "section_pf": 113,
+        "section_pt": 118,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-4|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 40,
+        "page_to": 41,
+        "match_text": "체류자격 변경",
+        "section_pf": 39,
+        "section_pt": 41,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-4|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 39,
+        "page_to": 40,
+        "match_text": "외국인등록",
+        "section_pf": 39,
+        "section_pt": 41,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-4|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 39,
+        "page_to": 40,
+        "match_text": "시간제취업",
+        "section_pf": 39,
+        "section_pt": 41,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 120,
+        "match_text": "변경허가",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 115,
+        "page_to": 116,
+        "match_text": "체류자격 변경",
+        "section_pf": 114,
+        "section_pt": 116,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 120,
+        "match_text": "연장허가",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "체류기간연장",
+        "section_pf": 114,
+        "section_pt": 116,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 118,
+        "match_text": "외국인등록",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 111,
+        "match_text": "재입국허가",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 103,
+        "page_to": 114,
+        "match_text": "체류자격외 활동",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 120,
+        "match_text": "사증발급",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 114,
+        "page_to": 115,
+        "match_text": "사증발급인정서",
+        "section_pf": 114,
+        "section_pt": 116,
+        "score": 17,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 107,
+        "page_to": 120,
+        "match_text": "사실증명",
+        "section_pf": 101,
+        "section_pt": 120,
+        "score": 30,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3-18|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 401,
+        "match_text": "체류자격 변경",
+        "section_pf": 398,
+        "section_pt": 401,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3-18|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 401,
+        "match_text": "체류기간 연장",
+        "section_pf": 398,
+        "section_pt": 401,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3-18|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 399,
+        "match_text": "외국인등록",
+        "section_pf": 398,
+        "section_pt": 401,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3-18|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 401,
+        "page_to": 401,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 398,
+        "section_pt": 401,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3-18|GRANT": [
+      {
+        "manual": "체류민원",
+        "page_from": 399,
+        "page_to": 399,
+        "match_text": "체류자격 부여",
+        "section_pf": 398,
+        "section_pt": 401,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-3-18|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 398,
+        "page_to": 398,
+        "match_text": "사증발급",
+        "section_pf": 398,
+        "section_pt": 401,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 120,
+        "match_text": "체류자격 변경",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 120,
+        "page_to": 120,
+        "match_text": "체류기간 연장",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 118,
+        "match_text": "외국인등록",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "자격외활동",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 120,
+        "match_text": "사증발급",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-8-1|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 114,
+        "page_to": 120,
+        "match_text": "사실증명",
+        "section_pf": 113,
+        "section_pt": 120,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-Y|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 645,
+        "page_to": 650,
+        "match_text": "체류자격 변경",
+        "section_pf": 645,
+        "section_pt": 650,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-Y|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 648,
+        "page_to": 650,
+        "match_text": "체류기간 연장",
+        "section_pf": 645,
+        "section_pt": 650,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-Y|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 647,
+        "page_to": 650,
+        "match_text": "외국인등록",
+        "section_pf": 645,
+        "section_pt": 650,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-Y|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 650,
+        "page_to": 650,
+        "match_text": "체류자격 외 활동",
+        "section_pf": 645,
+        "section_pt": 650,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-Y|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 649,
+        "page_to": 649,
+        "match_text": "사증발급인정서",
+        "section_pf": 645,
+        "section_pt": 650,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 113,
+        "match_text": "변경허가",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|EXTEND": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 110,
+        "match_text": "연장허가",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 114,
+        "match_text": "외국인등록",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|REENTRY": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 111,
+        "match_text": "재입국허가",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 103,
+        "page_to": 114,
+        "match_text": "체류자격외 활동",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|WORKPLACE": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 114,
+        "match_text": "근무처 변경",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 101,
+        "page_to": 113,
+        "match_text": "사증발급",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-7|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 107,
+        "page_to": 114,
+        "match_text": "사실증명",
+        "section_pf": 101,
+        "section_pt": 114,
+        "score": 24,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5-S1|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 738,
+        "page_to": 738,
+        "match_text": "자격변경",
+        "section_pf": 736,
+        "section_pt": 740,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 456,
+        "page_to": 456,
+        "match_text": "자격변경",
+        "section_pf": 454,
+        "section_pt": 458,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5-S1|REGISTRATION": [
+      {
+        "manual": "체류민원",
+        "page_from": 739,
+        "page_to": 739,
+        "match_text": "외국인등록",
+        "section_pf": 736,
+        "section_pt": 740,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 457,
+        "page_to": 457,
+        "match_text": "외국인등록",
+        "section_pf": 454,
+        "section_pt": 458,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-5-S1|VISA_CONFIRM": [
+      {
+        "manual": "체류민원",
+        "page_from": 739,
+        "page_to": 739,
+        "match_text": "사증발급",
+        "section_pf": 736,
+        "section_pt": 740,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 457,
+        "page_to": 457,
+        "match_text": "사증발급",
+        "section_pf": 454,
+        "section_pt": 458,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 454,
+        "page_to": 458,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 454,
+        "section_pt": 458,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "D-10-2|CHANGE": [
+      {
+        "manual": "체류민원",
+        "page_from": 142,
+        "page_to": 144,
+        "match_text": "변경허가",
+        "section_pf": 140,
+        "section_pt": 144,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 124,
+        "page_to": 126,
+        "match_text": "변경허가",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-2|EXTRA_WORK": [
+      {
+        "manual": "체류민원",
+        "page_from": 141,
+        "page_to": 141,
+        "match_text": "자격외활동",
+        "section_pf": 140,
+        "section_pt": 144,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-2|APPLICATION_CLAIM": [
+      {
+        "manual": "체류민원",
+        "page_from": 143,
+        "page_to": 143,
+        "match_text": "사실증명",
+        "section_pf": 140,
+        "section_pt": 144,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 125,
+        "match_text": "사실증명",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3|CHANGE": [
+      {
+        "manual": "사증민원",
+        "page_from": 30,
+        "page_to": 30,
+        "match_text": "체류자격변경",
+        "section_pf": 27,
+        "section_pt": 41,
+        "score": 35,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-1|REGISTRATION": [
+      {
+        "manual": "사증민원",
+        "page_from": 13,
+        "page_to": 13,
+        "match_text": "외국인등록",
+        "section_pf": 6,
+        "section_pt": 15,
+        "score": 29,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-1|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 7,
+        "page_to": 15,
+        "match_text": "사증발급",
+        "section_pf": 6,
+        "section_pt": 15,
+        "score": 29,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 6,
+        "page_to": 15,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 6,
+        "section_pt": 15,
+        "score": 29,
+        "match_kind": "visa_section"
+      }
+    ],
+    "F-5|DOMESTIC_RESIDENCE_REPORT": [
+      {
+        "manual": "사증민원",
+        "page_from": 407,
+        "page_to": 412,
+        "match_text": "거소신고",
+        "section_pf": 407,
+        "section_pt": 412,
+        "score": 23,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "F-2|DOMESTIC_RESIDENCE_REPORT": [
+      {
+        "manual": "사증민원",
+        "page_from": 315,
+        "page_to": 315,
+        "match_text": "거소신고",
+        "section_pf": 308,
+        "section_pt": 319,
+        "score": 34,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "H-1|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 336,
+        "page_to": 336,
+        "match_text": "사증발급",
+        "section_pf": 336,
+        "section_pt": 336,
+        "score": 10,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-S|CHANGE": [
+      {
+        "manual": "사증민원",
+        "page_from": 247,
+        "page_to": 249,
+        "match_text": "체류자격변경",
+        "section_pf": 247,
+        "section_pt": 249,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-S|EXTEND": [
+      {
+        "manual": "사증민원",
+        "page_from": 247,
+        "page_to": 247,
+        "match_text": "연장허가",
+        "section_pf": 247,
+        "section_pt": 249,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-S|WORKPLACE": [
+      {
+        "manual": "사증민원",
+        "page_from": 247,
+        "page_to": 247,
+        "match_text": "근무처 변경",
+        "section_pf": 247,
+        "section_pt": 249,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-7-S|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 247,
+        "page_to": 248,
+        "match_text": "사증발급인정서",
+        "section_pf": 247,
+        "section_pt": 249,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10|APPLICATION_CLAIM": [
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 125,
+        "match_text": "사실증명",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-2|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 27,
+        "page_to": 32,
+        "match_text": "사증발급인정서",
+        "section_pf": 27,
+        "section_pt": 32,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-9|CHANGE": [
+      {
+        "manual": "사증민원",
+        "page_from": 30,
+        "page_to": 30,
+        "match_text": "체류자격변경",
+        "section_pf": 27,
+        "section_pt": 32,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-9|EXTEND": [
+      {
+        "manual": "사증민원",
+        "page_from": 30,
+        "page_to": 30,
+        "match_text": "체류기간 연장",
+        "section_pf": 27,
+        "section_pt": 32,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-9|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 27,
+        "page_to": 32,
+        "match_text": "사증발급인정서",
+        "section_pf": 27,
+        "section_pt": 32,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-T|EXTEND": [
+      {
+        "manual": "사증민원",
+        "page_from": 129,
+        "page_to": 129,
+        "match_text": "체류기간 연장",
+        "section_pf": 125,
+        "section_pt": 130,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-T|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 127,
+        "page_to": 130,
+        "match_text": "사증발급",
+        "section_pf": 125,
+        "section_pt": 130,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 130,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 125,
+        "section_pt": 130,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "D-10-T|APPLICATION_CLAIM": [
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 130,
+        "match_text": "사실증명",
+        "section_pf": 125,
+        "section_pt": 130,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "A-2|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 10,
+        "page_to": 15,
+        "match_text": "사증발급",
+        "section_pf": 10,
+        "section_pt": 15,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-2-6|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 64,
+        "page_to": 66,
+        "match_text": "사증발급",
+        "section_pf": 64,
+        "section_pt": 66,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-10-2|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 296,
+        "match_text": "사증발급인정서",
+        "section_pf": 294,
+        "section_pt": 296,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 296,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 294,
+        "section_pt": 296,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "E-10-1|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 296,
+        "match_text": "사증발급인정서",
+        "section_pf": 294,
+        "section_pt": 296,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 296,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 294,
+        "section_pt": 296,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "D-4|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 73,
+        "page_to": 76,
+        "match_text": "사증발급인정서",
+        "section_pf": 73,
+        "section_pt": 76,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "E-10-3|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 296,
+        "match_text": "사증발급인정서",
+        "section_pf": 294,
+        "section_pt": 296,
+        "score": 9,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 296,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 294,
+        "section_pt": 296,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ],
+    "C-4-5|EXTRA_WORK": [
+      {
+        "manual": "사증민원",
+        "page_from": 58,
+        "page_to": 58,
+        "match_text": "자격외활동",
+        "section_pf": 57,
+        "section_pt": 59,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-4-5|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 57,
+        "page_to": 59,
+        "match_text": "사증발급",
+        "section_pf": 57,
+        "section_pt": 59,
+        "score": 9,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-1|CHANGE": [
+      {
+        "manual": "사증민원",
+        "page_from": 47,
+        "page_to": 48,
+        "match_text": "자격변경",
+        "section_pf": 41,
+        "section_pt": 48,
+        "score": 18,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-1|REGISTRATION": [
+      {
+        "manual": "사증민원",
+        "page_from": 44,
+        "page_to": 47,
+        "match_text": "외국인등록",
+        "section_pf": 41,
+        "section_pt": 48,
+        "score": 18,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "C-3-1|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 41,
+        "page_to": 48,
+        "match_text": "사증발급",
+        "section_pf": 41,
+        "section_pt": 48,
+        "score": 18,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-2|EXTEND": [
+      {
+        "manual": "사증민원",
+        "page_from": 129,
+        "page_to": 129,
+        "match_text": "체류기간 연장",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      }
+    ],
+    "D-10-2|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 124,
+        "page_to": 129,
+        "match_text": "사증발급",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "general_with_action"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 123,
+        "page_to": 129,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 123,
+        "section_pt": 129,
+        "score": 12,
+        "match_kind": "visa_section"
+      }
+    ],
+    "F-2-7|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 249,
+        "page_to": 249,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 249,
+        "section_pt": 249,
+        "score": 20,
+        "match_kind": "visa_section"
+      }
+    ],
+    "E-7-4|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 252,
+        "page_to": 252,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 252,
+        "section_pt": 252,
+        "score": 10,
+        "match_kind": "visa_section"
+      }
+    ],
+    "F-4|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 429,
+        "page_to": 439,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 429,
+        "section_pt": 439,
+        "score": 65,
+        "match_kind": "visa_section"
+      }
+    ],
+    "F-5-7|VISA_CONFIRM": [
+      {
+        "manual": "사증민원",
+        "page_from": 396,
+        "page_to": 399,
+        "match_text": "사증발급(섹션)",
+        "section_pf": 396,
+        "section_pt": 399,
+        "score": 9,
+        "match_kind": "visa_section"
+      }
+    ]
+  },
+  "built_at": "2026-04-30T09:19:45.727514+00:00"
+}

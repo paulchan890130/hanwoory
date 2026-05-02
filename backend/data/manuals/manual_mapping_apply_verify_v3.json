@@ -1,0 +1,22 @@
+{
+  "backup_path": "backend\\data\\backups\\immigration_guidelines_db_v2.manual_ref_backup_20260430_231933.json",
+  "backup_size": 1038187,
+  "backup_valid_json": true,
+  "db_valid_json": true,
+  "db_master_rows": 369,
+  "expected_master_rows": 369,
+  "updated_count_actual": 139,
+  "expected_updated": 139,
+  "blocked_unchanged": 12,
+  "blocked_total": 12,
+  "blocked_changed_unexpect": [],
+  "protected_unchanged": 199,
+  "protected_total": 199,
+  "protected_changed_unexpect": [],
+  "match_proposed_count": 139,
+  "match_proposed_total": 139,
+  "mismatch_proposed_rows": [],
+  "non_manual_ref_field_diffs": [],
+  "actual_mismatch_after_apply": 0,
+  "errors": []
+}

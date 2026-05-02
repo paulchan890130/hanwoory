@@ -1,0 +1,166 @@
+{
+  "patch_meta": {
+    "version": "v13",
+    "mode": "DRY_RUN",
+    "scope": "4 rows: E-7-S(3) CHANGE/EXTEND/GRANT + H-1 CHANGE NOT_IN_MANUAL"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 4,
+    "diff_row_ids": [
+      "M1-0290",
+      "M1-0320",
+      "M1-0321",
+      "M1-0324"
+    ],
+    "diff_count": 4,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1007817
+  },
+  "rows": [
+    {
+      "row_id": "M1-0320",
+      "detailed_code": "E-7-S",
+      "action_type": "CHANGE",
+      "title": "네거티브방식 전문인력",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 247,
+          "page_to": 249,
+          "match_text": "체류자격변경",
+          "section_pf": 247,
+          "section_pt": 249,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 291,
+          "page_to": 291,
+          "match_type": "manual_override",
+          "match_text": "E-7-S 네거티브방식 CHANGE 체류관리 (체류민원 p.291) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 291,
+          "page_to": 291,
+          "match_type": "manual_override",
+          "match_text": "E-7-S 네거티브방식 CHANGE 체류관리 (체류민원 p.291) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.291: 'V. 네거티브 방식의 전문인력 비자(E-7-S) — 2. 유형별 세부 기준 — E-7-S1(고소득자)/E-7-S2(첨단산업) (자격요건, 사증발급 및 체류관리 기준)'. E-7-S 전용 통합 체류관리 섹션 — CHANGE/EXTEND/GRANT 별도 섹션 없이 통합 기술. 직접 PDF 열람 검증(2026-05-02). 기존 사증민원 p.247-249 오매핑 제거."
+    },
+    {
+      "row_id": "M1-0321",
+      "detailed_code": "E-7-S",
+      "action_type": "EXTEND",
+      "title": "네거티브방식 전문인력",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 247,
+          "page_to": 247,
+          "match_text": "연장허가",
+          "section_pf": 247,
+          "section_pt": 249,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 291,
+          "page_to": 291,
+          "match_type": "manual_override",
+          "match_text": "E-7-S 네거티브방식 EXTEND 체류관리 (체류민원 p.291) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 291,
+          "page_to": 291,
+          "match_type": "manual_override",
+          "match_text": "E-7-S 네거티브방식 EXTEND 체류관리 (체류민원 p.291) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.291: 'V. 네거티브 방식의 전문인력 비자(E-7-S) — 2. 유형별 세부 기준 — (자격요건, 사증발급 및 체류관리 기준)'. E-7-S 통합 섹션 — '체류관리 기준'이 체류기간연장 포함. 직접 PDF 열람 검증(2026-05-02). 기존 사증민원 p.247 오매핑 제거."
+    },
+    {
+      "row_id": "M1-0324",
+      "detailed_code": "E-7-S",
+      "action_type": "GRANT",
+      "title": "네거티브방식 전문인력",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 247,
+          "page_to": 249,
+          "score": 9,
+          "page_count": 3,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 291,
+          "page_to": 291,
+          "match_type": "manual_override",
+          "match_text": "E-7-S 네거티브방식 GRANT 체류관리 (체류민원 p.291) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 291,
+          "page_to": 291,
+          "match_type": "manual_override",
+          "match_text": "E-7-S 네거티브방식 GRANT 체류관리 (체류민원 p.291) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.291-292: 'V. 네거티브 방식의 전문인력 비자(E-7-S) — 2. 유형별 세부 기준 — (자격요건, 사증발급 및 체류관리 기준)' + p.292 '3. 거주(F-2) 및 영주(F-5) 자격 취득에 대한 특례'. E-7-S 통합 섹션 — '체류관리 기준'이 체류자격부여(GRANT) 포함. 직접 PDF 열람 검증(2026-05-02). 기존 사증민원 p.247-249 오매핑 제거."
+    },
+    {
+      "row_id": "M1-0290",
+      "detailed_code": "H-1",
+      "action_type": "CHANGE",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "H-1 관광취업 CHANGE 절차는 체류민원에 별도 섹션 없음. empty_ref_disposition.json에 NOT_IN_MANUAL로 기등록. 기존 사증민원 p.336 매핑은 관광취업 자격 개요 페이지 오매핑. manual_ref → [] (빈 배열)로 정리."
+    }
+  ]
+}

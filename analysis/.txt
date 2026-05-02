@@ -1,0 +1,2 @@
+ANTHROPIC_API_KEY="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"
+cd "C:\Users\윤찬\K.ID soft"

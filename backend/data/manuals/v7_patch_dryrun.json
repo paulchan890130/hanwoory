@@ -1,0 +1,495 @@
+{
+  "patch_meta": {
+    "version": "v7",
+    "mode": "DRY_RUN",
+    "scope": "F-1 residual: REG×4 + REENTRY×5 + F-1-11 CHANGE/EXTEND×2 = 11 rows",
+    "db_path": "backend\\data\\immigration_guidelines_db_v2.json"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 11,
+    "diff_row_ids": [
+      "M1-0214",
+      "M1-0216",
+      "M1-0218",
+      "M1-0222",
+      "M1-0223",
+      "M1-0225",
+      "M1-0226",
+      "M1-0228",
+      "M1-0229",
+      "M1-0231",
+      "M1-0232"
+    ],
+    "diff_count": 11,
+    "expected_target_count": 11,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "non_contiguous_rows": [],
+    "db_byte_size_before": 1009010
+  },
+  "rows": [
+    {
+      "row_id": "M1-0222",
+      "detailed_code": "F-1-15",
+      "action_type": "REGISTRATION",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "외국인 등록",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "외국인 등록",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 355,
+          "match_type": "manual_override",
+          "match_text": "F-1-15 REGISTRATION 외국인등록 generic (체류민원 p.355) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355 외국인등록 / 1. 외국인등록 신청서류 — F-1 자격 공통 절차",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0225",
+      "detailed_code": "F-1-21",
+      "action_type": "REGISTRATION",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "외국인 등록",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "외국인 등록",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 355,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 REGISTRATION 외국인등록 generic (체류민원 p.355) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355 외국인등록 / 1. 외국인등록 신청서류 — F-1 자격 공통 절차",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0228",
+      "detailed_code": "F-1-22",
+      "action_type": "REGISTRATION",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "외국인 등록",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "외국인 등록",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 355,
+          "match_type": "manual_override",
+          "match_text": "F-1-22 REGISTRATION 외국인등록 generic (체류민원 p.355) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355 외국인등록 / 1. 외국인등록 신청서류 — F-1 자격 공통 절차",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0231",
+      "detailed_code": "F-1-24",
+      "action_type": "REGISTRATION",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "외국인 등록",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "외국인 등록",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 355,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 REGISTRATION 외국인등록 generic (체류민원 p.355) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355 외국인등록 / 1. 외국인등록 신청서류 — F-1 자격 공통 절차",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0218",
+      "detailed_code": "F-1-11",
+      "action_type": "REENTRY",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 356,
+          "match_type": "manual_override",
+          "match_text": "F-1-11 REENTRY 재입국허가 generic (체류민원 p.355-356) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355-356 재입국허가 — F-1 자격 공통 절차 (1. 재입국허가 면제 + 2. 복수재입국허가)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0223",
+      "detailed_code": "F-1-15",
+      "action_type": "REENTRY",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 356,
+          "match_type": "manual_override",
+          "match_text": "F-1-15 REENTRY 재입국허가 generic (체류민원 p.355-356) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355-356 재입국허가 — F-1 자격 공통 절차 (1. 재입국허가 면제 + 2. 복수재입국허가)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0226",
+      "detailed_code": "F-1-21",
+      "action_type": "REENTRY",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 356,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 REENTRY 재입국허가 generic (체류민원 p.355-356) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355-356 재입국허가 — F-1 자격 공통 절차 (1. 재입국허가 면제 + 2. 복수재입국허가)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0229",
+      "detailed_code": "F-1-22",
+      "action_type": "REENTRY",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 356,
+          "match_type": "manual_override",
+          "match_text": "F-1-22 REENTRY 재입국허가 generic (체류민원 p.355-356) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355-356 재입국허가 — F-1 자격 공통 절차 (1. 재입국허가 면제 + 2. 복수재입국허가)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0232",
+      "detailed_code": "F-1-24",
+      "action_type": "REENTRY",
+      "title": "방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 355,
+          "page_to": 356,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 REENTRY 재입국허가 generic (체류민원 p.355-356) — F-1 공통절차 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.355-356 재입국허가 — F-1 자격 공통 절차 (1. 재입국허가 면제 + 2. 복수재입국허가)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0214",
+      "detailed_code": "F-1-11",
+      "action_type": "CHANGE",
+      "title": "방문취업자 가족 방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "자격변경",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "자격변경",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 544,
+          "match_type": "manual_override",
+          "match_text": "F-1-11 F-1-11 방문취업자가족 CHANGE (체류민원 p.543-544) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.543-544 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 — 라. 체류관리 절차 (외국인등록·체류기간 연장·체류자격 변경 / 대상: F-4·H-2 가족)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0216",
+      "detailed_code": "F-1-11",
+      "action_type": "EXTEND",
+      "title": "방문취업자 가족 방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 544,
+          "match_type": "manual_override",
+          "match_text": "F-1-11 F-1-11 방문취업자가족 EXTEND (체류민원 p.543-544) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.543-544 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 — 라. 체류관리 절차 (외국인등록·체류기간 연장·체류자격 변경 / 대상: F-4·H-2 가족)",
+      "non_contiguous": false,
+      "page_count": 1
+    }
+  ]
+}

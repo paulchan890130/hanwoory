@@ -1,0 +1,132 @@
+{
+  "meta": {
+    "stage": "5_apply_candidates",
+    "version": "v1",
+    "rules": {
+      "judge_decision": "EXACT",
+      "judge_confidence": "high or medium",
+      "verifier_decision": "ACCEPTED",
+      "preferred_manual_ok": true,
+      "cluster_size": "< 3",
+      "blocklist": "excluded"
+    },
+    "no_db_modification": true
+  },
+  "summary": {
+    "judge_files": [
+      "backend\\data\\manuals\\llm_judge_results\\llm_judge_results_FAIL_sonnet_20260501_131101.json",
+      "backend\\data\\manuals\\llm_judge_results\\llm_judge_results_FAIL_sonnet_20260501_132723.json"
+    ],
+    "verifier_files": [
+      "backend\\data\\manuals\\llm_verifier_results\\llm_verifier_results_20260501_132924.json",
+      "backend\\data\\manuals\\llm_verifier_results\\llm_verifier_results_20260501_133420.json"
+    ],
+    "judge_models": [
+      "claude-sonnet-4-6",
+      "claude-sonnet-4-6"
+    ],
+    "total_judge_rows": 25,
+    "total_verifier_rows": 5,
+    "total_apply_candidates": 3,
+    "KEEP_SAME": 3,
+    "PAGE_CORRECTION": 0,
+    "NEEDS_HUMAN": 2,
+    "excluded_judge_not_exact": 20,
+    "excluded_judge_low_confidence": 0,
+    "excluded_blocklist": 0,
+    "excluded_cluster_risk": 0,
+    "excluded_preferred_manual_fail": 0,
+    "excluded_no_verifier_result": 0,
+    "excluded_verifier_rejected": 2,
+    "no_db_modification": true
+  },
+  "candidates": [
+    {
+      "row_id": "M1-0159",
+      "detailed_code": "E-4",
+      "action_type": "REENTRY",
+      "title": "기술지도",
+      "current_manual": "체류민원",
+      "current_page": 197,
+      "judge_decision": "EXACT",
+      "judge_confidence": "high",
+      "verifier_decision": "ACCEPTED",
+      "apply_action": "KEEP_SAME",
+      "positive_evidence": "p.196(체류민원 p.197)에 '재입국허가' 섹션이 명시되어 있으며, 기술지도(E-4) 자격에 대한 재입국허가 면제 제도 및 복수재입국허가 신청서류(신청서, 여권 원본, 외국인등록증, 수수료)가 직접 기재되어 있음. 또한 같은 페이지에 '체류기간연장허가' 섹션에 E-4 관련 제출서류도 포함되어 있어 E-4 기술지도 재입국허가 업무의 요건·서류가 직접 존재함.",
+      "negative_evidence": "heading이 'E-4 기술지도'로 명시적으로 등장하지는 않으나, p.196은 E-4(기술지도) 섹션 내 하위 업무들(체류자격변경허가, 체류기간연장허가, 재입국허가, 외국인등록)을 다루는 페이지로, 인접 페이지(p.195)에서 E-4 기술지도 체류자격변경허가 내용이 시작되고 p.196이 그 연속임. 다만 E-4 heading이 해당 페이지에 직접 없는 점은 heading_not_found 위험과 일치함.",
+      "reject_reason": null,
+      "recommended_page": null,
+      "page_role": "EXACT_TASK_PAGE"
+    },
+    {
+      "row_id": "M1-0300",
+      "detailed_code": "A-2",
+      "action_type": "REENTRY",
+      "title": "공무",
+      "current_manual": "체류민원",
+      "current_page": 20,
+      "judge_decision": "EXACT",
+      "judge_confidence": "high",
+      "verifier_decision": "ACCEPTED",
+      "apply_action": "KEEP_SAME",
+      "positive_evidence": "페이지에 '재입국허가' 섹션이 공무(A-2) 페이지(p.20) 내에 heading으로 등장하며, 신청서류(신청서(별지34호), 여권, 외교관 신분증, 대사관 협조 공한, 재직 증명 서류)가 직접 명시되어 있음. 또한 허가 기준(출국한 날로부터 1년 이내 재입국 시 면제, 단수사증 소지자 재임기간 내 재입국허가 가능 조건)도 직접 기재됨.",
+      "negative_evidence": "페이지 상단에 '변경허가' 등 다른 섹션도 포함되어 있으나, 재입국허가 섹션이 A-2 공무 페이지 내에 독립 heading으로 존재하고 서류가 명확히 기재되어 있어 EXACT 조건 충족에 문제없음.",
+      "reject_reason": null,
+      "recommended_page": null,
+      "page_role": "EXACT_TASK_PAGE"
+    },
+    {
+      "row_id": "M1-0368",
+      "detailed_code": "F-5-11",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 특정분야 능력소유자 (점수제 우수인재)",
+      "current_manual": "체류민원",
+      "current_page": 458,
+      "judge_decision": "EXACT",
+      "judge_confidence": "high",
+      "verifier_decision": "ACCEPTED",
+      "apply_action": "KEEP_SAME",
+      "positive_evidence": "페이지 하단에 '8. 특정분야 능력 소유자〔F-5-11〕' heading이 명시되어 있으며, '가. 대상', '나. 요건(생계유지능력요건 면제)' 항목이 시작되고, 인접 페이지(p.459)에 점수제 요건표(필수항목/선택항목)와 제출서류가 이어짐. F-5-11의 heading이 직접 등장하고 신청요건이 해당 섹션 내에 존재함.",
+      "negative_evidence": "페이지 상단에 F-5-10(학사·석사 학위증 및 자격증 소지자) 섹션의 일부 내용이 포함되어 있으나, F-5-11 heading이 명확히 등장하고 해당 업무의 요건이 시작됨.",
+      "reject_reason": null,
+      "recommended_page": null,
+      "page_role": "EXACT_TASK_PAGE"
+    }
+  ],
+  "needs_human": [
+    {
+      "row_id": "M1-0097",
+      "detailed_code": "D-10-T",
+      "action_type": "CHANGE",
+      "title": "최우수인재 구직",
+      "current_manual": "체류민원",
+      "current_page": 144,
+      "judge_decision": "EXACT",
+      "judge_confidence": "high",
+      "verifier_decision": "REJECTED",
+      "apply_action": "NEEDS_HUMAN",
+      "positive_evidence": "페이지 상단에 '4) 최우수인재(D-10-T)'가 heading으로 등장하며, 세계 대학 순위 100위 이내 대학 석사 이상 학위 취득 후 구직활동 요건(신청요건)이 직접 기술되어 있음. '최우수인재 구직(D-10-T) 자격 부여' 조건 명시. 또한 제한대상(나. 제한대상) 항목 내 D-10-T 관련 결격사유가 포함되어 있어 허가기준이 직접 존재함.",
+      "negative_evidence": "D-10-1, D-10-2 등 다른 subtype의 제한대상도 같은 페이지에 존재하나, D-10-T heading 하에 신청요건이 명확히 기술되어 있어 EXACT 조건 충족에 방해되지 않음.",
+      "reject_reason": "broad family page: p.144는 D-10-T 신청요건(허용대상)만 포함하며, 제출서류는 p.146에 위치하고 D-10-T 전용 제출서류는 별도로 명시되지 않음. 또한 제한대상(나. 제한대상)의 D-10-T 항목은 p.145에 걸쳐 있어 p.144 단일 페이지에 신청요건·제출서류·허가기준이 모두 직접 존재하지 않음. p.144에는 D-10-T 허용대상만 있고, D-10-T 결격사유는 p.145, 제출서류는 p.146에 분산되어 있어 단일 페이지 EXACT 조건을 충족하지 못함. 아울러 p.144에는 D-10-1, D-10-2, D-10-3 등 다수 subtype이 혼재하여 broad family page에 해당할 소지가 있음.",
+      "recommended_page": null,
+      "page_role": "EXACT_TASK_PAGE"
+    },
+    {
+      "row_id": "M1-0130",
+      "detailed_code": "D-10-1",
+      "action_type": "CHANGE",
+      "title": "일반구직",
+      "current_manual": "체류민원",
+      "current_page": 142,
+      "judge_decision": "EXACT",
+      "judge_confidence": "high",
+      "verifier_decision": "REJECTED",
+      "apply_action": "NEEDS_HUMAN",
+      "positive_evidence": "p.142(실제 텍스트 '-143-')에 '체류자격변경허가' 섹션 하위에 '1-1) 일반 구직(D-10-1): 점수제 적용 대상자', '1-2) 일반 구직(D-10-1): 점수제 면제 특례자' 등 D-10-1 heading이 명시되어 있으며, 학사 이상 학위 소지·구직 점수표 60점 이상 등 신청요건이 직접 기술되어 있음.",
+      "negative_evidence": "D-10-2, D-10-3 등 다른 subtype 내용이 인접 페이지(p.143)에 이어지나, 해당 페이지(p.142) 자체는 D-10-1 허용대상 요건을 주된 내용으로 다루고 있어 broad family 페이지가 아님.",
+      "reject_reason": "broad family page: p.142 텍스트는 '체류자격변경허가' 섹션의 허용대상(가. 허용대상)으로서 D-10-1뿐 아니라 D-10-2, D-10-3, D-10-T 등 D-10 전체 subtype의 허용대상 요건을 순차적으로 나열하는 개요 페이지의 시작부분이다. 해당 페이지(p.142)에는 D-10-1 허용대상 요건이 포함되어 있으나 제출서류가 직접 기술되어 있지 않으며, D-10-1만을 독립적으로 다루는 전용 페이지가 아니라 D-10 전체 체류자격변경허가 허용대상을 다루는 broad family 구조의 일부다. 또한 업무 정의에서 '변경 신청요건·제출서류가 직접 있어야 함'이라고 명시하고 있으나, 이 페이지에는 D-10-1 체류자격변경허가를 위한 제출서류가 직접 기재되어 있지 않아 no direct evidence(제출서류 누락) 오류도 해당된다.",
+      "recommended_page": null,
+      "page_role": "EXACT_TASK_PAGE"
+    }
+  ]
+}

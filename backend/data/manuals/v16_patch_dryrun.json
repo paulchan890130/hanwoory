@@ -1,0 +1,61 @@
+{
+  "patch_meta": {
+    "version": "v16",
+    "mode": "DRY_RUN",
+    "scope": "1 row: E-7-4 CHANGE 체류민원 p.296-297"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 1,
+    "diff_row_ids": [
+      "M1-0175"
+    ],
+    "diff_count": 1,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1006751
+  },
+  "rows": [
+    {
+      "row_id": "M1-0175",
+      "detailed_code": "E-7-4",
+      "action_type": "CHANGE",
+      "title": "숙련기능인력 체류자격변경",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 585,
+          "page_to": 585,
+          "match_text": "자격변경",
+          "section_pf": 585,
+          "section_pt": 585,
+          "score": 11,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 296,
+          "page_to": 297,
+          "match_type": "manual_override",
+          "match_text": "E-7-4 숙련기능인력 CHANGE 체류자격변경 (체류민원 p.296-297) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 296,
+          "page_to": 297,
+          "match_type": "manual_override",
+          "match_text": "E-7-4 숙련기능인력 CHANGE 체류자격변경 (체류민원 p.296-297) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.296-297: '숙련기능인력(E-7-4) 체류관리 안내 매뉴얼 / K-point E74'. p.296: 'K-point E74 선발인원 33,000명 / 신청 일정 및 방법'. p.297: '신청 대상 외국인 요건 / 기본 요건 ①최근 10년간 E-9·E-10·H-2로 4년 이상 체류'. p.301: '행정 사항 / 허가 내용: 체류자격 변경만 허용(신규 비자발급 대상 아님)'. 직접 PDF 열람 검증(2026-05-02). 기존 체류민원 p.585 = 별첨 지역특화형비자 자료 오매핑."
+    }
+  ]
+}

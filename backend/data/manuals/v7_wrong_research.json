@@ -1,0 +1,801 @@
+{
+  "meta": {
+    "total_targets": 13,
+    "scoring": "heading_match=50 / 신청요건=20 / 제출서류=30 / action_kw=15"
+  },
+  "rows": [
+    {
+      "row_id": "M1-0086",
+      "detailed_code": "F-4-R",
+      "action_type": "CHANGE",
+      "title": "지역특화형 재외동포",
+      "current_manual": "체류민원",
+      "current_page": 622,
+      "current_summary": "체류민원/p.622-625",
+      "found_manual": "체류민원",
+      "found_page": 622,
+      "heading_snippet": " 지역동포영주 체류허가 기준 / 1. 대상 / ❍ 지역특화동포(F-4-R)로 자격 변경 후 4년* 이상 계속 추천지역에",
+      "confidence": "HIGH",
+      "best_score": 70,
+      "top_candidates": [
+        {
+          "manual": "체류민원",
+          "page": 622,
+          "matched_term": "F-4-R",
+          "heading": " 지역동포영주 체류허가 기준 / 1. 대상 / ❍ 지역특화동포(F-4-R)로 자격 변경 후 4년* 이상 계속 추천지역에",
+          "has_요건": true,
+          "has_제출서류": false,
+          "score": 70
+        },
+        {
+          "manual": "체류민원",
+          "page": 529,
+          "matched_term": "F-4-R",
+          "heading": "□ 재외동포 사증발급 세부대상 및 추가 신청서류 / 대   상 / 제출서류",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 584,
+          "matched_term": "F-4-R",
+          "heading": "※ 본 매뉴얼의 비자는 출입국관리법령상 체류자격에 해당 / 【 체류자격의 종류 】 / 구 분",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 618,
+          "matched_term": "지역특화형 재외동포",
+          "heading": "나. 요건 / ❍ (거주지) 주 체류자격자와 실거주지가 동일 / ❍ (취업지역) 추천지역 내 소재한 업체에서만 가능",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 390,
+          "matched_term": "F-4-R",
+          "heading": "□ 재외동포 사증발급 세부대상 및 추가 신청서류 / 대   상 / 제출서류",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0091",
+      "detailed_code": "F-2-71",
+      "action_type": "GRANT",
+      "title": "K-STAR 거주자의 국내출생 미성년자녀",
+      "current_manual": "체류민원",
+      "current_page": 371,
+      "current_summary": "체류민원/p.371-426, 사증민원/p.310-318",
+      "found_manual": "사증민원",
+      "found_page": 316,
+      "heading_snippet": "체류자격*을 받은 사람(이하 ‘주체류자’라 함)의 배우자** 또는 미성년 자녀*** / * 점수제 평가항목별 합산 점수가 80점 이상임을 검증 받고 점수제 우수인재 / 체류자격(F-2-7)을 받은 사람을 의미함(즉, F-2-71은 대상 아님)",
+      "confidence": "HIGH",
+      "best_score": 80,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 316,
+          "matched_term": "F-2-71",
+          "heading": "체류자격*을 받은 사람(이하 ‘주체류자’라 함)의 배우자** 또는 미성년 자녀*** / * 점수제 평가항목별 합산 점수가 80점 이상임을 검증 받고 점수제 우수인재 / 체류자격(F-2-7)을 받은 사람을 의미함(즉, F-2-71은 대상 아님)",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 80
+        },
+        {
+          "manual": "사증민원",
+          "page": 311,
+          "matched_term": "F-2-71",
+          "heading": "관련 종사자에 해당하는 직종에 취업 중이거나 고용계약을 체결하여 취업이 / 확정된 외국인 / - 유망산업분야종사자 : 산업통상자원부 고시 제2020-40호, 2020.3.31., 「첨단기술",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 50
+        },
+        {
+          "manual": "체류민원",
+          "page": 318,
+          "matched_term": "체류자격 부여",
+          "heading": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.>",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 275,
+          "matched_term": "체류자격 부여",
+          "heading": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.>",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 389,
+          "matched_term": "체류자격부여",
+          "heading": "4. 재외동포(F-4) 자격부여 제도 세부절차 / ◈외국국적동포 등 재외동포(F-4) 자격으로 국내에 입국하기 위한 / 사증발급및 체류관리 세부 절차는 다음과 같습니다.",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0112",
+      "detailed_code": "D-8-2",
+      "action_type": "EXTEND",
+      "title": "벤처투자",
+      "current_manual": "체류민원",
+      "current_page": 101,
+      "current_summary": "체류민원/p.101-120, 사증민원/p.114-114",
+      "found_manual": "체류민원",
+      "found_page": 24,
+      "heading_snippet": "사증면제(B-1) / 활동범위 / 협정상의 체류활동",
+      "confidence": "MEDIUM",
+      "best_score": 45,
+      "top_candidates": [
+        {
+          "manual": "체류민원",
+          "page": 24,
+          "matched_term": "체류기간 연장",
+          "heading": "사증면제(B-1) / 활동범위 / 협정상의 체류활동",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 25,
+          "matched_term": "체류기간 연장",
+          "heading": "관광통과(B-2) / 활동범위 / 관광․통과",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 2,
+          "matched_term": "기업투자(D-8)",
+          "heading": "目 / 目   次 / 次",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "사증민원",
+          "page": 93,
+          "matched_term": "기업투자(D-8)",
+          "heading": "주   재(D-7) / 활동범위및 / 해당자",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "사증민원",
+          "page": 97,
+          "matched_term": "기업투자(D-8)",
+          "heading": "사증발급인정서 / 발급대상 /  목차",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0113",
+      "detailed_code": "D-8-3",
+      "action_type": "EXTEND",
+      "title": "개인기업투자",
+      "current_manual": "체류민원",
+      "current_page": 101,
+      "current_summary": "체류민원/p.101-120, 사증민원/p.114-114",
+      "found_manual": "사증민원",
+      "found_page": 111,
+      "heading_snippet": "사증발급인정서 / 발급대상 /  목차",
+      "confidence": "MEDIUM",
+      "best_score": 50,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 111,
+          "matched_term": "D-8-3",
+          "heading": "사증발급인정서 / 발급대상 /  목차",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 50
+        },
+        {
+          "manual": "체류민원",
+          "page": 24,
+          "matched_term": "체류기간 연장",
+          "heading": "사증면제(B-1) / 활동범위 / 협정상의 체류활동",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 25,
+          "matched_term": "체류기간 연장",
+          "heading": "관광통과(B-2) / 활동범위 / 관광․통과",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 108,
+          "matched_term": "개인기업",
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 96,
+          "matched_term": "개인기업",
+          "heading": "사증발급인정서 / 발급대상 /  목차",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0124",
+      "detailed_code": "D-9-4",
+      "action_type": "CHANGE",
+      "title": "개인사업자 무역경영",
+      "current_manual": "체류민원",
+      "current_page": 101,
+      "current_summary": "체류민원/p.101-113, 사증민원/p.115-116",
+      "found_manual": "사증민원",
+      "found_page": 48,
+      "heading_snippet": " 목차 / 사증발급인정서 / 발급대상",
+      "confidence": "HIGH",
+      "best_score": 65,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 48,
+          "matched_term": "체류자격 변경",
+          "heading": " 목차 / 사증발급인정서 / 발급대상",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 65
+        },
+        {
+          "manual": "체류민원",
+          "page": 3,
+          "matched_term": "체류자격 변경",
+          "heading": "유  의  사  항 / ※\u0001 출입국·외국인청(사무소·출장소)장은\u0001 심사를\u0001 위해\u0001 특히\u0001 필요하다고\u0001 인정되는\u0001 / 때에는\u0001 본\u0001 매뉴얼상의\u0001 제출서류를\u0001 가감할\u0001 수\u0001 있으며,\u0001 본\u0001 안내매뉴얼은\u0001 체류자격별\u0001",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 16,
+          "matched_term": "체류자격 변경",
+          "heading": "④부양자의 외국공관원 신분증 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 22,
+          "matched_term": "체류자격 변경",
+          "heading": "변경허가 /  목차 / 본인",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 107,
+          "matched_term": "체류자격 변경",
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0175",
+      "detailed_code": "E-7-4",
+      "action_type": "CHANGE",
+      "title": "숙련기능인력",
+      "current_manual": "체류민원",
+      "current_page": 585,
+      "current_summary": "체류민원/p.585-585",
+      "found_manual": "사증민원",
+      "found_page": 48,
+      "heading_snippet": " 목차 / 사증발급인정서 / 발급대상",
+      "confidence": "HIGH",
+      "best_score": 65,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 48,
+          "matched_term": "체류자격 변경",
+          "heading": " 목차 / 사증발급인정서 / 발급대상",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 65
+        },
+        {
+          "manual": "체류민원",
+          "page": 3,
+          "matched_term": "체류자격 변경",
+          "heading": "유  의  사  항 / ※\u0001 출입국·외국인청(사무소·출장소)장은\u0001 심사를\u0001 위해\u0001 특히\u0001 필요하다고\u0001 인정되는\u0001 / 때에는\u0001 본\u0001 매뉴얼상의\u0001 제출서류를\u0001 가감할\u0001 수\u0001 있으며,\u0001 본\u0001 안내매뉴얼은\u0001 체류자격별\u0001",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 16,
+          "matched_term": "체류자격 변경",
+          "heading": "④부양자의 외국공관원 신분증 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 25,
+          "matched_term": "변경허가",
+          "heading": "일시취재(C-1) / 활동범위 / 일시취재․보도",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 107,
+          "matched_term": "체류자격 변경",
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0198",
+      "detailed_code": "E-10",
+      "action_type": "CHANGE",
+      "title": "선원취업",
+      "current_manual": "체류민원",
+      "current_page": 332,
+      "current_summary": "체류민원/p.332-332",
+      "found_manual": "사증민원",
+      "found_page": 48,
+      "heading_snippet": " 목차 / 사증발급인정서 / 발급대상",
+      "confidence": "HIGH",
+      "best_score": 65,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 48,
+          "matched_term": "체류자격 변경",
+          "heading": " 목차 / 사증발급인정서 / 발급대상",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 65
+        },
+        {
+          "manual": "체류민원",
+          "page": 3,
+          "matched_term": "체류자격 변경",
+          "heading": "유  의  사  항 / ※\u0001 출입국·외국인청(사무소·출장소)장은\u0001 심사를\u0001 위해\u0001 특히\u0001 필요하다고\u0001 인정되는\u0001 / 때에는\u0001 본\u0001 매뉴얼상의\u0001 제출서류를\u0001 가감할\u0001 수\u0001 있으며,\u0001 본\u0001 안내매뉴얼은\u0001 체류자격별\u0001",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 107,
+          "matched_term": "체류자격 변경",
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 113,
+          "matched_term": "체류자격 변경",
+          "heading": "* 특허권(특허법), 실용신안권(실용신안법), 디자인권(디자인보호법), 상표권(상표법), / 저작권(저작권법) 등국내법에따라인정된지식재산권 / ** 「중소기업창업지원법」등법률에근거한정부지원사업에선정된외국인의창업",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 115,
+          "matched_term": "체류자격 변경",
+          "heading": "※ 기업투자(D-8) 사증발급 기본 원칙 / ◦「외국인투자촉진법」에 따른 외국인투자기업의 경영․관리 또는 / 생산․기술 분야 종사하려는 필수전문인력과 「벤처기업육성에",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0256",
+      "detailed_code": "F-2-71",
+      "action_type": "GRANT",
+      "title": "점수제 우수인재 국내출생 자녀",
+      "current_manual": "체류민원",
+      "current_page": 371,
+      "current_summary": "체류민원/p.371-426, 사증민원/p.310-318",
+      "found_manual": "사증민원",
+      "found_page": 316,
+      "heading_snippet": "체류자격*을 받은 사람(이하 ‘주체류자’라 함)의 배우자** 또는 미성년 자녀*** / * 점수제 평가항목별 합산 점수가 80점 이상임을 검증 받고 점수제 우수인재 / 체류자격(F-2-7)을 받은 사람을 의미함(즉, F-2-71은 대상 아님)",
+      "confidence": "HIGH",
+      "best_score": 80,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 316,
+          "matched_term": "F-2-71",
+          "heading": "체류자격*을 받은 사람(이하 ‘주체류자’라 함)의 배우자** 또는 미성년 자녀*** / * 점수제 평가항목별 합산 점수가 80점 이상임을 검증 받고 점수제 우수인재 / 체류자격(F-2-7)을 받은 사람을 의미함(즉, F-2-71은 대상 아님)",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 80
+        },
+        {
+          "manual": "사증민원",
+          "page": 311,
+          "matched_term": "F-2-71",
+          "heading": "관련 종사자에 해당하는 직종에 취업 중이거나 고용계약을 체결하여 취업이 / 확정된 외국인 / - 유망산업분야종사자 : 산업통상자원부 고시 제2020-40호, 2020.3.31., 「첨단기술",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 50
+        },
+        {
+          "manual": "체류민원",
+          "page": 318,
+          "matched_term": "체류자격 부여",
+          "heading": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.>",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 339,
+          "matched_term": "점수제 우수인재",
+          "heading": " 목차 / 자격 부여 / ①신청서(별지 34호 서식), 여권, 표준규격사진 1매, 수수료",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "사증민원",
+          "page": 275,
+          "matched_term": "체류자격 부여",
+          "heading": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.>",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0320",
+      "detailed_code": "E-7-S",
+      "action_type": "CHANGE",
+      "title": "네거티브방식 전문인력",
+      "current_manual": "사증민원",
+      "current_page": 247,
+      "current_summary": "사증민원/p.247-249",
+      "found_manual": "사증민원",
+      "found_page": 57,
+      "heading_snippet": "5. 교수(E-1) 또는 특정활동(E-7) 자격 대상자로서 수익이 따르는 / 계약 등에 따라 90일 이하 강의․강연․연구활동을 하는 자 (대학교원 / 또는 관련분야 전문가 등)",
+      "confidence": "HIGH",
+      "best_score": 80,
+      "top_candidates": [
+        {
+          "manual": "사증민원",
+          "page": 57,
+          "matched_term": "특정활동(E-7)",
+          "heading": "5. 교수(E-1) 또는 특정활동(E-7) 자격 대상자로서 수익이 따르는 / 계약 등에 따라 90일 이하 강의․강연․연구활동을 하는 자 (대학교원 / 또는 관련분야 전문가 등)",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 80
+        },
+        {
+          "manual": "사증민원",
+          "page": 169,
+          "matched_term": "특정활동(E-7)",
+          "heading": "특정활동(E-7) / 활동범위및 / 해당자",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 50
+        },
+        {
+          "manual": "체류민원",
+          "page": 2,
+          "matched_term": "특정활동(E-7)",
+          "heading": "目 / 目   次 / 次",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "체류민원",
+          "page": 14,
+          "matched_term": "특정활동(E-7)",
+          "heading": "체류자격별 대상 및 제출서류 등 안내메뉴얼 / 외교(A-1) / 자격해당자",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "체류민원",
+          "page": 18,
+          "matched_term": "특정활동(E-7)",
+          "heading": "공무(A-2) / 자격해당자 / 및활동범위",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0364",
+      "detailed_code": "F-5-1",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 국민의 배우자·자녀",
+      "current_manual": "체류민원",
+      "current_page": 445,
+      "current_summary": "체류민원/p.445-452",
+      "found_manual": "체류민원",
+      "found_page": 428,
+      "heading_snippet": "체류자격 / 부 / 여",
+      "confidence": "MEDIUM",
+      "best_score": 45,
+      "top_candidates": [
+        {
+          "manual": "체류민원",
+          "page": 428,
+          "matched_term": "F-5-1",
+          "heading": "체류자격 / 부 / 여",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 405,
+          "matched_term": "국민의 배우자",
+          "heading": "10. 공무원으로 임용된 외국인에 대한 거주 자격변경 허가 / 가. 대상: 출입국관리법시행령 제12조관련 (별표 1) ‘외국인의 체류자격’ / 27 거주(F-2)의 “아”목에 해당하는 자",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "사증민원",
+          "page": 37,
+          "matched_term": "국민의 배우자",
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "사증민원",
+          "page": 41,
+          "matched_term": "국민의 배우자",
+          "heading": "- 의료관광에 의한 국내 방문은 최근 1년간 국내 병·의원에서 지출한 / 진료비 / 총액이",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "사증민원",
+          "page": 335,
+          "matched_term": "국민의 배우자",
+          "heading": "☞입국 후 90일 이내에 외국인등록 및 체류기간 연장 고지 / 첨부서류 / ①사증발급신청서 (별지 제17호 서식), 여권, 표준규격사진 1매, 수수료",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0365",
+      "detailed_code": "F-5-2",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 영주권자의 미성년 자녀",
+      "current_manual": "체류민원",
+      "current_page": 453,
+      "current_summary": "체류민원/p.453-453",
+      "found_manual": "체류민원",
+      "found_page": 428,
+      "heading_snippet": "체류자격 / 부 / 여",
+      "confidence": "MEDIUM",
+      "best_score": 45,
+      "top_candidates": [
+        {
+          "manual": "체류민원",
+          "page": 428,
+          "matched_term": "F-5-2",
+          "heading": "체류자격 / 부 / 여",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 346,
+          "matched_term": "F-5-2",
+          "heading": "※ (제출 면제) 사증발급 시 제출한 경우, 6세 미만 소아 / < 해외에서 발급받은 서류 요건 > / 해외 기관이 발급한 서류는 아포스티유 확인 또는 대한민국 공관의 영사확인을 받아 제출",
+          "has_요건": true,
+          "has_제출서류": false,
+          "score": 35
+        },
+        {
+          "manual": "체류민원",
+          "page": 353,
+          "matched_term": "F-5-2",
+          "heading": "- (취학의무 불이행 시 연장 제한) 자녀가 취학연령에 해당하지만, 초청인이 취 / 학의무를 이행하지 않을 경우에는 신청인의 체류기간 연장허가 제한 / □인도적 사정",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "체류민원",
+          "page": 429,
+          "matched_term": "F-5-2",
+          "heading": " 목차 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 15
+        },
+        {
+          "manual": "체류민원",
+          "page": 431,
+          "matched_term": "영주(F-5) 자격변경",
+          "heading": " 목차 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 15
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0367",
+      "detailed_code": "F-5-10",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 재외동포(F-4) 2년",
+      "current_manual": "체류민원",
+      "current_page": 457,
+      "current_summary": "체류민원/p.457-457",
+      "found_manual": "체류민원",
+      "found_page": 428,
+      "heading_snippet": "체류자격 / 부 / 여",
+      "confidence": "MEDIUM",
+      "best_score": 45,
+      "top_candidates": [
+        {
+          "manual": "체류민원",
+          "page": 428,
+          "matched_term": "F-5-10",
+          "heading": "체류자격 / 부 / 여",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 457,
+          "matched_term": "F-5-10",
+          "heading": "3) 생계유지능력 요건(아래 요건 중 하나 충족) / ○소득 : 전년도 1인당 국민총소득(GNI) 이상 / ○자산: 전년도 평균 순자산이상",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        },
+        {
+          "manual": "체류민원",
+          "page": 432,
+          "matched_term": "F-5-10",
+          "heading": " 목차 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 15
+        },
+        {
+          "manual": "체류민원",
+          "page": 436,
+          "matched_term": "F-5-10",
+          "heading": " 목차 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 15
+        },
+        {
+          "manual": "체류민원",
+          "page": 440,
+          "matched_term": "F-5-10",
+          "heading": " 목차 / 체류자격 / 변경허가",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 15
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0369",
+      "detailed_code": "F-5-14",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — H-2 제조업 4년",
+      "current_manual": "체류민원",
+      "current_page": 579,
+      "current_summary": "체류민원/p.579-583",
+      "found_manual": "체류민원",
+      "found_page": 39,
+      "heading_snippet": "시간제취업 / 활동허가 /  목차",
+      "confidence": "MEDIUM",
+      "best_score": 50,
+      "top_candidates": [
+        {
+          "manual": "체류민원",
+          "page": 39,
+          "matched_term": "제조업",
+          "heading": "시간제취업 / 활동허가 /  목차",
+          "has_요건": true,
+          "has_제출서류": true,
+          "score": 50
+        },
+        {
+          "manual": "체류민원",
+          "page": 51,
+          "matched_term": "제조업",
+          "heading": "붙임 4 / 외국인유학생 시간제취업 고용주작성 확인서 (한글) / ※ 사업자등록증상에 제조업, 건설업이 있는 경우에만 고용주가 작성",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 50
+        },
+        {
+          "manual": "사증민원",
+          "page": 240,
+          "matched_term": "제조업",
+          "heading": "❍(고용업체 기준) 항공기(부품) 제조업체* 중 최근 1년간 연평균 매출액 10억원 이상 ＋상시 근로자 / 10인 이상 ＋최근 2년 이내 법 위반 및 이탈자가 발생하지 않은 업체**(다만, 외국인력을 / 고용한 업체가 폐업한 경우, 동 업체를 승계하여 신규 설립한 업체의 경우 예외적으로 외국인 고용",
+          "has_요건": false,
+          "has_제출서류": false,
+          "score": 50
+        },
+        {
+          "manual": "체류민원",
+          "page": 33,
+          "matched_term": "방문취업(H-2)",
+          "heading": "변경․추가 / 1. 영리목적이 아닌 아래 체류자격 소지자는 근무처의 변경․추가 신고가 아닌 / 외국인등록사항 변경신고를 받아 처리(시행규칙 제49조의 2)",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 45
+        },
+        {
+          "manual": "체류민원",
+          "page": 15,
+          "matched_term": "방문취업(H-2)",
+          "heading": "◦제출서류 / - 여권, 통합신청서 / - 수수료(자격외 활동 12만원)",
+          "has_요건": false,
+          "has_제출서류": true,
+          "score": 30
+        }
+      ]
+    }
+  ]
+}

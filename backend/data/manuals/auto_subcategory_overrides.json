@@ -1,0 +1,6941 @@
+{
+  "M1-0001": {
+    "row_id": "M1-0001",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0002": {
+    "row_id": "M1-0002",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0003": {
+    "row_id": "M1-0003",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 142,
+        "page_to": 142,
+        "match_text": "최초 구직〔D-10-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0004": {
+    "row_id": "M1-0004",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "외교〔A-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "외교〔A-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0005": {
+    "row_id": "M1-0005",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0006": {
+    "row_id": "M1-0006",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0007": {
+    "row_id": "M1-0007",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 311,
+        "page_to": 311,
+        "match_text": "체류자격〔F-2-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0008": {
+    "row_id": "M1-0008",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0009": {
+    "row_id": "M1-0009",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0010": {
+    "row_id": "M1-0010",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0011": {
+    "row_id": "M1-0011",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0012": {
+    "row_id": "M1-0012",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0013": {
+    "row_id": "M1-0013",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0014": {
+    "row_id": "M1-0014",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0015": {
+    "row_id": "M1-0015",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 332,
+        "page_to": 332,
+        "match_text": "어선원〔E-10-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 294,
+        "page_to": 294,
+        "match_text": "어선원〔E-10-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0016": {
+    "row_id": "M1-0016",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "협정〔A-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0017": {
+    "row_id": "M1-0017",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0018": {
+    "row_id": "M1-0018",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0020": {
+    "row_id": "M1-0020",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 157,
+        "match_text": "기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 130,
+        "page_to": 130,
+        "match_text": "첨단기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0027": {
+    "row_id": "M1-0027",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 141,
+        "page_to": 141,
+        "match_text": "건을 모두 충족하는 사람(기술창업준비〔D-10-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0028": {
+    "row_id": "M1-0028",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 157,
+        "match_text": "기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 130,
+        "page_to": 130,
+        "match_text": "첨단기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0029": {
+    "row_id": "M1-0029",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 211,
+        "page_to": 211,
+        "match_text": "유학〔D-2-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0030": {
+    "row_id": "M1-0030",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 211,
+        "page_to": 211,
+        "match_text": "유학〔D-2-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0031": {
+    "row_id": "M1-0031",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 422,
+        "page_to": 422,
+        "match_text": "국내 석사〔D-2-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0032": {
+    "row_id": "M1-0032",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 211,
+        "page_to": 211,
+        "match_text": "유학〔D-2-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0033": {
+    "row_id": "M1-0033",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 150,
+        "page_to": 150,
+        "match_text": "국내연수\n대학 연구생〔D-2-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 64,
+        "page_to": 64,
+        "match_text": "석사\n해외 석사 재학증명서\n박사\n해외 박사 재학증명서\n연구유학〔D-2-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0034": {
+    "row_id": "M1-0034",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 152,
+        "page_to": 152,
+        "match_text": "교환학생〔D-2-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 64,
+        "page_to": 64,
+        "match_text": "교환학생〔D-2-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0035": {
+    "row_id": "M1-0035",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 211,
+        "page_to": 211,
+        "match_text": "유학〔D-2-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0037": {
+    "row_id": "M1-0037",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 81,
+        "page_to": 81,
+        "match_text": "일반연수〔D-4-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 63,
+        "page_to": 63,
+        "match_text": "확인을 받아 제출\n구  분\n제 출 서 류\n어학연수〔D-4-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0038": {
+    "row_id": "M1-0038",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 82,
+        "page_to": 82,
+        "match_text": "졸업생에 대한 일반연수〔D-4-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 132,
+        "page_to": 132,
+        "match_text": "국공립기관 \n연수〔D-4-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0039": {
+    "row_id": "M1-0039",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 81,
+        "page_to": 81,
+        "match_text": "(단, 외국어 연수〔D-4-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0040": {
+    "row_id": "M1-0040",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0041": {
+    "row_id": "M1-0041",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "체류기간상한\n법인에 투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "해당자에 대한 기업투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0042": {
+    "row_id": "M1-0042",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "벤처투자〔D-8-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0043": {
+    "row_id": "M1-0043",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 118,
+        "page_to": 118,
+        "match_text": "개인기업 투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 105,
+        "page_to": 105,
+        "match_text": "국민이 경영하는 기업에 투자하는 외국인에 대한 기업투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0044": {
+    "row_id": "M1-0044",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0045": {
+    "row_id": "M1-0045",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0046": {
+    "row_id": "M1-0046",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0047": {
+    "row_id": "M1-0047",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0048": {
+    "row_id": "M1-0048",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0049": {
+    "row_id": "M1-0049",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0050": {
+    "row_id": "M1-0050",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0051": {
+    "row_id": "M1-0051",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0052": {
+    "row_id": "M1-0052",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0053": {
+    "row_id": "M1-0053",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0054": {
+    "row_id": "M1-0054",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0055": {
+    "row_id": "M1-0055",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0056": {
+    "row_id": "M1-0056",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0057": {
+    "row_id": "M1-0057",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0058": {
+    "row_id": "M1-0058",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0059": {
+    "row_id": "M1-0059",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0060": {
+    "row_id": "M1-0060",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0061": {
+    "row_id": "M1-0061",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0062": {
+    "row_id": "M1-0062",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0063": {
+    "row_id": "M1-0063",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0064": {
+    "row_id": "M1-0064",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0065": {
+    "row_id": "M1-0065",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0066": {
+    "row_id": "M1-0066",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0067": {
+    "row_id": "M1-0067",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0068": {
+    "row_id": "M1-0068",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0069": {
+    "row_id": "M1-0069",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0070": {
+    "row_id": "M1-0070",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0071": {
+    "row_id": "M1-0071",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0072": {
+    "row_id": "M1-0072",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0073": {
+    "row_id": "M1-0073",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0074": {
+    "row_id": "M1-0074",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0075": {
+    "row_id": "M1-0075",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0076": {
+    "row_id": "M1-0076",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0077": {
+    "row_id": "M1-0077",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "특정활동〔E-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0078": {
+    "row_id": "M1-0078",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0079": {
+    "row_id": "M1-0079",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0080": {
+    "row_id": "M1-0080",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0081": {
+    "row_id": "M1-0081",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0082": {
+    "row_id": "M1-0082",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0083": {
+    "row_id": "M1-0083",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0084": {
+    "row_id": "M1-0084",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0086": {
+    "row_id": "M1-0086",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 619,
+        "page_to": 619,
+        "match_text": "지역특화동포〔F-4-R〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0088": {
+    "row_id": "M1-0088",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 619,
+        "page_to": 619,
+        "match_text": "지역특화동포〔F-4-R〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0090": {
+    "row_id": "M1-0090",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 360,
+        "page_to": 360,
+        "match_text": "의 배우자로서의 체류자격〔F-2-71〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0091": {
+    "row_id": "M1-0091",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 360,
+        "page_to": 360,
+        "match_text": "의 배우자로서의 체류자격〔F-2-71〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0092": {
+    "row_id": "M1-0092",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 360,
+        "page_to": 360,
+        "match_text": "의 배우자로서의 체류자격〔F-2-71〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0093": {
+    "row_id": "M1-0093",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 444,
+        "page_to": 444,
+        "match_text": "조건부 영주〔F-5-25〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "영주〔F-5-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0094": {
+    "row_id": "M1-0094",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0095": {
+    "row_id": "M1-0095",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0096": {
+    "row_id": "M1-0096",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "영주〔F-5-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 579,
+        "page_to": 579,
+        "match_text": "영주〔F-5-14〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0097": {
+    "row_id": "M1-0097",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 144,
+        "page_to": 144,
+        "match_text": "시 최우수인재 구직〔D-10-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 125,
+        "match_text": "최우수인재 구직〔D-10-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0098": {
+    "row_id": "M1-0098",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 144,
+        "page_to": 144,
+        "match_text": "시 최우수인재 구직〔D-10-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 125,
+        "page_to": 125,
+        "match_text": "최우수인재 구직〔D-10-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0099": {
+    "row_id": "M1-0099",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "최우수인재특정\n활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "최우수인재\n특정활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0100": {
+    "row_id": "M1-0100",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "최우수인재특정\n활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "최우수인재\n특정활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0101": {
+    "row_id": "M1-0101",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "최우수인재특정\n활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "최우수인재\n특정활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0103": {
+    "row_id": "M1-0103",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0104": {
+    "row_id": "M1-0104",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0105": {
+    "row_id": "M1-0105",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0106": {
+    "row_id": "M1-0106",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0107": {
+    "row_id": "M1-0107",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0108": {
+    "row_id": "M1-0108",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "체류기간상한\n법인에 투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "해당자에 대한 기업투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0109": {
+    "row_id": "M1-0109",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "벤처투자〔D-8-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0110": {
+    "row_id": "M1-0110",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 118,
+        "page_to": 118,
+        "match_text": "개인기업 투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 105,
+        "page_to": 105,
+        "match_text": "국민이 경영하는 기업에 투자하는 외국인에 대한 기업투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0111": {
+    "row_id": "M1-0111",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "체류기간상한\n법인에 투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "해당자에 대한 기업투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0112": {
+    "row_id": "M1-0112",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "벤처투자〔D-8-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0113": {
+    "row_id": "M1-0113",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 118,
+        "page_to": 118,
+        "match_text": "개인기업 투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 105,
+        "page_to": 105,
+        "match_text": "국민이 경영하는 기업에 투자하는 외국인에 대한 기업투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0114": {
+    "row_id": "M1-0114",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "체류기간상한\n법인에 투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "해당자에 대한 기업투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0115": {
+    "row_id": "M1-0115",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "벤처투자〔D-8-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0116": {
+    "row_id": "M1-0116",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 118,
+        "page_to": 118,
+        "match_text": "개인기업 투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 105,
+        "page_to": 105,
+        "match_text": "국민이 경영하는 기업에 투자하는 외국인에 대한 기업투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0117": {
+    "row_id": "M1-0117",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "체류기간상한\n법인에 투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "해당자에 대한 기업투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0118": {
+    "row_id": "M1-0118",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "벤처투자〔D-8-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0119": {
+    "row_id": "M1-0119",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 118,
+        "page_to": 118,
+        "match_text": "개인기업 투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 105,
+        "page_to": 105,
+        "match_text": "국민이 경영하는 기업에 투자하는 외국인에 대한 기업투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0120": {
+    "row_id": "M1-0120",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "체류기간상한\n법인에 투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 103,
+        "page_to": 103,
+        "match_text": "해당자에 대한 기업투자〔D-8-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0121": {
+    "row_id": "M1-0121",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 113,
+        "page_to": 113,
+        "match_text": "벤처투자〔D-8-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0122": {
+    "row_id": "M1-0122",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 118,
+        "page_to": 118,
+        "match_text": "개인기업 투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 105,
+        "page_to": 105,
+        "match_text": "국민이 경영하는 기업에 투자하는 외국인에 대한 기업투자〔D-8-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0123": {
+    "row_id": "M1-0123",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 129,
+        "page_to": 129,
+        "match_text": "무역비자 점수제 요건을 충족하는 자에 대한 무역업〔D-9-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0124": {
+    "row_id": "M1-0124",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 590,
+        "page_to": 590,
+        "match_text": "경우 개인사업자〔D-9-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0125": {
+    "row_id": "M1-0125",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 129,
+        "page_to": 129,
+        "match_text": "무역비자 점수제 요건을 충족하는 자에 대한 무역업〔D-9-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0126": {
+    "row_id": "M1-0126",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 590,
+        "page_to": 590,
+        "match_text": "경우 개인사업자〔D-9-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0127": {
+    "row_id": "M1-0127",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 97,
+        "page_to": 97,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0128": {
+    "row_id": "M1-0128",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 97,
+        "page_to": 97,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0129": {
+    "row_id": "M1-0129",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 97,
+        "page_to": 97,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0130": {
+    "row_id": "M1-0130",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 142,
+        "page_to": 142,
+        "match_text": "최초 구직〔D-10-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0131": {
+    "row_id": "M1-0131",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 141,
+        "page_to": 141,
+        "match_text": "건을 모두 충족하는 사람(기술창업준비〔D-10-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0132": {
+    "row_id": "M1-0132",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 157,
+        "match_text": "기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 130,
+        "page_to": 130,
+        "match_text": "첨단기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0133": {
+    "row_id": "M1-0133",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 142,
+        "page_to": 142,
+        "match_text": "최초 구직〔D-10-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0134": {
+    "row_id": "M1-0134",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 141,
+        "page_to": 141,
+        "match_text": "건을 모두 충족하는 사람(기술창업준비〔D-10-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0135": {
+    "row_id": "M1-0135",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 157,
+        "match_text": "기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 130,
+        "page_to": 130,
+        "match_text": "첨단기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0136": {
+    "row_id": "M1-0136",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 142,
+        "page_to": 142,
+        "match_text": "최초 구직〔D-10-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0137": {
+    "row_id": "M1-0137",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 141,
+        "page_to": 141,
+        "match_text": "건을 모두 충족하는 사람(기술창업준비〔D-10-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0138": {
+    "row_id": "M1-0138",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 157,
+        "page_to": 157,
+        "match_text": "기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 130,
+        "page_to": 130,
+        "match_text": "첨단기술인턴〔D-10-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0139": {
+    "row_id": "M1-0139",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "구직〔D-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "구직〔D-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0140": {
+    "row_id": "M1-0140",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0141": {
+    "row_id": "M1-0141",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0142": {
+    "row_id": "M1-0142",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0143": {
+    "row_id": "M1-0143",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0144": {
+    "row_id": "M1-0144",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "교수〔E-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0145": {
+    "row_id": "M1-0145",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0146": {
+    "row_id": "M1-0146",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0147": {
+    "row_id": "M1-0147",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0148": {
+    "row_id": "M1-0148",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0149": {
+    "row_id": "M1-0149",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "회화지도〔E-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0150": {
+    "row_id": "M1-0150",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0151": {
+    "row_id": "M1-0151",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0152": {
+    "row_id": "M1-0152",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0153": {
+    "row_id": "M1-0153",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0154": {
+    "row_id": "M1-0154",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "연구〔E-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0155": {
+    "row_id": "M1-0155",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0156": {
+    "row_id": "M1-0156",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0157": {
+    "row_id": "M1-0157",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0158": {
+    "row_id": "M1-0158",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0159": {
+    "row_id": "M1-0159",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술지도〔E-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0160": {
+    "row_id": "M1-0160",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0161": {
+    "row_id": "M1-0161",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0162": {
+    "row_id": "M1-0162",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0163": {
+    "row_id": "M1-0163",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0164": {
+    "row_id": "M1-0164",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "전문직업〔E-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0165": {
+    "row_id": "M1-0165",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0166": {
+    "row_id": "M1-0166",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0167": {
+    "row_id": "M1-0167",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0168": {
+    "row_id": "M1-0168",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0169": {
+    "row_id": "M1-0169",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "예술흥행〔E-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0170": {
+    "row_id": "M1-0170",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 228,
+        "page_to": 228,
+        "match_text": "구\n분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 182,
+        "page_to": 182,
+        "match_text": "구분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0171": {
+    "row_id": "M1-0171",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 228,
+        "page_to": 228,
+        "match_text": "구\n분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 182,
+        "page_to": 182,
+        "match_text": "구분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0172": {
+    "row_id": "M1-0172",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 228,
+        "page_to": 228,
+        "match_text": "구\n분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 182,
+        "page_to": 182,
+        "match_text": "구분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0173": {
+    "row_id": "M1-0173",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 228,
+        "page_to": 228,
+        "match_text": "구\n분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 182,
+        "page_to": 182,
+        "match_text": "구분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0174": {
+    "row_id": "M1-0174",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 228,
+        "page_to": 228,
+        "match_text": "구\n분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 182,
+        "page_to": 182,
+        "match_text": "구분\n직\n종(코드)\n전문인력〔E-7-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0175": {
+    "row_id": "M1-0175",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0176": {
+    "row_id": "M1-0176",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0177": {
+    "row_id": "M1-0177",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0178": {
+    "row_id": "M1-0178",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0179": {
+    "row_id": "M1-0179",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0180": {
+    "row_id": "M1-0180",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0181": {
+    "row_id": "M1-0181",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 295,
+        "match_text": "연근해어업에종사하는경우는비전문취업〔E-9-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0182": {
+    "row_id": "M1-0182",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0183": {
+    "row_id": "M1-0183",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0184": {
+    "row_id": "M1-0184",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0185": {
+    "row_id": "M1-0185",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0186": {
+    "row_id": "M1-0186",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 295,
+        "match_text": "연근해어업에종사하는경우는비전문취업〔E-9-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0187": {
+    "row_id": "M1-0187",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0188": {
+    "row_id": "M1-0188",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0189": {
+    "row_id": "M1-0189",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0190": {
+    "row_id": "M1-0190",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0191": {
+    "row_id": "M1-0191",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 295,
+        "match_text": "연근해어업에종사하는경우는비전문취업〔E-9-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0192": {
+    "row_id": "M1-0192",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0193": {
+    "row_id": "M1-0193",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0194": {
+    "row_id": "M1-0194",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0195": {
+    "row_id": "M1-0195",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0196": {
+    "row_id": "M1-0196",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 295,
+        "page_to": 295,
+        "match_text": "연근해어업에종사하는경우는비전문취업〔E-9-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0197": {
+    "row_id": "M1-0197",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "비전문취업〔E-9〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0198": {
+    "row_id": "M1-0198",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0199": {
+    "row_id": "M1-0199",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0200": {
+    "row_id": "M1-0200",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0201": {
+    "row_id": "M1-0201",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0202": {
+    "row_id": "M1-0202",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "선원취업〔E-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0203": {
+    "row_id": "M1-0203",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 344,
+        "page_to": 344,
+        "match_text": "난민인정자의 배우자 및 미성년 자녀에 대한 방문동거〔F-1-16〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0204": {
+    "row_id": "M1-0204",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 346,
+        "page_to": 346,
+        "match_text": "결혼이민자의 전혼관계 출생 미성년 자녀〔F-1-52〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0205": {
+    "row_id": "M1-0205",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 350,
+        "page_to": 350,
+        "match_text": "자녀양육 지원 등 목적으로 입국한 결혼이민자의 부모 등 \n가족〔F-1-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0206": {
+    "row_id": "M1-0206",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 305,
+        "page_to": 305,
+        "match_text": "우수인재, 투자자 및 유학생 부모〔F-1-15〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0207": {
+    "row_id": "M1-0207",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "고액투자가〔F-1-22〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0208": {
+    "row_id": "M1-0208",
+    "method": "name_match",
+    "score": 0.5,
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "주한 외국공관원의 가사보조인〔F-1-21〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0209": {
+    "row_id": "M1-0209",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "주한 외국공관원의 가사보조인〔F-1-21〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0210": {
+    "row_id": "M1-0210",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 350,
+        "page_to": 350,
+        "match_text": "자녀양육 지원 등 목적으로 입국한 결혼이민자의 부모 등 \n가족〔F-1-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0211": {
+    "row_id": "M1-0211",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 305,
+        "page_to": 305,
+        "match_text": "우수인재, 투자자 및 유학생 부모〔F-1-15〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0212": {
+    "row_id": "M1-0212",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 346,
+        "page_to": 346,
+        "match_text": "결혼이민자의 전혼관계 출생 미성년 자녀〔F-1-52〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0213": {
+    "row_id": "M1-0213",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0214": {
+    "row_id": "M1-0214",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 300,
+        "page_to": 300,
+        "match_text": "방문동거〔F-1-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0215": {
+    "row_id": "M1-0215",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0216": {
+    "row_id": "M1-0216",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 300,
+        "page_to": 300,
+        "match_text": "방문동거〔F-1-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0217": {
+    "row_id": "M1-0217",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0218": {
+    "row_id": "M1-0218",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 300,
+        "page_to": 300,
+        "match_text": "방문동거〔F-1-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0219": {
+    "row_id": "M1-0219",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0220": {
+    "row_id": "M1-0220",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0221": {
+    "row_id": "M1-0221",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0222": {
+    "row_id": "M1-0222",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 305,
+        "page_to": 305,
+        "match_text": "우수인재, 투자자 및 유학생 부모〔F-1-15〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0223": {
+    "row_id": "M1-0223",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 305,
+        "page_to": 305,
+        "match_text": "우수인재, 투자자 및 유학생 부모〔F-1-15〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0224": {
+    "row_id": "M1-0224",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "주한 외국공관원의 가사보조인〔F-1-21〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0225": {
+    "row_id": "M1-0225",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "주한 외국공관원의 가사보조인〔F-1-21〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0226": {
+    "row_id": "M1-0226",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "주한 외국공관원의 가사보조인〔F-1-21〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0227": {
+    "row_id": "M1-0227",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "고액투자가〔F-1-22〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0228": {
+    "row_id": "M1-0228",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "고액투자가〔F-1-22〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0229": {
+    "row_id": "M1-0229",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 306,
+        "page_to": 306,
+        "match_text": "고액투자가〔F-1-22〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0230": {
+    "row_id": "M1-0230",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 300,
+        "page_to": 300,
+        "match_text": "방문동거〔F-1-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0231": {
+    "row_id": "M1-0231",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 300,
+        "page_to": 300,
+        "match_text": "방문동거〔F-1-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0232": {
+    "row_id": "M1-0232",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문동거〔F-1〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 300,
+        "page_to": 300,
+        "match_text": "방문동거〔F-1-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0233": {
+    "row_id": "M1-0233",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "간소득 점수 중 신청인에게 유리한 점수를 적용하여 체류기간 차등 부여〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0234": {
+    "row_id": "M1-0234",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "간소득 점수 중 신청인에게 유리한 점수를 적용하여 체류기간 차등 부여〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0235": {
+    "row_id": "M1-0235",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "간소득 점수 중 신청인에게 유리한 점수를 적용하여 체류기간 차등 부여〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0236": {
+    "row_id": "M1-0236",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "간소득 점수 중 신청인에게 유리한 점수를 적용하여 체류기간 차등 부여〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0237": {
+    "row_id": "M1-0237",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "간소득 점수 중 신청인에게 유리한 점수를 적용하여 체류기간 차등 부여〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0238": {
+    "row_id": "M1-0238",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "난민인정자〔F-2-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0239": {
+    "row_id": "M1-0239",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "난민인정자〔F-2-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0240": {
+    "row_id": "M1-0240",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "난민인정자〔F-2-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0241": {
+    "row_id": "M1-0241",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 407,
+        "page_to": 407,
+        "match_text": "난민인정자〔F-2-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0242": {
+    "row_id": "M1-0242",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "점수제 우수인재〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 311,
+        "page_to": 311,
+        "match_text": "체류자격〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0243": {
+    "row_id": "M1-0243",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "점수제 우수인재〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 311,
+        "page_to": 311,
+        "match_text": "체류자격〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0244": {
+    "row_id": "M1-0244",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "점수제 우수인재〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 311,
+        "page_to": 311,
+        "match_text": "체류자격〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0245": {
+    "row_id": "M1-0245",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "점수제 우수인재〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 311,
+        "page_to": 311,
+        "match_text": "체류자격〔F-2-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0246": {
+    "row_id": "M1-0246",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0247": {
+    "row_id": "M1-0247",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0248": {
+    "row_id": "M1-0248",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0249": {
+    "row_id": "M1-0249",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0250": {
+    "row_id": "M1-0250",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0251": {
+    "row_id": "M1-0251",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0252": {
+    "row_id": "M1-0252",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0253": {
+    "row_id": "M1-0253",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 309,
+        "page_to": 309,
+        "match_text": "거주〔F-2-3〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0254": {
+    "row_id": "M1-0254",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 360,
+        "page_to": 360,
+        "match_text": "의 배우자로서의 체류자격〔F-2-71〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0255": {
+    "row_id": "M1-0255",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 360,
+        "page_to": 360,
+        "match_text": "의 배우자로서의 체류자격〔F-2-71〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0256": {
+    "row_id": "M1-0256",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 360,
+        "page_to": 360,
+        "match_text": "의 배우자로서의 체류자격〔F-2-71〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0257": {
+    "row_id": "M1-0257",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 357,
+        "page_to": 357,
+        "match_text": "기타 장기체류자〔F-2-99〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0258": {
+    "row_id": "M1-0258",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 357,
+        "page_to": 357,
+        "match_text": "기타 장기체류자〔F-2-99〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0259": {
+    "row_id": "M1-0259",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 315,
+        "page_to": 315,
+        "match_text": "유효한 단수사증〔F-3-18〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0260": {
+    "row_id": "M1-0260",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 315,
+        "page_to": 315,
+        "match_text": "유효한 단수사증〔F-3-18〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0261": {
+    "row_id": "M1-0261",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0262": {
+    "row_id": "M1-0262",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0263": {
+    "row_id": "M1-0263",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0264": {
+    "row_id": "M1-0264",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0265": {
+    "row_id": "M1-0265",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "재외동포〔F-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0266": {
+    "row_id": "M1-0266",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "배우자로서, 국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 324,
+        "match_text": "국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0267": {
+    "row_id": "M1-0267",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "배우자로서, 국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 324,
+        "match_text": "국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0268": {
+    "row_id": "M1-0268",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "배우자로서, 국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 324,
+        "match_text": "국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0269": {
+    "row_id": "M1-0269",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "배우자로서, 국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 324,
+        "match_text": "국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0270": {
+    "row_id": "M1-0270",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "배우자로서, 국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 324,
+        "page_to": 324,
+        "match_text": "국민의 배우자〔F-6-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0271": {
+    "row_id": "M1-0271",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 405,
+        "page_to": 405,
+        "match_text": "자녀가 성년이 된 자녀양육자〔F-6-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 334,
+        "page_to": 334,
+        "match_text": "자녀양육〔F-6-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0272": {
+    "row_id": "M1-0272",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 405,
+        "page_to": 405,
+        "match_text": "자녀가 성년이 된 자녀양육자〔F-6-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 334,
+        "page_to": 334,
+        "match_text": "자녀양육〔F-6-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0273": {
+    "row_id": "M1-0273",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 341,
+        "page_to": 341,
+        "match_text": "국민과 혼인이 단절되었으나 혼인단절자〔F-6-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0274": {
+    "row_id": "M1-0274",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 341,
+        "page_to": 341,
+        "match_text": "국민과 혼인이 단절되었으나 혼인단절자〔F-6-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0275": {
+    "row_id": "M1-0275",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 489,
+        "page_to": 489,
+        "match_text": "가사정리〔F-1-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0276": {
+    "row_id": "M1-0276",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 226,
+        "page_to": 226,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0277": {
+    "row_id": "M1-0277",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 226,
+        "page_to": 226,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0278": {
+    "row_id": "M1-0278",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 226,
+        "page_to": 226,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0279": {
+    "row_id": "M1-0279",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 226,
+        "page_to": 226,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "방문취업〔H-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0280": {
+    "row_id": "M1-0280",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 519,
+        "page_to": 519,
+        "match_text": "동포방문〔C-3-8〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 42,
+        "page_to": 42,
+        "match_text": "중국동포에 대한 복수사증발급〔C-3-8〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0281": {
+    "row_id": "M1-0281",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0282": {
+    "row_id": "M1-0282",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0283": {
+    "row_id": "M1-0283",
+    "method": "name_match",
+    "score": 0.5,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0284": {
+    "row_id": "M1-0284",
+    "method": "name_match",
+    "score": 0.5,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0285": {
+    "row_id": "M1-0285",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 361,
+        "page_to": 361,
+        "match_text": "에 대해서는 확인즉시 수수료 없이 거주〔F-2-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 412,
+        "page_to": 412,
+        "match_text": "공익사업투자 외국인에 대한 거주〔F-2-12〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0286": {
+    "row_id": "M1-0286",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 361,
+        "page_to": 361,
+        "match_text": "에 대해서는 확인즉시 수수료 없이 거주〔F-2-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 412,
+        "page_to": 412,
+        "match_text": "공익사업투자 외국인에 대한 거주〔F-2-12〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0287": {
+    "row_id": "M1-0287",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0288": {
+    "row_id": "M1-0288",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0289": {
+    "row_id": "M1-0289",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0290": {
+    "row_id": "M1-0290",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0291": {
+    "row_id": "M1-0291",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0292": {
+    "row_id": "M1-0292",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0293": {
+    "row_id": "M1-0293",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광취업〔H-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0294": {
+    "row_id": "M1-0294",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "계절근로〔E-8〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "계절근로〔E-8〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0295": {
+    "row_id": "M1-0295",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "계절근로〔E-8〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "계절근로〔E-8〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0296": {
+    "row_id": "M1-0296",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "계절근로〔E-8〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "계절근로〔E-8〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0297": {
+    "row_id": "M1-0297",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0298": {
+    "row_id": "M1-0298",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0299": {
+    "row_id": "M1-0299",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0300": {
+    "row_id": "M1-0300",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "공무〔A-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0301": {
+    "row_id": "M1-0301",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "사증면제〔B-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "사증면제〔B-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0302": {
+    "row_id": "M1-0302",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광통과〔B-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "관광통과〔B-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0303": {
+    "row_id": "M1-0303",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일시취재〔C-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일시취재〔C-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0304": {
+    "row_id": "M1-0304",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "단기취업〔C-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "단기취업〔C-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0305": {
+    "row_id": "M1-0305",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "단기취업〔C-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "단기취업〔C-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0306": {
+    "row_id": "M1-0306",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "단기취업〔C-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "단기취업〔C-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0307": {
+    "row_id": "M1-0307",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0308": {
+    "row_id": "M1-0308",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0309": {
+    "row_id": "M1-0309",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 585,
+        "page_to": 585,
+        "match_text": "다음의 기준에 따라 지역특화형 우수인재〔F-2-R〕 (score=0.50)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0310": {
+    "row_id": "M1-0310",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 229,
+        "page_to": 229,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 183,
+        "page_to": 183,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0311": {
+    "row_id": "M1-0311",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 229,
+        "page_to": 229,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 183,
+        "page_to": 183,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0312": {
+    "row_id": "M1-0312",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 229,
+        "page_to": 229,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 183,
+        "page_to": 183,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0313": {
+    "row_id": "M1-0313",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 229,
+        "page_to": 229,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 183,
+        "page_to": 183,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0314": {
+    "row_id": "M1-0314",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 229,
+        "page_to": 229,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 183,
+        "page_to": 183,
+        "match_text": "준전문인력〔E-7-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0315": {
+    "row_id": "M1-0315",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "구\n분\n직\n종(코드)\n일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0316": {
+    "row_id": "M1-0316",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "구\n분\n직\n종(코드)\n일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0317": {
+    "row_id": "M1-0317",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "구\n분\n직\n종(코드)\n일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0318": {
+    "row_id": "M1-0318",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "구\n분\n직\n종(코드)\n일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0319": {
+    "row_id": "M1-0319",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "구\n분\n직\n종(코드)\n일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "일반기능인력〔E-7-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0320": {
+    "row_id": "M1-0320",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0321": {
+    "row_id": "M1-0321",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0322": {
+    "row_id": "M1-0322",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0323": {
+    "row_id": "M1-0323",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0324": {
+    "row_id": "M1-0324",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "네거티브방식\n전문인력〔E-7-S〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0325": {
+    "row_id": "M1-0325",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0326": {
+    "row_id": "M1-0326",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0327": {
+    "row_id": "M1-0327",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0328": {
+    "row_id": "M1-0328",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "국내성장인력〔E-7-Y〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0329": {
+    "row_id": "M1-0329",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "최우수인재특정\n활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "최우수인재\n특정활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0330": {
+    "row_id": "M1-0330",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 230,
+        "page_to": 230,
+        "match_text": "최우수인재특정\n활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "최우수인재\n특정활동〔E-7-T〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0331": {
+    "row_id": "M1-0331",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 222,
+        "page_to": 222,
+        "match_text": "숙련기능인력 \n점수제 \n특정활동〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 184,
+        "page_to": 184,
+        "match_text": "숙련기능인력〔E-7-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0332": {
+    "row_id": "M1-0332",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0333": {
+    "row_id": "M1-0333",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0334": {
+    "row_id": "M1-0334",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0335": {
+    "row_id": "M1-0335",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "유학〔D-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0336": {
+    "row_id": "M1-0336",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0337": {
+    "row_id": "M1-0337",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0338": {
+    "row_id": "M1-0338",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기술연수〔D-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0339": {
+    "row_id": "M1-0339",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0340": {
+    "row_id": "M1-0340",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0341": {
+    "row_id": "M1-0341",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0342": {
+    "row_id": "M1-0342",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "일반연수〔D-4〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0343": {
+    "row_id": "M1-0343",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "취재〔D-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0344": {
+    "row_id": "M1-0344",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0345": {
+    "row_id": "M1-0345",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0346": {
+    "row_id": "M1-0346",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0347": {
+    "row_id": "M1-0347",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "종교〔D-6〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0348": {
+    "row_id": "M1-0348",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0349": {
+    "row_id": "M1-0349",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0350": {
+    "row_id": "M1-0350",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0351": {
+    "row_id": "M1-0351",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "주재〔D-7〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0352": {
+    "row_id": "M1-0352",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 97,
+        "page_to": 97,
+        "match_text": "무역경영〔D-9〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0353": {
+    "row_id": "M1-0353",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "구직〔D-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "구직〔D-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0354": {
+    "row_id": "M1-0354",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "구직〔D-10〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "구직〔D-10〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0355": {
+    "row_id": "M1-0355",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0356": {
+    "row_id": "M1-0356",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "거주〔F-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0357": {
+    "row_id": "M1-0357",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0358": {
+    "row_id": "M1-0358",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "문화예술〔D-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0359": {
+    "row_id": "M1-0359",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0360": {
+    "row_id": "M1-0360",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "동반〔F-3〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0361": {
+    "row_id": "M1-0361",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0362": {
+    "row_id": "M1-0362",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0363": {
+    "row_id": "M1-0363",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "기타〔G-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0364": {
+    "row_id": "M1-0364",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 440,
+        "page_to": 440,
+        "match_text": "단, 일반 영주자〔F-5-1〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0365": {
+    "row_id": "M1-0365",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "결혼이민자〔F-5-2〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0366": {
+    "row_id": "M1-0366",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 446,
+        "page_to": 446,
+        "match_text": "결혼이민자〔F-5-2〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "영주〔F-5-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0367": {
+    "row_id": "M1-0367",
+    "method": "name_match",
+    "score": 1.0,
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 2,
+        "page_to": 2,
+        "match_text": "영주〔F-5〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 339,
+        "page_to": 339,
+        "match_text": "재외동포〔F-4〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      },
+      {
+        "manual": "체류민원",
+        "page_from": 543,
+        "page_to": 543,
+        "match_text": "영주〔F-5-7〕 (score=1.00)",
+        "match_type": "auto_header_namematch"
+      }
+    ]
+  },
+  "M1-0368": {
+    "row_id": "M1-0368",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 430,
+        "page_to": 430,
+        "match_text": "정분야능력 소유자〔F-5-11〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 408,
+        "page_to": 408,
+        "match_text": "특정분야 능력소유자〔F-5-11〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  },
+  "M1-0369": {
+    "row_id": "M1-0369",
+    "method": "exact_code",
+    "manual_ref": [
+      {
+        "manual": "체류민원",
+        "page_from": 579,
+        "page_to": 579,
+        "match_text": "영주〔F-5-14〕",
+        "match_type": "auto_header_exact"
+      },
+      {
+        "manual": "사증민원",
+        "page_from": 440,
+        "page_to": 440,
+        "match_text": "영주〔F-5-14〕",
+        "match_type": "auto_header_exact"
+      }
+    ]
+  }
+}

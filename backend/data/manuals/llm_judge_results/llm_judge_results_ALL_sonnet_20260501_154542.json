@@ -1,0 +1,196 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_preferred_manual_20260501_154126.json",
+    "tier": "ALL",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T15:45:42",
+    "total_rows": 12,
+    "api_called": true,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0114",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.111 본문에는 D-8-1 관련 내용이 없음. p.111은 D-8-3(국민이 경영하는 개인기업에 투자한 외국인) 내용을 주로 다루며, 하단 일부에 D-8-3 첨부서류가 포함됨. D-8-1 법인투자의 기본요건 및 첨부서류는 p.109 하단에 등장함.",
+      "recommended_page": "109",
+      "_usage": {
+        "input_tokens": 5841,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 208
+      }
+    },
+    {
+      "row_id": "M1-0115",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.111은 D-8-2(벤처투자) 내용이 아니라 D-8-3(국민이 경영하는 개인기업에 투자한 외국인) 허가요건 및 첨부서류를 다루고 있음. D-8-2 heading이 존재하지 않으며, 벤처투자 관련 내용도 없음. D-8-2 벤처투자 내용은 p.110에 위치함.",
+      "recommended_page": "p.110",
+      "_usage": {
+        "input_tokens": 5828,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 212
+      }
+    },
+    {
+      "row_id": "M1-0132",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.141은 E-1(교수) 체류자격의 사증발급인정서 발급대상 및 첨부서류를 다루고 있음. D-10-3 첨단기술인턴에 대한 heading이나 신청요건·제출서류가 전혀 없음. 페이지 전체가 전문대학 이상 교육기관의 교수·부교수·조교수 등 교원 자격기준 및 첨부서류에 관한 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5710,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 220
+      }
+    },
+    {
+      "row_id": "M1-0141",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.155는 한·인도 사증절차간소화협정 관련 사증발급(E-3, E-4, E-7 등 체류자격) 내용을 다루고 있으며, E-1(교수) 관련 heading이 전혀 없음. 교수 자격 신청요건·제출서류가 없고, 본문 전체가 인도 협정 관련 고용방문자에 관한 내용임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5658,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 204
+      }
+    },
+    {
+      "row_id": "M1-0146",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.155는 한·인도 사증절차간소화협정 관련 사증발급(D-7, D-8, D-9, E-3, E-4, E-7 등) 내용이며, E-2(회화지도) 관련 heading이나 신청요건·제출서류가 전혀 없음. E-2 회화지도 업무와 무관한 페이지임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5662,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 188
+      }
+    },
+    {
+      "row_id": "M1-0199",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.155는 E-10(선원취업) 관련 내용이 전혀 없음. 페이지 전체가 한·인도 사증절차간소화협정 관련 고용방문자(D-7, D-8, D-9, E-3, E-4, E-7 등) 사증발급인정서 내용임. E-10 heading 없음. 선원취업 신청요건·제출서류 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5662,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 200
+      }
+    },
+    {
+      "row_id": "M1-0205",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.296은 선원취업(E-10) 사증발급인정서 신청 절차 및 첨부서류 페이지로, F-1-5(결혼이민자의 부모 등 가족 방문동거) 관련 내용이 전혀 없음. F-1-5 heading도 없고 해당 신청요건·제출서류도 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5641,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 184
+      }
+    },
+    {
+      "row_id": "M1-0015",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "BODY_KEYWORD_ONLY",
+      "positive_evidence": "",
+      "negative_evidence": "p.336(실제 텍스트는 '- 336 -' 페이지)의 내용은 '고용변동신고' 섹션으로, 이는 근무처변경·추가(E-10-2 WORKPLACE)가 아닌 고용변동신고 절차를 다룬다. E-10-2 heading이 없으며, 근무처변경·추가에 대한 신청요건·제출서류가 존재하지 않는다. 본문은 고용주의 신고의무, 신고기한, 신고방법, 제출서류(고용변동 신고서류)를 다루는 고용변동신고 섹션이다.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4702,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 277
+      }
+    },
+    {
+      "row_id": "M1-0098",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.157 본문은 재입국허가, 외국인등록, 연수개시 신고 등의 내용으로 구성되어 있으며, D-10-T 최우수인재의 체류기간연장허가 신청요건·제출서류가 직접 존재하지 않음. D-10-T heading이 등장하지 않으며, 연장허가 관련 내용 자체가 없음. p.155~156에 D-10-T 제출서류(변경허가용) 일부가 있으나 연장허가 전용 요건·서류는 확인되지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5464,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 254
+      }
+    },
+    {
+      "row_id": "M1-0134",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.155 본문에 '체류기간연장허가 가. 첨부서류' 섹션 하위에 '2) 기술창업준비(D-10-2)' heading이 직접 등장하며, 공통서류·기술창업활동계획서·체재비 입증서류·체류지 입증서류 등 제출서류가 명시되어 있음",
+      "negative_evidence": "페이지 하단에 3) 첨단기술인턴(D-10-3), 4) 최우수인재(D-10-T) 등 다른 subtype 내용도 포함되어 있으나, D-10-2 항목이 heading으로 독립 등장하고 해당 제출서류가 직접 기재되어 있으므로 EXACT 판정에 지장 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 6047,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 313
+      }
+    },
+    {
+      "row_id": "M1-0321",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "BROAD_FAMILY_PAGE",
+      "positive_evidence": "E-7-S 네거티브 방식 전문인력 섹션(Ⅴ)이 heading으로 등장하며, 고소득자(E-7-S1)와 첨단산업분야(E-7-S2)의 자격요건이 기술됨",
+      "negative_evidence": "체류기간연장허가(EXTEND)에 관한 신청요건·제출서류가 직접 기재되어 있지 않음. 본 페이지는 사증발급 자격요건 및 적용대상자 개요를 설명하는 페이지로, 연장 신청요건·제출서류가 없음. 연장 관련 내용은 p.292의 점수표에서 '체류기간연장 시 전년도 소득금액증명원'이 언급되나, 그것은 인접 페이지임. 본 p.290 페이지 자체에는 연장허가 절차나 제출서류가 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5475,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 359
+      }
+    },
+    {
+      "row_id": "M1-0324",
+      "decision": "NEEDS_REVIEW",
+      "confidence": "medium",
+      "page_role": "BROAD_FAMILY_PAGE",
+      "positive_evidence": "p.290 텍스트에 'Ⅴ. 네거티브 방식의 전문인력 비자(E-7-S)' heading이 등장하고, E-7-S1(고소득자)과 E-7-S2(첨단산업분야) 자격요건(소득 GNI 3배 이상, 60점 이상 등)이 직접 기재되어 있음. 제한되는 직종 기준도 포함됨.",
+      "negative_evidence": "체류자격부여(GRANT) 신청 시 제출서류 목록이 이 페이지(p.290)에 직접 없음. 신청요건은 있으나 '부여' 신청 절차·제출서류가 명시되지 않아 GRANT 업무의 정답 페이지로 완전히 확정하기 어려움. 또한 E-7-S1과 E-7-S2 두 subtype을 함께 다루는 복합 섹션 시작 페이지임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5464,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 373
+      }
+    }
+  ]
+}

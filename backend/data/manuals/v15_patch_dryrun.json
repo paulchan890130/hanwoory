@@ -1,0 +1,44 @@
+{
+  "patch_meta": {
+    "version": "v15",
+    "mode": "DRY_RUN",
+    "scope": "1 row: E-10 CHANGE NOT_IN_MANUAL"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 1,
+    "diff_row_ids": [
+      "M1-0198"
+    ],
+    "diff_count": 1,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1007045
+  },
+  "rows": [
+    {
+      "row_id": "M1-0198",
+      "detailed_code": "E-10",
+      "action_type": "CHANGE",
+      "title": "선원취업 체류자격변경",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 332,
+          "page_to": 332,
+          "score": 15,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "E-10(선원취업) CHANGE(체류자격변경) 절차는 체류민원에 별도 섹션 없음. 기존 체류민원 p.332는 E-7-3 숙련기능인력 직종표(연번 35 벌목 등) 오매핑. empty_ref_disposition.json에 NOT_IN_MANUAL로 기등록(M1-0198). manual_ref → [] (빈 배열)로 정리."
+    }
+  ]
+}

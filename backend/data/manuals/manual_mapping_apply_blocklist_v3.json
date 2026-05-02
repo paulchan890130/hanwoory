@@ -1,0 +1,27 @@
+{
+  "blocked_row_ids": [
+    "M1-0029",
+    "M1-0030",
+    "M1-0031",
+    "M1-0032",
+    "M1-0033",
+    "M1-0034",
+    "M1-0035",
+    "M1-0036",
+    "M1-0037",
+    "M1-0039",
+    "M1-0005",
+    "M1-0085"
+  ],
+  "reason": "Human spot-check failed: proposed page is a qualification/status page, not an EXTRA_WORK page.",
+  "created_for": "manual_mapping_triage_v3",
+  "notes": [
+    "체류민원 p.35는 '유학(D-2)' 자격해당자 및 활동범위 설명 페이지 — 서브코드(D-2-1~D-2-8, D-4-1, D-4-7) 목록과 '별도 허가 없이 유학활동이 가능한 체류자격' 설명만 존재.",
+    "체류자격외 활동허가 업무 섹션은 p.36 하단부터 시작되며, 본문에 '체류자격외 활동허가'가 인용된 것이지 헤더가 아님.",
+    "AUTO_SAFE 규칙이 본문 키워드만 보고 잘못 통과시킨 false positive — EXTRA_WORK 검증 강화 필요.",
+    "D-4-1 (M1-0037, 한국어연수) 및 D-4-7 (M1-0039, 외국어연수) 는 D-2 EXTRA_WORK 와 동일한 p.35 자격/상태 설명 페이지 false-positive 패턴으로 차단 추가됨 — 사람 결정 결과.",
+    "M1-0005 and M1-0085 are temporarily blocked pending exact page range confirmation.",
+    "M1-0005 D-2 EXTRA_WORK (체류민원 p.36): 페이지 중간부터 EXTRA_WORK 섹션이 시작되지만 row title이 '유학 시간제취업'이고 정확한 시간제취업 콘텐츠/페이지 범위가 사람 확인 필요. 자동 적용 보류.",
+    "M1-0085 F-3-2R EXTRA_WORK (체류민원 p.625): 페이지 대부분이 '지역동포가족 체류자격 변경 및 연장'이고 EXTRA_WORK 헤더는 페이지 하단에만 등장. 본체는 p.626으로 이어지는 것으로 보여 p.625 단독 시작 페이지 매핑은 부정확. 자동 적용 보류."
+  ]
+}

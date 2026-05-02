@@ -199,6 +199,65 @@ def update_account(
     return {"ok": True}
 
 
+@router.delete("/accounts/{login_id}")
+def delete_account(
+    login_id: str,
+    user: dict = Depends(require_admin),
+):
+    """계정 비활성화 (소프트 삭제). is_active=FALSE → 로그인 즉시 차단."""
+    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
+    from config import ACCOUNTS_SHEET_NAME
+    from backend.services.accounts_service import ACCOUNTS_SCHEMA
+
+    if login_id.strip() == str(user.get("login_id", "")).strip():
+        raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다.")
+
+    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[])
+    target = None
+    for r in records:
+        if str(r.get("login_id", "")).strip() == login_id.strip():
+            target = r
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+
+    # 이미 비활성이면 idempotent 성공 반환
+    if str(target.get("is_active", "")).upper() == "FALSE":
+        return {"ok": True, "login_id": login_id, "already_inactive": True}
+
+    target["is_active"] = "FALSE"
+
+    header_list = ACCOUNTS_SCHEMA[:]
+    for k in target:
+        if k not in header_list:
+            header_list.append(k)
+
+    try:
+        ok = upsert_rows_by_id(
+            ACCOUNTS_SHEET_NAME,
+            header_list=header_list,
+            records=[target],
+            id_field="login_id",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger("admin.delete").error("upsert_rows_by_id 실패: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"계정 비활성화 실패: {e}")
+
+    if not ok:
+        raise HTTPException(status_code=500, detail="계정 비활성화 실패 (upsert 반환 False)")
+
+    try:
+        import backend.services.tenant_service as _ts
+        _ts._TENANT_MAP_CACHE = {}
+        _ts._TENANT_MAP_TIME = 0
+    except Exception:
+        pass
+
+    return {"ok": True, "login_id": login_id}
+
+
 @router.post("/accounts")
 def create_account(
     body: AccountCreate,

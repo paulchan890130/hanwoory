@@ -21,7 +21,7 @@ import json
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from pydantic import BaseModel
-from backend.auth import get_current_user
+from backend.auth import get_current_user, require_admin
 
 router = APIRouter()
 
@@ -352,6 +352,80 @@ def get_tb_countries(user: dict = Depends(get_current_user)):
     return {"total": len(_TB_HIGH_RISK_ISO3), "countries": sorted(_TB_HIGH_RISK_ISO3)}
 
 
+# ── 매뉴얼 PDF 서빙 ──────────────────────────────────────────────────────
+from fastapi.responses import FileResponse
+from fastapi import Header
+from backend.auth import decode_token
+
+_MANUAL_FILES = {
+    "체류민원": "unlocked_체류민원.pdf",
+    "사증민원": "unlocked_사증민원.pdf",
+}
+
+
+def _verify_token_flexible(token: Optional[str], authorization: Optional[str]) -> dict:
+    """query token 또는 Authorization header 둘 다 허용 (iframe에서 인증 가능)."""
+    actual = token
+    if not actual and authorization:
+        if authorization.startswith("Bearer "):
+            actual = authorization[7:]
+    if not actual:
+        raise HTTPException(status_code=401, detail="인증 토큰 필요")
+    payload = decode_token(actual)
+    if not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰")
+    return payload
+
+
+@router.get("/manual-pdf/{manual}")
+def serve_manual_pdf(
+    manual: str,
+    token: Optional[str] = Query(None, description="JWT (iframe 인증용 query token)"),
+    authorization: Optional[str] = Header(None),
+):
+    """매뉴얼 PDF 직접 서빙 — iframe 임베드용.
+
+    - 매뉴얼 이름: 체류민원 / 사증민원
+    - 페이지 지정은 클라이언트 fragment(#page=N)로 — PDF.js/브라우저 내장 뷰어가 처리
+    - 인증: Authorization 헤더 또는 ?token= 쿼리 (iframe은 헤더 못 보내므로 query 지원)
+    """
+    _verify_token_flexible(token, authorization)
+
+    if manual not in _MANUAL_FILES:
+        raise HTTPException(status_code=404, detail=f"매뉴얼 '{manual}' 없음. 사용 가능: {list(_MANUAL_FILES)}")
+
+    path = os.path.join(_BASE_DIR, "data", "manuals", _MANUAL_FILES[manual])
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"PDF 파일 없음: {_MANUAL_FILES[manual]}")
+
+    # 한글 파일명은 latin-1 헤더에 직접 못 넣음 → RFC 5987 형식 + ASCII fallback
+    from urllib.parse import quote
+    ascii_name = {"체류민원": "stay_manual.pdf", "사증민원": "visa_manual.pdf"}.get(manual, "manual.pdf")
+    utf8_name  = quote(f"{manual}.pdf", safe="")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "Content-Disposition": f"inline; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}",
+        },
+    )
+
+
+@router.get("/manual-pdf-info")
+def get_manual_pdf_info(user: dict = Depends(get_current_user)):
+    """프론트가 사용 가능한 매뉴얼 목록 + 메타 정보 조회."""
+    info = {}
+    for label, fname in _MANUAL_FILES.items():
+        path = os.path.join(_BASE_DIR, "data", "manuals", fname)
+        info[label] = {
+            "available": os.path.isfile(path),
+            "filename":  fname,
+            "size":      os.path.getsize(path) if os.path.isfile(path) else 0,
+        }
+    return info
+
+
 @router.get("")
 @router.get("/")
 def list_guidelines(
@@ -374,6 +448,43 @@ def list_guidelines(
     if major_action:
         items = [r for r in items if major_action in str(r.get("major_action_std", ""))]
     return _paginate(items, page, limit)
+
+
+_EDITABLE_FIELDS = {"form_docs", "supporting_docs", "fee_rule", "practical_notes"}
+
+
+class GuidelineFieldPatch(BaseModel):
+    field: str
+    value: str
+
+
+@router.patch("/{row_id}")
+def patch_guideline_field(
+    row_id: str,
+    body: GuidelineFieldPatch,
+    admin: dict = Depends(require_admin),
+):
+    """관리자 전용: 실무지침 단일 필드 수정 (form_docs/supporting_docs/fee_rule/practical_notes만 허용)."""
+    if body.field not in _EDITABLE_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"수정 불가 필드: '{body.field}'. 허용 필드: {sorted(_EDITABLE_FIELDS)}",
+        )
+    row = _ROW_INDEX.get(row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"row_id '{row_id}' 를 찾을 수 없습니다.")
+
+    # 메모리 인덱스 업데이트
+    row[body.field] = body.value
+
+    # JSON 파일 영구 저장
+    try:
+        with open(_DB_PATH, "w", encoding="utf-8") as f:
+            json.dump(_DB, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"파일 저장 실패: {e}")
+
+    return {"row_id": row_id, "field": body.field, "value": body.value, "ok": True}
 
 
 @router.get("/{row_id}")

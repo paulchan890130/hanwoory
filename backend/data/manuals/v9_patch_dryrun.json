@@ -1,0 +1,326 @@
+{
+  "patch_meta": {
+    "version": "v9",
+    "mode": "DRY_RUN",
+    "scope": "6 rows: D-8-3/E-3/E-5 + 사증민원 / H-1 EXTEND/REG/REENTRY + 체류민원"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 6,
+    "diff_row_ids": [
+      "M1-0116",
+      "M1-0151",
+      "M1-0161",
+      "M1-0291",
+      "M1-0292",
+      "M1-0293"
+    ],
+    "diff_count": 6,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1004455
+  },
+  "rows": [
+    {
+      "row_id": "M1-0116",
+      "detailed_code": "D-8-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "개인기업투자",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 113,
+          "page_to": 117,
+          "match_text": "사증발급",
+          "section_pf": 113,
+          "section_pt": 118,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 113,
+          "page_to": 117,
+          "match_text": "사증발급",
+          "section_pf": 113,
+          "section_pt": 118,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 111,
+          "page_to": 111,
+          "match_type": "manual_override",
+          "match_text": "D-8-3 개인기업투자 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.111) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 111,
+          "page_to": 111,
+          "match_type": "manual_override",
+          "match_text": "D-8-3 개인기업투자 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.111) — 수동 검증"
+        }
+      ],
+      "page_evidence": "사증민원 p.111 '사증발급인정서 / 발급대상 / 3. 국민이 경영하는 개인기업에 투자한 외국인 기업투자(D-8-3) 자격' — D-8-3 명시적 등장 + req=True + doc=True",
+      "non_contiguous": false
+    },
+    {
+      "row_id": "M1-0151",
+      "detailed_code": "E-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "연구",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 180,
+          "page_to": 193,
+          "match_text": "사증발급",
+          "section_pf": 179,
+          "section_pt": 195,
+          "score": 42,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 180,
+          "page_to": 193,
+          "match_text": "사증발급",
+          "section_pf": 179,
+          "section_pt": 195,
+          "score": 42,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 160,
+          "page_to": 160,
+          "match_type": "manual_override",
+          "match_text": "E-3 연구 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.160) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 160,
+          "page_to": 160,
+          "match_type": "manual_override",
+          "match_text": "E-3 연구 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.160) — 수동 검증"
+        }
+      ],
+      "page_evidence": "사증민원 p.160 'E-3 연구' 코드 확인 + 사증발급인정서 / 발급대상 / 독립전문가 항목 포함 + req=True doc=True",
+      "non_contiguous": false
+    },
+    {
+      "row_id": "M1-0161",
+      "detailed_code": "E-5",
+      "action_type": "VISA_CONFIRM",
+      "title": "전문직업",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 196,
+          "page_to": 198,
+          "match_text": "사증발급",
+          "section_pf": 195,
+          "section_pt": 199,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 196,
+          "page_to": 198,
+          "match_text": "사증발급",
+          "section_pf": 195,
+          "section_pt": 199,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 160,
+          "page_to": 160,
+          "match_type": "manual_override",
+          "match_text": "E-5 전문직업 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.160) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 160,
+          "page_to": 160,
+          "match_type": "manual_override",
+          "match_text": "E-5 전문직업 VISA_CONFIRM 사증발급인정서 발급대상 (사증민원 p.160) — 수동 검증"
+        }
+      ],
+      "page_evidence": "사증민원 p.160 'E-5' 코드 확인 + 사증발급인정서 / 발급대상 + 독립전문가 항목 (전문직업(E-5) 포함) + doc=True",
+      "non_contiguous": false
+    },
+    {
+      "row_id": "M1-0291",
+      "detailed_code": "H-1",
+      "action_type": "EXTEND",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 517,
+          "page_to": 517,
+          "match_type": "manual_override",
+          "match_text": "H-1 관광취업 EXTEND 체류기간연장허가 (체류민원 p.517) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 517,
+          "page_to": 517,
+          "match_type": "manual_override",
+          "match_text": "H-1 관광취업 EXTEND 체류기간연장허가 (체류민원 p.517) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.517: ext=True, reg=True, ree=True, doc=True — '체류기간 / 연장허가' 섹션 + 관광취업(H-1) 외국인등록·재입국허가 공통 페이지",
+      "non_contiguous": false
+    },
+    {
+      "row_id": "M1-0292",
+      "detailed_code": "H-1",
+      "action_type": "REGISTRATION",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 517,
+          "page_to": 517,
+          "match_type": "manual_override",
+          "match_text": "H-1 관광취업 REGISTRATION 외국인등록 (체류민원 p.517) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 517,
+          "page_to": 517,
+          "match_type": "manual_override",
+          "match_text": "H-1 관광취업 REGISTRATION 외국인등록 (체류민원 p.517) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.517: reg=True, doc=True — 관광취업(H-1) 외국인등록 포함 (ext·ree도 동페이지)",
+      "non_contiguous": false
+    },
+    {
+      "row_id": "M1-0293",
+      "detailed_code": "H-1",
+      "action_type": "REENTRY",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 336,
+          "page_to": 336,
+          "score": 10,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 517,
+          "page_to": 517,
+          "match_type": "manual_override",
+          "match_text": "H-1 관광취업 REENTRY 재입국허가 (체류민원 p.517) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 517,
+          "page_to": 517,
+          "match_type": "manual_override",
+          "match_text": "H-1 관광취업 REENTRY 재입국허가 (체류민원 p.517) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.517: ree=True, doc=True — 관광취업(H-1) 재입국허가 포함 (ext·reg도 동페이지)",
+      "non_contiguous": false
+    }
+  ]
+}

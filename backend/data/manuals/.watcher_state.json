@@ -1,0 +1,44 @@
+{
+  "manuals": {
+    "수정이력": {
+      "ori_filename": "260414 사증.체류 민원 자격별 안내 매뉴얼 수정 이력(공개).hwp",
+      "apnd_filename": "260414 사증.체류 민원 자격별 안내 매뉴얼 수정 이력(공개)[20260414182305632].hwp",
+      "apnd_seq": "461",
+      "timestamp": "20260414182305632",
+      "downloaded_at": "2026-04-30T07:36:46.270429+00:00",
+      "raw_path": "C:\\Users\\윤찬\\K.ID soft\\backend\\data\\manuals\\raw_260414 사증.체류 민원 자격별 안내 매뉴얼 수정 이력(공개).hwp",
+      "raw_size": 163328,
+      "unlocked_path": "C:\\Users\\윤찬\\K.ID soft\\backend\\data\\manuals\\unlocked_수정이력.hwp",
+      "unlocked_size": 163328,
+      "pdf_path": null,
+      "pdf_size": null
+    },
+    "사증민원": {
+      "ori_filename": "260414 사증민원 자격별 안내 매뉴얼.hwp",
+      "apnd_filename": "260414 사증민원 자격별 안내 매뉴얼[20260414182305646].hwp",
+      "apnd_seq": "462",
+      "timestamp": "20260414182305646",
+      "downloaded_at": "2026-04-30T07:36:46.270429+00:00",
+      "raw_path": "C:\\Users\\윤찬\\K.ID soft\\backend\\data\\manuals\\raw_260414 사증민원 자격별 안내 매뉴얼.hwp",
+      "raw_size": 2169344,
+      "unlocked_path": "C:\\Users\\윤찬\\K.ID soft\\backend\\data\\manuals\\unlocked_사증민원.hwp",
+      "unlocked_size": 3246592,
+      "pdf_path": null,
+      "pdf_size": null
+    },
+    "체류민원": {
+      "ori_filename": "260414 체류민원 자격별 안내 매뉴얼.hwp",
+      "apnd_filename": "260414 체류민원 자격별 안내 매뉴얼[20260414182305670].hwp",
+      "apnd_seq": "463",
+      "timestamp": "20260414182305670",
+      "downloaded_at": "2026-04-30T07:36:46.270429+00:00",
+      "raw_path": "C:\\Users\\윤찬\\K.ID soft\\backend\\data\\manuals\\raw_260414 체류민원 자격별 안내 매뉴얼.hwp",
+      "raw_size": 3167744,
+      "unlocked_path": "C:\\Users\\윤찬\\K.ID soft\\backend\\data\\manuals\\unlocked_체류민원.hwp",
+      "unlocked_size": 4834816,
+      "pdf_path": null,
+      "pdf_size": null
+    }
+  },
+  "last_check": "2026-04-30T07:37:33.593703+00:00"
+}

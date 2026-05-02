@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "stage": "4_verifier",
+    "version": "v1",
+    "judge_results_file": "backend\\data\\manuals\\llm_judge_results\\llm_judge_results_ALL_sonnet_20260501_135900.json",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_e9_cluster_20260501_135636.json",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T14:02:15",
+    "total_rows": 3,
+    "api_called": true,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0010",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5011,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 49
+      }
+    },
+    {
+      "row_id": "M1-0018",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5990,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 49
+      }
+    },
+    {
+      "row_id": "M1-0358",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5928,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 49
+      }
+    }
+  ]
+}

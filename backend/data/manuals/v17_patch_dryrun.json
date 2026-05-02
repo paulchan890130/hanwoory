@@ -1,0 +1,182 @@
+{
+  "patch_meta": {
+    "version": "v17",
+    "mode": "DRY_RUN",
+    "scope": "6 rows: F-5-14 CHANGE + E-9-1~5 EXTEND NOT_IN_MANUAL"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": true,
+    "patch_candidate_count": 6,
+    "diff_row_ids": [
+      "M1-0183",
+      "M1-0184",
+      "M1-0185",
+      "M1-0186",
+      "M1-0187",
+      "M1-0369"
+    ],
+    "diff_count": 6,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1006703
+  },
+  "rows": [
+    {
+      "row_id": "M1-0369",
+      "detailed_code": "F-5-14",
+      "action_type": "CHANGE",
+      "title": "방문취업 H-2 제조업 4년 영주",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 579,
+          "page_to": 583,
+          "match_text": "방문취업 4년 영주 〔F-5-14〕",
+          "match_type": "manual_override"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 539,
+          "page_to": 540,
+          "match_type": "manual_override",
+          "match_text": "F-5-14 방문취업 H-2 제조업 4년 영주 CHANGE (체류민원 p.539-540) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 539,
+          "page_to": 540,
+          "match_type": "manual_override",
+          "match_text": "F-5-14 방문취업 H-2 제조업 4년 영주 CHANGE (체류민원 p.539-540) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 PDF p.539-540 (별첨 인쇄 p.19-20): '방문취업(H-2) 자격으로 제조업·농·축산업·어업·간병인·가사보조인으로 취업활동을 하고 있는 사람으로서 아래 모든 요건을 충족하는 사람 (체류자격약호: F-5-14)' — 동일업체 4년 이상 계속 근무 조건 + 기술기능자격 취득 또는 GNI 70% 이상 소득 조건 명시. 직접 PDF 텍스트 추출 검증(2026-05-02). 기존 p.579-583은 별첨 다른 섹션(건설업 등) 오매핑."
+    },
+    {
+      "row_id": "M1-0183",
+      "detailed_code": "E-9-1",
+      "action_type": "EXTEND",
+      "title": "비전문취업 제조업 체류기간연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 33,
+          "match_text": "연장허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "E-9-1~5 EXTEND: 기존 p.33 매핑은 D-1(문화예술) 챕터 페이지 오매핑. p.33은 D-1/D-2/D-4~D-9 근무처변경신고 + D-1 체류자격변경 + D-1 체류기간연장 섹션. E-9-1 EXTEND 전용 절차 별도 섹션 없음. empty_ref_disposition에 NEEDS_SEPARATE_LOOKUP 기등록. PyMuPDF 직접 추출로 p.33 오매핑 확인(2026-05-02). NOT_IN_MANUAL 처리."
+    },
+    {
+      "row_id": "M1-0184",
+      "detailed_code": "E-9-2",
+      "action_type": "EXTEND",
+      "title": "비전문취업 건설업 체류기간연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 33,
+          "match_text": "연장허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "E-9-2 EXTEND: 기존 p.33 매핑은 D-1 챕터 오매핑. NOT_IN_MANUAL 처리."
+    },
+    {
+      "row_id": "M1-0185",
+      "detailed_code": "E-9-3",
+      "action_type": "EXTEND",
+      "title": "비전문취업 농축산업 체류기간연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 33,
+          "match_text": "연장허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "E-9-3 EXTEND: 기존 p.33 매핑은 D-1 챕터 오매핑. NOT_IN_MANUAL 처리."
+    },
+    {
+      "row_id": "M1-0186",
+      "detailed_code": "E-9-4",
+      "action_type": "EXTEND",
+      "title": "비전문취업 어업 체류기간연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 33,
+          "match_text": "연장허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "E-9-4 EXTEND: 기존 p.33 매핑은 D-1 챕터 오매핑. NOT_IN_MANUAL 처리."
+    },
+    {
+      "row_id": "M1-0187",
+      "detailed_code": "E-9-5",
+      "action_type": "EXTEND",
+      "title": "비전문취업 서비스업 체류기간연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 33,
+          "match_text": "연장허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "E-9-5 EXTEND: 기존 p.33 매핑은 D-1 챕터 오매핑. NOT_IN_MANUAL 처리."
+    }
+  ]
+}

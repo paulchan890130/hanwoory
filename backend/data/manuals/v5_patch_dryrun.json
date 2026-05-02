@@ -1,0 +1,289 @@
+{
+  "patch_meta": {
+    "version": "v5",
+    "mode": "DRY_RUN",
+    "scope": "Task 1 (LLM judge READY 5) + Task 3 (D-10 manual 2) = 7 rows",
+    "db_path": "backend\\data\\immigration_guidelines_db_v2.json",
+    "schema": "minimal: manual, page_from, page_to, match_type=manual_override, match_text"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 7,
+    "diff_row_ids": [
+      "M1-0097",
+      "M1-0130",
+      "M1-0158",
+      "M1-0166",
+      "M1-0284",
+      "M1-0298",
+      "M1-0366"
+    ],
+    "diff_count": 7,
+    "expected_target_count": 7,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "non_contiguous_rows": [
+      "M1-0130",
+      "M1-0097"
+    ],
+    "db_byte_size_before": 1009937
+  },
+  "rows": [
+    {
+      "row_id": "M1-0158",
+      "detailed_code": "E-4",
+      "action_type": "REGISTRATION",
+      "title": "기술지도",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 197,
+          "page_to": 197,
+          "match_text": "structure E-4.actions.REGISTRATION",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 196,
+          "page_to": 196,
+          "match_type": "manual_override",
+          "match_text": "E-4 기술지도 REGISTRATION 제출서류 (체류민원 p.196) — LLM judge 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.196 '다. 제출서류' 헤딩이 E-4 기술지도 외국인등록 신청 제출서류 직접 명시",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0166",
+      "detailed_code": "E-6",
+      "action_type": "VISA_CONFIRM",
+      "title": "예술흥행",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 200,
+          "page_to": 203,
+          "match_text": "사증발급",
+          "section_pf": 199,
+          "section_pt": 206,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 163,
+          "page_to": 165,
+          "match_text": "사증발급인정서",
+          "section_pf": 163,
+          "section_pt": 165,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 165,
+          "page_to": 165,
+          "match_type": "manual_override",
+          "match_text": "E-6 예술흥행 VISA_CONFIRM 사증발급인정서 (사증민원 p.165) — LLM judge 검증"
+        }
+      ],
+      "page_evidence": "사증민원 p.165 '사증발급인정서 / 발급대상' 헤딩 — E-6 예술흥행 사증발급 절차",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0284",
+      "detailed_code": "F-3-3R",
+      "action_type": "CHANGE",
+      "title": "지역특화숙련기능인력가족",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 612,
+          "page_to": 617,
+          "match_text": "structure F-3-3R + '자격변경'",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 614,
+          "page_to": 614,
+          "match_type": "manual_override",
+          "match_text": "F-3-3R 지역특화숙련기능인력 CHANGE (체류민원 p.614) — LLM judge 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.614 '5년 이내 지역특화 숙련기능인력 및 동반가족 체류자격으로 / 체류한 적이 있는 자' 헤딩 — F-3-3R 자격변경 요건",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0298",
+      "detailed_code": "A-2",
+      "action_type": "CHANGE",
+      "title": "공무",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 19,
+          "page_to": 20,
+          "match_text": "structure A-2.actions.CHANGE",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 20,
+          "page_to": 20,
+          "match_type": "manual_override",
+          "match_text": "A-2 공무 CHANGE 변경허가 (체류민원 p.20) — LLM judge 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.20 '변경허가 / 필수서류' 헤딩 — A-2 공무 체류자격 변경허가 절차",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0366",
+      "detailed_code": "F-5-6",
+      "action_type": "CHANGE",
+      "title": "결혼이민자영주",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 446,
+          "page_to": 446,
+          "match_text": "결혼이민자 (사용자 지정)",
+          "match_type": "manual_override"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 447,
+          "page_to": 447,
+          "match_type": "manual_override",
+          "match_text": "F-5-6 영주 CHANGE (체류민원 p.447) — LLM judge 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.447 '1) 허가 요건 / 결혼이민(F-6) 자격으로 2년 이상 국내 계속 체류' 헤딩 — F-5-6 영주(결혼이민) CHANGE 요건",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0130",
+      "detailed_code": "D-10-1",
+      "action_type": "CHANGE",
+      "title": "구직",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 142,
+          "page_to": 159,
+          "match_text": "변경허가",
+          "section_pf": 140,
+          "section_pt": 160,
+          "score": 48,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 124,
+          "page_to": 126,
+          "match_text": "변경허가",
+          "section_pf": 123,
+          "section_pt": 128,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 142,
+          "page_to": 143,
+          "match_type": "manual_override",
+          "match_text": "D-10-1 구직 CHANGE 신청요건 (체류민원 p.142-143) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 146,
+          "page_to": 148,
+          "match_type": "manual_override",
+          "match_text": "D-10-1 구직 CHANGE 제출서류 (체류민원 p.146-148) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.142-143 '가. 허용대상 1-1) 일반구직(D-10-1) 점수제 / 1-2) 점수제 면제'; 체류민원 p.146-148 '다. 제출서류 1-1) 점수제 적용 + 1-2) 면제 cases ⅰ-ⅶ'",
+      "non_contiguous": true,
+      "page_count": 2
+    },
+    {
+      "row_id": "M1-0097",
+      "detailed_code": "D-10-T",
+      "action_type": "CHANGE",
+      "title": "최우수인재 구직",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 144,
+          "page_to": 144,
+          "match_text": "변경허가",
+          "section_pf": 144,
+          "section_pt": 144,
+          "score": 10,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 125,
+          "page_to": 126,
+          "match_text": "변경허가",
+          "section_pf": 125,
+          "section_pt": 130,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 144,
+          "page_to": 145,
+          "match_type": "manual_override",
+          "match_text": "D-10-T 최우수인재 CHANGE 신청요건 (체류민원 p.144-145) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 150,
+          "page_to": 150,
+          "match_type": "manual_override",
+          "match_text": "D-10-T 최우수인재 CHANGE 제출서류 (체류민원 p.150) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.144 '4) 최우수인재(D-10-T)' 신청요건 + p.145 '5) 최우수인재(D-10-T) 제한대상'; 체류민원 p.150 '4) 최우수인재(D-10-T)' 제출서류",
+      "non_contiguous": true,
+      "page_count": 2
+    }
+  ]
+}

@@ -1,0 +1,363 @@
+{
+  "patch_meta": {
+    "version": "v8",
+    "mode": "DRY_RUN",
+    "scope": "9 rows: F-4-R/D-8-2/D-8-3/F-5-1/F-5-6/F-3-3R/F-2-71×2/F-5-2"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 9,
+    "diff_row_ids": [
+      "M1-0086",
+      "M1-0091",
+      "M1-0112",
+      "M1-0113",
+      "M1-0256",
+      "M1-0284",
+      "M1-0364",
+      "M1-0365",
+      "M1-0366"
+    ],
+    "diff_count": 9,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "non_contiguous_rows": [
+      "M1-0366",
+      "M1-0365"
+    ],
+    "db_byte_size_before": 1005358
+  },
+  "rows": [
+    {
+      "row_id": "M1-0086",
+      "detailed_code": "F-4-R",
+      "action_type": "CHANGE",
+      "title": "지역특화형 재외동포 체류자격 변경",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 622,
+          "page_to": 625,
+          "match_text": "자격변경",
+          "section_pf": 619,
+          "section_pt": 626,
+          "score": 27,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 618,
+          "page_to": 620,
+          "match_type": "manual_override",
+          "match_text": "F-4-R 지역특화형 재외동포 CHANGE 자격변경허가 요건+제출서류 (체류민원 p.618-620) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.618 '나. 요건' F-4-R 자격변경 신청요건; p.619 해외전입자 요건·학령기 자녀 요건; p.620 제출서류 (추천서·여권·범죄경력증명서·재학증명서 등)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0112",
+      "detailed_code": "D-8-2",
+      "action_type": "EXTEND",
+      "title": "벤처투자",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 101,
+          "page_to": 120,
+          "match_text": "연장허가",
+          "section_pf": 101,
+          "section_pt": 120,
+          "score": 30,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 114,
+          "page_to": 114,
+          "match_text": "체류기간연장",
+          "section_pf": 114,
+          "section_pt": 116,
+          "score": 17,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 122,
+          "page_to": 122,
+          "match_type": "manual_override",
+          "match_text": "D-8-2 벤처투자 EXTEND 체류기간연장허가 (체류민원 p.122) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.122 '2. 벤처 투자(D-8-2) 외국인에 체류기간 연장허가' — heading에 D-8-2 명시 + req=True + 제출서류 포함",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0113",
+      "detailed_code": "D-8-3",
+      "action_type": "EXTEND",
+      "title": "개인기업투자",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 101,
+          "page_to": 120,
+          "match_text": "연장허가",
+          "section_pf": 101,
+          "section_pt": 120,
+          "score": 30,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 114,
+          "page_to": 114,
+          "match_text": "체류기간연장",
+          "section_pf": 114,
+          "section_pt": 116,
+          "score": 17,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 122,
+          "page_to": 122,
+          "match_type": "manual_override",
+          "match_text": "D-8-3 개인기업투자 EXTEND 체류기간연장허가 (체류민원 p.122) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.122 '3. 개인기업 투자(D-8-3)에 대한 체류기간 연장허가' — D-8-3 heading 직접 확인 + D-8-2 섹션과 동일 페이지 공존",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0364",
+      "detailed_code": "F-5-1",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 국민의 배우자·자녀 (5년 이상 합법체류)",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 445,
+          "page_to": 452,
+          "match_text": "국민의 배우자·자녀 〔F-5-1〕 (매뉴얼 정식 sub-category)",
+          "match_type": "manual_override"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 446,
+          "page_to": 446,
+          "match_type": "manual_override",
+          "match_text": "F-5-1 영주 CHANGE 신청요건+제출서류 (체류민원 p.446) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.446 F-5-1=True, req=True, doc=True — '에서 5년 이상 계속 체류 / 완전출국 없이 상기 대상 체류자격으로만 연속 체류' 나. 요건 세부 + 제출서류 포함. LLM judge recommended_page=446.",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0366",
+      "detailed_code": "F-5-6",
+      "action_type": "CHANGE",
+      "title": "결혼이민자영주",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 447,
+          "page_to": 447,
+          "match_type": "manual_override",
+          "match_text": "F-5-6 영주 CHANGE (체류민원 p.447) — LLM judge 검증"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 447,
+          "page_to": 447,
+          "match_type": "manual_override",
+          "match_text": "F-5-6 결혼이민 CHANGE 허가요건 (체류민원 p.447) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 449,
+          "page_to": 449,
+          "match_type": "manual_override",
+          "match_text": "F-5-6 결혼이민 CHANGE 제출서류 (체류민원 p.449) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.447 '1) 허가 요건 / 가) 한국인 배우자와 정상적인 혼인생활 유지 / 나) 결혼이민(F-6) 자격으로 2년 이상 국내 계속 체류'; p.449 '2) 제출 서류 / 공통 서류' — 허가요건+제출서류 non-contiguous",
+      "non_contiguous": true,
+      "page_count": 2
+    },
+    {
+      "row_id": "M1-0284",
+      "detailed_code": "F-3-3R",
+      "action_type": "CHANGE",
+      "title": "지역특화숙련기능인력가족",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 614,
+          "page_to": 614,
+          "match_type": "manual_override",
+          "match_text": "F-3-3R 지역특화숙련기능인력 CHANGE (체류민원 p.614) — LLM judge 검증"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 614,
+          "page_to": 614,
+          "match_type": "manual_override",
+          "match_text": "F-3-3R 지역특화숙련기능인력 CHANGE (체류민원 p.614) — LLM judge + verifier 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.614 '동반가족 > 1. 체류자격변경' — 대상·신청요건·제출서류 존재. LLM judge EXACT + verifier ACCEPTED. page_from/page_to 불변, match_text 업데이트.",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0091",
+      "detailed_code": "F-2-71",
+      "action_type": "GRANT",
+      "title": "K-STAR 거주자의 국내출생 미성년자녀",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 371,
+          "page_to": 426,
+          "match_text": "자격부여",
+          "section_pf": 371,
+          "section_pt": 427,
+          "score": 101,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 310,
+          "page_to": 318,
+          "match_text": "자격부여",
+          "section_pf": 308,
+          "section_pt": 319,
+          "score": 34,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 745,
+          "page_to": 745,
+          "match_type": "manual_override",
+          "match_text": "F-2-71 K-STAR 동반가족 GRANT 체류자격 부여 (체류민원 p.745) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.745 'K-STAR의 동반가족(F-2-71, F-5-S2)' 섹션 / '체류자격 부여' heading + F-2-71 명시 + doc=True (제출서류 포함)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0256",
+      "detailed_code": "F-2-71",
+      "action_type": "GRANT",
+      "title": "점수제 우수인재 국내출생 자녀 거주",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 371,
+          "page_to": 426,
+          "match_text": "자격부여",
+          "section_pf": 371,
+          "section_pt": 427,
+          "score": 101,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 310,
+          "page_to": 318,
+          "match_text": "자격부여",
+          "section_pf": 308,
+          "section_pt": 319,
+          "score": 34,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 745,
+          "page_to": 745,
+          "match_type": "manual_override",
+          "match_text": "F-2-71 점수제 우수인재 국내출생 자녀 GRANT 체류자격 부여 (체류민원 p.745) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.745 'K-STAR의 동반가족(F-2-71, F-5-S2)' 섹션 / '체류자격 부여' heading + F-2-71 명시 + doc=True (제출서류 포함)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0365",
+      "detailed_code": "F-5-2",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 영주권자의 미성년 자녀",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 453,
+          "page_to": 453,
+          "match_text": "일반 영주자의 배우자/미성년 자녀 〔F-5-4〕 (사용자 지정)",
+          "match_type": "manual_override"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 453,
+          "page_to": 453,
+          "match_type": "manual_override",
+          "match_text": "F-5-2 영주권자 미성년자녀 CHANGE 가.대상·나.요건 (체류민원 p.453) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 454,
+          "page_to": 454,
+          "match_type": "manual_override",
+          "match_text": "F-5-2 영주권자 미성년자녀 CHANGE 다.제출서류 (체류민원 p.454) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.453 '3. 일반 영주자의 배우자 또는 미성년 자녀〔F-5-4〕 / 가. 대상 / 나. 요건' — DB 코드 F-5-2 = 매뉴얼 〔F-5-4〕; p.454 '다. 제출서류 / ○가족관계 입증 서류, 출생증명서 등' — req+doc non-contiguous",
+      "non_contiguous": true,
+      "page_count": 2
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "stage": "4_verifier",
+    "judge_results_file": "backend\\data\\manuals\\llm_judge_results\\llm_judge_results_FAIL_sonnet_20260501_123257.json",
+    "model": "claude-sonnet-4-6",
+    "api_called": false,
+    "total_rows": 0
+  },
+  "results": []
+}

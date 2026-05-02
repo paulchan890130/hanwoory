@@ -1,0 +1,241 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_wrong_v7_20260501_145452.json",
+    "tier": "ALL",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T14:58:24",
+    "total_rows": 15,
+    "api_called": true,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0086",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.622는 '지역동포영주 체류허가 기준'의 대상 조건 일부와 취업활동 범위 직업 목록표를 담고 있음. F-4-R 체류자격 변경(CHANGE)의 신청요건·제출서류가 없으며, heading으로 '지역특화형 재외동포 체류자격 변경'이 등장하지 않음. 취업활동 범위 직업 목록과 영주허가 기준 일부가 혼재된 페이지임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 3590,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 232
+      }
+    },
+    {
+      "row_id": "M1-0091",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.371 페이지는 관광·휴양시설 투자 외국인에 대한 거주(F-2-8, F-2-81) 자격 변경허가 내용이며, F-2-71(K-STAR 거주자의 국내출생 미성년자녀 체류자격부여)에 대한 신청요건, 제출서류, 허가기준이 전혀 없음. F-2-71 heading도 등장하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5910,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 211
+      }
+    },
+    {
+      "row_id": "M1-0112",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지는 취재(D-5) 자격의 체류기간연장허가 제출서류를 담고 있으며, D-8-2(벤처투자) 관련 내용은 전혀 없음. 섹션 제목도 D-5 취재 관련이며, D-8 기업투자는 본문에 단순 언급(명칭변경 관련)만 있을 뿐 heading으로 등장하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4857,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 210
+      }
+    },
+    {
+      "row_id": "M1-0113",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지(p.101)는 취재(D-5) 자격의 체류기간연장허가 제출서류를 다루고 있음. D-8-3(개인기업투자) 관련 heading이 전혀 없으며, D-8 기업투자 자격의 연장 신청요건·제출서류가 직접 존재하지 않음. 본문에 '기업투자(D-8)'가 명칭변경 맥락에서 단순 언급될 뿐, D-8-3 세부코드나 개인기업투자 연장 업무의 heading/내용 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4858,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 257
+      }
+    },
+    {
+      "row_id": "M1-0124",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지(p.101)는 취재(D-5) 자격의 체류자격변경허가·체류기간연장허가·재입국허가 내용을 다루고 있음. D-9-4(무역경영 개인사업자) 관련 heading이 없고, 신청요건·제출서류도 D-5에 해당하는 내용임. D-9-4 변경허가 신청요건·제출서류가 직접 수록되어 있지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4861,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 219
+      }
+    },
+    {
+      "row_id": "M1-0175",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "BROAD_FAMILY_PAGE",
+      "positive_evidence": "페이지 상단에 E-7-4(숙련기능인력)가 유의사항 형태로 언급되어 있으나, 이는 F-2-R(지역특화형 우수인재) 자격변경의 신청 자격 요건 중 하나로 언급된 것임",
+      "negative_evidence": "이 페이지의 주요 내용은 지역특화형 우수인재(F-2-R) 체류자격변경의 기본요건(추천서, 학력/소득, 거주·취창업, 기본소양)에 관한 것이며, E-7-4 CHANGE(체류자격변경허가)의 신청요건·제출서류가 직접 수록되어 있지 않음. E-7-4가 heading으로 등장하지 않고, 본 페이지는 F-2-R 섹션 하위 내용임",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4619,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 337
+      }
+    },
+    {
+      "row_id": "M1-0198",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "QUALIFICATION_OVERVIEW",
+      "positive_evidence": "선원취업(E-10) heading이 존재하고, 활동범위·해당자(E-10-1, E-10-2, E-10-3) 설명이 있음",
+      "negative_evidence": "이 페이지(p.332)는 활동범위, 해당자 정의, 1회 체류기간 상한, 체류자격외활동 허용요건 일부만 포함. 체류자격변경허가(E-10 CHANGE)의 신청요건·제출서류는 이 페이지에 없음. 인접 p.333에 '체류자격변경허가 해당사항 없음'이라고 명시되어 있어, E-10은 체류자격변경허가 업무 자체가 해당 없음. 따라서 CHANGE 업무의 정답 페이지가 존재하지 않거나, 현재 페이지는 개요/자격설명 페이지에 해당함",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5519,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 347
+      }
+    },
+    {
+      "row_id": "M1-0256",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.371 텍스트는 F-2-8/F-2-81(관광·휴양시설 투자 외국인 거주자격 변경허가) 섹션의 도입부로, F-2-71(점수제 우수인재 국내출생 자녀 거주) 관련 heading이나 신청요건·제출서류가 전혀 없음. 인접 p.370은 점수제 관련 제출서류가 있으나 F-2-71 국내출생 자녀 체류자격부여(GRANT) 업무가 아닌 점수제 변경허가 서류임.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5910,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 256
+      }
+    },
+    {
+      "row_id": "M1-0320",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "페이지 하단에 'Ⅴ. 네거티브 방식의 전문인력 비자(E-7-S)' 섹션이 시작되며 적용 대상자(고소득자, 첨단산업분야) 및 고소득자(E-7-S1) 자격요건 일부가 등장함",
+      "negative_evidence": "1) 이 페이지는 사증민원 매뉴얼이며, 업무 정의상 우선 매뉴얼은 체류민원임. 2) E-7-S 체류자격변경허가의 신청요건·제출서류·허가기준이 이 페이지에 직접 기재되지 않음. 3) E-7-S 섹션이 페이지 하단에 시작만 되고 핵심 내용(변경허가 요건, 제출서류)은 다음 페이지(p.248 이후)에 있음. 4) 체류자격변경 절차·요건이 없고 사증발급 기준 개요만 시작됨.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5355,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 384
+      }
+    },
+    {
+      "row_id": "M1-0364",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "BODY_KEYWORD_ONLY",
+      "positive_evidence": "p.445 텍스트에 '1. 일반 영주자〔F-5-1〕' 섹션의 대상 설명이 시작되나, 이는 D-7~E-7, F-2 자격 5년 이상 체류자에 관한 내용이며, 국민의 배우자·자녀(5년 이상 합법체류) F-5-1 변경 신청요건·제출서류가 아님",
+      "negative_evidence": "F-5-1의 heading은 등장하나 해당 페이지(p.445)의 내용은 영주자격 취소·상실 사유와 일반 영주자(F-5-1) 대상(D-7~E-7, F-2 체류자) 설명의 시작 부분만 있고, '국민의 배우자·자녀(5년 이상 합법체류)' 변경 신청요건 및 제출서류가 없음. 해당 내용은 p.446~p.447의 F-5-2/F-5-3 또는 별도 페이지에 위치할 가능성이 높음. 업무 정의상 국민의 배우자·자녀(5년 이상 합법체류)이어야 하나 이 페이지의 F-5-1은 D-7~E-7 체류자 대상임",
+      "recommended_page": 446,
+      "_usage": {
+        "input_tokens": 5458,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 472
+      }
+    },
+    {
+      "row_id": "M1-0365",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "p.453 텍스트는 F-5-4(일반 영주자의 배우자 또는 미성년 자녀) 섹션이며, F-5-2 heading이 전혀 등장하지 않음. F-5-2(영주권자의 미성년 자녀)에 대한 신청요건·제출서류가 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5777,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 177
+      }
+    },
+    {
+      "row_id": "M1-0367",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.457 본문에 '7. 학사․석사 학위증 및 자격증 소지자〔F-5-10〕' heading이 명시되어 있으며, 가. 대상, 나. 요건(1)학위증/자격증 소지, 2)3년 이상 국내 계속 체류 등)이 직접 기술되어 있음. 단, 페이지 상단(- 458 -)은 F-5-9/F-5-15의 생계유지능력 및 제출서류이고, F-5-10 섹션은 해당 페이지 중반부터 시작하여 신청요건이 포함됨.",
+      "negative_evidence": "페이지 상단 일부는 F-5-9(첨단분야 박사) 관련 내용이나, F-5-10 heading과 요건이 동일 페이지에 직접 존재하므로 배제 사유 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 5676,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 351
+      }
+    },
+    {
+      "row_id": "M1-0369",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "QUALIFICATION_OVERVIEW",
+      "positive_evidence": "",
+      "negative_evidence": "이 페이지(p.579)는 '별첨 9 영주(F-5-14)부여 자격 종목 및 등급' 표로, 제조업 분야의 자격증 종목과 등급 목록만 수록되어 있음. F-5-14 체류자격변경허가의 신청요건, 제출서류, 허가기준이 전혀 없고, 'F-5-14' 또는 '방문취업(H-2) 제조업 4년 이상 근무' 관련 heading도 없음. 자격증 목록 부속서류에 불과하여 EXACT 조건 미충족.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4523,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 269
+      }
+    },
+    {
+      "row_id": "M1-0284",
+      "decision": "EXACT",
+      "confidence": "high",
+      "page_role": "EXACT_TASK_PAGE",
+      "positive_evidence": "p.614에 '동반가족 > 1. 체류자격변경' 섹션이 있으며, 대상(E-7-4R 자격 소지자의 배우자 및 미성년자녀), 신청요건(실거주, 주체류자격자 요건, 주거지, 소득 기준표, 배우자 혼인요건, 미성년자녀 재학요건)이 직접 기재되어 있음. 인접 p.615에 제출서류(①~⑦)와 체류허가 사항(체류자격 F-3-3R, 체류기간)이 명시되어 있어 p.614가 해당 업무의 시작 핵심 페이지임.",
+      "negative_evidence": "없음. F-3-3R 변경 업무의 요건·제출서류가 모두 이 페이지(및 직접 연속 페이지)에 있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 4052,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 347
+      }
+    },
+    {
+      "row_id": "M1-0366",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "F-6→F-5 결혼이민자 영주 변경 관련 허가요건과 제출서류가 있음",
+      "negative_evidence": "p.447은 F-5-2(한국인 배우자와 정상적인 혼인생활 유지자) 세부유형의 허가요건 및 제출서류를 다루고 있음. F-5-6은 '국민과의 혼인에서 출생한 자녀가 있는 결혼이민자'가 아니라, 업무명 상 '결혼이민자(F-6→F-5)' 중 특정 세부코드임. p.447에는 F-5-6 heading이 없고, F-5-2 내용(한국인 배우자와 정상혼인 유지)만 있음. F-5-6 세부코드 또는 이에 해당하는 제목이 heading으로 등장하지 않음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 6009,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 340
+      }
+    }
+  ]
+}

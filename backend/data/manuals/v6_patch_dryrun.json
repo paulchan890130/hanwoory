@@ -1,0 +1,436 @@
+{
+  "patch_meta": {
+    "version": "v6",
+    "mode": "DRY_RUN",
+    "scope": "E-9 REGISTRATION (5) + E-9 REENTRY (5) + D-10-2 CHANGE (1) + E-10 REENTRY (1) = 12 rows",
+    "db_path": "backend\\data\\immigration_guidelines_db_v2.json",
+    "schema": "minimal: manual, page_from, page_to, match_type=manual_override, match_text"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 12,
+    "diff_row_ids": [
+      "M1-0131",
+      "M1-0188",
+      "M1-0189",
+      "M1-0190",
+      "M1-0191",
+      "M1-0192",
+      "M1-0193",
+      "M1-0194",
+      "M1-0195",
+      "M1-0196",
+      "M1-0197",
+      "M1-0202"
+    ],
+    "diff_count": 12,
+    "expected_target_count": 12,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "non_contiguous_rows": [
+      "M1-0131"
+    ],
+    "db_byte_size_before": 1009489
+  },
+  "rows": [
+    {
+      "row_id": "M1-0188",
+      "detailed_code": "E-9-1",
+      "action_type": "REGISTRATION",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 40,
+          "match_text": "외국인등록",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-1 비전문취업 REGISTRATION 외국인등록 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 외국인등록 / 1. 외국인등록 신청서류 — 신청서·여권·사진·수수료 + 사업자등록증 사본 + 마약검사확인서 + 체류지 입증서류",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0189",
+      "detailed_code": "E-9-2",
+      "action_type": "REGISTRATION",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 40,
+          "match_text": "외국인등록",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-2 비전문취업 REGISTRATION 외국인등록 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 외국인등록 / 1. 외국인등록 신청서류 — 신청서·여권·사진·수수료 + 사업자등록증 사본 + 마약검사확인서 + 체류지 입증서류",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0190",
+      "detailed_code": "E-9-3",
+      "action_type": "REGISTRATION",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 40,
+          "match_text": "외국인등록",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-3 비전문취업 REGISTRATION 외국인등록 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 외국인등록 / 1. 외국인등록 신청서류 — 신청서·여권·사진·수수료 + 사업자등록증 사본 + 마약검사확인서 + 체류지 입증서류",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0191",
+      "detailed_code": "E-9-4",
+      "action_type": "REGISTRATION",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 40,
+          "match_text": "외국인등록",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-4 비전문취업 REGISTRATION 외국인등록 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 외국인등록 / 1. 외국인등록 신청서류 — 신청서·여권·사진·수수료 + 사업자등록증 사본 + 마약검사확인서 + 체류지 입증서류",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0192",
+      "detailed_code": "E-9-5",
+      "action_type": "REGISTRATION",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 33,
+          "page_to": 40,
+          "match_text": "외국인등록",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-5 비전문취업 REGISTRATION 외국인등록 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 외국인등록 / 1. 외국인등록 신청서류 — 신청서·여권·사진·수수료 + 사업자등록증 사본 + 마약검사확인서 + 체류지 입증서류",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0193",
+      "detailed_code": "E-9-1",
+      "action_type": "REENTRY",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 34,
+          "page_to": 34,
+          "match_text": "재입국허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-1 비전문취업 REENTRY 재입국허가 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 재입국허가 / 1. 재입국허가 면제 제도 (등록 외국인 1년 이내 재입국 면제) / 2. 제출서류 (별지34호·여권·외국인등록증·수수료 단수3만/복수5만)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0194",
+      "detailed_code": "E-9-2",
+      "action_type": "REENTRY",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 34,
+          "page_to": 34,
+          "match_text": "재입국허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-2 비전문취업 REENTRY 재입국허가 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 재입국허가 / 1. 재입국허가 면제 제도 (등록 외국인 1년 이내 재입국 면제) / 2. 제출서류 (별지34호·여권·외국인등록증·수수료 단수3만/복수5만)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0195",
+      "detailed_code": "E-9-3",
+      "action_type": "REENTRY",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 34,
+          "page_to": 34,
+          "match_text": "재입국허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-3 비전문취업 REENTRY 재입국허가 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 재입국허가 / 1. 재입국허가 면제 제도 (등록 외국인 1년 이내 재입국 면제) / 2. 제출서류 (별지34호·여권·외국인등록증·수수료 단수3만/복수5만)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0196",
+      "detailed_code": "E-9-4",
+      "action_type": "REENTRY",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 34,
+          "page_to": 34,
+          "match_text": "재입국허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-4 비전문취업 REENTRY 재입국허가 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 재입국허가 / 1. 재입국허가 면제 제도 (등록 외국인 1년 이내 재입국 면제) / 2. 제출서류 (별지34호·여권·외국인등록증·수수료 단수3만/복수5만)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0197",
+      "detailed_code": "E-9-5",
+      "action_type": "REENTRY",
+      "title": "비전문취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 34,
+          "page_to": 34,
+          "match_text": "재입국허가",
+          "section_pf": 33,
+          "section_pt": 40,
+          "score": 15,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 326,
+          "page_to": 326,
+          "match_type": "manual_override",
+          "match_text": "E-9-5 비전문취업 REENTRY 재입국허가 (체류민원 p.326) — LLM judge + 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.326 재입국허가 / 1. 재입국허가 면제 제도 (등록 외국인 1년 이내 재입국 면제) / 2. 제출서류 (별지34호·여권·외국인등록증·수수료 단수3만/복수5만)",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0131",
+      "detailed_code": "D-10-2",
+      "action_type": "CHANGE",
+      "title": "기술창업준비",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 142,
+          "page_to": 144,
+          "match_text": "변경허가",
+          "section_pf": 140,
+          "section_pt": 144,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 124,
+          "page_to": 126,
+          "match_text": "변경허가",
+          "section_pf": 123,
+          "section_pt": 129,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 143,
+          "page_to": 143,
+          "match_type": "manual_override",
+          "match_text": "D-10-2 기술창업준비 CHANGE 신청요건 (체류민원 p.143) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 149,
+          "page_to": 149,
+          "match_type": "manual_override",
+          "match_text": "D-10-2 기술창업준비 CHANGE 제출서류 (체류민원 p.149) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.143 '2) 기술창업준비(D-10-2)' 신청요건 (학사+특허·디자인·창업이민종합지원시스템 등); 체류민원 p.149 '2) 기술창업준비(D-10-2)' 제출서류 (학력증명·기술창업계획서·특허증·OECD 지식재산권·체재비)",
+      "non_contiguous": true,
+      "page_count": 2
+    },
+    {
+      "row_id": "M1-0202",
+      "detailed_code": "E-10",
+      "action_type": "REENTRY",
+      "title": "선원취업",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 335,
+          "page_to": 335,
+          "match_text": "structure E-10.actions.REENTRY",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 334,
+          "page_to": 334,
+          "match_type": "manual_override",
+          "match_text": "E-10 선원취업 REENTRY 재입국허가 하단 (체류민원 p.334) — 수동 검증"
+        }
+      ],
+      "page_evidence": "체류민원 p.334 하단부 '재입국허가 / 1. 재입국허가 면제 제도 시행 (등록 외국인 1년 이내 면제) / 2. 제출서류 (별지34호·여권·외국인등록증·수수료 단수3만/복수5만)' — 페이지 상단은 체류기간연장허가, 하단이 REENTRY",
+      "non_contiguous": false,
+      "page_count": 1
+    }
+  ]
+}

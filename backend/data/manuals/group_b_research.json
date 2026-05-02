@@ -1,0 +1,473 @@
+{
+  "rows": [
+    {
+      "row_id": "M1-0015",
+      "detailed_code": "E-10-2",
+      "action_type": "WORKPLACE",
+      "title": "선원취업",
+      "preferred_manual": "체류민원",
+      "found_page": 334,
+      "heading_snippet": " 목차 / 체류기간연장허가 / 체류허가기간 중에 고용해지 등으로 구직 중인 자는고용해지일로 / 부터 3개월의 범위 내에서 체류기간연장허가",
+      "confidence": "HIGH",
+      "score": 120,
+      "top_candidates": [
+        {
+          "page": 334,
+          "score": 120,
+          "heading": " 목차 / 체류기간연장허가 / 체류허가기간 중에 고용해지 등으로 구직 중인 자는고용해지일로 / 부터 3개월의 범위 내에서 체류기간연장허가",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 335,
+          "score": 120,
+          "heading": "①신청서(별지34호 서식), 여권원본, 표준규격사진1장, 수수료 / ②내항여객운송사업면허증 또는 내항화물운송등록증 / ③건강검진서 (반드시 봉투에 밀봉된 상태로 제출, 개봉 불가) / ④마약검사 확인서 (반드시 봉투에 밀봉된 상태로 제출, 개봉 불가)",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 339,
+          "score": 120,
+          "heading": " 목차 / 자격 부여 / ①신청서(별지 34호 서식), 여권, 표준규격사진 1매, 수수료 / ②출생증명서 ③가족관계기록사항에 관한 증명서 등 친인척관계 입증",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 343,
+          "score": 120,
+          "heading": " 목차 / 체류자격변경허가 / 고등학교 이하 유학(D-4-3) 사증발급 대상 교육기관*에서 입학허가를 / 받았거나 재학 중인 외국인유학생의 2촌 이내의 친인척으로서 국내에 현재",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 333,
+          "score": 100,
+          "heading": "▪어획 ➠ 위판 과정 상 어획물 생산활동에 부수되는 작업일 것 / - (허용시기, 인원, 기간) / ▪(허용시기) 조업기 중 (금어기 중 신청은 가능) / ▪(허용인원) 해당 외국인선원의 선박 실제 근무 외국인선원 중 1/3 이내",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0098",
+      "detailed_code": "D-10-T",
+      "action_type": "EXTEND",
+      "title": "최우수인재 구직",
+      "preferred_manual": "체류민원",
+      "found_page": 157,
+      "heading_snippet": " 목차 / 2. 복수재입국허가 (사우디아라비아, 이란, 리비아는 복수재입국제한. 단, / 동 국가의 국민 중 결혼이민(F­6), 유학(D­2), 일반연수(D­4)는 가능) / - 출국 후 체류기간 범위 내에서 1년을 초과하여 2년 내에 재입국을 하려는 경우",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 157,
+          "score": 135,
+          "heading": " 목차 / 2. 복수재입국허가 (사우디아라비아, 이란, 리비아는 복수재입국제한. 단, / 동 국가의 국민 중 결혼이민(F­6), 유학(D­2), 일반연수(D­4)는 가능) / - 출국 후 체류기간 범위 내에서 1년을 초과하여 2년 내에 재입국을 하려는 경우",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 153,
+          "score": 65,
+          "heading": "※ (추천서 첨부서류) 학력입증서류, 경력증명서, 해당 단체 추천서 또는 관련 입증 / 자료 등(권위 있는 국제 또는 국내대회 입상 및 언론 등에 보도된 경우) / 2) 글로벌기업 근무 경력자 : 20점 / - 최근 3년 이내 Fortune志 선정 500대 기업에서 신청일 기준 최근",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 150,
+          "score": 50,
+          "heading": "※ 단, 인턴계약서에 인턴기간 동안 상기 금액 수준의 국내 체재비 지급 내용이 / 확인되는 경우 체재비 입증서류 제출 면제 / 4) 최우수인재(D-10-T) / ❍공통서류(신청서, 표준규격 사진, 여권 사본, 수수료)",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        },
+        {
+          "page": 155,
+          "score": 50,
+          "heading": "2) 기술창업준비(D-10-2) / ❍ 공통서류(신청서, 사진, 여권사본, 수수료, 신분증사본) / ❍ 기술창업활동계획서 / ❍ 체재비 입증서류*",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        },
+        {
+          "page": 156,
+          "score": 50,
+          "heading": "1-2) 일반 구직(D-10-1): 점수제 면제 특례자 / 대상자 / 체류기간 / 상한",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0134",
+      "detailed_code": "D-10-2",
+      "action_type": "EXTEND",
+      "title": "기술창업준비",
+      "preferred_manual": "체류민원",
+      "found_page": 157,
+      "heading_snippet": " 목차 / 2. 복수재입국허가 (사우디아라비아, 이란, 리비아는 복수재입국제한. 단, / 동 국가의 국민 중 결혼이민(F­6), 유학(D­2), 일반연수(D­4)는 가능) / - 출국 후 체류기간 범위 내에서 1년을 초과하여 2년 내에 재입국을 하려는 경우",
+      "confidence": "HIGH",
+      "score": 100,
+      "top_candidates": [
+        {
+          "page": 157,
+          "score": 100,
+          "heading": " 목차 / 2. 복수재입국허가 (사우디아라비아, 이란, 리비아는 복수재입국제한. 단, / 동 국가의 국민 중 결혼이민(F­6), 유학(D­2), 일반연수(D­4)는 가능) / - 출국 후 체류기간 범위 내에서 1년을 초과하여 2년 내에 재입국을 하려는 경우",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 153,
+          "score": 65,
+          "heading": "※ (추천서 첨부서류) 학력입증서류, 경력증명서, 해당 단체 추천서 또는 관련 입증 / 자료 등(권위 있는 국제 또는 국내대회 입상 및 언론 등에 보도된 경우) / 2) 글로벌기업 근무 경력자 : 20점 / - 최근 3년 이내 Fortune志 선정 500대 기업에서 신청일 기준 최근",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 149,
+          "score": 50,
+          "heading": "※ 체재비 입증서류 제출 면제 / 2) 기술창업준비(D-10-2) / ❍ 공통서류(신청서, 사진, 여권사본, 수수료, 신분증사본) / ❍ 학사(국내 전문학사) 학위 이상 학력증명서",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        },
+        {
+          "page": 155,
+          "score": 50,
+          "heading": "2) 기술창업준비(D-10-2) / ❍ 공통서류(신청서, 사진, 여권사본, 수수료, 신분증사본) / ❍ 기술창업활동계획서 / ❍ 체재비 입증서류*",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        },
+        {
+          "page": 156,
+          "score": 50,
+          "heading": "1-2) 일반 구직(D-10-1): 점수제 면제 특례자 / 대상자 / 체류기간 / 상한",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0290",
+      "detailed_code": "H-1",
+      "action_type": "CHANGE",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "found_page": 3,
+      "heading_snippet": "유 의 사 항 / ※\u0001 출입국·외국인청(사무소·출장소)장은\u0001 심사를\u0001 위해\u0001 특히\u0001 필요하다고\u0001 인정되는\u0001 / 때에는\u0001 본\u0001 매뉴얼상의\u0001 제출서류를\u0001 가감할\u0001 수\u0001 있으며,\u0001 본\u0001 안내매뉴얼은\u0001 체류자격별\u0001 / 신청\u0001 대상\u0001 및\u0001 필요서류에\u0001 대한\u0001 이해를\u0001 돕기위한\u0001 보조자료로서\u0001 각종\u0001 신청\u0001 등의\u0001 허가\u0001",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 3,
+          "score": 135,
+          "heading": "유 의 사 항 / ※\u0001 출입국·외국인청(사무소·출장소)장은\u0001 심사를\u0001 위해\u0001 특히\u0001 필요하다고\u0001 인정되는\u0001 / 때에는\u0001 본\u0001 매뉴얼상의\u0001 제출서류를\u0001 가감할\u0001 수\u0001 있으며,\u0001 본\u0001 안내매뉴얼은\u0001 체류자격별\u0001 / 신청\u0001 대상\u0001 및\u0001 필요서류에\u0001 대한\u0001 이해를\u0001 돕기위한\u0001 보조자료로서\u0001 각종\u0001 신청\u0001 등의\u0001 허가\u0001",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 16,
+          "score": 135,
+          "heading": "④부양자의 외국공관원 신분증 / 체류자격변경허가 /  목차 / 1. ①대한민국 정부가 접수한 외국정부의 외교사절단이나 영사기관의 구성원,",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 2,
+          "score": 100,
+          "heading": "目 / 目 次 / 次 / ‣ 각종 체류허가 신청 시 유의사항",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 5,
+          "score": 85,
+          "heading": "111 / 각종 체류허가 등에 관한 심사수수료 / 근거 / 업무명",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 6,
+          "score": 85,
+          "heading": "222 / 여권 유효기간 범위 내 체류기간 부여 안내 / ▣ 적용대상 / • 아래 외국인을 제외한 모든 장기 체류자격 외국인",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0291",
+      "detailed_code": "H-1",
+      "action_type": "EXTEND",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "found_page": 2,
+      "heading_snippet": "目 / 目 次 / 次 / ‣ 각종 체류허가 신청 시 유의사항",
+      "confidence": "HIGH",
+      "score": 100,
+      "top_candidates": [
+        {
+          "page": 2,
+          "score": 100,
+          "heading": "目 / 目 次 / 次 / ‣ 각종 체류허가 신청 시 유의사항",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 5,
+          "score": 85,
+          "heading": "111 / 각종 체류허가 등에 관한 심사수수료 / 근거 / 업무명",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 6,
+          "score": 85,
+          "heading": "222 / 여권 유효기간 범위 내 체류기간 부여 안내 / ▣ 적용대상 / • 아래 외국인을 제외한 모든 장기 체류자격 외국인",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 7,
+          "score": 85,
+          "heading": "333 / 취업할 수 있는 체류자격 외국인의 직업 및 연간소득금액 신고 의무 / ▣ 출입국관리법 시행규칙 제47조, 제49조의2에 따라 취업할 수 있는 / 체류자격을 가진 외국인은 외국인등록 및 각종 체류허가 신청 시에",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 8,
+          "score": 85,
+          "heading": "444 / 만6세 이상 만18세 이하 체류외국인의 재학증명서 제출 의무 / ▣ 출입국관리법 시행규칙 제47조, 제49조의2에 따라, 만 6세 이상 만 18세 이하 / 등록(거소)외국인은 아래와 같이 재학여부를 신고하여야만 합니다.",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0292",
+      "detailed_code": "H-1",
+      "action_type": "REGISTRATION",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "found_page": 17,
+      "heading_snippet": "외국인등록 /  목차 / 외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 / - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 17,
+          "score": 135,
+          "heading": "외국인등록 /  목차 / 외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 / - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 2,
+          "score": 100,
+          "heading": "目 / 目 次 / 次 / ‣ 각종 체류허가 신청 시 유의사항",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 5,
+          "score": 85,
+          "heading": "111 / 각종 체류허가 등에 관한 심사수수료 / 근거 / 업무명",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 7,
+          "score": 85,
+          "heading": "333 / 취업할 수 있는 체류자격 외국인의 직업 및 연간소득금액 신고 의무 / ▣ 출입국관리법 시행규칙 제47조, 제49조의2에 따라 취업할 수 있는 / 체류자격을 가진 외국인은 외국인등록 및 각종 체류허가 신청 시에",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 8,
+          "score": 85,
+          "heading": "444 / 만6세 이상 만18세 이하 체류외국인의 재학증명서 제출 의무 / ▣ 출입국관리법 시행규칙 제47조, 제49조의2에 따라, 만 6세 이상 만 18세 이하 / 등록(거소)외국인은 아래와 같이 재학여부를 신고하여야만 합니다.",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0293",
+      "detailed_code": "H-1",
+      "action_type": "REENTRY",
+      "title": "관광취업",
+      "preferred_manual": "체류민원",
+      "found_page": 36,
+      "heading_snippet": "별도허가없이 / 유학활동이가능한 / 체류자격 / ※ 비전문취업(E-9), 선원취업(E-10), 난민신청자(G-1-5)의 경우 별도의 허가 없이 유학",
+      "confidence": "HIGH",
+      "score": 120,
+      "top_candidates": [
+        {
+          "page": 36,
+          "score": 120,
+          "heading": "별도허가없이 / 유학활동이가능한 / 체류자격 / ※ 비전문취업(E-9), 선원취업(E-10), 난민신청자(G-1-5)의 경우 별도의 허가 없이 유학",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 34,
+          "score": 115,
+          "heading": "②연수기관이 작성한 연수일정표 ③부가가치세법에 따른 사업자등록증 / 등 문화예술단체입증서류 ④체류지 입증서류(임대차계약서, 숙소 / 제공 확인서, 체류기간 만료예고 통지우편물, 공공요금 납부영수증, / 기숙사비 영수증 등)",
+          "req": false,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 2,
+          "score": 100,
+          "heading": "目 / 目 次 / 次 / ‣ 각종 체류허가 신청 시 유의사항",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 5,
+          "score": 85,
+          "heading": "111 / 각종 체류허가 등에 관한 심사수수료 / 근거 / 업무명",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 16,
+          "score": 85,
+          "heading": "④부양자의 외국공관원 신분증 / 체류자격변경허가 /  목차 / 1. ①대한민국 정부가 접수한 외국정부의 외교사절단이나 영사기관의 구성원,",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0321",
+      "detailed_code": "E-7-S",
+      "action_type": "EXTEND",
+      "title": "네거티브방식 전문인력",
+      "preferred_manual": "체류민원",
+      "found_page": 286,
+      "heading_snippet": "❍(체류관리 등) 일반 기준 적용 / - (사회통합프로그램) 국내 입국 후 1년 이내에 ①사회통합프로그램 사전평가 21점 이상 / 취득하고 사회통합프로그램 2단계 배정 또는 ②사회통합프로그램 1단계 이상 이수 또 / 는 ③한국어능력시험(TOPIK) 2급 이상 여부 확인(국내 대학 졸업자들은 이수 불필요)",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 286,
+          "score": 135,
+          "heading": "❍(체류관리 등) 일반 기준 적용 / - (사회통합프로그램) 국내 입국 후 1년 이내에 ①사회통합프로그램 사전평가 21점 이상 / 취득하고 사회통합프로그램 2단계 배정 또는 ②사회통합프로그램 1단계 이상 이수 또 / 는 ③한국어능력시험(TOPIK) 2급 이상 여부 확인(국내 대학 졸업자들은 이수 불필요)",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 288,
+          "score": 100,
+          "heading": "- (자격·경력) 도축 분야 관련 교육기관에서 도축 관련 교육 수료 또는 자격증 취득 / 후3년 이상 경력 / ❍(제출서류) 도축 분야 교육 수료증 또는 자격증, 경력증명서 / ※ 해외발급서류는아포스티유확인또는대한민국공관의영사확인필수",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 292,
+          "score": 85,
+          "heading": "첨단산업 분야 네거티브 비자 점수표 / 1. 필수항목 / ❍소득 : 연령과 연동하여 최대 45점 / 나이",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 318,
+          "score": 85,
+          "heading": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.> / 통합신청서(신고서)",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 287,
+          "score": 50,
+          "heading": "※ 해외발급서류는아포스티유확인또는대한민국공관의영사확인필수 / ❍ (유학생 특례) 국내대학에서 해당분야 전문학사 이상 학위를 취득한 유학생이 자동차 / 판금·도장분야 업체 취업이 확정되고 국토부 장관의 고용추천을 받은 경우 경력요건 / 면제",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0324",
+      "detailed_code": "E-7-S",
+      "action_type": "GRANT",
+      "title": "네거티브방식 전문인력",
+      "preferred_manual": "체류민원",
+      "found_page": 318,
+      "heading_snippet": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.> / 통합신청서(신고서)",
+      "confidence": "HIGH",
+      "score": 85,
+      "top_candidates": [
+        {
+          "page": 318,
+          "score": 85,
+          "heading": "붙임11 / 통합신청서(별지 제34호 서식) / ■ 출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.> / 통합신청서(신고서)",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 292,
+          "score": 70,
+          "heading": "첨단산업 분야 네거티브 비자 점수표 / 1. 필수항목 / ❍소득 : 연령과 연동하여 최대 45점 / 나이",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        },
+        {
+          "page": 291,
+          "score": 50,
+          "heading": "* 산업발전법제5조에따라고시되는첨단기술로반도체, 바이오, 디스플레이, 신재생에너지등 / - (첨단산업분야 인정 기준) 산업발전법 제5조 및 ｢첨단기술 및 제품의 범위｣(산업통상 / 자원부 고시 제2022-36호)에 따른 3,043개 첨단기술‧제품과 정확히 일치하는 분야의 / 기술‧제품 등을 보유하였거나 그 분야에 직접적으로 종사 중인 경우로 한정",
+          "req": false,
+          "doc": false,
+          "heading_kw": false
+        },
+        {
+          "page": 290,
+          "score": 35,
+          "heading": "❍ (사증발급) 체류기간 상한 2년의 단수사증 / ❍ (체류관리 등) 일반 기준 적용 / - (사회통합프로그램) 국내 입국 후 1년 이내에 ①사회통합프로그램 사전평가 21점 이 / 상 취득하고 사회통합프로그램 2단계 배정 또는 ②사회통합프로그램 1단계 이상 이수",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    }
+  ]
+}

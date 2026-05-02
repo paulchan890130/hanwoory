@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "stage": "4_verifier",
+    "version": "v1",
+    "judge_results_file": "backend\\data\\manuals\\llm_judge_results\\llm_judge_results_FAIL_sonnet_20260501_131101.json",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_fail_cluster_lt3_20260501_125555.json",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T13:29:24",
+    "total_rows": 5,
+    "api_called": true,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0097",
+      "verifier_decision": "REJECTED",
+      "reject_reason": "응답 파싱 실패",
+      "confidence": "low",
+      "_raw_response": "검토합니다.\n\n**업무 정의**: 체류자격변경허가. **변경 신청요건·제출서류**가 직접 있어야 함.\n\n**p.144 페이지 분석**:\n- `4) 최우수인재(D-10-T)` heading 하에 신청요건(허용대상)이 기술되어 있음 ✓\n- `나. 제한대상` 섹션에 공통(1), D-10-1(2), D-10-2(3) 제한대상이 있음\n\n**핵심 문제**: D-10-T의 **제출서류**가 p.144에 있는가?\n\n- p.144에는 허용대상(신청요건)은 있지만, 제출서류(`다. 제출서류`)는 **p.146**에서 시작됨\n- p.144의 `나. 제"
+    },
+    {
+      "row_id": "M1-0130",
+      "verifier_decision": "REJECTED",
+      "reject_reason": "broad family page: p.142 텍스트는 '체류자격변경허가' 섹션의 허용대상(가. 허용대상)으로서 D-10-1뿐 아니라 D-10-2, D-10-3, D-10-T 등 D-10 전체 subtype의 허용대상 요건을 순차적으로 나열하는 개요 페이지의 시작부분이다. 해당 페이지(p.142)에는 D-10-1 허용대상 요건이 포함되어 있으나 제출서류가 직접 기술되어 있지 않으며, D-10-1만을 독립적으로 다루는 전용 페이지가 아니라 D-10 전체 체류자격변경허가 허용대상을 다루는 broad family 구조의 일부다. 또한 업무 정의에서 '변경 신청요건·제출서류가 직접 있어야 함'이라고 명시하고 있으나, 이 페이지에는 D-10-1 체류자격변경허가를 위한 제출서류가 직접 기재되어 있지 않아 no direct evidence(제출서류 누락) 오류도 해당된다.",
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 6012,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 425
+      }
+    },
+    {
+      "row_id": "M1-0159",
+      "verifier_decision": "REJECTED",
+      "reject_reason": "응답 파싱 실패",
+      "confidence": "low",
+      "_raw_response": "페이지 텍스트를 확인합니다.\n\n현재 매핑은 **체류민원 p.197**이고, 페이지 텍스트는 `- 198 -` (전문직업 E-5 내용)로 시작합니다.\n\n1차 판정관은 p.196(체류민원 p.197)에 재입국허가 섹션이 있다고 했는데, 실제로 제공된 페이지 텍스트를 보면:\n- `체류민원 p.197`의 실제 내용은 `- 198 -` 페이지로 **전문직업(E-5)** 내용입니다.\n- **재입국허가** 섹션(신청서류 포함)은 인접 페이지 **p.196** (`- 197 -`)에 있습니다.\n\n즉, 매핑된 페이지 p.197의 실제 텍스트에는 E"
+    },
+    {
+      "row_id": "M1-0300",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5855,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 54
+      }
+    },
+    {
+      "row_id": "M1-0368",
+      "verifier_decision": "REJECTED",
+      "reject_reason": "응답 파싱 실패",
+      "confidence": "low",
+      "_raw_response": "페이지 텍스트를 분석합니다.\n\n**p.458 내용 확인:**\n- 상단: F-5-10(학사·석사 학위증 및 자격증 소지자)의 요건 3), 4) 및 제출서류(다.)\n- 하단: \"8. 특정분야 능력 소유자〔F-5-11〕\" heading + \"가. 대상\" + \"나. 요건(생계유지능력요건 면제)\" 시작\n\n**p.459 내용 확인:**\n- F-5-11의 점수제 요건표(필수항목/선택항목) - 핵심 신청요건\n\n**검토:**\n\n1. **broad family page**: F-5-11 단독 섹션 heading이 명시 → 해당 없음\n2. **body"
+    }
+  ]
+}

@@ -129,6 +129,8 @@ Every user has a `tenant_id` (= `login_id` by default) embedded in their JWT. Th
 
 `POST /api/admin/bootstrap` — seeds the first admin account (no auth required, idempotent).
 
+`DELETE /api/admin/accounts/{login_id}` — 계정 소프트 삭제 (`is_active=FALSE`). 자신의 계정 삭제 불가(HTTP 400). 이미 비활성이면 idempotent 200 반환. Google Sheets/Drive 리소스 보존을 위해 행 자체는 삭제하지 않음. 프론트엔드에서 비활성 계정은 삭제 버튼 대신 "삭제됨" 배지 표시.
+
 ### Key resource IDs (all in `config.py`)
 
 | Constant | Purpose |
@@ -167,8 +169,9 @@ frontend/app/
   (main)/memos/         — Notes
   (main)/noticeboard/   — Internal board + notice management (renamed from /board to free that URL for public use)
   (main)/manual/        — GPT-powered manual search (비활성; 사이드바에서 숨김)
-  (main)/guidelines/    — 출입국 실무지침 DB viewer; 3단계 트리 탐색(L1 진입점→L2 업무유형→L3 항목) + 직접검색 + TB배너 + quickdoc 딥링크
-  (main)/admin/         — Admin: account list + workspace provisioning
+  customer-popup/page.tsx — 고객카드 새 창 팝업 (인증 필요, 레이아웃 없음). `localStorage["pinned_customer"]` 에서 데이터 읽고 `storage` 이벤트로 실시간 갱신.
+  (main)/guidelines/    — 출입국 실무지침 DB viewer; 4단계 트리(L1 진입점→L2 업무유형→L3 항목→L4 조건분기) + 직접검색 + TB배너 + quickdoc 딥링크
+  (main)/admin/         — Admin: account list + workspace provisioning + 계정 소프트 삭제
   (main)/marketing/     — Admin-only: homepage post list, new, [id]/edit
 ```
 
@@ -181,7 +184,7 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
    - **Public paths** (no auth): `/`, `/board/*`, `/documents`, `/siheung-immigration-agent`, `/jeongwang-immigration-agent`, `/sitemap.xml`, `/robots.txt`
    - **Matcher** excludes extensions: `jpg|png|gif|svg|ico|webp|css|js|xml|txt` — `.xml`/`.txt` exclusion is what lets sitemap and robots.txt pass without auth.
    - **Adding a new public page:** add its `pathname` check in the `if` block at the top of `middleware()`, AND add it to `sitemap.ts` static entries.
-2. **`(main)/layout.tsx`** (client): `useEffect` checks `isLoggedIn()` via localStorage, keeps `ready=false` until confirmed
+2. **`(main)/layout.tsx`** (client): `useEffect` checks `isLoggedIn()` via localStorage, keeps `ready=false` until confirmed. 고객카드 고정 패널(`PinnedCustomerCard`) — `window.addEventListener("pin-customer", handler)` CustomEvent로 수신, 오른쪽 272px 고정 패널로 표시. `/customer-popup` 팝업 창과 공존: 팝업은 `localStorage["pinned_customer"]`를, 패널은 CustomEvent를 사용.
 
 ### Shared components (`frontend/components/`)
 
@@ -191,6 +194,15 @@ Auth helpers: `frontend/lib/auth.ts` (`getUser`, `setUser`, `clearUser`, `isLogg
   - `pathname === "/"` 이면 상단 헤더/스페이서는 렌더링하지 않음 (홈페이지의 기존 `.nav`가 담당). 하단 연락처 바는 모든 공개 페이지에 표시.
   - 새 공개 페이지 추가 시: `PAGE_MAP` 상수에 `{ label, href }` 추가.
   - 스페이서 `div.pmn-top-spacer` (높이 56px)가 DOM 흐름에 포함되어 고정 헤더 뒤로 컨텐츠가 가리지 않게 함. 별도 padding-top 필요 없음.
+
+### 고객카드 팝업 (`customer-popup/page.tsx`)
+
+고객 드로어의 **팝업창** 버튼(`<ExternalLink>`) 클릭 시:
+1. `localStorage["pinned_customer"] = JSON.stringify(customer)` 저장
+2. `window.open("/customer-popup", "customer_card_popup", "width=300,height=680,...")` 새 창 (같은 이름으로 재사용)
+3. 팝업 차단 시 fallback: `window.dispatchEvent(new CustomEvent("pin-customer", { detail }))` → `(main)/layout.tsx`의 `PinnedCustomerCard` 오른쪽 패널 표시
+
+`customer-popup/page.tsx` — 인증 필요(쿠키 기반), 레이아웃 없음. `storage` 이벤트로 다른 고객 선택 시 실시간 갱신. 미들웨어 별도 예외 추가 불필요(로그인 사용자의 `kid_auth` 쿠키로 자동 통과).
 
 ### Sidebar (`frontend/components/layout/sidebar.tsx`)
 
@@ -734,9 +746,24 @@ python backend/scripts/migrate_guidelines_v2.py
 ```
 새 행 필수 필드: `row_id`, `domain`, `major_action_std`, `action_type`, `business_name`, `detailed_code`, `form_docs`, `supporting_docs`, `fee_rule`, `basis_section`, **`"status": "active"`** (영문 필수), `search_keys: []`, quickdoc 필드 4개(null로 초기화 후 migrate가 채움).
 
+**실무 확장 필드** (선택, DetailPanel에서 자동 렌더링):
+- `practical_notes` — 실무 주의사항 (`|` 구분). 최소 3항목. DetailPanel에서 파란 배경 목록으로 표시.
+- `sub_types` — 조건별 분기 배열. 타입: `GuidelineSubType[]` (`frontend/lib/api.ts`에 정의). L4 분기 선택 UI 자동 표시.
+- `step_after` — 허가 후 다음 단계 (`|` 구분). 초록 배경 번호 목록으로 표시.
+- `apply_channel` — 신청 경로 안내 (예: `"전자민원 또는 창구민원"`). 헤더 뱃지로 표시.
+- `form_docs` 채널 분기 형식: `"【전자민원】A|B||【창구민원】C|D"` → `parseChannelDocs()` 함수가 파싱하여 탭별 표시.
+
+**방법 C — 브랜치 일괄 패치 스크립트 (권장):**
+`backend/scripts/patch_donpo_v1.py`, `patch_donpo_v2_full.py` 패턴으로 스크립트 작성 후 실행:
+```bash
+python backend/scripts/patch_branchname_v1.py
+python backend/scripts/migrate_guidelines_v2.py
+# 서버 재시작 필수
+```
+
 ### 실무지침 페이지 트리 탐색 구조 (`frontend/app/(main)/guidelines/page.tsx`)
 
-3단계 드릴다운: **L1(진입점 그리드)** → **L2(업무유형 카드)** → **L3(항목 목록)**.
+4단계 드릴다운: **L1(진입점 그리드)** → **L2(업무유형 카드)** → **L3(항목 목록)** → **L4(조건 분기)**.
 
 - `viewMode`: `"l1"` / `"l2"` / `"l3"` / `"search"` — 검색어 입력 시 별도 search 뷰
 - `skipL2`: `treeL2Items.length <= 1`이면 L2 스킵 → L3 직행 (단일 action_type 진입점)
@@ -746,15 +773,28 @@ python backend/scripts/migrate_guidelines_v2.py
   - **`allRows` 비어있을 때 fallback**: `handleEntryClick`에서 `allRows.length === 0`이면 `list({ limit:500, status:"all" })`을 재요청한 뒤 `loadEntryRows` 실행. `list` API silent fail 시 카드 클릭이 0건을 표시하는 버그 방지.
 - **`_ENTRY_POINTS_DATA`** (백엔드 `guidelines.py`): **14개** 진입점. 코드 기반 6개(F-5/F-4/E-7/D-2/H-2/F-6) + 업무 기반 7개(REG/REEN/EX/WP/GR/VC/DR) + AC(직접신청). **F-2는 백엔드에 없음** — 프론트엔드 fallback `ENTRY_POINTS`에는 있지만 API 응답이 오면 덮어씌워짐.
 - 직접 검색 (`doSearch`)은 서버사이드 `GET /api/guidelines/search/query?q=...`를 호출하므로 `allRows` 상태와 무관하게 동작.
+- **L4 조건 분기** — `row.sub_types?.length > 0`이면 DetailPanel 상단에 "어떤 경우인가요?" 분기 버튼 표시. 선택 시 해당 sub_type의 `form_docs`/`supporting_docs`/`practical_notes`로 교체. `selectedSubType` 상태로 관리.
+- **`parseChannelDocs(raw)`** — `form_docs`에서 `【전자민원】`/`【창구민원】` 마커를 파싱하여 `{online, counter, simple}` 반환. 채널 구분 없는 기존 형식은 `simple` 배열로 반환.
+- DetailPanel 섹션 렌더링 순서: 신청경로 뱃지 → 문서자동작성 버튼 → L4 분기 선택 → 사무소 준비서류(채널별) → 고객 준비서류 → 인지세 → 실무 주의사항(`practical_notes`) → 예외사항 → 공통 조건부 예외 → 다음 단계(`step_after`) → 근거 → 결핵 경고.
 
 ---
 
 ## In-progress / known issues
 
 ### 실무지침 DB
-- **fee_rule 전수 정규화 완료** (2026-04-19) — 모든 행의 fee_rule 표준 형식으로 통일. 0건 비어있음.
-- **실무지침 DB 전반적 데이터 누락** — 현재 369건. 체류자격별 업무 유형이 완전하지 않을 수 있음. 누락 항목 발견 시 방법 B(JSON 직접 수정)로 추가.
+- **fee_rule 전수 정규화 완료** (2026-04-19)
+- **동포 브랜치 Phase 1 완료** (2026-04-30) — H-2(4개) + F-4(9개) + F-5 동포경로(8개) 총 21개 rows에 `practical_notes`·`sub_types`·`step_after`·`apply_channel` 추가. F-5-10(재외동포 동포영주)에 5개 sub_types(4대보험·일용직·사업자·재산세·자산). 나머지 브랜치(F-6·E-7·D-2·REGISTRATION·EXTRA_WORK 등) 동일 기준 적용 예정.
+- **완전성 체크리스트** — 각 row가 C1(대상자)~C9(신청경로) 9개 항목 충족해야 초급자 실무 사용 가능. `backend/scripts/patch_*` 스크립트로 브랜치별 일괄 패치.
 - **JSON 변경 후 서버 재시작 필수** — `_MASTER_ROWS`는 모듈 임포트 시 1회 로드. `uvicorn --reload`는 `.json` 파일 변경을 감지하지 않으므로 수동 재시작 필요.
+
+### manual_ref 매핑 정밀도
+- **v3 apply 1차 완료** (2026-04-30): 369 row 중 139 row의 `manual_ref` 정밀화 적용. 백업: `backend/data/backups/immigration_guidelines_db_v2.manual_ref_backup_20260430_231933.json`.
+- **잔여 후속 작업**:
+  - 사용자 명시 4건 (F-1-15/21/22/24, 정답 = 체류 p.543 + 사증 p.404)을 `manual_indexer_v6.MANUAL_PAGE_OVERRIDE`에 추가 → 재빌드 → 별도 apply 사이클
+  - 보호 카테고리 199 row (ROUTING_SAFE_REVIEW 21 / MANUAL_REVIEW 43 / LOW_CONFIDENCE 126 / NO_CANDIDATE 2 / APPLICATION_CLAIM_REVIEW 7) 사람 검토
+  - 사후 이상치 188 row (HIGH priority 115)의 cluster별 정답 페이지 수집 + override 누적 (F-1 size-23 cluster, F-2/F-4 family cluster, H-1 wrong-primary-manual 등)
+  - blocklist 12 row(D-2-X/D-4-1/D-4-7/M1-0005/M1-0085 모두 EXTRA_WORK false positive)는 자격 설명 페이지가 잘못 매핑된 케이스 — 정확한 EXTRA_WORK 페이지 확인 후 override 추가 또는 blocklist 해제 결정
+- **manual_ref 외 필드 절대 미수정 보장**: apply 스크립트는 `db_row["manual_ref"] = ...` 한 줄만 수행, verify 스크립트가 369 row 전수 비교로 검증.
 
 ### OCR / 스캔
 - **OCR debug mode active** — `/api/scan/passport` and `/api/scan/arc` (full-auto endpoints) still wrap responses in `{"debug": ..., "result": {...}}`. The scan workspace endpoints (`/api/scan-workspace/*`) return clean `{"result": {...}}`. Remove the debug wrapper from the full-auto endpoints when tuning is complete.
@@ -766,109 +806,198 @@ python backend/scripts/migrate_guidelines_v2.py
 - **`react-zoom-pan-pinch`** — still in `frontend/package.json` but unused. Safe to remove. Do not reintroduce it in the scan page.
 - **메뉴얼 업데이트 자동감지** — `GET /api/board/check-manual`은 관리자가 게시판에서 수동 트리거. 스케줄러 없음. 하이코리아 페이지 스크랩(`requests`)으로 날짜 추출 — 페이지 구조 변경 시 정규식 수정 필요.
 
-### 2026-04-26 세션 수정 완료 항목 (참고)
+---
 
-**실무지침 `/guidelines` 클릭 버그 수정 (`frontend/app/(main)/guidelines/page.tsx`):**
-- **버그**: 카드에 9건 표시되어 있어도 클릭 시 0건 + "해당 항목이 없습니다." 표시
-- **원인**: `entryRowCounts`가 `ep.count`(서버 API)를 사용하고, 클릭 결과는 `getMatchingRows(allRows, entry)` (클라이언트 필터)를 사용 — 데이터 소스 분리. `list` API silent fail 시 `allRows = []`가 되면서 두 값이 불일치.
-- **수정**:
-  1. `entryRowCounts` → `allRows.length > 0`이면 `getMatchingRows(allRows, ep).length`로 계산 (카드 count = 클릭 결과 항상 동일)
-  2. `handleEntryClick` → `allRows.length === 0`이면 `list` API 재요청 후 `loadEntryRows` 실행 (fallback)
-  3. `setAllRows` → `Array.isArray(rows) ? rows : []` 안전 가드 추가
-  4. `loadEntryRows` → `console.debug` 로그 추가 (inputRows/matched/sample 확인용)
+## 매뉴얼 자동화 파이프라인 (2026-04-30 구축)
 
-**모바일 공개 헤더/연락처 바:**
-- `frontend/components/PublicMobileNav.tsx` + `public-mobile.css` 신규 생성
-- 모바일(`≤768px`) 전용: 고정 상단 헤더 `[로고] 한우리행정사사무소 > 현재 페이지명`, 고정 하단 연락처 바 `문의전화 : 010-4702-8886 [전화 아이콘] [SMS 아이콘]`
-- 홈페이지(`/`)는 기존 `.nav`가 상단 담당 → 하단 바만 추가. 비홈페이지 공개 페이지는 상단+하단 모두 표시.
-- `homepage.css` 모바일 미디어쿼리에 `footer { padding-bottom: 72px }` 추가 (하단 바 가림 방지)
+하이코리아의 공식 HWP 매뉴얼을 자동 다운로드 → 잠금해제 → PDF 변환 → 페이지 매핑까지 처리하는 파이프라인. 매뉴얼 PDF는 `backend/data/manuals/`에 저장.
 
-**로컬 SEO 페이지 신규 생성:**
-- `app/siheung-immigration-agent/page.tsx` — 시흥 행정사 랜딩 (서버 컴포넌트, `LocalBusiness` + `BreadcrumbList` JSON-LD)
-- `app/jeongwang-immigration-agent/page.tsx` — 정왕 행정사 랜딩 (서버 컴포넌트, `LocalBusiness` + `BreadcrumbList` JSON-LD)
-- 두 페이지 모두: 주요 업무 카드 그리드, 상담 준비 체크리스트, 준비서류 바로가기(`/board/f4-extension-documents` 등), 사무소 연락처 카드 포함
+### Phase A — HWP 잠금해제 (`backend/services/hwp_unlock.py`)
 
-**메타데이터 / JSON-LD 업데이트:**
-- `layout.tsx` default title: "한우리행정사사무소 | **시흥·정왕 출입국 행정사**"
-- `app/page.tsx` JSON-LD: `LegalService` → `LocalBusiness` (telephone `010-4702-8886`, streetAddress `군로서마을로 12, 1층`, `areaServed` 배열, `knowsAbout` 배열)
-- `board/[id]/page.tsx` Article JSON-LD에 `mainEntityOfPage` 추가
-- CTA 섹션 전화번호 `031-488-8862` → `010-4702-8886`
+배포용(distribution) HWP의 진짜 보호 메커니즘:
+- `FileHeader` bit 2 = 1
+- `BodyText/Section*` = 빈 stub (314바이트)
+- `ViewText/Section*` = LEA-128 암호화된 본문 + `HWPTAG_DISTRIBUTE_DOC_DATA(0x1C)` 256바이트 키 record
+- 단순 비트 토글로는 한컴이 손상으로 인식
 
-**미들웨어 / 사이트맵:**
-- `middleware.ts`: `/siheung-immigration-agent`, `/jeongwang-immigration-agent` 공개 경로 추가
-- `sitemap.ts`: 두 페이지 정적 항목 추가 (priority 0.8, changeFrequency: monthly)
+해결: `OpenHwpExe.exe`(분석 폴더, .NET) 의 `Main.ConvertFile()` 메서드를 **subprocess + DoEvents 폴링**으로 호출.
+- WinForms async Task는 메시지 펌프 필요 → `Application.DoEvents()` 폴링으로 처리
+- subprocess 분리: Form 인스턴스 재사용 시 deadlock 방지
+- 의존성: `pythonnet`, `olefile`, `OpenHwpExe.exe + HwpSharp.dll + OpenMcdf.dll` (analysis/클로드/배포용 한글문서 변환기/)
 
-**홈페이지 로컬 SEO 텍스트:**
-- About 섹션 소개 문구: "경기도 시흥시 정왕동 인근 … 시흥 행정사" 포함
-- `about-visual` 박스: 소재지 → "경기도 시흥시 정왕동", 연락처 → "010-4702-8886", 지역 안내 링크 2개 추가
-- 푸터 컬럼 → "지역 안내" 헤딩 + 시흥/정왕 링크
-- 푸터 하단 라인 → "경기도 시흥시 정왕동 · 시흥 행정사" 포함
+### Phase B — 워치독 + PDF 변환 (`backend/services/manual_watcher.py`, `hwp_to_pdf.py`)
 
-### 2026-04-25 세션 수정 완료 항목 (참고)
+```
+[하이코리아 폴링] → [HWP 다운로드] → [잠금해제] → [한컴 COM PDF 변환] → [캐시 갱신] → [게시판 자동공지(옵션)]
+```
 
-**준비서류 안내 게시물 일괄 import:**
-- `hanwoori_required_documents_original_txt/` — 원본 TXT 파일 46개 (`.txt` 형식). 각 파일에 `제목:`, `슬러그 제안:`, `카테고리:`, `요약:`, `메타설명:`, `태그:`, `공개여부:`, `본문:` 필드 포함.
-- `hanwoori_required_documents_posts_txt/` — 번호 매겨진 pre-processed TXT 파일 46개 (참고용).
-- `import_board_posts.py` — 루트에 위치. TXT 파일 파싱 → slug 기준 upsert (시트 전체 덮어쓰기 없음). `--dry-run` 옵션 지원. 실행: `python import_board_posts.py [--dry-run]`
-- `diagnose_marketing_posts.py` — 루트에 위치. Google Sheets `홈페이지게시물` 탭 현황 진단 (데이터 삭제 없음). 실행: `python diagnose_marketing_posts.py`
+- 캐시: `backend/data/manuals/.watcher_state.json` — 매뉴얼별 last timestamp, 변경 감지 시에만 처리
+- 첨부파일 다운로드 URL: `POST /fileNewExistsChkAjax.pt` (하이코리아)
+- 정규식 `_FN_PATTERN`은 `,` 와 `'` 사이 공백 처리 (`,\s*'...'` 패턴)
+- HWP→PDF는 한컴 COM(`HWPFrame.HwpObject`) 사용. 자동화 보안 우회: `RegisterModule("FilePathCheckDLL", "AutomationModule")`
+- **2-up 자동 분할**: HWP 문서 자체가 가로 A4(841×595pt)에 두 페이지 모아찍기로 설정된 경우 PyMuPDF로 페이지 좌/우 분할 (`split_2up_landscape`). 비율 1.3~1.5 (≈√2)인 landscape만 분할 대상.
 
-**TXT 파일 파싱 규칙** (`import_board_posts.py` 기준):
-- `00_` 로 시작하는 파일 자동 제외
-- `본문:` 라인 이후 전체가 content (이 라인 포함 전까지가 frontmatter)
-- `공개여부: 공개` → `is_published=TRUE`; 나머지 → `FALSE`
-- Upsert 키: `slug` (영문 슬러그). 기존 게시물의 slug와 충돌하지 않으면 신규 생성
+### Phase C — 매뉴얼 페이지 인덱서 v6 (`backend/services/manual_indexer_v6.py`)
 
-**`/board` UI 개선 (현재 최종 상태):**
-- `board/page.tsx` → server component (data fetch), `BoardClient.tsx` → client component
-- `BoardClient.tsx` — `BOARD_ONLY` 세트로 준비서류 카테고리 제외, 일반 카테고리(공지사항/업무 안내/제도 변경/기타) 필터, 검색, `/documents` 바로가기 callout, 게시물 목록
-- 게시물 목록 링크: `post.slug || post.id` (slug 우선), maxWidth 820
+매뉴얼 코드 표기 패턴 차이:
+- **〔F-X-Y〕 정식 표기** = sub-category 시작 (강한 시그널)
+- **(F-X-Y) 일반괄호** = 본문 인용 (약한 시그널, 노이즈 多)
 
-**`/documents` 신규 생성 (현재 최종 상태):**
-- `documents/page.tsx` — server component; metadata(title: "업무별 준비서류 | 한우리행정사사무소"), BreadcrumbList JSON-LD
-- `documents/DocumentsClient.tsx` — 9그룹 44링크; 검색; 각 `<section id="f4">` 등 stable anchor; `scrollMarginTop: 80`
-- 미들웨어에 `/documents` 공개 경로 추가; sitemap에 priority 0.9로 추가
+알고리즘:
+1. 〔F-X-Y〕 등장 페이지 추출 → sub-category 시작점
+2. sub-category 영역 = 자기 시작 ~ 다음 〔??〕 시작 직전 (max 30페이지)
+3. 모든 sub-category에 `CHANGE` 자동 강제 등록 (영주 sub-category 등 대부분 변경 케이스)
+4. 일반 자격(F-4, H-2)은 점수 가중치 + 본문 연속 3+ 페이지 보호
 
-**홈페이지 `업무별 준비서류` 섹션:**
-- `app/page.tsx` — BOARD 섹션과 FAQ 사이에 `<section id="documents-section">` 추가
-- `DOCUMENT_GROUPS` 상수: 9개 카드, 각 `/documents#${anchor}` 링크
-- 홈페이지 "전체" 탭 필터에 `HOMEPAGE_BOARD_ONLY` 세트 적용 → 46개 준비서류 게시물 홈페이지에서 제외
+**중요한 제약 — DB와 매뉴얼 코드 체계 불일치:**
+- DB는 일반/시행령 표기 (예: `F-5-2 미성년 자녀`)
+- 매뉴얼은 시행령 별표 1의3 호수 (예: `〔F-5-4〕 일반 영주자의 배우자/미성년 자녀`)
+- 두 체계가 다름 → `DB_TO_MANUAL_ALIAS` 테이블 + `MANUAL_PAGE_OVERRIDE` 누적 테이블 사용
 
-**메타데이터 업데이트:**
-- `layout.tsx` default title: ~~"한우리행정사사무소 | 출입국·체류·사증 업무 안내"~~ → 2026-04-26 세션에서 변경됨 (아래 참고)
-- `board/page.tsx` title: "업무 안내", canonical: `https://www.hanwory.com/board`
-- `documents/page.tsx` canonical: `https://www.hanwory.com/documents`
+### 매핑 정정 누적 시스템
 
-**SEO / 구조화 데이터:**
-- `app/page.tsx` — ~~`LegalService` JSON-LD (031-488-8862)~~ → 2026-04-26 세션에서 `LocalBusiness`로 교체됨
-- `board/[id]/page.tsx` — `Article` + `BreadcrumbList` JSON-LD
-- `documents/page.tsx` — `BreadcrumbList` JSON-LD (홈 › 업무별 준비서류)
-- `robots.txt` — 단순화: `Allow: /`, `Disallow: /login|/dashboard|/admin|/marketing|/private`
-- MARKETING_HEADER: 12 → 17 columns (`image_file_id`, `image_url`, `image_alt`, `meta_description`, `tags` 추가)
+`backend/services/manual_indexer_v6.py` 상단:
+```python
+DB_TO_MANUAL_ALIAS = {
+    "F-5-2": "F-5-4",  # DB code → 매뉴얼 code
+}
 
-### 2026-04-22 세션 수정 완료 항목 (참고)
-- sitemap.xml → `/login` 리디렉션 버그 수정: 미들웨어 matcher에 `xml|txt` 추가 + pathname 공개 예외 목록에 `/sitemap.xml`, `/robots.txt` 추가
-- `frontend/app/sitemap.ts` 신규 생성 (동적 sitemap, 마케팅 게시물 포함)
-- `frontend/public/robots.txt` 신규 생성
-- 마케팅 게시물 편집기 리치 에디터로 업그레이드:
-  - `frontend/components/MarkdownContent.tsx` — 공개 페이지 마크다운 렌더러 (의존성 0)
-  - `frontend/components/RichEditor.tsx` — 관리자용 마크다운 툴바 에디터
-  - `backend/routers/marketing.py` — `POST /admin/upload-image` 엔드포인트 추가 (Google Drive)
-  - `frontend/lib/api.ts` — `marketingApi.uploadImage()` 추가
-  - `marketing/new/page.tsx`, `marketing/[id]/edit/page.tsx` — RichEditor + 썸네일 업로드 UI 적용
-  - `board/[id]/page.tsx` — MarkdownContent 렌더링 + 썸네일 커버 이미지 + OG image 메타
-  - `board/page.tsx` — 목록에 썸네일 이미지 표시
+MANUAL_PAGE_OVERRIDE = {
+    "F-5-1|CHANGE": [{"manual": "체류민원", "page_from": 445, "page_to": 452, "match_text": "..."}],
+    # 사용자가 알려주는 정답 페이지 누적
+}
+```
 
-### 2026-04-21 세션 수정 완료 항목 (참고)
-- 공개 홈페이지 구현: `app/page.tsx` (homepage.txt 기반 React 변환) + `app/homepage.css`
-- 미들웨어 `/` 경로 인증 게이트 제외
-- 마케팅 게시물 시스템 신규 추가: `backend/routers/marketing.py` + `(main)/marketing/` 3개 페이지
-- 사이드바에 관리자 전용 "마케팅" 메뉴 항목 추가
-- CSS 격리: `homepage.css`의 `--radius` → `--hp-radius` (globals.css 충돌 방지)
+`lookup()` 우선순위: **MANUAL_PAGE_OVERRIDE → DB_TO_MANUAL_ALIAS → action_index → prefix → code_index 폴백**
 
-### 2026-04-19 세션 수정 완료 항목 (참고)
-- `status: "정상"` → `"active"` 7개 행 수정 (list API 필터 통과 문제)
-- F-4 EXTEND fee_rule `수수료 없음` → `인지세 6만원`
-- F-5 영주 6개 항목 신규 추가 (F-5-1, F-5-2, F-5-6, F-5-10 동포영주, F-5-11, F-5-14)
-- F-5-10 동포영주 체류기간 오류 수정: "5년" → "2년" (F-4 자격 기준)
-- fee_rule 전수 정규화 (~110건): EXTEND 62건 → "기본 6만원", CHANGE 39건 → "기본 10만원", 등록증/재입국 형식 통일
-- 실무지침 트리 탐색 아키텍처 변경: per-click lazy API → 마운트 시 전체 preload + 클라이언트 필터 (`allRows` 캐시)
+사용자가 "row XX → 매뉴얼 X p.Y" 형식으로 알려주면 즉시 등록 가능. **override 테이블은 절대 자동 덮어쓰지 말 것** — 영구 누적 자산.
+
+### Phase D — DetailPanel PDF 임베드 (`frontend/app/(main)/guidelines/page.tsx`)
+
+`ManualPdfViewer` 컴포넌트:
+- DetailPanel 왼쪽 floating 패널 (또는 전체화면)
+- 매뉴얼별 탭 (체류민원/사증민원), 매핑된 페이지 자동 이동
+- iframe URL: `/api/guidelines/manual-pdf/{manual}?token=${jwt}#page=${pf}&navpanes=0&pagemode=none&toolbar=1&view=Fit`
+- `navpanes=0` + `pagemode=none`: Chrome/Edge PDF 뷰어 좌측 썸네일 패널 숨김
+
+백엔드 PDF 서빙 (`backend/routers/guidelines.py`):
+- `GET /manual-pdf/{manual}` — JWT 쿼리토큰 또는 Authorization 헤더 인증 (iframe은 헤더 못 보내므로 query 지원)
+- `Content-Disposition` 헤더의 한글 파일명은 **RFC 5987** 형식 필수 (`filename*=UTF-8''...`) — latin-1 인코딩 한계 우회
+
+### LLM 기반 매뉴얼 분석 인프라 (Phase 1)
+
+**`backend/scripts/analyze_manual_structure.py`** — 매뉴얼 통째로 LLM 분석 (Claude Sonnet 4.6, 1M context):
+- 매뉴얼 PDF 1권 (60만~70만자 ≈ 200k~240k tokens)을 청크 분할 없이 전달
+- 출력: 자격별 시작/끝 페이지, sub-category 정식 페이지, action별 페이지, code alias
+- 산출물: `backend/data/manuals/structure/{체류민원,사증민원}_structure.{json,xlsx}`
+
+핵심 구현 사항:
+- **streaming API 필수** (`client.messages.stream`) — 응답이 10분 초과 가능 시 SDK가 streaming 강제
+- **max_tokens=64000** — 매뉴얼 분석 결과 잘림 방지
+- **prompt caching** (`cache_control: ephemeral`) — 재호출 시 입력 비용 90% 할인
+- **raw 응답 점진 저장** — 5초마다 누적 텍스트를 .txt에 저장, 중단 시 복구 가능
+
+비용 추산: 체류민원 ~$2.5, 사증민원 ~$1.5 (1회 분석, 이후 엑셀 영구 활용)
+
+### 청크 빌더 + 매핑 스크립트
+
+- `backend/scripts/build_llm_chunks_v2.py` — v6 인덱스 활용 자격별 통합 청크 (매뉴얼+편람 텍스트)
+- `backend/scripts/llm_remap_all.py` — 자격별 일괄 LLM 호출 (매핑+팁+수정), 중간 저장
+- `backend/scripts/apply_llm_results.py` — LLM 결과 DB 적용, 자동 백업
+- `backend/scripts/rollback_manual_ref_keep_tips.py` — 매핑만 백업으로 복원, 추가된 팁/수정은 유지
+
+**LLM 매핑의 한계 (실증):** 청크 분할(25k chars 한계)로 자격 섹션 일부만 보고 잘못된 페이지 답변. **사용자 누적 override 방식이 더 정확.** 청크 LLM 호출은 실무 팁 추출에만 활용 권장.
+
+---
+
+## manual_ref 정밀화 파이프라인 v3 (2026-04-30 적용 완료)
+
+LLM 매핑·v6 인덱서가 만든 `manual_ref` 결과를 사람 검토 후 안전하게 DB에 적용하는 멀티-단계 파이프라인. **DB는 항상 read-only로 시작하여 사람이 명시적 `--apply` 실행 시에만 변경**.
+
+### 파이프라인 단계 (모두 `backend/scripts/`)
+
+```
+audit (v1)              ─┐
+audit_v2 (라우팅)       ─┤  → triage_v3 (6 카테고리)
+                         │      → apply_v3 dry-run
+                         │          → spotcheck (PNG + 텍스트 미리보기)
+                         │          → review_extra_work (엄격 검증)
+                         │          → final_spotcheck (비-EXTRA_WORK)
+                         │          → blocklist 누적 (사람 결정)
+                         │              → apply_v3 --apply (실제 DB 갱신)
+                         │                  → verify (12개 검증 항목)
+                         │                      → audit_post_apply_anomalies (사후 이상치)
+                         └─ 산출물: backend/data/manuals/manual_mapping_*.json/.xlsx
+```
+
+### 핵심 스크립트
+
+| 스크립트 | 역할 |
+|---|---|
+| `audit_manual_mapping.py` | DB의 현재 manual_ref vs PDF/structure/CSV 후보 비교, 신뢰도(`exact/high/medium/low/none`) 부여 |
+| `audit_manual_mapping_v2.py` | **action_type 우선 라우팅** — VISA_CONFIRM→사증, 그 외→체류. v1의 매뉴얼 라우팅 false positive 해소 (E-9 conflict 20→0, F-1 17→6) |
+| `triage_manual_mapping_v3.py` | 6 카테고리 분류: `AUTO_SAFE`(apply 후보) / `ROUTING_SAFE_REVIEW` / `MANUAL_REVIEW` / `LOW_CONFIDENCE` / `NO_CANDIDATE` / `APPLICATION_CLAIM_REVIEW` |
+| `apply_manual_mapping_triage_v3.py` | **DEFAULT: dry-run.** `--apply` 명시 시 실제 DB 갱신. 백업 + JSON 사전·사후 검증 + master_rows 보존 검증. blocklist 자동 적용. |
+| `build_spotcheck_v3.py` | AUTO_SAFE changed 행에서 검토용 표본 추출 + PDF 페이지 PNG 렌더링 (`spotcheck_pages_v3/<row_id>_<manual>_p<N>.png`) |
+| `review_extra_work_v3.py` | EXTRA_WORK 엄격 검증 — 자격 설명 페이지(p.35형 false positive)를 BLOCK으로 자동 surfacing |
+| `final_spotcheck_v3.py` | 비-EXTRA_WORK action_type(CHANGE/EXTEND/REGISTRATION/REENTRY/GRANT) 동일 검증 |
+| `verify_apply_v3.py` | apply 직후 12개 항목 검증 (백업·DB 무결성·139 갱신·12 blocked 무변경·199 보호 카테고리 무변경·manual_ref 외 필드 무변경 등) |
+| `audit_post_apply_manual_ref_anomalies_v3.py` | 적용 후 5개 이상치 패턴 검출 — `SAME_PAGE_CLUSTER` / `DUAL_MANUAL_SUSPICIOUS` / `WRONG_PRIMARY_MANUAL` / `BROAD_FAMILY_PAGE` + 사용자 명시 HIGH |
+
+### blocklist 시스템 (`backend/data/manuals/manual_mapping_apply_blocklist_v3.json`)
+
+```json
+{
+  "blocked_row_ids": ["M1-0029", "M1-0030", ...],
+  "reason": "...",
+  "notes": ["..."]
+}
+```
+
+- apply 스크립트가 매 실행 시 자동 로드. JSON malformed면 abort.
+- 사람 검토 결과 false positive로 확인된 row_id를 누적.
+- **blocklist는 candidate에서 제외되지만 DB에서 삭제하지 않음** — 단순히 갱신을 보류.
+- 현재 차단된 12 rows: D-2-1~D-2-8 EXTRA_WORK + D-4-1/D-4-7 EXTRA_WORK + M1-0005 D-2 EXTRA_WORK + M1-0085 F-3-2R EXTRA_WORK (모두 자격 설명 페이지로 매핑된 false positive).
+
+### 백업 디렉토리 (`backend/data/backups/`)
+
+`apply --apply` 실행 시마다 `immigration_guidelines_db_v2.manual_ref_backup_<YYYYMMDD_HHMMSS>.json` 생성. 복구 명령:
+```bash
+cp "backend/data/backups/immigration_guidelines_db_v2.manual_ref_backup_<TS>.json" "backend/data/immigration_guidelines_db_v2.json"
+```
+
+### 안전 보장 (apply 스크립트의 8중 검증)
+
+apply candidate은 다음 모두 충족해야 함:
+1. `triage_category == "AUTO_SAFE"` 2. `apply_candidate == true` 3. `comparison_status == "changed"` 4. `confidence ∈ {exact, high}` 5. `routing_warning` 비어있음 6. `comparison_reason ≠ "both_manuals_plausible"` 7. `action_type ≠ "APPLICATION_CLAIM"` + `detailed_code` 비어있지 않음 8. `proposed_manual_ref` 가 valid `{manual ∈ {체류,사증}, page_from > 0, page_to > 0}`
+
+`--apply` 추가 안전망:
+- 백업 생성 + JSON readback 검증 (실패 시 abort)
+- 메모리상 갱신 후 직렬화 + master_rows 개수 보존 검증
+- 디스크 쓰기 후 readback 재검증
+- 어느 단계 실패라도 abort + 복구 명령 출력
+- candidates에 blocked_id가 섞이면 즉시 abort (이중 안전망)
+
+### `manual_ref` 외 다른 필드는 절대 변경되지 않음
+
+apply 스크립트는 `db_row["manual_ref"] = t["proposed_manual_ref"]` 한 줄만 수행. `business_name`, `form_docs`, `supporting_docs`, `practical_notes`, `sub_types`, `step_after`, `apply_channel`, `quickdoc_*`, `search_keys`, `fee_rule`, `basis_section`, `status` 등 모두 무수정. verify 스크립트가 369 row 전수 비교로 보장.
+
+### 적용 결과 (2026-04-30)
+
+- **AUTO_SAFE 170 → blocklist 12 제외 → 139 row 갱신** (전부 `manual_ref` 페이지 정밀화)
+- 19 row는 `comparison_status=same` (변경 불필요)
+- 199 row는 보호 카테고리(ROUTING_SAFE_REVIEW 21 / MANUAL_REVIEW 43 / LOW_CONFIDENCE 126 / NO_CANDIDATE 2 / APPLICATION_CLAIM_REVIEW 7) — 모두 사람 추가 검토 대기 중
+
+### 사후 이상치 (2026-04-30 검출)
+
+- 사용자 명시 4건 (F-1-15/21/22/24 EXTEND/VISA_CONFIRM): 정답 = 체류 p.543 + 사증 p.404. **CREATE_MANUAL_OVERRIDE** 필요 — `manual_indexer_v6.MANUAL_PAGE_OVERRIDE` 테이블에 추가 후 재빌드 권장.
+- 188 row가 `MANUAL_REVIEW` 권장 (115 HIGH priority): 대부분 F-1/F-2/F-4/E-7/E-9/D-1/H-1 family 클러스터로 같은 페이지 공유. 적용 안 된 legacy 부정확 매핑 + 적용된 일부 cluster 포함.
+- `RESTORE_FROM_BACKUP` 권장: **0건** — apply는 일관되게 좁은 페이지로 정밀화함.
+
+---
+
+세션별 수정 이력: @docs/session-log.md
+
+---
+
+See CLAUDE_MANUAL_REF.md for manual_ref improvement pipeline status and next tasks.

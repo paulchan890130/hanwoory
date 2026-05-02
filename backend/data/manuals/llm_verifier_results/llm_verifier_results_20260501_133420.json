@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "stage": "4_verifier",
+    "version": "v1",
+    "judge_results_file": "backend\\data\\manuals\\llm_verifier_results\\verifier_retry_input_20260501_133204.json",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_fail_cluster_lt3_20260501_125555.json",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T13:34:20",
+    "total_rows": 3,
+    "api_called": true,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0097",
+      "verifier_decision": "REJECTED",
+      "reject_reason": "broad family page: p.144는 D-10-T 신청요건(허용대상)만 포함하며, 제출서류는 p.146에 위치하고 D-10-T 전용 제출서류는 별도로 명시되지 않음. 또한 제한대상(나. 제한대상)의 D-10-T 항목은 p.145에 걸쳐 있어 p.144 단일 페이지에 신청요건·제출서류·허가기준이 모두 직접 존재하지 않음. p.144에는 D-10-T 허용대상만 있고, D-10-T 결격사유는 p.145, 제출서류는 p.146에 분산되어 있어 단일 페이지 EXACT 조건을 충족하지 못함. 아울러 p.144에는 D-10-1, D-10-2, D-10-3 등 다수 subtype이 혼재하여 broad family page에 해당할 소지가 있음.",
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5920,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 348
+      }
+    },
+    {
+      "row_id": "M1-0159",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5946,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 49
+      }
+    },
+    {
+      "row_id": "M1-0368",
+      "verifier_decision": "ACCEPTED",
+      "reject_reason": null,
+      "confidence": "high",
+      "_usage": {
+        "input_tokens": 5839,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 49
+      }
+    }
+  ]
+}

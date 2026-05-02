@@ -1,0 +1,222 @@
+{
+  "clusters": [
+    {
+      "manual": "체류민원",
+      "page_from": 215,
+      "page_to": 217,
+      "label": "E-7 family",
+      "member_count": 11,
+      "page_heading": "- (숙련기능인력 고용업체) 판매사무원, 주방장 및 조리사 등 숙련기능 / 인력들을 초청한 경우에는 직종별 심사기준에 따라 고용업체 요건 / 충족 및 정상 운영 여부, 저임금 활용 여부 등을 종합 심사하여 허가 / 여부 및 적정 허용인원을 판단 / 체류자격외",
+      "distinct_actions": 1,
+      "distinct_codes": 1,
+      "by_action": {
+        "EXTRA_WORK": [
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7",
+          "E-7"
+        ]
+      },
+      "by_code": {
+        "E-7": [
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK"
+        ]
+      },
+      "verdict": "LEGITIMATE_SHARED",
+      "recommended_action": "KEEP"
+    },
+    {
+      "manual": "체류민원",
+      "page_from": 33,
+      "page_to": 40,
+      "label": "E-9 family",
+      "member_count": 10,
+      "page_heading": "변경․추가 / 1. 영리목적이 아닌 아래 체류자격 소지자는 근무처의 변경․추가 신고가 아닌 / 외국인등록사항 변경신고를 받아 처리(시행규칙 제49조의 2) / 문화예술(D-1), 유학(D-2), 일반연수(D-4) 내지 무역경영(D-9) 자격소지자는 / 소속기관 또는 단체의 변경(명칭변경 포함)이나 추가",
+      "distinct_actions": 2,
+      "distinct_codes": 5,
+      "by_action": {
+        "CHANGE": [
+          "E-9-1",
+          "E-9-2",
+          "E-9-3",
+          "E-9-4",
+          "E-9-5"
+        ],
+        "REGISTRATION": [
+          "E-9-1",
+          "E-9-2",
+          "E-9-3",
+          "E-9-4",
+          "E-9-5"
+        ]
+      },
+      "by_code": {
+        "E-9-1": [
+          "CHANGE",
+          "REGISTRATION"
+        ],
+        "E-9-2": [
+          "CHANGE",
+          "REGISTRATION"
+        ],
+        "E-9-3": [
+          "CHANGE",
+          "REGISTRATION"
+        ],
+        "E-9-4": [
+          "CHANGE",
+          "REGISTRATION"
+        ],
+        "E-9-5": [
+          "CHANGE",
+          "REGISTRATION"
+        ]
+      },
+      "verdict": "FALSE_POSITIVE",
+      "recommended_action": "LLM_JUDGE"
+    },
+    {
+      "manual": "체류민원",
+      "page_from": 34,
+      "page_to": 34,
+      "label": "E-9 single",
+      "member_count": 7,
+      "page_heading": "②연수기관이 작성한 연수일정표 ③부가가치세법에 따른 사업자등록증 / 등 문화예술단체입증서류 ④체류지 입증서류(임대차계약서, 숙소 / 제공 확인서, 체류기간 만료예고 통지우편물, 공공요금 납부영수증, / 기숙사비 영수증 등) / 추가서류",
+      "distinct_actions": 2,
+      "distinct_codes": 6,
+      "by_action": {
+        "REGISTRATION": [
+          "D-1"
+        ],
+        "REENTRY": [
+          "E-9-1",
+          "E-9-2",
+          "E-9-3",
+          "E-9-4",
+          "E-9-5",
+          "D-1"
+        ]
+      },
+      "by_code": {
+        "D-1": [
+          "REGISTRATION",
+          "REENTRY"
+        ],
+        "E-9-1": [
+          "REENTRY"
+        ],
+        "E-9-2": [
+          "REENTRY"
+        ],
+        "E-9-3": [
+          "REENTRY"
+        ],
+        "E-9-4": [
+          "REENTRY"
+        ],
+        "E-9-5": [
+          "REENTRY"
+        ]
+      },
+      "verdict": "FALSE_POSITIVE",
+      "recommended_action": "LLM_JUDGE"
+    },
+    {
+      "manual": "체류민원",
+      "page_from": 183,
+      "page_to": 186,
+      "label": "D family",
+      "member_count": 7,
+      "page_heading": "해외우수대학 / 석사학위소지자 / ①TIMES誌선정세계200대대학또는②QS 세계순위 / 500위이내해외우수대학졸업석사학위소지자 / 우수학술논문저자",
+      "distinct_actions": 1,
+      "distinct_codes": 1,
+      "by_action": {
+        "EXTRA_WORK": [
+          "E-3",
+          "E-3",
+          "E-3",
+          "E-3",
+          "E-3",
+          "E-3",
+          "E-3"
+        ]
+      },
+      "by_code": {
+        "E-3": [
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK",
+          "EXTRA_WORK"
+        ]
+      },
+      "verdict": "LEGITIMATE_SHARED",
+      "recommended_action": "KEEP"
+    },
+    {
+      "manual": "체류민원",
+      "page_from": 224,
+      "page_to": 224,
+      "label": "E-7 REENTRY",
+      "member_count": 7,
+      "page_heading": "연장허가 /  목차 / 활동허가 제한(사고·질병 등 인도적 사유로 체류허가의필요성이 / 인정되는 경우는 일반 체류지침에 따라 처리) / 나. 한·러 한시적 근로활동에 관한 협정 : 국내 채용 전문인력",
+      "distinct_actions": 1,
+      "distinct_codes": 7,
+      "by_action": {
+        "REENTRY": [
+          "E-7-1",
+          "E-7-4",
+          "E-7-2",
+          "E-7-3",
+          "E-7-S",
+          "E-7-Y",
+          "E-7-T"
+        ]
+      },
+      "by_code": {
+        "E-7-1": [
+          "REENTRY"
+        ],
+        "E-7-4": [
+          "REENTRY"
+        ],
+        "E-7-2": [
+          "REENTRY"
+        ],
+        "E-7-3": [
+          "REENTRY"
+        ],
+        "E-7-S": [
+          "REENTRY"
+        ],
+        "E-7-Y": [
+          "REENTRY"
+        ],
+        "E-7-T": [
+          "REENTRY"
+        ]
+      },
+      "verdict": "LEGITIMATE_SHARED",
+      "recommended_action": "KEEP"
+    }
+  ]
+}

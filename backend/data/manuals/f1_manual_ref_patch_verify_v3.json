@@ -1,0 +1,207 @@
+{
+  "verify_meta": {
+    "version": "v3",
+    "scope": "F-1 manual_ref surgical patch — 사후 검증",
+    "db_path": "backend\\data\\immigration_guidelines_db_v2.json",
+    "backup_path": "backend\\data\\backups\\immigration_guidelines_db_v2.f1_manual_ref_patch_backup_20260501_113416.json"
+  },
+  "summary": {
+    "status": "PASS",
+    "backup_path": "backend\\data\\backups\\immigration_guidelines_db_v2.f1_manual_ref_patch_backup_20260501_113416.json",
+    "rollback_command": "cp backend\\data\\backups\\immigration_guidelines_db_v2.f1_manual_ref_patch_backup_20260501_113416.json backend/data/immigration_guidelines_db_v2.json",
+    "master_rows": 369,
+    "updated_row_count": 4,
+    "target_rows_verified_count": 4,
+    "expected_target_count": 4,
+    "non_target_row_diff_count": 0,
+    "non_manual_ref_field_diff_count": 0,
+    "blocklist_row_count": 12,
+    "blocklist_diff_count": 0,
+    "checks_total": 12,
+    "checks_passed": 12,
+    "checks_failed": 0
+  },
+  "checks": [
+    {
+      "name": "1. DB JSON 로드 가능",
+      "ok": true,
+      "detail": "path=backend\\data\\immigration_guidelines_db_v2.json"
+    },
+    {
+      "name": "2. master_rows == 369",
+      "ok": true,
+      "detail": "actual=369"
+    },
+    {
+      "name": "8. F-1 patch backup 존재",
+      "ok": true,
+      "detail": "path=backend\\data\\backups\\immigration_guidelines_db_v2.f1_manual_ref_patch_backup_20260501_113416.json"
+    },
+    {
+      "name": "3. 정확히 4 row 변경",
+      "ok": true,
+      "detail": "changed=4 rows=['M1-0209', 'M1-0211', 'M1-0227', 'M1-0230']"
+    },
+    {
+      "name": "3a. 변경된 row 가 정확히 target 4건",
+      "ok": true,
+      "detail": "diff_set=['M1-0209', 'M1-0211', 'M1-0227', 'M1-0230'] expected=['M1-0209', 'M1-0211', 'M1-0227', 'M1-0230']"
+    },
+    {
+      "name": "4. 변경된 row 는 manual_ref 외 필드 무수정",
+      "ok": true,
+      "detail": "manual_ref_only=['M1-0209', 'M1-0211', 'M1-0227', 'M1-0230'] other_diffs=[]"
+    },
+    {
+      "name": "5.M1-0209 manual_ref 기대값 일치",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5.M1-0211 manual_ref 기대값 일치",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5.M1-0227 manual_ref 기대값 일치",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5.M1-0230 manual_ref 기대값 일치",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. 비-target 365 row 는 backup 과 동일",
+      "ok": true,
+      "detail": "unexpected_changes=[]"
+    },
+    {
+      "name": "7. blocklist 12 row 무수정",
+      "ok": true,
+      "detail": "all 12 rows identical to backup"
+    }
+  ],
+  "target_results": [
+    {
+      "row_id": "M1-0209",
+      "ok": true,
+      "current": [
+        {
+          "manual": "사증민원",
+          "page_from": 298,
+          "page_to": 298,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 주한 외국공관원 가사보조인 단수사증 (사증민원 p.298 #2) — 수동 검증"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 307,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 사증발급인정서 첨부서류 (사증민원 p.306-307 #3) — 수동 검증"
+        }
+      ],
+      "expected": [
+        {
+          "manual": "사증민원",
+          "page_from": 298,
+          "page_to": 298,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 주한 외국공관원 가사보조인 단수사증 (사증민원 p.298 #2) — 수동 검증"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 307,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 사증발급인정서 첨부서류 (사증민원 p.306-307 #3) — 수동 검증"
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0211",
+      "ok": true,
+      "current": [
+        {
+          "manual": "체류민원",
+          "page_from": 349,
+          "page_to": 349,
+          "match_type": "manual_override",
+          "match_text": "F-1-15 우수인재·투자자·유학생 부모 체류기간 연장 (체류민원 p.349 #8) — 수동 검증"
+        }
+      ],
+      "expected": [
+        {
+          "manual": "체류민원",
+          "page_from": 349,
+          "page_to": 349,
+          "match_type": "manual_override",
+          "match_text": "F-1-15 우수인재·투자자·유학생 부모 체류기간 연장 (체류민원 p.349 #8) — 수동 검증"
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0227",
+      "ok": true,
+      "current": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "match_type": "manual_override",
+          "match_text": "F-1-22 고액투자가 가사보조인 체류기간 연장 (체류민원 p.348) — 수동 검증"
+        }
+      ],
+      "expected": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "match_type": "manual_override",
+          "match_text": "F-1-22 고액투자가 가사보조인 체류기간 연장 (체류민원 p.348) — 수동 검증"
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0230",
+      "ok": true,
+      "current": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 해외우수인재 가사보조인 체류기간 연장 (체류민원 p.348) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 668,
+          "page_to": 669,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 최우수인재 부모·가사보조인 신청서류 (체류민원 p.668-669) — 수동 검증"
+        }
+      ],
+      "expected": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 해외우수인재 가사보조인 체류기간 연장 (체류민원 p.348) — 수동 검증"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 668,
+          "page_to": 669,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 최우수인재 부모·가사보조인 신청서류 (체류민원 p.668-669) — 수동 검증"
+        }
+      ]
+    }
+  ],
+  "non_target_changed_rows": [],
+  "non_manual_ref_diffs": [],
+  "blocklist_diffs": []
+}

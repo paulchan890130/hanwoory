@@ -1,0 +1,464 @@
+{
+  "validation_meta": {
+    "version": "v3",
+    "scope": "F-1 USER_SPECIFIED_HIGH 4 rows",
+    "db_path": "backend\\data\\immigration_guidelines_db_v2.json",
+    "backup_path": "backend\\data\\backups\\immigration_guidelines_db_v2.manual_ref_backup_20260430_231933.json",
+    "rules": {
+      "EXTEND": "preferred 체류민원, 사증민원은 명시적 사증 참조 시에만",
+      "VISA_CONFIRM": "preferred 사증민원, 체류민원은 명시적 체류 참조 시에만",
+      "broad_section_correct": "KEEP_PRIMARY_ONLY",
+      "wrong_section": "MANUAL_REVIEW",
+      "subtype_specific_known": "MANUAL_OVERRIDE_REQUIRED"
+    },
+    "page_evidence": {
+      "체류민원_p543": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 — 외국국적동포의 가족에 대한 동반(F-3) 및 방문동거(F-1)에 관한 사증발급 및 체류의 세부절차에 관한 사항 / 나. 외국국적동포가족 방문동거(F-1) 자격 기본 대상 = 재외동포(F-4) 자격을 취득한 자의 가족(부모) / 폐지된 F-1-72 영주(F-5-7) 신청자 가족.",
+      "사증민원_p404": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 — 재외동포(F-4) 가족에 대한 사증발급 및 체류 세부절차 — 동반(F-3)은 배우자·미성년자녀, 방문동거(F-1)는 부모. 폐지된 F-1-72(영주 F-5-7 신청자 가족 방문동거) 후속 처리."
+    }
+  },
+  "summary": {
+    "targets": [
+      "M1-0209",
+      "M1-0211",
+      "M1-0227",
+      "M1-0230"
+    ],
+    "rows_validated": 4,
+    "all_current_543_404": true,
+    "recommended_actions": {
+      "M1-0209": "MANUAL_OVERRIDE_REQUIRED",
+      "M1-0211": "MANUAL_OVERRIDE_REQUIRED",
+      "M1-0227": "MANUAL_OVERRIDE_REQUIRED",
+      "M1-0230": "MANUAL_OVERRIDE_REQUIRED"
+    },
+    "preferred_manuals": {
+      "M1-0209": "사증민원",
+      "M1-0211": "체류민원",
+      "M1-0227": "체류민원",
+      "M1-0230": "체류민원"
+    },
+    "production_db_modified": false
+  },
+  "rows": [
+    {
+      "row_id": "M1-0209",
+      "detailed_code": "F-1-21",
+      "action_type": "VISA_CONFIRM",
+      "title": "주한 외국공관원 가사보조인",
+      "current_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "사증발급",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "사증발급",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "backup_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "사증발급",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "사증발급",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "preferred_manual": "사증민원",
+      "residence_page_check": {
+        "page": 543,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "외국국적동포의 가족에 대한 동반(F-3) 및 방문동거(F-1)에 관한 사증발급 및 체류의 세부절차에 관한 사항 / 나. 외국국적동포가족 방문동거(F-1) 자격 기본 대상 = 재외동포(F-4) 자격을 취득한 자의 가족(부모) / 폐지된 F-1-72 영주(F-5-7) 신청자 가족.",
+        "relevance": "wrong",
+        "reason": "본문은 외국국적동포가족 (재외동포 F-4 자격 취득자의 부모) 방문동거 절차 (폐지된 F-1-72 후속). 본 row(주한 외국공관원 가사보조인) 와 무관."
+      },
+      "visa_page_check": {
+        "page": 404,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "재외동포(F-4) 가족에 대한 사증발급 및 체류 세부절차 — 동반(F-3)은 배우자·미성년자녀, 방문동거(F-1)는 부모. 폐지된 F-1-72(영주 F-5-7 신청자 가족 방문동거) 후속 처리.",
+        "relevance": "wrong",
+        "reason": "본문은 체류 p.543 과 동일 — 외국국적동포가족 방문동거 절차. 본 row(주한 외국공관원 가사보조인) 와 무관."
+      },
+      "correct_residence_pages": [
+        {
+          "manual": "체류민원",
+          "page_from": 337,
+          "page_to": 337,
+          "context": "방문동거(F-1) 자격 개요 (해당자 = 주한외국공관원의 가사보조인)"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 340,
+          "page_to": 341,
+          "context": "체류자격 변경허가 1. 주한 외국공관 등 비세대동거인 및 가사보조인"
+        }
+      ],
+      "correct_visa_pages": [
+        {
+          "manual": "사증민원",
+          "page_from": 298,
+          "page_to": 298,
+          "context": "2. 주한 외국공관원의 가사보조인(F-1-21) 단수사증 발급"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 307,
+          "context": "3. 주한 외국공관원의 가사보조인(F-1-21) 사증발급인정서 첨부서류"
+        }
+      ],
+      "recommended_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 298,
+          "page_to": 298,
+          "match_text": "2. 주한 외국공관원의 가사보조인(F-1-21) 단수사증 발급",
+          "match_type": "user_validated_section"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 307,
+          "match_text": "3. 주한 외국공관원의 가사보조인(F-1-21) 사증발급인정서 첨부서류",
+          "match_type": "user_validated_section"
+        }
+      ],
+      "recommended_action": "MANUAL_OVERRIDE_REQUIRED",
+      "reason": "action_type=VISA_CONFIRM → preferred=사증민원 // current_manual_ref 의 체류 p.543 본문 = 6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 (외국국적동포가족 방문동거). // current_manual_ref 의 사증 p.404 본문 = 동일 (외국국적동포가족 방문동거). // 본 row 는 '주한 외국공관원 가사보조인' 카테고리이므로 543/404 의 동포가족 절차와 무관. // 정답 페이지 (PDF 본문 직접 확인): 사증민원 p.298 (2. 주한 외국공관원의 가사보조인(F-1-21) 단수사증 발급); 사증민원 p.306-307 (3. 주한 외국공관원의 가사보조인(F-1-21) 사증발급인정서 첨부서류) // MANUAL_PAGE_OVERRIDE 등록 + 재인덱싱 (또는 surgical patch) 필요.",
+      "anomaly_v3_found": true
+    },
+    {
+      "row_id": "M1-0211",
+      "detailed_code": "F-1-15",
+      "action_type": "EXTEND",
+      "title": "우수인재·투자자·유학생 부모 방문동거",
+      "current_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "backup_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "preferred_manual": "체류민원",
+      "residence_page_check": {
+        "page": 543,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "외국국적동포의 가족에 대한 동반(F-3) 및 방문동거(F-1)에 관한 사증발급 및 체류의 세부절차에 관한 사항 / 나. 외국국적동포가족 방문동거(F-1) 자격 기본 대상 = 재외동포(F-4) 자격을 취득한 자의 가족(부모) / 폐지된 F-1-72 영주(F-5-7) 신청자 가족.",
+        "relevance": "wrong",
+        "reason": "본문은 외국국적동포가족 (재외동포 F-4 자격 취득자의 부모) 방문동거 절차 (폐지된 F-1-72 후속). 본 row(우수인재·투자자·유학생 부모 방문동거) 와 무관."
+      },
+      "visa_page_check": {
+        "page": 404,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "재외동포(F-4) 가족에 대한 사증발급 및 체류 세부절차 — 동반(F-3)은 배우자·미성년자녀, 방문동거(F-1)는 부모. 폐지된 F-1-72(영주 F-5-7 신청자 가족 방문동거) 후속 처리.",
+        "relevance": "wrong",
+        "reason": "본문은 체류 p.543 과 동일 — 외국국적동포가족 방문동거 절차. 본 row(우수인재·투자자·유학생 부모 방문동거) 와 무관."
+      },
+      "correct_residence_pages": [
+        {
+          "manual": "체류민원",
+          "page_from": 349,
+          "page_to": 349,
+          "context": "체류기간 연장허가 8. 우수인재, 투자자 및 유학생 부모 — 제출서류"
+        }
+      ],
+      "correct_visa_pages": [
+        {
+          "manual": "사증민원",
+          "page_from": 305,
+          "page_to": 305,
+          "context": "사증발급인정서 1. 우수인재, 투자자 및 유학생 부모(F-1-15) — 초청자 요건/첨부서류"
+        }
+      ],
+      "recommended_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 349,
+          "page_to": 349,
+          "match_text": "체류기간 연장허가 8. 우수인재, 투자자 및 유학생 부모 — 제출서류",
+          "match_type": "user_validated_section"
+        }
+      ],
+      "recommended_action": "MANUAL_OVERRIDE_REQUIRED",
+      "reason": "action_type=EXTEND → preferred=체류민원 // current_manual_ref 의 체류 p.543 본문 = 6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 (외국국적동포가족 방문동거). // current_manual_ref 의 사증 p.404 본문 = 동일 (외국국적동포가족 방문동거). // 본 row 는 '우수인재·투자자·유학생 부모 방문동거' 카테고리이므로 543/404 의 동포가족 절차와 무관. // 정답 페이지 (PDF 본문 직접 확인): 체류민원 p.349 (체류기간 연장허가 8. 우수인재, 투자자 및 유학생 부모 — 제출서류) // MANUAL_PAGE_OVERRIDE 등록 + 재인덱싱 (또는 surgical patch) 필요.",
+      "anomaly_v3_found": true
+    },
+    {
+      "row_id": "M1-0227",
+      "detailed_code": "F-1-22",
+      "action_type": "EXTEND",
+      "title": "고액투자가 가사보조인 방문동거",
+      "current_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "backup_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "preferred_manual": "체류민원",
+      "residence_page_check": {
+        "page": 543,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "외국국적동포의 가족에 대한 동반(F-3) 및 방문동거(F-1)에 관한 사증발급 및 체류의 세부절차에 관한 사항 / 나. 외국국적동포가족 방문동거(F-1) 자격 기본 대상 = 재외동포(F-4) 자격을 취득한 자의 가족(부모) / 폐지된 F-1-72 영주(F-5-7) 신청자 가족.",
+        "relevance": "wrong",
+        "reason": "본문은 외국국적동포가족 (재외동포 F-4 자격 취득자의 부모) 방문동거 절차 (폐지된 F-1-72 후속). 본 row(고액투자가 가사보조인 방문동거) 와 무관."
+      },
+      "visa_page_check": {
+        "page": 404,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "재외동포(F-4) 가족에 대한 사증발급 및 체류 세부절차 — 동반(F-3)은 배우자·미성년자녀, 방문동거(F-1)는 부모. 폐지된 F-1-72(영주 F-5-7 신청자 가족 방문동거) 후속 처리.",
+        "relevance": "wrong",
+        "reason": "본문은 체류 p.543 과 동일 — 외국국적동포가족 방문동거 절차. 본 row(고액투자가 가사보조인 방문동거) 와 무관."
+      },
+      "correct_residence_pages": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "context": "체류기간 연장허가 (외국인투자자 / 우수전문인력의 가사보조인 절차)"
+        }
+      ],
+      "correct_visa_pages": [
+        {
+          "manual": "사증민원",
+          "page_from": 299,
+          "page_to": 299,
+          "context": "투자가·전문인력의 외국인 가사보조인(F-1-22, F-1-23, F-1-24) 사증발급 기본"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 306,
+          "context": "사증발급인정서 2. 고액투자가(F-1-22) 및 해외우수인재(F-1-24)의 가사보조인"
+        }
+      ],
+      "recommended_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "match_text": "체류기간 연장허가 (외국인투자자 / 우수전문인력의 가사보조인 절차)",
+          "match_type": "user_validated_section"
+        }
+      ],
+      "recommended_action": "MANUAL_OVERRIDE_REQUIRED",
+      "reason": "action_type=EXTEND → preferred=체류민원 // current_manual_ref 의 체류 p.543 본문 = 6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 (외국국적동포가족 방문동거). // current_manual_ref 의 사증 p.404 본문 = 동일 (외국국적동포가족 방문동거). // 본 row 는 '고액투자가 가사보조인 방문동거' 카테고리이므로 543/404 의 동포가족 절차와 무관. // 정답 페이지 (PDF 본문 직접 확인): 체류민원 p.348 (체류기간 연장허가 (외국인투자자 / 우수전문인력의 가사보조인 절차)) // MANUAL_PAGE_OVERRIDE 등록 + 재인덱싱 (또는 surgical patch) 필요.",
+      "anomaly_v3_found": true
+    },
+    {
+      "row_id": "M1-0230",
+      "detailed_code": "F-1-24",
+      "action_type": "EXTEND",
+      "title": "해외우수인재 가사보조인 방문동거",
+      "current_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "backup_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "preferred_manual": "체류민원",
+      "residence_page_check": {
+        "page": 543,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "외국국적동포의 가족에 대한 동반(F-3) 및 방문동거(F-1)에 관한 사증발급 및 체류의 세부절차에 관한 사항 / 나. 외국국적동포가족 방문동거(F-1) 자격 기본 대상 = 재외동포(F-4) 자격을 취득한 자의 가족(부모) / 폐지된 F-1-72 영주(F-5-7) 신청자 가족.",
+        "relevance": "wrong",
+        "reason": "본문은 외국국적동포가족 (재외동포 F-4 자격 취득자의 부모) 방문동거 절차 (폐지된 F-1-72 후속). 본 row(해외우수인재 가사보조인 방문동거) 와 무관."
+      },
+      "visa_page_check": {
+        "page": 404,
+        "heading": "6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차",
+        "text_preview": "재외동포(F-4) 가족에 대한 사증발급 및 체류 세부절차 — 동반(F-3)은 배우자·미성년자녀, 방문동거(F-1)는 부모. 폐지된 F-1-72(영주 F-5-7 신청자 가족 방문동거) 후속 처리.",
+        "relevance": "wrong",
+        "reason": "본문은 체류 p.543 과 동일 — 외국국적동포가족 방문동거 절차. 본 row(해외우수인재 가사보조인 방문동거) 와 무관."
+      },
+      "correct_residence_pages": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "context": "체류기간 연장허가 (외국인투자자 / 우수전문인력의 가사보조인 절차)"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 668,
+          "page_to": 669,
+          "context": "최우수인재 부모·가사보조인 절차 — 신청서류"
+        }
+      ],
+      "correct_visa_pages": [
+        {
+          "manual": "사증민원",
+          "page_from": 299,
+          "page_to": 299,
+          "context": "투자가·전문인력의 외국인 가사보조인(F-1-22, F-1-23, F-1-24) 사증발급 기본"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 306,
+          "context": "사증발급인정서 2. 고액투자가(F-1-22) 및 해외우수인재(F-1-24)의 가사보조인"
+        }
+      ],
+      "recommended_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 348,
+          "page_to": 348,
+          "match_text": "체류기간 연장허가 (외국인투자자 / 우수전문인력의 가사보조인 절차)",
+          "match_type": "user_validated_section"
+        },
+        {
+          "manual": "체류민원",
+          "page_from": 668,
+          "page_to": 669,
+          "match_text": "최우수인재 부모·가사보조인 절차 — 신청서류",
+          "match_type": "user_validated_section"
+        }
+      ],
+      "recommended_action": "MANUAL_OVERRIDE_REQUIRED",
+      "reason": "action_type=EXTEND → preferred=체류민원 // current_manual_ref 의 체류 p.543 본문 = 6. 외국국적동포가족 동반(F-3) 및 방문동거(F-1) 사증·체류 세부절차 (외국국적동포가족 방문동거). // current_manual_ref 의 사증 p.404 본문 = 동일 (외국국적동포가족 방문동거). // 본 row 는 '해외우수인재 가사보조인 방문동거' 카테고리이므로 543/404 의 동포가족 절차와 무관. // 정답 페이지 (PDF 본문 직접 확인): 체류민원 p.348 (체류기간 연장허가 (외국인투자자 / 우수전문인력의 가사보조인 절차)); 체류민원 p.668-669 (최우수인재 부모·가사보조인 절차 — 신청서류) // MANUAL_PAGE_OVERRIDE 등록 + 재인덱싱 (또는 surgical patch) 필요.",
+      "anomaly_v3_found": true
+    }
+  ]
+}

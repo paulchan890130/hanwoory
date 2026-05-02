@@ -1,0 +1,45 @@
+{
+  "patch_meta": {
+    "version": "v14",
+    "mode": "DRY_RUN",
+    "scope": "1 row: D-10-T EXTEND NOT_IN_MANUAL"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 1,
+    "diff_row_ids": [
+      "M1-0098"
+    ],
+    "diff_count": 1,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1007387
+  },
+  "rows": [
+    {
+      "row_id": "M1-0098",
+      "detailed_code": "D-10-T",
+      "action_type": "EXTEND",
+      "title": "구직비자",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 129,
+          "page_to": 129,
+          "match_text": "체류기간 연장",
+          "section_pf": 125,
+          "section_pt": 130,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "D-10-T(구직) 체류기간은 최초 입국 시 1년 이내 부여. 연장 규정 없음. 기존 사증민원 p.129는 구직비자 자격 소개 페이지 오매핑. empty_ref_disposition.json에 NOT_IN_MANUAL로 기등록(M1-0098). manual_ref → [] (빈 배열)로 정리."
+    }
+  ]
+}

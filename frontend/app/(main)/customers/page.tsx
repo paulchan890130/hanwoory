@@ -178,12 +178,35 @@ function CustomerDrawer({
             <div style={{ fontWeight:600, fontSize:14, color:"#2D3748" }}>{isNew ? "신규 고객 등록" : name}</div>
             {!isNew && id && <div style={{ fontSize:11, color:"#A0AEC0", marginTop:2 }}>ID: {id}</div>}
           </div>
-          <div style={{ display:"flex", gap:8 }}>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             {folderUrl && (
               <a href={folderUrl} target="_blank" rel="noopener noreferrer"
                 style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"#3182CE", background:"#EBF8FF", border:"1px solid #BEE3F8", borderRadius:6, padding:"4px 10px" }}>
                 <FolderOpen size={13} /> 폴더 <ExternalLink size={11} />
               </a>
+            )}
+            {!isNew && (
+              <button
+                onClick={() => {
+                  localStorage.setItem("pinned_customer", JSON.stringify(customer));
+                  const popup = window.open(
+                    "/customer-popup",
+                    "customer_card_popup",
+                    "width=300,height=680,resizable=yes,scrollbars=yes"
+                  );
+                  if (popup) {
+                    popup.focus();
+                    toast.success(`${name} 고객카드 열림`);
+                  } else {
+                    window.dispatchEvent(new CustomEvent("pin-customer", { detail: customer }));
+                    toast.success(`${name} 참조 고정됨 (팝업 차단 → 사이드 패널)`);
+                  }
+                }}
+                title="새 창으로 고객카드 열기"
+                style={{ display:"flex", alignItems:"center", gap:3, fontSize:11, padding:"4px 8px", border:"1px solid #E2E8F0", borderRadius:6, background:"#F7FAFC", color:"#718096" }}
+              >
+                <ExternalLink size={12} /> 팝업창
+              </button>
             )}
             <button onClick={onClose} style={{ padding:6, color:"#718096" }}><X size={16} /></button>
           </div>

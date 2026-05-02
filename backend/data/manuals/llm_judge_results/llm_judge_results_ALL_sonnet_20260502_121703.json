@@ -1,0 +1,451 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_body_kw_20260502_121119.json",
+    "tier": "ALL",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-02T12:17:03",
+    "total_rows": 29,
+    "api_called": true,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0002",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어 있어 신청요건, 제출서류, 허가기준, D-1 heading 등 어떠한 내용도 존재하지 않음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 820,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 133
+      }
+    },
+    {
+      "row_id": "M1-0006",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어 있어 F-3 GRANT 업무에 관한 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 817,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 123
+      }
+    },
+    {
+      "row_id": "M1-0092",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 신청요건, 제출서류, 허가기준, F-2-71 heading 등 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 135
+      }
+    },
+    {
+      "row_id": "M1-0095",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어 있어 어떠한 내용도 확인할 수 없음. 인접 페이지도 모두 비어 있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 820,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 127
+      }
+    },
+    {
+      "row_id": "M1-0098",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 신청요건, 제출서류, 허가기준 등 어떤 내용도 없음. D-10-T 관련 heading도 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 820,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 135
+      }
+    },
+    {
+      "row_id": "M1-0125",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있으며, 인접 페이지도 모두 비어있음. D-9-1 관련 내용 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 824,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 123
+      }
+    },
+    {
+      "row_id": "M1-0172",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 108
+      }
+    },
+    {
+      "row_id": "M1-0176",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 108
+      }
+    },
+    {
+      "row_id": "M1-0235",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 판정 근거 없음. 인접 페이지도 모두 비어있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 116
+      }
+    },
+    {
+      "row_id": "M1-0236",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 F-2-3 관련 신청요건, 제출서류, 허가기준 등 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 136
+      }
+    },
+    {
+      "row_id": "M1-0239",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 판정에 필요한 어떤 내용도 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 109
+      }
+    },
+    {
+      "row_id": "M1-0240",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 신청요건, 제출서류, 허가기준, F-2-4 heading 등 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 135
+      }
+    },
+    {
+      "row_id": "M1-0243",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어 있어 어떠한 내용도 확인할 수 없음. EXACT 판정 조건 충족 불가.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 124
+      }
+    },
+    {
+      "row_id": "M1-0244",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있음. 인접 페이지도 모두 비어있음. 판정 가능한 내용 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 121
+      }
+    },
+    {
+      "row_id": "M1-0247",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 108
+      }
+    },
+    {
+      "row_id": "M1-0248",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음. 인접 페이지도 모두 비어있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 125
+      }
+    },
+    {
+      "row_id": "M1-0251",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있음. 어떠한 내용도 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 103
+      }
+    },
+    {
+      "row_id": "M1-0252",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 F-2-6 관련 신청요건, 제출서류, 허가기준 등 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 136
+      }
+    },
+    {
+      "row_id": "M1-0255",
+      "decision": "NEEDS_REVIEW",
+      "confidence": "low",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 비어있어 판정 불가",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 95
+      }
+    },
+    {
+      "row_id": "M1-0258",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음. 인접 페이지도 모두 비어있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 125
+      }
+    },
+    {
+      "row_id": "M1-0262",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 817,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 108
+      }
+    },
+    {
+      "row_id": "M1-0278",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음. EXACT 판정 조건을 충족할 수 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 817,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 127
+      }
+    },
+    {
+      "row_id": "M1-0282",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 820,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 108
+      }
+    },
+    {
+      "row_id": "M1-0308",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 비어있어 신청요건, 제출서류, 허가기준 등 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 822,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 123
+      }
+    },
+    {
+      "row_id": "M1-0311",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어 있어 신청요건, 제출서류, 허가기준, 세부코드 heading 등 어떠한 내용도 존재하지 않음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 135
+      }
+    },
+    {
+      "row_id": "M1-0312",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어 있어 어떠한 내용도 확인할 수 없음",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 109
+      }
+    },
+    {
+      "row_id": "M1-0316",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 어떠한 내용도 확인할 수 없음. EXACT 판정 조건 중 어느 것도 충족 불가.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 131
+      }
+    },
+    {
+      "row_id": "M1-0317",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 비어있으며 인접 페이지도 모두 비어있음. 판정 가능한 내용 없음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 821,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 117
+      }
+    },
+    {
+      "row_id": "M1-0329",
+      "decision": "WRONG",
+      "confidence": "high",
+      "page_role": "OTHER",
+      "positive_evidence": "",
+      "negative_evidence": "페이지 텍스트가 완전히 비어있어 신청요건, 제출서류, 허가기준 등 어떠한 내용도 확인할 수 없음. 인접 페이지도 모두 비어있음.",
+      "recommended_page": null,
+      "_usage": {
+        "input_tokens": 820,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 144
+      }
+    }
+  ]
+}

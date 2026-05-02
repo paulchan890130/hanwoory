@@ -1,0 +1,534 @@
+{
+  "rows": [
+    {
+      "row_id": "M1-0114",
+      "detailed_code": "D-8-1",
+      "action_type": "VISA_CONFIRM",
+      "title": "법인투자",
+      "preferred_manual": "사증민원",
+      "found_page": 95,
+      "heading_snippet": "사증발급인정서 / 발급대상 /  목차 / 1. 외국기업 국내지사 등에서 주재활동",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 95,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 1. 외국기업 국내지사 등에서 주재활동",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 96,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 3. 한․러 한시적 근로활동에 관한 협정 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 97,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 98,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 6. ｢외국법자문사법｣에 따른 외국법자문사 등에 대한 사증발급",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 99,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 / 나. 외국법자문법률사무소에 파견되는 사무직원 / ※ 1년이상본사근무요건이면제되므로경력증명서등제출불요",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0115",
+      "detailed_code": "D-8-2",
+      "action_type": "VISA_CONFIRM",
+      "title": "벤처투자",
+      "preferred_manual": "사증민원",
+      "found_page": 95,
+      "heading_snippet": "사증발급인정서 / 발급대상 /  목차 / 1. 외국기업 국내지사 등에서 주재활동",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 95,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 1. 외국기업 국내지사 등에서 주재활동",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 96,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 3. 한․러 한시적 근로활동에 관한 협정 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 97,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 98,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 6. ｢외국법자문사법｣에 따른 외국법자문사 등에 대한 사증발급",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 99,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 / 나. 외국법자문법률사무소에 파견되는 사무직원 / ※ 1년이상본사근무요건이면제되므로경력증명서등제출불요",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0116",
+      "detailed_code": "D-8-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "개인기업투자",
+      "preferred_manual": "사증민원",
+      "found_page": 95,
+      "heading_snippet": "사증발급인정서 / 발급대상 /  목차 / 1. 외국기업 국내지사 등에서 주재활동",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 95,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 1. 외국기업 국내지사 등에서 주재활동",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 96,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 3. 한․러 한시적 근로활동에 관한 협정 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 97,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 98,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 6. ｢외국법자문사법｣에 따른 외국법자문사 등에 대한 사증발급",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 99,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 / 나. 외국법자문법률사무소에 파견되는 사무직원 / ※ 1년이상본사근무요건이면제되므로경력증명서등제출불요",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0132",
+      "detailed_code": "D-10-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "첨단기술인턴",
+      "preferred_manual": "사증민원",
+      "found_page": 141,
+      "heading_snippet": "※ 재외공관의 장은 입국목적, 초청의 진정성, 초청자 및 피초청자의 자격 확인 / 등을 심사하기 위해 필요한 경우 첨부서류를 일부 가감할 수 있음 / 사증발급인정서 / 발급대상",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 141,
+          "score": 135,
+          "heading": "※ 재외공관의 장은 입국목적, 초청의 진정성, 초청자 및 피초청자의 자격 확인 / 등을 심사하기 위해 필요한 경우 첨부서류를 일부 가감할 수 있음 / 사증발급인정서 / 발급대상",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 142,
+          "score": 135,
+          "heading": " 목차 / 사증발급인정서 / 발급대상 /  목차",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 146,
+          "score": 135,
+          "heading": "②원어민 영어 보조교사 또는 원어민 중국어보조교사 합격증 또는 Talk / 장학생 초청장*(국립국제교육원장 또는 시․ 도 교육감 발급) / * 국립국제교육원또는시․도교육감이학력사항및범죄경력등을검증한 / 후에합격통지서또는초청장을발급하기때문에원칙적으로해당서류",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 147,
+          "score": 135,
+          "heading": " 목차 / 사증발급인정서 / 발급대상 / 근로자직업능력개발법에 따라 설립된 직업능력개발훈련시설과 직업능력",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 149,
+          "score": 135,
+          "heading": " 목차 / 참고사항 / - 출입국관리법시행령 제12조(별표1의2)에 규정되어 있는 외국어 전문학 / 원에준하는 학원에 해당",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0141",
+      "detailed_code": "E-1",
+      "action_type": "VISA_CONFIRM",
+      "title": "교수",
+      "preferred_manual": "사증민원",
+      "found_page": 155,
+      "heading_snippet": " 목차 / 사증발급인정서 / 발급대상 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 155,
+          "score": 135,
+          "heading": " 목차 / 사증발급인정서 / 발급대상 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 156,
+          "score": 135,
+          "heading": " 목차 / 취업 또는 주재 목적으로 입국하는 외국인 ⇒5년 복수사증 발급(계약 5년 / 이내인 경우 그 계약기간) / - 기타 취업 또는 주재 목적 입국 외국인 ⇒3년 복수사증 발급",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 159,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 1. 산업상 고도기술 제공",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 160,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / * 독립전문가: 특정회사(법인)에소속되지않고독립적으로한국의기업또는",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 162,
+          "score": 135,
+          "heading": " 목차 / 간병인(C-3-3, G-1-10), 상용빈번출입국자(C-3-4), 단체관광객(C-3-2)* / 및 공익사업 투자예정자(C-3-1)** / - ‘공관장 재량으로 발급할 수 있는 자’ 및 ‘사증발급인정서 발급대상자’",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0146",
+      "detailed_code": "E-2",
+      "action_type": "VISA_CONFIRM",
+      "title": "회화지도",
+      "preferred_manual": "사증민원",
+      "found_page": 155,
+      "heading_snippet": " 목차 / 사증발급인정서 / 발급대상 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 155,
+          "score": 135,
+          "heading": " 목차 / 사증발급인정서 / 발급대상 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 156,
+          "score": 135,
+          "heading": " 목차 / 취업 또는 주재 목적으로 입국하는 외국인 ⇒5년 복수사증 발급(계약 5년 / 이내인 경우 그 계약기간) / - 기타 취업 또는 주재 목적 입국 외국인 ⇒3년 복수사증 발급",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 159,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 1. 산업상 고도기술 제공",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 160,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / * 독립전문가: 특정회사(법인)에소속되지않고독립적으로한국의기업또는",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 162,
+          "score": 135,
+          "heading": " 목차 / 간병인(C-3-3, G-1-10), 상용빈번출입국자(C-3-4), 단체관광객(C-3-2)* / 및 공익사업 투자예정자(C-3-1)** / - ‘공관장 재량으로 발급할 수 있는 자’ 및 ‘사증발급인정서 발급대상자’",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0151",
+      "detailed_code": "E-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "연구",
+      "preferred_manual": "사증민원",
+      "found_page": 160,
+      "heading_snippet": "사증발급인정서 / 발급대상 /  목차 / * 독립전문가: 특정회사(법인)에소속되지않고독립적으로한국의기업또는",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 160,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / * 독립전문가: 특정회사(법인)에소속되지않고독립적으로한국의기업또는",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 162,
+          "score": 135,
+          "heading": " 목차 / 간병인(C-3-3, G-1-10), 상용빈번출입국자(C-3-4), 단체관광객(C-3-2)* / 및 공익사업 투자예정자(C-3-1)** / - ‘공관장 재량으로 발급할 수 있는 자’ 및 ‘사증발급인정서 발급대상자’",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 163,
+          "score": 135,
+          "heading": "예술흥행(E-6) / 활동범위및 / 해당자 /  목차",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 165,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 사증발급인정서",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 175,
+          "score": 85,
+          "heading": "** 고용추천필수직종에한해제출하되, 소관중앙행정기관의장(경제자유구역의 / 지정및운영에관한특별법또는지역특화발전특구에대한규제특례법등의 / 적용을받는경우에는관할특별시장ㆍ광역시장ㆍ도지사)이발급한추천서징구 / - 신원보증서(법무부 장관이 고시한 근무처변경․추가 신고가 제한되는",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0161",
+      "detailed_code": "E-5",
+      "action_type": "VISA_CONFIRM",
+      "title": "전문직업",
+      "preferred_manual": "사증민원",
+      "found_page": 162,
+      "heading_snippet": " 목차 / 간병인(C-3-3, G-1-10), 상용빈번출입국자(C-3-4), 단체관광객(C-3-2)* / 및 공익사업 투자예정자(C-3-1)** / - ‘공관장 재량으로 발급할 수 있는 자’ 및 ‘사증발급인정서 발급대상자’",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 162,
+          "score": 135,
+          "heading": " 목차 / 간병인(C-3-3, G-1-10), 상용빈번출입국자(C-3-4), 단체관광객(C-3-2)* / 및 공익사업 투자예정자(C-3-1)** / - ‘공관장 재량으로 발급할 수 있는 자’ 및 ‘사증발급인정서 발급대상자’",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 163,
+          "score": 135,
+          "heading": "예술흥행(E-6) / 활동범위및 / 해당자 /  목차",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 165,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 사증발급인정서",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 160,
+          "score": 100,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / * 독립전문가: 특정회사(법인)에소속되지않고독립적으로한국의기업또는",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 175,
+          "score": 85,
+          "heading": "** 고용추천필수직종에한해제출하되, 소관중앙행정기관의장(경제자유구역의 / 지정및운영에관한특별법또는지역특화발전특구에대한규제특례법등의 / 적용을받는경우에는관할특별시장ㆍ광역시장ㆍ도지사)이발급한추천서징구 / - 신원보증서(법무부 장관이 고시한 근무처변경․추가 신고가 제한되는",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0199",
+      "detailed_code": "E-10",
+      "action_type": "VISA_CONFIRM",
+      "title": "선원취업",
+      "preferred_manual": "사증민원",
+      "found_page": 155,
+      "heading_snippet": " 목차 / 사증발급인정서 / 발급대상 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 155,
+          "score": 135,
+          "heading": " 목차 / 사증발급인정서 / 발급대상 / 5. 한․인도 사증절차간소화협정 관련 사증발급 대상자",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 156,
+          "score": 135,
+          "heading": " 목차 / 취업 또는 주재 목적으로 입국하는 외국인 ⇒5년 복수사증 발급(계약 5년 / 이내인 경우 그 계약기간) / - 기타 취업 또는 주재 목적 입국 외국인 ⇒3년 복수사증 발급",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 159,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / 1. 산업상 고도기술 제공",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 160,
+          "score": 135,
+          "heading": "사증발급인정서 / 발급대상 /  목차 / * 독립전문가: 특정회사(법인)에소속되지않고독립적으로한국의기업또는",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 162,
+          "score": 135,
+          "heading": " 목차 / 간병인(C-3-3, G-1-10), 상용빈번출입국자(C-3-4), 단체관광객(C-3-2)* / 및 공익사업 투자예정자(C-3-1)** / - ‘공관장 재량으로 발급할 수 있는 자’ 및 ‘사증발급인정서 발급대상자’",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        }
+      ]
+    },
+    {
+      "row_id": "M1-0205",
+      "detailed_code": "F-1-5",
+      "action_type": "VISA_CONFIRM",
+      "title": "결혼이민자의 부모 등 가족 방문동거",
+      "preferred_manual": "사증민원",
+      "found_page": 296,
+      "heading_snippet": "발급대상 /  목차 / 신청서 제출 / 접수 및 전산 입력",
+      "confidence": "HIGH",
+      "score": 135,
+      "top_candidates": [
+        {
+          "page": 296,
+          "score": 135,
+          "heading": "발급대상 /  목차 / 신청서 제출 / 접수 및 전산 입력",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 298,
+          "score": 135,
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는 / 사증",
+          "req": true,
+          "doc": true,
+          "heading_kw": true
+        },
+        {
+          "page": 299,
+          "score": 115,
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는 / 사증",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 300,
+          "score": 115,
+          "heading": " 목차 / 공관장재량으로 / 발급할수있는 / 사증",
+          "req": true,
+          "doc": true,
+          "heading_kw": false
+        },
+        {
+          "page": 295,
+          "score": 85,
+          "heading": "체류기간의 / 상한 / 공관장재량으로 / 발급할수있는",
+          "req": false,
+          "doc": false,
+          "heading_kw": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_warn_cluster_lt3_20260501_134459.json",
+    "tier": "WARN",
+    "model": "claude-haiku-4-5-20251001",
+    "run_timestamp": "2026-05-01T13:45:36",
+    "total_rows": 7,
+    "api_called": false,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0131",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 6313
+    },
+    {
+      "row_id": "M1-0209",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5611
+    },
+    {
+      "row_id": "M1-0211",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5722
+    },
+    {
+      "row_id": "M1-0227",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 6029
+    },
+    {
+      "row_id": "M1-0230",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 6030
+    },
+    {
+      "row_id": "M1-0276",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 4221
+    },
+    {
+      "row_id": "M1-0277",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 4636
+    }
+  ]
+}

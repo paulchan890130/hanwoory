@@ -1,0 +1,162 @@
+{
+  "patch_meta": {
+    "version": "v11",
+    "mode": "DRY_RUN",
+    "scope": "3 rows: E-1/E-10-2/E-10"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 3,
+    "diff_row_ids": [
+      "M1-0015",
+      "M1-0141",
+      "M1-0199"
+    ],
+    "diff_count": 3,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1007559
+  },
+  "rows": [
+    {
+      "row_id": "M1-0141",
+      "detailed_code": "E-1",
+      "action_type": "VISA_CONFIRM",
+      "title": "교수",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 163,
+          "page_to": 166,
+          "match_text": "사증발급",
+          "section_pf": 161,
+          "section_pt": 169,
+          "score": 38,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 163,
+          "page_to": 166,
+          "match_text": "사증발급",
+          "section_pf": 161,
+          "section_pt": 169,
+          "score": 38,
+          "match_kind": "general_with_action",
+          "match_type": "action_exact"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 141,
+          "page_to": 141,
+          "match_type": "manual_override",
+          "match_text": "E-1 교수 VISA_CONFIRM 사증발급인정서 (사증민원 p.141) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 141,
+          "page_to": 141,
+          "match_type": "manual_override",
+          "match_text": "E-1 교수 VISA_CONFIRM 사증발급인정서 (사증민원 p.141) — 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.141: '사증발급인정서 발급대상 — 1. 전문대학 이상 교육기관에서 91일 이상 교육 또는 연구지도활동을 하는 대학의 장(총장학장), 교수부교수조교수, 겸임교원명예교수초빙교원, 교환교수 등' + 교수 자격기준표(연구실적연수+교육경력연수 합산) + 첨부서류 (①사증발급인정신청서 ②경력증명서·학위증 ③고용계약서 ④초청학교 설립관련 서류). 직접 PDF 열람 검증. 기존 체류민원 p.163-166 entry 유지."
+    },
+    {
+      "row_id": "M1-0015",
+      "detailed_code": "E-10-2",
+      "action_type": "WORKPLACE",
+      "title": "어선원 근무처변경",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 294,
+          "page_to": 296,
+          "score": 9,
+          "page_count": 3,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 333,
+          "page_to": 334,
+          "match_type": "manual_override",
+          "match_text": "E-10-2 선원취업 WORKPLACE 근무처변경 (체류민원 p.333-334) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 333,
+          "page_to": 334,
+          "match_type": "manual_override",
+          "match_text": "E-10-2 선원취업 WORKPLACE 근무처변경 (체류민원 p.333-334) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.333-334: E-10 선원취업 챕터 내 '근무처의 변경·추가' 섹션 — '선원취업자가 사업장의 휴·폐업 등으로 정상적인 근로관계를 지속하기 곤란한 때에는 지방해양수산청장의 추천을 받아 근무처 변경 신청 가능' + 제출서류(①신청서 ②한국해운조합 또는 수산업협동조합중앙회 발급 외국인 고용추천서 ③고용계약서 ④사업자등록증 ⑤산재서류·진단서 ⑥신원보증서). 기존 사증민원 p.294-296은 VISA_CONFIRM 섹션으로 WORKPLACE 오매핑. 전체 교체."
+    },
+    {
+      "row_id": "M1-0199",
+      "detailed_code": "E-10",
+      "action_type": "VISA_CONFIRM",
+      "title": "선원취업 사증발급인정서",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 332,
+          "page_to": 332,
+          "score": 15,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 332,
+          "page_to": 332,
+          "score": 15,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 294,
+          "page_to": 296,
+          "match_type": "manual_override",
+          "match_text": "E-10 선원취업 VISA_CONFIRM 사증발급인정서 (사증민원 p.294-296) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 294,
+          "page_to": 296,
+          "match_type": "manual_override",
+          "match_text": "E-10 선원취업 VISA_CONFIRM 사증발급인정서 (사증민원 p.294-296) — 수동 검증"
+        }
+      ],
+      "replace_all": false,
+      "page_evidence": "사증민원 p.294-296: '선원취업(E-10)' 챕터 — p.294 활동범위·해당자(E-10-1 내항선원/E-10-2 어선원/E-10-3 순항여객선원), p.295 '선원취업(E-10) 사증은 출입국·외국인청(사무소·출장소)장이 발급한 사증발급인정서에 의해서만 발급' + 도입규모 결정과정 + 접수처리 절차, p.296 사증발급인정서 발급대상 첨부서류(공통 4종 + E-10-2 어선원 전용 4종). 직접 PDF 열람 검증. 기존 체류민원 p.332 entry(오매핑)는 ADD이므로 유지."
+    }
+  ]
+}

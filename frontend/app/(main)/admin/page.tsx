@@ -1,13 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { adminApi } from "@/lib/api";
+import { adminApi, api } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Shield, UserPlus, X, Save,
-  FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw,
+  FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw, Trash2,
+  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText,
 } from "lucide-react";
 
 // ── 워크스페이스 단계별 결과 타입 ─────────────────────────────────────────────
@@ -451,15 +452,356 @@ function AccountDetailPanel({
 }
 
 
+// ── 계정 삭제 확인 모달 ───────────────────────────────────────────────────────
+function DeleteConfirmModal({
+  acc,
+  onConfirm,
+  onClose,
+  isDeleting,
+}: {
+  acc: Record<string, string>;
+  onConfirm: () => void;
+  onClose: () => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="hw-card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle size={18} style={{ color: "#E53E3E" }} />
+            <span className="font-semibold text-sm" style={{ color: "#2D3748" }}>계정 삭제 확인</span>
+          </div>
+          <div className="mb-5 space-y-3">
+            <div className="text-sm" style={{ color: "#2D3748" }}>
+              <strong>{acc.office_name || acc.login_id}</strong> 계정을 삭제하시겠습니까?
+            </div>
+            <div className="text-xs" style={{ color: "#718096" }}>
+              로그인 ID: <span className="font-mono font-semibold">{acc.login_id}</span>
+            </div>
+            <div className="text-xs p-3 rounded-lg leading-relaxed" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FEB2B2" }}>
+              이 작업은 해당 계정의 로그인을 즉시 차단합니다.<br />
+              고객 데이터와 Google Sheets는 보존됩니다.
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={onClose} disabled={isDeleting} className="btn-secondary text-xs">취소</button>
+            <button
+              onClick={onConfirm}
+              disabled={isDeleting}
+              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium disabled:opacity-50"
+              style={{ background: "#E53E3E", color: "#fff" }}
+            >
+              <Trash2 size={12} />
+              {isDeleting ? "처리 중..." : "삭제 확인"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+// ── 매뉴얼 업데이트 검토 탭 ──────────────────────────────────────────────────
+interface RematchRow {
+  row_id: string; detailed_code: string; action_type: string; title: string;
+  manual: string; current_page_from: number; current_page_to: number;
+  found_page: number; found_pages: number[];
+  status: "PASS" | "PAGE_CHANGED" | "NOT_FOUND" | "SKIP";
+  match_text: string; search_keyword: string; heading_snippet: string;
+  auto_apply: boolean; reviewed: boolean; applied: boolean;
+}
+
+const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  PASS:         { label: "일치",     bg: "#F0FFF4", color: "#276749" },
+  PAGE_CHANGED: { label: "페이지 변경", bg: "#FFFFF0", color: "#744210" },
+  NOT_FOUND:    { label: "미발견",   bg: "#FFF5F5", color: "#C53030" },
+  SKIP:         { label: "건너뜀",   bg: "#F7FAFC", color: "#A0AEC0" },
+};
+
+function ManualReviewTab() {
+  const [filter, setFilter] = useState<"all" | "changed" | "review" | "done">("all");
+  const [runningRematch, setRunningRematch] = useState(false);
+  const [rows, setRows] = useState<RematchRow[]>([]);
+  const [lastRun, setLastRun] = useState<string | null>(null);
+  const [totalOverride, setTotalOverride] = useState(0);
+  const [inlineEdit, setInlineEdit] = useState<{ rowId: string; pf: string; pt: string } | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{
+    manual: string;
+    page: number;
+    label: string;
+  } | null>(null);
+
+  const loadReview = useCallback(async () => {
+    try {
+      const res = await api.get("/api/manual/update-review");
+      const d = res.data as { rows: RematchRow[]; last_run: string | null; total_override: number };
+      setRows(d.rows ?? []);
+      setLastRun(d.last_run ?? null);
+      setTotalOverride(d.total_override ?? 0);
+    } catch { /* 미존재 시 빈 상태 유지 */ }
+  }, []);
+
+  useEffect(() => { void loadReview(); }, [loadReview]);
+
+  const handleRunRematch = async () => {
+    setRunningRematch(true);
+    try {
+      await api.post("/api/manual/run-rematch");
+      toast.success("재탐색 완료");
+      await loadReview();
+    } catch { toast.error("재탐색 실패"); }
+    finally { setRunningRematch(false); }
+  };
+
+  const handleApply = async (row: RematchRow, pf: number, pt: number) => {
+    try {
+      await api.post(`/api/manual/update-review/${row.row_id}/apply`, { page_from: pf, page_to: pt });
+      setRows(prev => prev.map(r => r.row_id === row.row_id ? { ...r, applied: true, reviewed: true, found_page: pf } : r));
+      toast.success(`${row.row_id} 적용 완료 (p.${pf})`);
+    } catch { toast.error("적용 실패"); }
+  };
+
+  const handleSkip = async (row_id: string) => {
+    try {
+      await api.post(`/api/manual/update-review/${row_id}/skip`);
+      setRows(prev => prev.map(r => r.row_id === row_id ? { ...r, reviewed: true } : r));
+    } catch { toast.error("건너뜀 실패"); }
+  };
+
+  const filtered = rows.filter(r => {
+    if (filter === "all") return true;
+    if (filter === "changed") return r.status === "PAGE_CHANGED" && !r.reviewed;
+    if (filter === "review") return r.status === "NOT_FOUND" && !r.reviewed;
+    if (filter === "done") return r.reviewed || r.applied;
+    return true;
+  });
+
+  const counts = {
+    changed: rows.filter(r => r.status === "PAGE_CHANGED" && !r.reviewed).length,
+    review:  rows.filter(r => r.status === "NOT_FOUND" && !r.reviewed).length,
+    done:    rows.filter(r => r.reviewed || r.applied).length,
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 상단 */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <span className="text-xs" style={{ color: "#718096" }}>
+            마지막 실행: {lastRun ? new Date(lastRun).toLocaleString("ko-KR") : "없음"}
+          </span>
+          {totalOverride > 0 && (
+            <span className="ml-3 text-xs" style={{ color: "#A0AEC0" }}>
+              대상 {totalOverride}건
+            </span>
+          )}
+        </div>
+        <button onClick={handleRunRematch} disabled={runningRematch}
+          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium disabled:opacity-50"
+          style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0" }}>
+          {runningRematch ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+          {runningRematch ? "탐색 중..." : "지금 재탐색"}
+        </button>
+      </div>
+
+      {/* 필터 */}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { key: "all",     label: "전체",      count: rows.length },
+          { key: "changed", label: "페이지 변경", count: counts.changed },
+          { key: "review",  label: "재확인 필요", count: counts.review },
+          { key: "done",    label: "완료",       count: counts.done },
+        ] as const).map(({ key, label, count }) => (
+          <button key={key}
+            onClick={() => setFilter(key)}
+            className={`hw-tab ${filter === key ? "active" : ""}`}>
+            {label} {count > 0 && <span className="ml-1 text-xs opacity-70">({count})</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* 테이블 */}
+      {filtered.length === 0 ? (
+        <div className="hw-card text-sm text-center py-10" style={{ color: "#A0AEC0" }}>
+          {rows.length === 0 ? "재탐색을 실행해 주세요." : "해당 항목 없음"}
+        </div>
+      ) : (
+        <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="overflow-x-auto">
+            <table className="hw-table w-full text-xs" style={{ minWidth: 900 }}>
+              <thead>
+                <tr>
+                  {["자격코드", "업무", "제목", "매뉴얼", "현재 페이지", "발견 페이지", "상태", "액션"].map(h => (
+                    <th key={h} className="text-left whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(row => {
+                  const badge = row.applied
+                    ? { label: "적용완료", bg: "#EBF8FF", color: "#2B6CB0" }
+                    : row.reviewed
+                    ? { label: "확인됨", bg: "#F7FAFC", color: "#A0AEC0" }
+                    : STATUS_BADGE[row.status] ?? STATUS_BADGE.SKIP;
+                  const canAct = !row.reviewed && !row.applied;
+
+                  return (
+                    <tr key={row.row_id}>
+                      <td className="font-mono">{row.detailed_code || "—"}</td>
+                      <td style={{ color: "#718096" }}>{row.action_type}</td>
+                      <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        title={row.title}>{row.title}</td>
+                      <td>{row.manual}</td>
+                      <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
+                        <span>{row.current_page_from}{row.current_page_to !== row.current_page_from ? `–${row.current_page_to}` : ""}</span>
+                        <button
+                          onClick={() => setPdfPreview({ manual: row.manual, page: row.current_page_from, label: "현재 페이지" })}
+                          title="현재 페이지 PDF 보기"
+                          style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
+                          <FileText size={13} />
+                        </button>
+                      </td>
+                      <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
+                        {row.found_page ? (
+                          <>
+                            <span style={{ color: row.status === "PAGE_CHANGED" ? "#D97706" : "inherit" }}>{row.found_page}</span>
+                            <button
+                              onClick={() => setPdfPreview({ manual: row.manual, page: row.found_page, label: "발견 페이지" })}
+                              title="발견 페이지 PDF 보기"
+                              style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
+                              <FileText size={13} />
+                            </button>
+                          </>
+                        ) : <span style={{ color: "#CBD5E0" }}>—</span>}
+                      </td>
+                      <td>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{ background: badge.bg, color: badge.color }}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td>
+                        {canAct && row.status === "PAGE_CHANGED" && (
+                          <div className="flex gap-1.5 flex-wrap">
+                            {/* 자동 적용 버튼 */}
+                            <button onClick={() => handleApply(row, row.found_page, row.found_page)}
+                              className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                              style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11 }}>
+                              <CheckSquare size={11} /> 적용 (p.{row.found_page})
+                            </button>
+                            {/* 직접 입력 */}
+                            {inlineEdit?.rowId === row.row_id ? (
+                              <div className="flex gap-1 items-center">
+                                <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
+                                  className="hw-input w-12 text-xs" placeholder="from" />
+                                <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
+                                  className="hw-input w-12 text-xs" placeholder="to" />
+                                <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
+                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer" }}>
+                                  저장
+                                </button>
+                                <button onClick={() => setInlineEdit(null)}
+                                  style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
+                                  취소
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.found_page), pt: String(row.found_page) })}
+                                className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                                style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
+                                <Edit3 size={11} /> 직접 입력
+                              </button>
+                            )}
+                            <button onClick={() => handleSkip(row.row_id)}
+                              className="flex items-center gap-1 px-2 py-1 rounded"
+                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: "pointer" }}>
+                              <SkipForward size={11} /> 건너뜀
+                            </button>
+                          </div>
+                        )}
+                        {canAct && row.status === "NOT_FOUND" && (
+                          <div className="flex gap-1.5 flex-wrap">
+                            {inlineEdit?.rowId === row.row_id ? (
+                              <div className="flex gap-1 items-center">
+                                <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
+                                  className="hw-input w-12 text-xs" placeholder="from" />
+                                <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
+                                  className="hw-input w-12 text-xs" placeholder="to" />
+                                <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
+                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer" }}>
+                                  저장
+                                </button>
+                                <button onClick={() => setInlineEdit(null)}
+                                  style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
+                                  취소
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.current_page_from), pt: String(row.current_page_to) })}
+                                className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                                style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
+                                <Edit3 size={11} /> 직접 입력
+                              </button>
+                            )}
+                            <button onClick={() => handleSkip(row.row_id)}
+                              className="flex items-center gap-1 px-2 py-1 rounded"
+                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: "pointer" }}>
+                              <SkipForward size={11} /> 건너뜀
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* PDF 미리보기 모달 */}
+      {pdfPreview && (
+        <div
+          onClick={() => setPdfPreview(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 12, width: "min(80vw, 900px)", height: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #E2E8F0", flexShrink: 0 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>
+                {pdfPreview.manual} — {pdfPreview.label} (p.{pdfPreview.page})
+              </span>
+              <button onClick={() => setPdfPreview(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#718096", lineHeight: 1 }}>✕</button>
+            </div>
+            <iframe
+              key={`${pdfPreview.manual}-${pdfPreview.page}`}
+              src={`/api/guidelines/manual-pdf/${encodeURIComponent(pdfPreview.manual)}?token=${encodeURIComponent(typeof window !== "undefined" ? (localStorage.getItem("access_token") || "") : "")}#page=${pdfPreview.page}&navpanes=0&pagemode=none&toolbar=1&view=Fit`}
+              style={{ flex: 1, border: "none", width: "100%" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ── 메인 어드민 페이지 ────────────────────────────────────────────────────────
 export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [detailAcc, setDetailAcc] = useState<Record<string, string> | null>(null);
   const [wsDetail, setWsDetail] = useState<WsResult | null>(null);
+  const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
     if (!user?.is_admin) router.replace("/dashboard");
@@ -476,6 +818,16 @@ export default function AdminPage() {
       adminApi.updateAccount(loginId, data),
     onSuccess: () => { toast.success("계정 업데이트됨"); qc.invalidateQueries({ queryKey: ["admin"] }); },
     onError: () => toast.error("업데이트 실패"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (loginId: string) => adminApi.deleteAccount(loginId),
+    onSuccess: (_, loginId) => {
+      toast.success(`계정 '${loginId}' 삭제됨`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      setConfirmDeleteTarget(null);
+    },
+    onError: () => toast.error("계정 삭제 실패"),
   });
 
   const toggle = (loginId: string, field: "is_active" | "is_admin", current: string) => {
@@ -520,14 +872,35 @@ export default function AdminPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield size={18} style={{ color: "var(--hw-gold)" }} />
-          <h1 className="hw-page-title">계정 관리</h1>
+          <h1 className="hw-page-title">관리자</h1>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-1.5 text-xs">
-          <UserPlus size={14} /> 신규 계정 생성
+        {activeTab === "accounts" && (
+          <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-1.5 text-xs">
+            <UserPlus size={14} /> 신규 계정 생성
+          </button>
+        )}
+      </div>
+
+      {/* 탭 */}
+      <div className="hw-tabs">
+        <button
+          className={`hw-tab ${activeTab === "accounts" ? "active" : ""}`}
+          onClick={() => setActiveTab("accounts")}>
+          계정관리
+        </button>
+        <button
+          className={`hw-tab ${activeTab === "manual-review" ? "active" : ""}`}
+          onClick={() => setActiveTab("manual-review")}>
+          <BookOpen size={12} className="inline mr-1" />
+          매뉴얼 업데이트 검토
         </button>
       </div>
 
+      {/* 매뉴얼 검토 탭 */}
+      {activeTab === "manual-review" && <ManualReviewTab />}
+
       {/* 계정 목록 */}
+      {activeTab === "accounts" && (<>
       {isLoading ? (
         <div className="hw-card text-sm" style={{ color: "#A0AEC0" }}>불러오는 중...</div>
       ) : accounts.length === 0 ? (
@@ -543,7 +916,7 @@ export default function AdminPage() {
                     "사업자번호", "행정사RRN", "가입일",
                     "활성", "관리자",
                     "고객시트키", "업무시트키", "폴더", "마스터시트",
-                    "워크스페이스", "편집",
+                    "워크스페이스", "편집", "삭제",
                   ].map((h) => (
                     <th key={h} className="text-left whitespace-nowrap">{h}</th>
                   ))}
@@ -672,6 +1045,23 @@ export default function AdminPage() {
                           <ChevronRight size={11} /> 편집
                         </button>
                       </td>
+                      <td>
+                        {!isActive ? (
+                          <span className="text-xs px-2 py-1 rounded-lg" style={{ color: "#A0AEC0", background: "#F7FAFC", border: "1px solid #E2E8F0" }}>
+                            삭제됨
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteTarget(acc)}
+                            disabled={acc.login_id === user?.login_id}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            style={{ borderColor: "#FEB2B2", color: "#C53030", background: "#FFF5F5" }}
+                            title={acc.login_id === user?.login_id ? "자신의 계정은 삭제할 수 없습니다" : "계정 삭제"}
+                          >
+                            <Trash2 size={11} /> 삭제
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -683,6 +1073,8 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      </>)}
+      {/* end accounts tab */}
 
       {/* 신규 계정 생성 모달 */}
       {showCreate && (
@@ -705,6 +1097,16 @@ export default function AdminPage() {
       {/* 워크스페이스 진단 패널 */}
       {wsDetail && (
         <WsDetailPanel result={wsDetail} onClose={() => setWsDetail(null)} />
+      )}
+
+      {/* 계정 삭제 확인 모달 */}
+      {confirmDeleteTarget && (
+        <DeleteConfirmModal
+          acc={confirmDeleteTarget}
+          onConfirm={() => deleteMut.mutate(confirmDeleteTarget.login_id)}
+          onClose={() => setConfirmDeleteTarget(null)}
+          isDeleting={deleteMut.isPending}
+        />
       )}
     </div>
   );

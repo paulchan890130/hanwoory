@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "stage": "3_judge_run",
+    "version": "v1",
+    "batch_file": "backend\\data\\manuals\\llm_judge_batches\\batch_preferred_manual_20260501_154126.json",
+    "tier": "ALL",
+    "model": "claude-sonnet-4-6",
+    "run_timestamp": "2026-05-01T15:41:35",
+    "total_rows": 12,
+    "api_called": false,
+    "rate_per_sec": 1.0,
+    "no_db_modification": true
+  },
+  "results": [
+    {
+      "row_id": "M1-0114",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5920
+    },
+    {
+      "row_id": "M1-0115",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5905
+    },
+    {
+      "row_id": "M1-0132",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5850
+    },
+    {
+      "row_id": "M1-0141",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5782
+    },
+    {
+      "row_id": "M1-0146",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5786
+    },
+    {
+      "row_id": "M1-0199",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5789
+    },
+    {
+      "row_id": "M1-0205",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5751
+    },
+    {
+      "row_id": "M1-0015",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 4866
+    },
+    {
+      "row_id": "M1-0098",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5582
+    },
+    {
+      "row_id": "M1-0134",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 6120
+    },
+    {
+      "row_id": "M1-0321",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5715
+    },
+    {
+      "row_id": "M1-0324",
+      "decision": null,
+      "confidence": null,
+      "page_role": null,
+      "positive_evidence": "",
+      "negative_evidence": "",
+      "recommended_page": null,
+      "_dry_run": true,
+      "_user_msg_chars": 5682
+    }
+  ]
+}

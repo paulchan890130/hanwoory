@@ -1,0 +1,220 @@
+{
+  "patch_meta": {
+    "version": "v4",
+    "mode": "DRY_RUN",
+    "scope": "F-1 residual cluster — Group A (4 rows, high-confidence narrow pages)",
+    "db_path": "backend\\data\\immigration_guidelines_db_v2.json",
+    "schema": "minimal: manual, page_from, page_to, match_type=manual_override, match_text"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 4,
+    "diff_row_ids": [
+      "M1-0206",
+      "M1-0207",
+      "M1-0208",
+      "M1-0224"
+    ],
+    "diff_count": 4,
+    "expected_target_count": 4,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "schema_compatibility_issue": "",
+    "non_contiguous_rows": [
+      "M1-0207",
+      "M1-0208"
+    ],
+    "db_byte_size_before": 1010810
+  },
+  "rows": [
+    {
+      "row_id": "M1-0206",
+      "detailed_code": "F-1-15",
+      "action_type": "VISA_CONFIRM",
+      "title": "우수인재·투자자·유학생 부모 방문동거",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "사증발급",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "사증발급",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 305,
+          "page_to": 305,
+          "match_type": "manual_override",
+          "match_text": "F-1-15 우수인재·투자자·유학생 부모 VISA_CONFIRM (사증민원 p.305) — 수동 검증"
+        }
+      ],
+      "reason": "action_type=VISA_CONFIRM → preferred=사증민원. 기존 체류 p.543 / 사증 p.404 본문은 외국국적동포가족 (F-4 부모/F-3 동반) 방문동거 절차로, 본 row(우수인재·투자자·유학생 부모 방문동거) 와 무관. PDF 본문 직접 확인 후 정답 페이지 교체.",
+      "page_evidence": "사증민원 p.305 #1: '사증발급인정서 1. 우수인재, 투자자 및 유학생 부모(F-1-15)' — 초청자 요건 (D-5/D-7/D-8/D-9/E-1~E-7) + 첨부서류 명시",
+      "non_contiguous": false,
+      "page_count": 1
+    },
+    {
+      "row_id": "M1-0207",
+      "detailed_code": "F-1-22",
+      "action_type": "VISA_CONFIRM",
+      "title": "고액투자가 가사보조인 방문동거",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "사증발급",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "사증발급",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 299,
+          "page_to": 299,
+          "match_type": "manual_override",
+          "match_text": "F-1-22 가사보조인 VISA_CONFIRM 단수사증 (사증민원 p.299) — 수동 검증"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 306,
+          "match_type": "manual_override",
+          "match_text": "F-1-22 가사보조인 VISA_CONFIRM 사증발급인정서 (사증민원 p.306) — 수동 검증"
+        }
+      ],
+      "reason": "action_type=VISA_CONFIRM → preferred=사증민원. 기존 체류 p.543 / 사증 p.404 본문은 외국국적동포가족 (F-4 부모/F-3 동반) 방문동거 절차로, 본 row(고액투자가 가사보조인 방문동거) 와 무관. PDF 본문 직접 확인 후 정답 페이지 교체.",
+      "page_evidence": "사증민원 p.299 #3: '투자가 및 전문인력의 외국인 가사보조인(F-1-22, F-1-23, F-1-24)' 단수사증 / 사증민원 p.306 #2: '사증발급인정서 2. 고액투자가(F-1-22) 및 해외우수인재(F-1-24)의 가사보조인'",
+      "non_contiguous": true,
+      "page_count": 2
+    },
+    {
+      "row_id": "M1-0208",
+      "detailed_code": "F-1-24",
+      "action_type": "VISA_CONFIRM",
+      "title": "해외우수인재 가사보조인 방문동거",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "match_text": "사증발급",
+          "section_pf": 543,
+          "section_pt": 543,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "match_text": "사증발급",
+          "section_pf": 404,
+          "section_pt": 404,
+          "score": 12,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 299,
+          "page_to": 299,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 가사보조인 VISA_CONFIRM 단수사증 (사증민원 p.299) — 수동 검증"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 306,
+          "page_to": 306,
+          "match_type": "manual_override",
+          "match_text": "F-1-24 가사보조인 VISA_CONFIRM 사증발급인정서 (사증민원 p.306) — 수동 검증"
+        }
+      ],
+      "reason": "action_type=VISA_CONFIRM → preferred=사증민원. 기존 체류 p.543 / 사증 p.404 본문은 외국국적동포가족 (F-4 부모/F-3 동반) 방문동거 절차로, 본 row(해외우수인재 가사보조인 방문동거) 와 무관. PDF 본문 직접 확인 후 정답 페이지 교체.",
+      "page_evidence": "사증민원 p.299 #3: '투자가 및 전문인력의 외국인 가사보조인(F-1-22, F-1-23, F-1-24)' 단수사증 / 사증민원 p.306 #2: '사증발급인정서 2. 고액투자가(F-1-22) 및 해외우수인재(F-1-24)의 가사보조인'",
+      "non_contiguous": true,
+      "page_count": 2
+    },
+    {
+      "row_id": "M1-0224",
+      "detailed_code": "F-1-21",
+      "action_type": "EXTEND",
+      "title": "주한 외국공관원 가사보조인 방문동거",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 543,
+          "page_to": 543,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 404,
+          "page_to": 404,
+          "score": 12,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 347,
+          "page_to": 347,
+          "match_type": "manual_override",
+          "match_text": "F-1-21 외국공관원 가사보조인 EXTEND (체류민원 p.347 #3) — 수동 검증"
+        }
+      ],
+      "reason": "action_type=EXTEND → preferred=체류민원. 기존 체류 p.543 / 사증 p.404 본문은 외국국적동포가족 (F-4 부모/F-3 동반) 방문동거 절차로, 본 row(주한 외국공관원 가사보조인 방문동거) 와 무관. PDF 본문 직접 확인 후 정답 페이지 교체.",
+      "page_evidence": "체류민원 p.347 #3: '주한외국공관원의 비세대동거인 또는 가사보조인' 체류기간 연장허가 — 신청서 + 외국인등록증 + 공관원 신분증 + 주한대사관 협조공문 + 고용계약서(가사보조인에 한함)",
+      "non_contiguous": false,
+      "page_count": 1
+    }
+  ]
+}

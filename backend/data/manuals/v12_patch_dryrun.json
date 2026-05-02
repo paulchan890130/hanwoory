@@ -1,0 +1,67 @@
+{
+  "patch_meta": {
+    "version": "v12",
+    "mode": "DRY_RUN",
+    "scope": "1 row: E-10 VISA_CONFIRM 레거시 체류민원 entry 제거"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": false,
+    "patch_candidate_count": 1,
+    "diff_row_ids": [
+      "M1-0199"
+    ],
+    "diff_count": 1,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1008104
+  },
+  "rows": [
+    {
+      "row_id": "M1-0199",
+      "detailed_code": "E-10",
+      "action_type": "VISA_CONFIRM",
+      "title": "선원취업 사증발급인정서",
+      "preferred_manual": "사증민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 332,
+          "page_to": 332,
+          "score": 15,
+          "page_count": 1,
+          "kind": "general",
+          "match_type": "section_only",
+          "match_text": "자격 섹션 전체"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 294,
+          "page_to": 296,
+          "match_type": "manual_override",
+          "match_text": "E-10 선원취업 VISA_CONFIRM 사증발급인정서 (사증민원 p.294-296) — 수동 검증"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "사증민원",
+          "page_from": 294,
+          "page_to": 296,
+          "match_type": "manual_override",
+          "match_text": "E-10 선원취업 VISA_CONFIRM 사증발급인정서 (사증민원 p.294-296) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "사증민원",
+          "page_from": 294,
+          "page_to": 296,
+          "match_type": "manual_override",
+          "match_text": "E-10 선원취업 VISA_CONFIRM 사증발급인정서 (사증민원 p.294-296) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "사증민원 p.294-296: '선원취업(E-10)' 챕터 — p.294 활동범위·해당자(E-10-1/E-10-2/E-10-3), p.295 '선원취업(E-10) 사증은 출입국·외국인청(사무소·출장소)장이 발급한 사증발급인정서에 의해서만 발급' + 접수처리 절차, p.296 발급대상 첨부서류(공통 4종 + E-10-2 어선원 전용 4종). 직접 PDF 열람 검증(2026-05-02). 체류민원 p.332는 E-7 직종표 페이지 — VISA_CONFIRM 오매핑. 제거."
+    }
+  ]
+}

@@ -1,0 +1,341 @@
+{
+  "meta": {
+    "total_empty_ref_rows": 36,
+    "description": "Disposition for rows lacking proper manual_ref. Original 20 empty-ref rows + E-9 sub-codes that lack standard CHANGE/EXTEND procedures. NOT a DB patch — informational only. + E-10/F-5-14/E-7-S CHANGE disposition."
+  },
+  "rows": [
+    {
+      "row_id": "M1-0013",
+      "detailed_code": "D-3",
+      "action_type": "EXTEND",
+      "title": "기술연수",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "D-3 자격 — 단기/연수 체류자격으로 이 action_type(EXTEND)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0019",
+      "detailed_code": "",
+      "action_type": "REGISTRATION",
+      "title": "개인사업자",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "개인사업자 등록 — D-9 무역경영 변경허가 섹션과 별도 사업자등록 매뉴얼이 혼재 — 별도 조사 필요",
+      "recommended_action": "D-9 변경허가 매뉴얼 + 사업자등록증 발급 절차 매뉴얼 별도 검토"
+    },
+    {
+      "row_id": "M1-0021",
+      "detailed_code": "",
+      "action_type": "APPLICATION_CLAIM",
+      "title": "여권변경신고",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "여권변경신고 — 사실증명/민원 절차는 자격별 안내 매뉴얼이 아닌 별도 문서(민원편람, 신청서식 매뉴얼 등)에 위치",
+      "recommended_action": "별도 매뉴얼 또는 신청서식 PDF 파일에서 페이지 검색 필요"
+    },
+    {
+      "row_id": "M1-0022",
+      "detailed_code": "",
+      "action_type": "APPLICATION_CLAIM",
+      "title": "외국인등록사실증명",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "외국인등록사실증명 — 사실증명/민원 절차는 자격별 안내 매뉴얼이 아닌 별도 문서(민원편람, 신청서식 매뉴얼 등)에 위치",
+      "recommended_action": "별도 매뉴얼 또는 신청서식 PDF 파일에서 페이지 검색 필요"
+    },
+    {
+      "row_id": "M1-0023",
+      "detailed_code": "",
+      "action_type": "APPLICATION_CLAIM",
+      "title": "거소신고사실증명",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "거소신고사실증명 — 사실증명/민원 절차는 자격별 안내 매뉴얼이 아닌 별도 문서(민원편람, 신청서식 매뉴얼 등)에 위치",
+      "recommended_action": "별도 매뉴얼 또는 신청서식 PDF 파일에서 페이지 검색 필요"
+    },
+    {
+      "row_id": "M1-0024",
+      "detailed_code": "",
+      "action_type": "APPLICATION_CLAIM",
+      "title": "출입국에 관한 사실증명",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "출입국에 관한 사실증명 — 사실증명/민원 절차는 자격별 안내 매뉴얼이 아닌 별도 문서(민원편람, 신청서식 매뉴얼 등)에 위치",
+      "recommended_action": "별도 매뉴얼 또는 신청서식 PDF 파일에서 페이지 검색 필요"
+    },
+    {
+      "row_id": "M1-0025",
+      "detailed_code": "",
+      "action_type": "APPLICATION_CLAIM",
+      "title": "국세증명사실증명 발급민원신청",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "국세증명사실증명 발급민원신청 — 사실증명/민원 절차는 자격별 안내 매뉴얼이 아닌 별도 문서(민원편람, 신청서식 매뉴얼 등)에 위치",
+      "recommended_action": "별도 매뉴얼 또는 신청서식 PDF 파일에서 페이지 검색 필요"
+    },
+    {
+      "row_id": "M1-0026",
+      "detailed_code": "",
+      "action_type": "APPLICATION_CLAIM",
+      "title": "소득금액증명서식",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "소득금액증명서식 — 사실증명/민원 절차는 자격별 안내 매뉴얼이 아닌 별도 문서(민원편람, 신청서식 매뉴얼 등)에 위치",
+      "recommended_action": "별도 매뉴얼 또는 신청서식 PDF 파일에서 페이지 검색 필요"
+    },
+    {
+      "row_id": "M1-0294",
+      "detailed_code": "E-8",
+      "action_type": "REGISTRATION",
+      "title": "계절근로",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-8 자격 — 단기/연수 체류자격으로 이 action_type(REGISTRATION)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0295",
+      "detailed_code": "E-8",
+      "action_type": "EXTEND",
+      "title": "계절근로",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-8 자격 — 단기/연수 체류자격으로 이 action_type(EXTEND)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0296",
+      "detailed_code": "E-8",
+      "action_type": "WORKPLACE",
+      "title": "계절근로",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-8 자격 — 단기/연수 체류자격으로 이 action_type(WORKPLACE)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0301",
+      "detailed_code": "B-1",
+      "action_type": "EXTEND",
+      "title": "사증면제",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "B-1 자격 — 단기/연수 체류자격으로 이 action_type(EXTEND)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0302",
+      "detailed_code": "B-2",
+      "action_type": "EXTEND",
+      "title": "관광통과",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "B-2 자격 — 단기/연수 체류자격으로 이 action_type(EXTEND)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0303",
+      "detailed_code": "C-1",
+      "action_type": "EXTEND",
+      "title": "일시취재",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "C-1 자격 — 단기/연수 체류자격으로 이 action_type(EXTEND)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0304",
+      "detailed_code": "C-4",
+      "action_type": "CHANGE",
+      "title": "단기취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "C-4 자격 — 단기/연수 체류자격으로 이 action_type(CHANGE)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0305",
+      "detailed_code": "C-4",
+      "action_type": "EXTEND",
+      "title": "단기취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "C-4 자격 — 단기/연수 체류자격으로 이 action_type(EXTEND)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0306",
+      "detailed_code": "C-4",
+      "action_type": "WORKPLACE",
+      "title": "단기취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "C-4 자격 — 단기/연수 체류자격으로 이 action_type(WORKPLACE)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0336",
+      "detailed_code": "D-3",
+      "action_type": "REGISTRATION",
+      "title": "기술연수",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "D-3 자격 — 단기/연수 체류자격으로 이 action_type(REGISTRATION)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0337",
+      "detailed_code": "D-3",
+      "action_type": "REENTRY",
+      "title": "기술연수",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "D-3 자격 — 단기/연수 체류자격으로 이 action_type(REENTRY)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0338",
+      "detailed_code": "D-3",
+      "action_type": "VISA_CONFIRM",
+      "title": "기술연수",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "D-3 자격 — 단기/연수 체류자격으로 이 action_type(VISA_CONFIRM)에 대한 절차가 자격별 안내 매뉴얼에 별도 섹션으로 존재하지 않음",
+      "recommended_action": "manual_ref 비워두고 status 컬럼 NOT_IN_MANUAL 추가 (별도 안내 필요)"
+    },
+    {
+      "row_id": "M1-0178",
+      "detailed_code": "E-9-1",
+      "action_type": "CHANGE",
+      "title": "비전문취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-9 자격은 통상 체류자격변경 불가. 유일한 유사절차는 G-1→E-9 자격회복(체류민원 p.325-326)이며 이는 일반 CHANGE 절차가 아님.",
+      "recommended_action": "manual_ref 비워두고 (또는 명시적 NOT_IN_MANUAL 플래그) — 일반 사용자 안내문서/UI에 \"체류자격변경 불가\" 메시지 노출 권장"
+    },
+    {
+      "row_id": "M1-0179",
+      "detailed_code": "E-9-2",
+      "action_type": "CHANGE",
+      "title": "비전문취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-9 자격은 통상 체류자격변경 불가. 유일한 유사절차는 G-1→E-9 자격회복(체류민원 p.325-326)이며 이는 일반 CHANGE 절차가 아님.",
+      "recommended_action": "manual_ref 비워두고 (또는 명시적 NOT_IN_MANUAL 플래그) — 일반 사용자 안내문서/UI에 \"체류자격변경 불가\" 메시지 노출 권장"
+    },
+    {
+      "row_id": "M1-0180",
+      "detailed_code": "E-9-3",
+      "action_type": "CHANGE",
+      "title": "비전문취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-9 자격은 통상 체류자격변경 불가. 유일한 유사절차는 G-1→E-9 자격회복(체류민원 p.325-326)이며 이는 일반 CHANGE 절차가 아님.",
+      "recommended_action": "manual_ref 비워두고 (또는 명시적 NOT_IN_MANUAL 플래그) — 일반 사용자 안내문서/UI에 \"체류자격변경 불가\" 메시지 노출 권장"
+    },
+    {
+      "row_id": "M1-0181",
+      "detailed_code": "E-9-4",
+      "action_type": "CHANGE",
+      "title": "비전문취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-9 자격은 통상 체류자격변경 불가. 유일한 유사절차는 G-1→E-9 자격회복(체류민원 p.325-326)이며 이는 일반 CHANGE 절차가 아님.",
+      "recommended_action": "manual_ref 비워두고 (또는 명시적 NOT_IN_MANUAL 플래그) — 일반 사용자 안내문서/UI에 \"체류자격변경 불가\" 메시지 노출 권장"
+    },
+    {
+      "row_id": "M1-0182",
+      "detailed_code": "E-9-5",
+      "action_type": "CHANGE",
+      "title": "비전문취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-9 자격은 통상 체류자격변경 불가. 유일한 유사절차는 G-1→E-9 자격회복(체류민원 p.325-326)이며 이는 일반 CHANGE 절차가 아님.",
+      "recommended_action": "manual_ref 비워두고 (또는 명시적 NOT_IN_MANUAL 플래그) — 일반 사용자 안내문서/UI에 \"체류자격변경 불가\" 메시지 노출 권장"
+    },
+    {
+      "row_id": "M1-0183",
+      "detailed_code": "E-9-1",
+      "action_type": "EXTEND",
+      "title": "비전문취업",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "E-9 체류기간 연장은 고용허가제 매뉴얼 또는 사증민원 별도 문서에 있을 가능성. 현재 체류민원/사증민원 자격별 안내 매뉴얼에 전용 페이지 없음.",
+      "recommended_action": "고용허가제 매뉴얼 / 사업장 변경 매뉴얼 / 사증민원 EPS 섹션 별도 검색 필요"
+    },
+    {
+      "row_id": "M1-0184",
+      "detailed_code": "E-9-2",
+      "action_type": "EXTEND",
+      "title": "비전문취업",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "E-9 체류기간 연장은 고용허가제 매뉴얼 또는 사증민원 별도 문서에 있을 가능성. 현재 체류민원/사증민원 자격별 안내 매뉴얼에 전용 페이지 없음.",
+      "recommended_action": "고용허가제 매뉴얼 / 사업장 변경 매뉴얼 / 사증민원 EPS 섹션 별도 검색 필요"
+    },
+    {
+      "row_id": "M1-0185",
+      "detailed_code": "E-9-3",
+      "action_type": "EXTEND",
+      "title": "비전문취업",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "E-9 체류기간 연장은 고용허가제 매뉴얼 또는 사증민원 별도 문서에 있을 가능성. 현재 체류민원/사증민원 자격별 안내 매뉴얼에 전용 페이지 없음.",
+      "recommended_action": "고용허가제 매뉴얼 / 사업장 변경 매뉴얼 / 사증민원 EPS 섹션 별도 검색 필요"
+    },
+    {
+      "row_id": "M1-0186",
+      "detailed_code": "E-9-4",
+      "action_type": "EXTEND",
+      "title": "비전문취업",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "E-9 체류기간 연장은 고용허가제 매뉴얼 또는 사증민원 별도 문서에 있을 가능성. 현재 체류민원/사증민원 자격별 안내 매뉴얼에 전용 페이지 없음.",
+      "recommended_action": "고용허가제 매뉴얼 / 사업장 변경 매뉴얼 / 사증민원 EPS 섹션 별도 검색 필요"
+    },
+    {
+      "row_id": "M1-0187",
+      "detailed_code": "E-9-5",
+      "action_type": "EXTEND",
+      "title": "비전문취업",
+      "disposition": "NEEDS_SEPARATE_LOOKUP",
+      "reason": "E-9 체류기간 연장은 고용허가제 매뉴얼 또는 사증민원 별도 문서에 있을 가능성. 현재 체류민원/사증민원 자격별 안내 매뉴얼에 전용 페이지 없음.",
+      "recommended_action": "고용허가제 매뉴얼 / 사업장 변경 매뉴얼 / 사증민원 EPS 섹션 별도 검색 필요"
+    },
+    {
+      "row_id": "M1-0198",
+      "detailed_code": "E-10",
+      "action_type": "CHANGE",
+      "title": "선원취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "E-10 선원취업 체류자격변경허가는 체류민원/사증민원 자격별 안내에 전용 절차 페이지 없음. 통상 입국 사증 경로로 처리.",
+      "recommended_action": "manual_ref 비워두고 NOT_IN_MANUAL 플래그 — 체류자격 변경은 내부 지침 별도 확인 필요"
+    },
+    {
+      "row_id": "M1-0369",
+      "detailed_code": "F-5-14",
+      "action_type": "CHANGE",
+      "title": "영주 변경 — 방문취업(H-2) 제조업 4년",
+      "disposition": "NEEDS_DEEPER_RESEARCH",
+      "reason": "F-5-14 방문취업 제조업 4년 영주 CHANGE 제출서류 페이지 미확인. p.570-600 범위 검색에서 절차 페이지 불검출. p.579는 직종목록 첨부 문서.",
+      "recommended_action": "체류민원 F-5-14 전용 섹션 범위 재탐색 또는 LLM judge 재실행"
+    },
+    {
+      "row_id": "M1-0320",
+      "detailed_code": "E-7-S",
+      "action_type": "CHANGE",
+      "title": "네거티브방식 전문인력",
+      "disposition": "NEEDS_DEEPER_RESEARCH",
+      "reason": "E-7-S 네거티브방식 전문인력 CHANGE 제출서류 페이지 미확인. 체류 p.290-292 및 사증 p.247-249 모두 scoring/criteria 페이지만 확인됨.",
+      "recommended_action": "체류민원 특정활동(E-7) E-7-S CHANGE 제출서류 전용 섹션 재탐색"
+    },
+    {
+      "row_id": "M1-0290",
+      "detailed_code": "H-1",
+      "action_type": "CHANGE",
+      "title": "관광취업",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "체류민원 p.517 명시: \"다른 체류자격에서 관광취업자격으로 자격변경 불가\". H-1 CHANGE 절차가 존재하지 않음.",
+      "recommended_action": "manual_ref 비워두고 NOT_IN_MANUAL 플래그. UI에서 \"관광취업 자격변경 불가\" 안내 권장."
+    },
+    {
+      "row_id": "M1-0098",
+      "detailed_code": "D-10-T",
+      "action_type": "EXTEND",
+      "title": "최우수인재 구직",
+      "disposition": "NOT_IN_MANUAL",
+      "reason": "D-10-T는 1년 기간의 구직비자로 통상 체류기간연장 불가. 체류민원 p.144-165 전수 검색 결과 D-10-T EXTEND 전용 절차 페이지 없음. LLM judge도 WRONG 판정.",
+      "recommended_action": "manual_ref 비워두고 NOT_IN_MANUAL 플래그. D-10-T 취업 성공 시 다른 자격으로 변경이 일반적 경로."
+    },
+    {
+      "row_id": "M1-0321",
+      "detailed_code": "E-7-S",
+      "action_type": "EXTEND",
+      "title": "네거티브방식 전문인력",
+      "disposition": "NEEDS_DEEPER_RESEARCH",
+      "reason": "E-7-S EXTEND 체류민원 p.280-315 검색: 체류기간 상한 2년의 단수사증 언급 있으나 EXTEND 허가 전용 절차 페이지 미확인. p.290 criteria-only. LLM judge WRONG (BROAD_FAMILY_PAGE).",
+      "recommended_action": "체류민원 E-7-S 전용 섹션 추가 탐색 또는 LLM judge 재실행"
+    },
+    {
+      "row_id": "M1-0324",
+      "detailed_code": "E-7-S",
+      "action_type": "GRANT",
+      "title": "네거티브방식 전문인력 체류자격부여",
+      "disposition": "NEEDS_DEEPER_RESEARCH",
+      "reason": "E-7-S GRANT(체류자격부여) 절차는 체류민원 p.291 통합 섹션에 포함되나 별도 GRANT 섹션 없음. patch_v13에서 체류민원 p.291 매핑 예정.",
+      "recommended_action": "patch_v13 apply 후 RESOLVED로 업데이트"
+    }
+  ]
+}

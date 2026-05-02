@@ -1,0 +1,892 @@
+```json
+{
+  "manual_name": "체류민원",
+  "page_offset_info": "PDF p.X = 매뉴얼 인쇄 -(X-1)- 관계. 예: 인쇄 -4-가 PDF p.4에 있으므로 offset=0. 단 p.518 이후 외국국적동포 별첨은 별도 인쇄 번호 체계(-1- 시작).",
+  "page_offset": 0,
+  "chapters": [
+    {"chapter_no": "1", "title": "외교(A-1)", "page_from": 14, "page_to": 17},
+    {"chapter_no": "2", "title": "공무(A-2)", "page_from": 18, "page_to": 20},
+    {"chapter_no": "3", "title": "협정(A-3)", "page_from": 21, "page_to": 23},
+    {"chapter_no": "4", "title": "사증면제(B-1)", "page_from": 24, "page_to": 24},
+    {"chapter_no": "5", "title": "관광통과(B-2)", "page_from": 25, "page_to": 25},
+    {"chapter_no": "6", "title": "일시취재(C-1)", "page_from": 26, "page_to": 26},
+    {"chapter_no": "7", "title": "단기방문(C-3)", "page_from": 27, "page_to": 28},
+    {"chapter_no": "8", "title": "단기취업(C-4)", "page_from": 29, "page_to": 31},
+    {"chapter_no": "9", "title": "문화예술(D-1)", "page_from": 32, "page_to": 34},
+    {"chapter_no": "10", "title": "유학(D-2)", "page_from": 35, "page_to": 54},
+    {"chapter_no": "11", "title": "기술연수(D-3)", "page_from": 55, "page_to": 76},
+    {"chapter_no": "12", "title": "일반연수(D-4)", "page_from": 81, "page_to": 99},
+    {"chapter_no": "13", "title": "취재(D-5)", "page_from": 100, "page_to": 102},
+    {"chapter_no": "14", "title": "종교(D-6)", "page_from": 103, "page_to": 105},
+    {"chapter_no": "15", "title": "주재(D-7)", "page_from": 106, "page_to": 112},
+    {"chapter_no": "16", "title": "기업투자(D-8)", "page_from": 113, "page_to": 127},
+    {"chapter_no": "17", "title": "무역경영(D-9)", "page_from": 128, "page_to": 139},
+    {"chapter_no": "18", "title": "구직(D-10)", "page_from": 140, "page_to": 163},
+    {"chapter_no": "19", "title": "교수(E-1)", "page_from": 163, "page_to": 171},
+    {"chapter_no": "20", "title": "회화지도(E-2)", "page_from": 171, "page_to": 181},
+    {"chapter_no": "21", "title": "연구(E-3)", "page_from": 182, "page_to": 191},
+    {"chapter_no": "22", "title": "기술지도(E-4)", "page_from": 192, "page_to": 197},
+    {"chapter_no": "23", "title": "전문직업(E-5)", "page_from": 197, "page_to": 201},
+    {"chapter_no": "24", "title": "예술흥행(E-6)", "page_from": 202, "page_to": 209},
+    {"chapter_no": "25", "title": "특정활동(E-7)", "page_from": 209, "page_to": 294},
+    {"chapter_no": "26", "title": "계절근로(E-8)", "page_from": 320, "page_to": 322},
+    {"chapter_no": "27", "title": "비전문취업(E-9)", "page_from": 322, "page_to": 331},
+    {"chapter_no": "28", "title": "선원취업(E-10)", "page_from": 332, "page_to": 337},
+    {"chapter_no": "29", "title": "방문동거(F-1)", "page_from": 337, "page_to": 355},
+    {"chapter_no": "30", "title": "거주(F-2)", "page_from": 356, "page_to": 420},
+    {"chapter_no": "31", "title": "동반(F-3)", "page_from": 421, "page_to": 425},
+    {"chapter_no": "32", "title": "영주(F-5)", "page_from": 426, "page_to": 473},
+    {"chapter_no": "33", "title": "결혼이민(F-6)", "page_from": 474, "page_to": 497},
+    {"chapter_no": "34", "title": "기타(G-1)", "page_from": 498, "page_to": 513},
+    {"chapter_no": "35", "title": "관광취업(H-1)", "page_from": 514, "page_to": 518},
+    {"chapter_no": "36", "title": "외국국적동포관련(C-3-8, F-1, H-2, F-4, F-5)", "page_from": 518, "page_to": 581},
+    {"chapter_no": "37", "title": "지역특화형비자", "page_from": 582, "page_to": 643},
+    {"chapter_no": "38", "title": "국내성장기반외국인청소년 취업·정주체류제도", "page_from": 644, "page_to": 657},
+    {"chapter_no": "39", "title": "탑티어(Top-Tier) 비자(D-10-T, E-7-T, F-2-T, F-5-T)", "page_from": 659, "page_to": 673},
+    {"chapter_no": "40", "title": "광역형비자시범사업", "page_from": 674, "page_to": 735},
+    {"chapter_no": "41", "title": "K-STAR 비자트랙제도", "page_from": 736, "page_to": 764}
+  ],
+  "qualities": {
+    "A-1": {
+      "name": "외교",
+      "page_from": 14,
+      "page_to": 17,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 16, "page_to": 16},
+        "REGISTRATION": {"page_from": 17, "page_to": 17},
+        "EXTEND": {"page_from": 16, "page_to": 16},
+        "REENTRY": {"page_from": 16, "page_to": 16},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 14, "page_to": 15},
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 15, "page_to": 15},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "A-2": {
+      "name": "공무",
+      "page_from": 18,
+      "page_to": 20,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 19, "page_to": 20},
+        "REGISTRATION": {"page_from": 20, "page_to": 20},
+        "EXTEND": {"page_from": 20, "page_to": 20},
+        "REENTRY": {"page_from": 20, "page_to": 20},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 18, "page_to": 19},
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 19, "page_to": 19},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "A-3": {
+      "name": "협정",
+      "page_from": 21,
+      "page_to": 23,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 22, "page_to": 22},
+        "REGISTRATION": {"page_from": 23, "page_to": 23},
+        "EXTEND": {"page_from": 22, "page_to": 22},
+        "REENTRY": {"page_from": 22, "page_to": 22},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 21, "page_to": 21},
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 21, "page_to": 21},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "B-1": {
+      "name": "사증면제",
+      "page_from": 24,
+      "page_to": 24,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 24, "page_to": 24},
+        "REGISTRATION": null,
+        "EXTEND": {"page_from": 24, "page_to": 24},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "B-2": {
+      "name": "관광통과",
+      "page_from": 25,
+      "page_to": 25,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 25, "page_to": 25},
+        "REGISTRATION": null,
+        "EXTEND": {"page_from": 25, "page_to": 25},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "C-1": {
+      "name": "일시취재",
+      "page_from": 26,
+      "page_to": 26,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": null,
+        "REGISTRATION": null,
+        "EXTEND": {"page_from": 26, "page_to": 26},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "C-3": {
+      "name": "단기방문",
+      "page_from": 27,
+      "page_to": 28,
+      "sub_categories": [
+        {"code": "C-3-1", "name": "단기일반", "page_from": 27, "page_to": 27},
+        {"code": "C-3-2", "name": "단체관광 등", "page_from": 27, "page_to": 27},
+        {"code": "C-3-3", "name": "의료관광", "page_from": 27, "page_to": 27},
+        {"code": "C-3-4", "name": "단기상용", "page_from": 27, "page_to": 27},
+        {"code": "C-3-5", "name": "협정상 단기상용", "page_from": 27, "page_to": 27},
+        {"code": "C-3-6", "name": "우대기업 초청 단기상용", "page_from": 27, "page_to": 27},
+        {"code": "C-3-7", "name": "도착관광", "page_from": 27, "page_to": 27},
+        {"code": "C-3-8", "name": "동포방문", "page_from": 27, "page_to": 27},
+        {"code": "C-3-9", "name": "일반관광", "page_from": 27, "page_to": 27},
+        {"code": "C-3-10", "name": "순수환승", "page_from": 27, "page_to": 27}
+      ],
+      "actions": {
+        "CHANGE": null,
+        "REGISTRATION": {"page_from": 28, "page_to": 28},
+        "EXTEND": {"page_from": 27, "page_to": 28},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "C-4": {
+      "name": "단기취업",
+      "page_from": 29,
+      "page_to": 31,
+      "sub_categories": [
+        {"code": "C-4-1", "name": "계절근로(농작물재배·수확)", "page_from": 29, "page_to": 29},
+        {"code": "C-4-5", "name": "일시흥행 등 단기취업", "page_from": 29, "page_to": 29}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 30, "page_to": 30},
+        "REGISTRATION": null,
+        "EXTEND": {"page_from": 31, "page_to": 31},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": {"page_from": 29, "page_to": 30},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-1": {
+      "name": "문화예술",
+      "page_from": 32,
+      "page_to": 34,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 33, "page_to": 33},
+        "REGISTRATION": {"page_from": 34, "page_to": 34},
+        "EXTEND": {"page_from": 33, "page_to": 34},
+        "REENTRY": {"page_from": 34, "page_to": 34},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 32, "page_to": 32},
+        "WORKPLACE": {"page_from": 32, "page_to": 33},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-2": {
+      "name": "유학",
+      "page_from": 35,
+      "page_to": 54,
+      "sub_categories": [
+        {"code": "D-2-1", "name": "전문학사과정", "page_from": 35, "page_to": 35},
+        {"code": "D-2-2", "name": "학사과정", "page_from": 35, "page_to": 35},
+        {"code": "D-2-3", "name": "석사과정", "page_from": 35, "page_to": 35},
+        {"code": "D-2-4", "name": "박사과정", "page_from": 35, "page_to": 35},
+        {"code": "D-2-5", "name": "연구과정", "page_from": 35, "page_to": 35},
+        {"code": "D-2-6", "name": "교환학생", "page_from": 35, "page_to": 35},
+        {"code": "D-2-7", "name": "일-학습연계 유학", "page_from": 35, "page_to": 35},
+        {"code": "D-2-8", "name": "방문학생", "page_from": 35, "page_to": 35},
+        {"code": "D-4-1", "name": "한국어연수(어학연수)", "page_from": 35, "page_to": 35},
+        {"code": "D-4-7", "name": "외국어연수", "page_from": 35, "page_to": 35}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 40, "page_to": 46},
+        "REGISTRATION": {"page_from": 44, "page_to": 46},
+        "EXTEND": {"page_from": 42, "page_to": 44},
+        "REENTRY": {"page_from": 44, "page_to": 44},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 36, "page_to": 36},
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": {"page_from": 37, "page_to": 40}
+      }
+    },
+    "D-3": {
+      "name": "기술연수",
+      "page_from": 55,
+      "page_to": 76,
+      "sub_categories": [
+        {"code": "D-3-1", "name": "기술연수(구분류)", "page_from": 57, "page_to": 57},
+        {"code": "D-3-11", "name": "해외직접투자 기술연수", "page_from": 57, "page_to": 57},
+        {"code": "D-3-12", "name": "기술투자 기술연수", "page_from": 57, "page_to": 57},
+        {"code": "D-3-13", "name": "플랜트수출 기술연수", "page_from": 57, "page_to": 57}
+      ],
+      "actions": {
+        "CHANGE": null,
+        "REGISTRATION": {"page_from": 56, "page_to": 56},
+        "EXTEND": {"page_from": 55, "page_to": 56},
+        "REENTRY": {"page_from": 56, "page_to": 56},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-4": {
+      "name": "일반연수",
+      "page_from": 81,
+      "page_to": 99,
+      "sub_categories": [
+        {"code": "D-4-1", "name": "한국어연수(어학연수)", "page_from": 81, "page_to": 81},
+        {"code": "D-4-2", "name": "졸업생 연수·기업맞춤형인턴십(D-4-2K)", "page_from": 82, "page_to": 82},
+        {"code": "D-4-3", "name": "고등학교 이하 외국인유학생", "page_from": 83, "page_to": 84},
+        {"code": "D-4-5", "name": "한식조리연수", "page_from": 90, "page_to": 90},
+        {"code": "D-4-6", "name": "우수사설교육기관 외국인연수", "page_from": 85, "page_to": 88},
+        {"code": "D-4-7", "name": "외국어연수", "page_from": 81, "page_to": 81}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 81, "page_to": 88},
+        "REGISTRATION": {"page_from": 91, "page_to": 92},
+        "EXTEND": {"page_from": 88, "page_to": 91},
+        "REENTRY": {"page_from": 91, "page_to": 91},
+        "VISA_CONFIRM": {"page_from": 81, "page_to": 81},
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-5": {
+      "name": "취재",
+      "page_from": 100,
+      "page_to": 102,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 101, "page_to": 101},
+        "REGISTRATION": {"page_from": 102, "page_to": 102},
+        "EXTEND": {"page_from": 101, "page_to": 101},
+        "REENTRY": {"page_from": 101, "page_to": 102},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 100, "page_to": 100},
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-6": {
+      "name": "종교",
+      "page_from": 103,
+      "page_to": 105,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 104, "page_to": 105},
+        "REGISTRATION": {"page_from": 105, "page_to": 105},
+        "EXTEND": {"page_from": 105, "page_to": 105},
+        "REENTRY": {"page_from": 105, "page_to": 105},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 103, "page_to": 104},
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-7": {
+      "name": "주재",
+      "page_from": 106,
+      "page_to": 112,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 108, "page_to": 109},
+        "REGISTRATION": {"page_from": 111, "page_to": 111},
+        "EXTEND": {"page_from": 110, "page_to": 111},
+        "REENTRY": {"page_from": 111, "page_to": 111},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 106, "page_to": 108},
+        "WORKPLACE": {"page_from": 107, "page_to": 108},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-8": {
+      "name": "기업투자",
+      "page_from": 113,
+      "page_to": 127,
+      "sub_categories": [
+        {"code": "D-8-1", "name": "법인에 투자", "page_from": 113, "page_to": 113},
+        {"code": "D-8-2", "name": "벤처 투자", "page_from": 113, "page_to": 113},
+        {"code": "D-8-3", "name": "개인기업에 투자", "page_from": 113, "page_to": 113},
+        {"code": "D-8-4", "name": "기술창업", "page_from": 113, "page_to": 113},
+        {"code": "D-8-4S", "name": "기술창업-스타트업코리아 특별비자", "page_from": 116, "page_to": 117}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 115, "page_to": 120},
+        "REGISTRATION": {"page_from": 124, "page_to": 125},
+        "EXTEND": {"page_from": 121, "page_to": 124},
+        "REENTRY": {"page_from": 124, "page_to": 124},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 113, "page_to": 115},
+        "WORKPLACE": {"page_from": 114, "page_to": 115},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-9": {
+      "name": "무역경영",
+      "page_from": 128,
+      "page_to": 139,
+      "sub_categories": [
+        {"code": "D-9-1", "name": "무역업(점수제)", "page_from": 129, "page_to": 129},
+        {"code": "D-9-5", "name": "유학생 무역경영자", "page_from": 131, "page_to": 131}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 129, "page_to": 132},
+        "REGISTRATION": {"page_from": 134, "page_to": 134},
+        "EXTEND": {"page_from": 132, "page_to": 133},
+        "REENTRY": {"page_from": 134, "page_to": 134},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 128, "page_to": 128},
+        "WORKPLACE": {"page_from": 129, "page_to": 129},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "D-10": {
+      "name": "구직",
+      "page_from": 140,
+      "page_to": 163,
+      "sub_categories": [
+        {"code": "D-10-1", "name": "일반구직", "page_from": 140, "page_to": 140},
+        {"code": "D-10-2", "name": "기술창업준비", "page_from": 140, "page_to": 140},
+        {"code": "D-10-3", "name": "첨단기술인턴", "page_from": 140, "page_to": 140},
+        {"code": "D-10-T", "name": "최우수인재", "page_from": 144, "page_to": 144}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 142, "page_to": 149},
+        "REGISTRATION": {"page_from": 157, "page_to": 157},
+        "EXTEND": {"page_from": 153, "page_to": 156},
+        "REENTRY": {"page_from": 157, "page_to": 157},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 141, "page_to": 141},
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-1": {
+      "name": "교수",
+      "page_from": 163,
+      "page_to": 171,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 168, "page_to": 169},
+        "REGISTRATION": {"page_from": 170, "page_to": 171},
+        "EXTEND": {"page_from": 169, "page_to": 170},
+        "REENTRY": {"page_from": 170, "page_to": 170},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 163, "page_to": 167},
+        "WORKPLACE": {"page_from": 167, "page_to": 168},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-2": {
+      "name": "회화지도",
+      "page_from": 171,
+      "page_to": 181,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 178, "page_to": 180},
+        "REGISTRATION": {"page_from": 181, "page_to": 181},
+        "EXTEND": {"page_from": 180, "page_to": 181},
+        "REENTRY": {"page_from": 181, "page_to": 181},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 172, "page_to": 175},
+        "WORKPLACE": {"page_from": 175, "page_to": 178},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-3": {
+      "name": "연구",
+      "page_from": 182,
+      "page_to": 191,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 187, "page_to": 190},
+        "REGISTRATION": {"page_from": 191, "page_to": 191},
+        "EXTEND": {"page_from": 190, "page_to": 191},
+        "REENTRY": {"page_from": 191, "page_to": 191},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 183, "page_to": 186},
+        "WORKPLACE": {"page_from": 186, "page_to": 187},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-4": {
+      "name": "기술지도",
+      "page_from": 192,
+      "page_to": 197,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 195, "page_to": 196},
+        "REGISTRATION": {"page_from": 197, "page_to": 197},
+        "EXTEND": {"page_from": 196, "page_to": 197},
+        "REENTRY": {"page_from": 197, "page_to": 197},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 192, "page_to": 194},
+        "WORKPLACE": {"page_from": 194, "page_to": 195},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-5": {
+      "name": "전문직업",
+      "page_from": 197,
+      "page_to": 201,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 199, "page_to": 200},
+        "REGISTRATION": {"page_from": 201, "page_to": 201},
+        "EXTEND": {"page_from": 200, "page_to": 201},
+        "REENTRY": {"page_from": 200, "page_to": 201},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 197, "page_to": 198},
+        "WORKPLACE": {"page_from": 198, "page_to": 199},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-6": {
+      "name": "예술흥행",
+      "page_from": 202,
+      "page_to": 209,
+      "sub_categories": [
+        {"code": "E-6-1", "name": "음악·미술·문학 등 예술·방송연예활동", "page_from": 203, "page_to": 203},
+        {"code": "E-6-2", "name": "호텔업시설·유흥업소 등에서의 공연", "page_from": 204, "page_to": 205},
+        {"code": "E-6-3", "name": "운동선수·프로팀 감독·매니저", "page_from": 203, "page_to": 203}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 205, "page_to": 207},
+        "REGISTRATION": {"page_from": 208, "page_to": 209},
+        "EXTEND": {"page_from": 207, "page_to": 208},
+        "REENTRY": {"page_from": 208, "page_to": 208},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 202, "page_to": 203},
+        "WORKPLACE": {"page_from": 203, "page_to": 205},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-7": {
+      "name": "특정활동",
+      "page_from": 209,
+      "page_to": 294,
+      "sub_categories": [
+        {"code": "E-7-1", "name": "전문인력(관리자 및 전문가 67개 직종)", "page_from": 210, "page_to": 210},
+        {"code": "E-7-2", "name": "준전문인력(사무 및 서비스종사자 10개 직종)", "page_from": 210, "page_to": 210},
+        {"code": "E-7-3", "name": "일반기능인력(기능원 및 관련기능종사자 14개 직종)", "page_from": 210, "page_to": 210},
+        {"code": "E-7-4", "name": "숙련기능인력(점수제 3개 직종)", "page_from": 210, "page_to": 210},
+        {"code": "E-7-91", "name": "FTA 독립전문가", "page_from": 210, "page_to": 210},
+        {"code": "E-7-S", "name": "네거티브 방식 전문인력", "page_from": 210, "page_to": 210},
+        {"code": "E-7-Y", "name": "국내성장인력", "page_from": 210, "page_to": 210},
+        {"code": "E-7-T", "name": "최우수인재 특정활동", "page_from": 210, "page_to": 210}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 220, "page_to": 223},
+        "REGISTRATION": {"page_from": 225, "page_to": 225},
+        "EXTEND": {"page_from": 223, "page_to": 224},
+        "REENTRY": {"page_from": 225, "page_to": 225},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 215, "page_to": 217},
+        "WORKPLACE": {"page_from": 217, "page_to": 220},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-8": {
+      "name": "계절근로",
+      "page_from": 320,
+      "page_to": 322,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": null,
+        "REGISTRATION": {"page_from": 320, "page_to": 320},
+        "EXTEND": {"page_from": 321, "page_to": 321},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 321, "page_to": 321},
+        "WORKPLACE": {"page_from": 320, "page_to": 321},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-9": {
+      "name": "비전문취업",
+      "page_from": 322,
+      "page_to": 331,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 325, "page_to": 325},
+        "REGISTRATION": {"page_from": 327, "page_to": 327},
+        "EXTEND": {"page_from": 325, "page_to": 327},
+        "REENTRY": {"page_from": 327, "page_to": 327},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": {"page_from": 322, "page_to": 325},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "E-10": {
+      "name": "선원취업",
+      "page_from": 332,
+      "page_to": 337,
+      "sub_categories": [
+        {"code": "E-10-1", "name": "내항선원", "page_from": 332, "page_to": 332},
+        {"code": "E-10-2", "name": "어선원", "page_from": 332, "page_to": 332},
+        {"code": "E-10-3", "name": "순항여객선원", "page_from": 332, "page_to": 332}
+      ],
+      "actions": {
+        "CHANGE": null,
+        "REGISTRATION": {"page_from": 335, "page_to": 335},
+        "EXTEND": {"page_from": 334, "page_to": 335},
+        "REENTRY": {"page_from": 335, "page_to": 335},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 332, "page_to": 333},
+        "WORKPLACE": {"page_from": 333, "page_to": 334},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "F-1": {
+      "name": "방문동거",
+      "page_from": 337,
+      "page_to": 355,
+      "sub_categories": [
+        {"code": "F-1-1", "name": "국민의 미성년 외국인 자녀(거주(F-2) 포함 이전 지칭)", "page_from": 337, "page_to": 337},
+        {"code": "F-1-5", "name": "결혼이민자의 부모 등 가족", "page_from": 351, "page_to": 353},
+        {"code": "F-1-6", "name": "가사정리 목적 방문동거", "page_from": 341, "page_to": 341},
+        {"code": "F-1-12", "name": "점수제 우수인재의 배우자·미성년자녀", "page_from": 338, "page_to": 338},
+        {"code": "F-1-13", "name": "고등학교 이하 외국인유학생 동반부모", "page_from": 343, "page_to": 344},
+        {"code": "F-1-16", "name": "난민인정자의 배우자·미성년자녀", "page_from": 344, "page_to": 345},
+        {"code": "F-1-28", "name": "귀화자의 외국국적 부모 등", "page_from": 345, "page_to": 345},
+        {"code": "F-1-51", "name": "국제 입양 외국인", "page_from": 345, "page_to": 346},
+        {"code": "F-1-52", "name": "결혼이민자의 전혼관계 출생 미성년 자녀", "page_from": 346, "page_to": 347},
+        {"code": "F-1-D", "name": "디지털노마드(워케이션) 비자", "page_from": 347, "page_to": 347}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 340, "page_to": 347},
+        "REGISTRATION": {"page_from": 355, "page_to": 355},
+        "EXTEND": {"page_from": 347, "page_to": 355},
+        "REENTRY": {"page_from": 355, "page_to": 355},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 337, "page_to": 338},
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 338, "page_to": 340},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "F-2": {
+      "name": "거주",
+      "page_from": 356,
+      "page_to": 420,
+      "sub_categories": [
+        {"code": "F-2-2", "name": "국민의 미성년 외국인 자녀", "page_from": 360, "page_to": 360},
+        {"code": "F-2-3", "name": "영주자격 소지자의 배우자·미성년자녀", "page_from": 361, "page_to": 362},
+        {"code": "F-2-4", "name": "난민인정자", "page_from": 362, "page_to": 362},
+        {"code": "F-2-5", "name": "고액투자자", "page_from": 362, "page_to": 362},
+        {"code": "F-2-7", "name": "점수제 우수인재", "page_from": 363, "page_to": 370},
+        {"code": "F-2-7S", "name": "잠재적 우수인재(이공계 특성화대학)", "page_from": 365, "page_to": 366},
+        {"code": "F-2-71", "name": "점수제 우수인재의 배우자·미성년자녀", "page_from": 366, "page_to": 366},
+        {"code": "F-2-8", "name": "관광·휴양시설 투자자", "page_from": 370, "page_to": 375},
+        {"code": "F-2-81", "name": "관광·휴양시설 투자자의 미혼자녀", "page_from": 373, "page_to": 373},
+        {"code": "F-2-12", "name": "공익사업 투자자(일반)", "page_from": 379, "page_to": 385},
+        {"code": "F-2-13", "name": "공익사업 투자자 동반가족", "page_from": 379, "page_to": 379},
+        {"code": "F-2-14", "name": "공익사업 은퇴이민 투자자 동반가족", "page_from": 379, "page_to": 379},
+        {"code": "F-2-16", "name": "특별기여·공익증진자", "page_from": 385, "page_to": 389},
+        {"code": "F-2-99", "name": "기타 장기체류자", "page_from": 389, "page_to": 403},
+        {"code": "F-2-R", "name": "지역특화형 우수인재", "page_from": 583, "page_to": 600}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 360, "page_to": 403},
+        "REGISTRATION": {"page_from": 420, "page_to": 420},
+        "EXTEND": {"page_from": 406, "page_to": 419},
+        "REENTRY": {"page_from": 419, "page_to": 420},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 357, "page_to": 359},
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 359, "page_to": 360},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "F-3": {
+      "name": "동반",
+      "page_from": 421,
+      "page_to": 425,
+      "sub_categories": [
+        {"code": "F-3-1R", "name": "지역특화 우수인재 동반가족", "page_from": 596, "page_to": 601},
+        {"code": "F-3-2R", "name": "지역특화 재외동포 동반가족", "page_from": 618, "page_to": 625},
+        {"code": "F-3-3R", "name": "지역특화 숙련기능인력 동반가족", "page_from": 612, "page_to": 617},
+        {"code": "F-3-18", "name": "기타 장기체류자(F-2-99)의 배우자·미성년자녀", "page_from": 398, "page_to": 400},
+        {"code": "F-3-19", "name": "방문취업(H-2) 자격자의 배우자·미성년자녀", "page_from": 424, "page_to": 424},
+        {"code": "F-3-20", "name": "재외동포(F-4) 자격자의 미성년자녀", "page_from": 424, "page_to": 424}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 423, "page_to": 424},
+        "REGISTRATION": {"page_from": 425, "page_to": 425},
+        "EXTEND": {"page_from": 425, "page_to": 425},
+        "REENTRY": {"page_from": 425, "page_to": 425},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 421, "page_to": 423},
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 423, "page_to": 423},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "F-5": {
+      "name": "영주",
+      "page_from": 426,
+      "page_to": 473,
+      "sub_categories": [
+        {"code": "F-5-1", "name": "일반 영주자(5년 이상 체류)", "page_from": 445, "page_to": 447},
+        {"code": "F-5-2", "name": "결혼이민자(국민의 배우자)", "page_from": 447, "page_to": 452},
+        {"code": "F-5-3", "name": "국민의 미성년 자녀", "page_from": 451, "page_to": 452},
+        {"code": "F-5-4", "name": "일반 영주자의 배우자·미성년 자녀", "page_from": 453, "page_to": 454},
+        {"code": "F-5-5", "name": "고액 투자자", "page_from": 455, "page_to": 455},
+        {"code": "F-5-6", "name": "재외동포(F-4) 2년 이상 체류자", "page_from": 537, "page_to": 537},
+        {"code": "F-5-7", "name": "외국국적동포 국적취득 요건 구비자", "page_from": 538, "page_to": 538},
+        {"code": "F-5-8", "name": "대한민국 출생 재한화교", "page_from": 455, "page_to": 456},
+        {"code": "F-5-9", "name": "첨단분야 박사(해외)", "page_from": 456, "page_to": 457},
+        {"code": "F-5-10", "name": "학사·석사 및 자격증 소지자", "page_from": 457, "page_to": 459},
+        {"code": "F-5-11", "name": "특정분야 능력 소유자", "page_from": 459, "page_to": 462},
+        {"code": "F-5-12", "name": "특별 공로자", "page_from": 463, "page_to": 463},
+        {"code": "F-5-13", "name": "연금 수혜자", "page_from": 464, "page_to": 464},
+        {"code": "F-5-14", "name": "방문취업 4년 이상 제조업 등 근무자", "page_from": 539, "page_to": 540},
+        {"code": "F-5-15", "name": "국내대학원 박사학위 취득자", "page_from": 456, "page_to": 457},
+        {"code": "F-5-16", "name": "점수제 거주자격으로 3년 이상 체류자", "page_from": 464, "page_to": 465},
+        {"code": "F-5-17", "name": "관광·휴양시설 투자자", "page_from": 466, "page_to": 467},
+        {"code": "F-5-18", "name": "점수제 영주자의 배우자·미성년 자녀", "page_from": 464, "page_to": 465},
+        {"code": "F-5-19", "name": "관광·휴양시설 투자자의 배우자·미혼 자녀", "page_from": 466, "page_to": 467},
+        {"code": "F-5-20", "name": "영주권자의 국내 출생 자녀", "page_from": 467, "page_to": 467},
+        {"code": "F-5-21", "name": "공익사업 일반투자자", "page_from": 468, "page_to": 469},
+        {"code": "F-5-22", "name": "공익사업 투자자의 배우자·미혼 자녀", "page_from": 468, "page_to": 469},
+        {"code": "F-5-23", "name": "공익사업 은퇴이민 투자자", "page_from": 468, "page_to": 469},
+        {"code": "F-5-24", "name": "기술창업 투자자", "page_from": 469, "page_to": 470},
+        {"code": "F-5-25", "name": "조건부 고액투자자", "page_from": 470, "page_to": 471},
+        {"code": "F-5-26", "name": "외국인투자기업 연구개발 인력", "page_from": 470, "page_to": 471},
+        {"code": "F-5-27", "name": "난민 거주자격 2년 이상 체류자", "page_from": 429, "page_to": 429},
+        {"code": "F-5-6R", "name": "지역특화 재외동포영주", "page_from": 620, "page_to": 624},
+        {"code": "F-5-S1", "name": "K-STAR 영주", "page_from": 740, "page_to": 743},
+        {"code": "F-5-S2", "name": "K-STAR 영주 동반가족", "page_from": 745, "page_to": 745}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 428, "page_to": 471},
+        "REGISTRATION": {"page_from": 471, "page_to": 471},
+        "EXTEND": null,
+        "REENTRY": {"page_from": 471, "page_to": 471},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": {"page_from": 428, "page_to": 428},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "F-6": {
+      "name": "결혼이민",
+      "page_from": 474,
+      "page_to": 497,
+      "sub_categories": [
+        {"code": "F-6-1", "name": "국민의 배우자", "page_from": 475, "page_to": 475},
+        {"code": "F-6-2", "name": "자녀양육자", "page_from": 475, "page_to": 475},
+        {"code": "F-6-3", "name": "혼인단절자", "page_from": 475, "page_to": 475}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 475, "page_to": 490},
+        "REGISTRATION": {"page_from": 496, "page_to": 497},
+        "EXTEND": {"page_from": 490, "page_to": 495},
+        "REENTRY": {"page_from": 496, "page_to": 496},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "G-1": {
+      "name": "기타",
+      "page_from": 498,
+      "page_to": 513,
+      "sub_categories": [
+        {"code": "G-1-1", "name": "산업재해 청구 및 치료 중인 사람과 그 가족", "page_from": 504, "page_to": 504},
+        {"code": "G-1-2", "name": "질병·사고로 치료 중인 사람과 그 가족", "page_from": 504, "page_to": 504},
+        {"code": "G-1-3", "name": "각종 소송 진행 중인 사람", "page_from": 505, "page_to": 505},
+        {"code": "G-1-4", "name": "임금체불로 노동관서에서 중재 중인 사람", "page_from": 505, "page_to": 505},
+        {"code": "G-1-5", "name": "난민신청자", "page_from": 506, "page_to": 506},
+        {"code": "G-1-6", "name": "난민불인정자 중 인도적 체류허가자", "page_from": 506, "page_to": 506},
+        {"code": "G-1-9", "name": "임신·출산 등 인도적 배려자", "page_from": 506, "page_to": 507},
+        {"code": "G-1-10", "name": "외국인환자", "page_from": 507, "page_to": 507},
+        {"code": "G-1-11", "name": "성폭력피해자 등 인도적 고려가 필요한 사람", "page_from": 507, "page_to": 507},
+        {"code": "G-1-12", "name": "인도적 체류허가자의 가족", "page_from": 508, "page_to": 508},
+        {"code": "G-1-99", "name": "기타 사유에 해당되는 사람", "page_from": 508, "page_to": 508}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 504, "page_to": 508},
+        "REGISTRATION": {"page_from": 513, "page_to": 513},
+        "EXTEND": {"page_from": 509, "page_to": 513},
+        "REENTRY": {"page_from": 513, "page_to": 513},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 498, "page_to": 502},
+        "WORKPLACE": {"page_from": 502, "page_to": 502},
+        "GRANT": {"page_from": 502, "page_to": 504},
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "H-1": {
+      "name": "관광취업",
+      "page_from": 514,
+      "page_to": 518,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": {"page_from": 516, "page_to": 517},
+        "REGISTRATION": {"page_from": 517, "page_to": 518},
+        "EXTEND": {"page_from": 517, "page_to": 517},
+        "REENTRY": {"page_from": 517, "page_to": 517},
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": {"page_from": 516, "page_to": 516},
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": null,
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "H-2": {
+      "name": "방문취업",
+      "page_from": 521,
+      "page_to": 527,
+      "sub_categories": [],
+      "actions": {
+        "CHANGE": null,
+        "REGISTRATION": {"page_from": 524, "page_to": 524},
+        "EXTEND": {"page_from": 527, "page_to": 527},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": null,
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": {"page_from": 529, "page_to": 529},
+        "ACTIVITY_EXTRA": null
+      }
+    },
+    "F-4": {
+      "name": "재외동포",
+      "page_from": 528,
+      "page_to": 532,
+      "sub_categories": [
+        {"code": "F-4-41", "name": "출생에 의해 대한민국 국적을 보유했던 자", "page_from": 529, "page_to": 529},
+        {"code": "F-4-42", "name": "F-4-41의 직계비속", "page_from": 529, "page_to": 529},
+        {"code": "F-4-R", "name": "지역특화형 재외동포", "page_from": 618, "page_to": 625}
+      ],
+      "actions": {
+        "CHANGE": {"page_from": 529, "page_to": 530},
+        "REGISTRATION": null,
+        "EXTEND": {"page_from": 530, "page_to": 530},
+        "REENTRY": null,
+        "VISA_CONFIRM": null,
+        "EXTRA_WORK": {"page_from": 532, "page_to": 532},
+        "WORKPLACE": null,
+        "GRANT": null,
+        "DOMESTIC_RESIDENCE_REPORT": {"page_from": 530, "page_to": 530},
+        "ACTIVITY_EXTRA": null
+      }
+    }
+  },
+  "code_aliases": [
+    {"manual_code": "F-5-2", "manual_meaning": "결혼이민자(국민의 배우자)", "note": "매뉴얼은 시행령 별표1의3 2호 기반, 결혼이민(F-6-1)으로 2년 이상 체류 후 취득"},
+    {"manual_code": "F-5-3", "manual_meaning": "국민의 미성년 자녀", "note": "거주(F-2-2)로 2년 이상 체류 후 취득"},
+    {"manual_code": "F-5-4", "manual_meaning": "일반 영주자의 배우자 또는 미성년 자녀", "note": "점수제 영주자 제외 일반 영주자(F-5-1 등) 소지자의 가족"},
+    {"manual_code": "F-5-6", "manual_meaning": "재외동포(F-4) 자격으로 2년 이상 체류한 사람", "note": "외국국적동포 별도 지침 적용"},
+    {"manual_code": "F-5-7", "manual_meaning": "외국국적동포로서 국적취득요건을 갖춘 사람", "note": "외국국적동포 별도 지침 적용"},
+    {"manual_code": "F-5-14", "manual_meaning": "방문취업(H-2) 자격으로 제조업 등 4년 이상 근무자", "note": "외국국적동포 별도 지침 적용"},
+    {"manual_code": "F-5-16", "manual_meaning": "점수제 거주(F-2-7) 자격으로 3년 이상 체류자", "note": "점수제 영주자"},
+    {"manual_code": "F-5-27", "manual_meaning": "난민 거주자격(F-2-4)으로 2년 이상 체류자", "note": "별도 지침 적용"},
+    {"manual_code": "E-7-4R", "manual_meaning": "지역특화형 숙련기능인력", "note": "지역특화형 비자 시범사업 대상"},
+    {"manual_code": "F-2-R", "manual_meaning": "지역특화형 우수인재", "note": "지역특화형 비자 시범사업 대상"},
+    {"manual_code": "F-4-R", "manual_meaning": "지역특화형 재외동포", "note": "지역특화형 비자 시범사업 대상"},
+    {"manual_code": "F-5-6R", "manual_meaning": "지역특화형 재외동포영주", "note": "지역특화형 비자 시범사업 대상"},
+    {"manual_code": "F-2-7S", "manual_meaning": "잠재적 우수인재(K-STAR 거주)", "note": "이공계 특성화 대학·연구원 석박사 취득자"},
+    {"manual_code": "F-5-S1", "manual_meaning": "K-STAR 영주", "note": "K-STAR 비자트랙 영주자격"},
+    {"manual_code": "F-5-S2", "manual_meaning": "K-STAR 영주 동반가족", "note": "K-STAR 비자트랙 동반가족 영주자격"},
+    {"manual_code": "E-7-T", "manual_meaning": "최우수인재 특정활동(Top-Tier)", "note": "탑티어 비자트랙 특정활동 자격"},
+    {"manual_code": "D-10-T", "manual_meaning": "최우수인재 구직(Top-Tier)", "note": "탑티어 비자트랙 구직 자격"},
+    {"manual_code": "E-7-Y", "manual_meaning": "국내성장인력", "note": "국내 성장 기반 외국인 청소년 취업 자격"}
+  ],
+  "notes": "1) PDF p.518 이후 '알기쉬운 외국국적동포 업무매뉴얼', '지역특화형비자', '국내성장기반 외국인 청소년', '탑티어 비자', '광역형비자', 'K-STAR 비자트랙' 별첨은 별도 인쇄 페이지 번호(-1-부터 시작)를 사용하므로, 해당 구역의 page_from/page_to는 PDF 마커(p.X) 기준으로 기재함. 2) 기술연수(D-3)의 경우 해외투자기업 기술연수생 훈령(법무부훈령) 전문이 p.57~76에 수록됨. 3) 영주(F-5-2/F-5-3) 결혼이민자 및 국민의 미성년자녀는 F-5 챕터 내에 별도 세부절차로 다루어짐(p.447~453). 4) 특정활동(E-7) 직종별 세부관리기준은 p.231~294에 수록되어 있으며, 숙련기능인력(E-7-4) 안내매뉴얼은 p.295~319에 별도 수록됨."
+}
+```

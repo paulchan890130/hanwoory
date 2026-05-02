@@ -1,0 +1,301 @@
+{
+  "patch_meta": {
+    "version": "v18",
+    "mode": "DRY_RUN",
+    "scope": "6 rows: E-7 EXTEND×5 p.221→p.223 + F-3 GRANT NOT_IN_MANUAL"
+  },
+  "summary": {
+    "mode": "APPLY",
+    "production_db_modified": true,
+    "patch_candidate_count": 6,
+    "diff_row_ids": [
+      "M1-0006",
+      "M1-0172",
+      "M1-0176",
+      "M1-0308",
+      "M1-0311",
+      "M1-0316"
+    ],
+    "diff_count": 6,
+    "non_target_row_diffs": 0,
+    "non_manual_ref_field_diffs": 0,
+    "db_byte_size_before": 1005096
+  },
+  "rows": [
+    {
+      "row_id": "M1-0172",
+      "detailed_code": "E-7-1",
+      "action_type": "EXTEND",
+      "title": "전문인력 연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 221,
+          "page_to": 227,
+          "match_text": "체류기간 연장",
+          "section_pf": 214,
+          "section_pt": 231,
+          "score": 63,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 181,
+          "page_to": 181,
+          "match_text": "기간연장",
+          "section_pf": 181,
+          "section_pt": 185,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-1 전문인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-1 전문인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.223: '연장허가 / 가. 제출서류' + '체류기간연장허가' heading + E-7 독립전문가 관련 체류기간연장 제출서류. 기존 p.221 = E-7 공통첨부서류(CHANGE/REGISTRATION 공용) — EXTEND 전용 heading 없음. p.223이 E-7 연장허가 전용 섹션. 직접 PyMuPDF 추출 검증(2026-05-02)."
+    },
+    {
+      "row_id": "M1-0176",
+      "detailed_code": "E-7-4",
+      "action_type": "EXTEND",
+      "title": "숙련기능인력 연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 221,
+          "page_to": 227,
+          "match_text": "체류기간 연장",
+          "section_pf": 214,
+          "section_pt": 231,
+          "score": 63,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 181,
+          "page_to": 181,
+          "match_text": "기간연장",
+          "section_pf": 181,
+          "section_pt": 185,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-4 숙련기능인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-4 숙련기능인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.223: '연장허가 / 가. 제출서류' + '체류기간연장허가' heading + E-7 독립전문가 관련 체류기간연장 제출서류. 기존 p.221 = E-7 공통첨부서류(CHANGE/REGISTRATION 공용) — EXTEND 전용 heading 없음. p.223이 E-7 연장허가 전용 섹션. 직접 PyMuPDF 추출 검증(2026-05-02)."
+    },
+    {
+      "row_id": "M1-0308",
+      "detailed_code": "E-7-4R",
+      "action_type": "EXTEND",
+      "title": "지역특화형 숙련기능인력 연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 221,
+          "page_to": 227,
+          "match_text": "체류기간 연장",
+          "section_pf": 214,
+          "section_pt": 231,
+          "score": 63,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 181,
+          "page_to": 181,
+          "match_text": "기간연장",
+          "section_pf": 181,
+          "section_pt": 185,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-4R 지역특화형숙련기능 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-4R 지역특화형숙련기능 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.223: '연장허가 / 가. 제출서류' + '체류기간연장허가' heading + E-7 독립전문가 관련 체류기간연장 제출서류. 기존 p.221 = E-7 공통첨부서류(CHANGE/REGISTRATION 공용) — EXTEND 전용 heading 없음. p.223이 E-7 연장허가 전용 섹션. 직접 PyMuPDF 추출 검증(2026-05-02)."
+    },
+    {
+      "row_id": "M1-0311",
+      "detailed_code": "E-7-2",
+      "action_type": "EXTEND",
+      "title": "준전문인력 연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 221,
+          "page_to": 227,
+          "match_text": "체류기간 연장",
+          "section_pf": 214,
+          "section_pt": 231,
+          "score": 63,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 181,
+          "page_to": 181,
+          "match_text": "기간연장",
+          "section_pf": 181,
+          "section_pt": 185,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-2 준전문인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-2 준전문인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.223: '연장허가 / 가. 제출서류' + '체류기간연장허가' heading + E-7 독립전문가 관련 체류기간연장 제출서류. 기존 p.221 = E-7 공통첨부서류(CHANGE/REGISTRATION 공용) — EXTEND 전용 heading 없음. p.223이 E-7 연장허가 전용 섹션. 직접 PyMuPDF 추출 검증(2026-05-02)."
+    },
+    {
+      "row_id": "M1-0316",
+      "detailed_code": "E-7-3",
+      "action_type": "EXTEND",
+      "title": "일반기능인력 연장",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 221,
+          "page_to": 227,
+          "match_text": "체류기간 연장",
+          "section_pf": 214,
+          "section_pt": 231,
+          "score": 63,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        },
+        {
+          "manual": "사증민원",
+          "page_from": 181,
+          "page_to": 181,
+          "match_text": "기간연장",
+          "section_pf": 181,
+          "section_pt": 185,
+          "score": 9,
+          "match_kind": "general_with_action",
+          "match_type": "action_prefix"
+        }
+      ],
+      "new_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-3 일반기능인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "added_entries": [
+        {
+          "manual": "체류민원",
+          "page_from": 223,
+          "page_to": 223,
+          "match_type": "manual_override",
+          "match_text": "E-7-3 일반기능인력 EXTEND 체류기간연장허가 (체류민원 p.223) — 수동 검증"
+        }
+      ],
+      "replace_all": true,
+      "page_evidence": "체류민원 p.223: '연장허가 / 가. 제출서류' + '체류기간연장허가' heading + E-7 독립전문가 관련 체류기간연장 제출서류. 기존 p.221 = E-7 공통첨부서류(CHANGE/REGISTRATION 공용) — EXTEND 전용 heading 없음. p.223이 E-7 연장허가 전용 섹션. 직접 PyMuPDF 추출 검증(2026-05-02)."
+    },
+    {
+      "row_id": "M1-0006",
+      "detailed_code": "F-3",
+      "action_type": "GRANT",
+      "title": "동반 체류자격부여",
+      "preferred_manual": "체류민원",
+      "old_manual_ref": [
+        {
+          "manual": "체류민원",
+          "page_from": 423,
+          "page_to": 423,
+          "match_text": "structure F-3.actions.GRANT",
+          "match_type": "action_exact"
+        }
+      ],
+      "new_manual_ref": [],
+      "added_entries": [],
+      "replace_all": true,
+      "page_evidence": "F-3 동반 GRANT(체류자격부여) 별도 절차 없음. 체류민원 p.421-435 전체 스캔: F-3 섹션에는 체류자격외활동(EXTRA_WORK)만 있고 '체류자격부여' 독립 섹션 없음. F-3 자격은 주체류자 자격 변경 시 자동 연동 — 독립 GRANT 신청 절차가 없음. NOT_IN_MANUAL 처리."
+    }
+  ]
+}
