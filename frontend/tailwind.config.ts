@@ -42,10 +42,10 @@ const config: Config = {
         },
         // 한우리 골드 시스템
         gold: {
-          DEFAULT: "#F5A623",
-          hover:   "#D4891A",
-          light:   "#FFF3D4",
-          text:    "#A0660A",
+          DEFAULT: "#D4A843",
+          hover:   "#B8922E",
+          light:   "#FFF9E6",
+          text:    "#6B5314",
         },
         // 사이드바 네이비
         sidebar: {

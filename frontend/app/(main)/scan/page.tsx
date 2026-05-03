@@ -1,10 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ScanLine, Upload } from "lucide-react";
 import { api } from "@/lib/api";
+import type { RoiPreset, RoiPresetData, RoiBox, ArcRoiBoxes } from "@/lib/types/roiPreset";
+import { wsTfToTransform, transformToWsTf } from "@/lib/types/roiPreset";
+import { fetchRoiPresets, saveRoiPreset, renameRoiPreset } from "@/lib/api/roiPreset";
+import RoiPresetBar from "@/components/scan/RoiPresetBar";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -43,7 +47,7 @@ const sectionTitleStyle: React.CSSProperties = {
 };
 const smallBtnStyle: React.CSSProperties = {
   height: 32, padding: "0 10px", borderRadius: 6,
-  border: "1px solid #D69E2E", background: "#fffaf0", color: "#975A16",
+  border: "1px solid #D4A843", background: "#fffaf0", color: "#96751E",
   fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
 };
 const disabledBtnStyle: React.CSSProperties = {
@@ -173,7 +177,7 @@ function roiToContainerBox(
 const PASSPORT_MRZ_GUIDE = {
   key: "mrz", label: "MRZ",
   x: 0.129, y: 0.635, w: 0.693, h: 0.085,   // 좌우 5%씩 확장
-  color: "#D69E2E",
+  color: "#D4A843",
   labelPos: "inside" as const,
 };
 
@@ -191,7 +195,7 @@ const ARC_GUIDE_BOXES: Array<{
   // A. 등록증 앞 — 우로 20% 확장
   { key: "등록증", label: "등록증 앞",  x: 0.368, y: 0.174, w: 0.090, h: 0.024, color: "#dd6b20", labelPos: "above" },
   // B. 등록증 뒤 — 우로 30% 이동, 우로 30% 확장
-  { key: "번호",   label: "등록증 뒤",  x: 0.478, y: 0.174, w: 0.117, h: 0.024, color: "#d69e2e", labelPos: "above" },
+  { key: "번호",   label: "등록증 뒤",  x: 0.478, y: 0.174, w: 0.117, h: 0.024, color: "#D4A843", labelPos: "above" },
   // C. 한글 이름 — 위로 50% 이동, 좌로 10% 이동
   { key: "한글",   label: "한글 이름",  x: 0.368, y: 0.232, w: 0.058, h: 0.018, color: "#e53e3e", labelPos: "below" },
   // D. 발급일 — 위로 10% 이동, 우로 180% 이동, 우측 80%로 축소
@@ -225,6 +229,18 @@ function SampleBox({ text, sampleSrc }: { text: string; sampleSrc: string }) {
 
 const WORKSPACE_H = 660;
 
+// 가이드 박스 편집 모드: 8방향 리사이즈 핸들
+const RESIZE_HANDLES: Array<{ id: string; cursor: string; style: React.CSSProperties }> = [
+  { id: "nw", cursor: "nw-resize", style: { top: -4,               left: -4 } },
+  { id: "n",  cursor: "n-resize",  style: { top: -4,               left: "calc(50% - 4px)" } },
+  { id: "ne", cursor: "ne-resize", style: { top: -4,               right: -4 } },
+  { id: "e",  cursor: "e-resize",  style: { top: "calc(50% - 4px)", right: -4 } },
+  { id: "se", cursor: "se-resize", style: { bottom: -4,            right: -4 } },
+  { id: "s",  cursor: "s-resize",  style: { bottom: -4,            left: "calc(50% - 4px)" } },
+  { id: "sw", cursor: "sw-resize", style: { bottom: -4,            left: -4 } },
+  { id: "w",  cursor: "w-resize",  style: { top: "calc(50% - 4px)", left: -4 } },
+];
+
 interface GuideBox {
   key: string; label: string;
   x: number; y: number; w: number; h: number;
@@ -240,6 +256,8 @@ interface DebugOverlay {
 function WorkspaceCanvas({
   preview, file, guides, sampleText, sampleSrc, stateRef, debugOverlay,
   wsMode, selectingFor, onSelectDone, customRois,
+  externalTf, resetTrigger, onTfChange,
+  editMode, onBoxChange,
 }: {
   preview: string | null;
   file: File | null;
@@ -252,6 +270,13 @@ function WorkspaceCanvas({
   selectingFor: string | null;
   onSelectDone: (field: string, rect: ContainerRect) => void;
   customRois: Record<string, ContainerRect>;
+  // [프리셋] tf 외부 주입
+  externalTf?: WsTf;
+  resetTrigger?: number;
+  onTfChange?: (tf: WsTf) => void;
+  // [프리셋] 가이드 박스 편집 모드
+  editMode?: boolean;
+  onBoxChange?: (key: string, box: { x: number; y: number; w: number; h: number }) => void;
 }) {
   const [tf, setTf]             = useState<WsTf>(DEFAULT_TF);
   const [dragging, setDragging] = useState(false);
@@ -260,6 +285,30 @@ function WorkspaceCanvas({
   const [drawing, setDrawing] = useState<{ sx: number; sy: number; ex: number; ey: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef       = useRef<HTMLImageElement>(null);
+
+  // [프리셋] 가이드 박스 편집 드래그 state
+  const [editBoxDrag, setEditBoxDrag] = useState<{
+    key: string; type: "move" | "resize"; handle: string;
+    startMouseX: number; startMouseY: number;
+    startBox: { x: number; y: number; w: number; h: number };
+  } | null>(null);
+  const [editBoxLive, setEditBoxLive] = useState<{
+    key: string; box: { x: number; y: number; w: number; h: number };
+  } | null>(null);
+
+  // [프리셋] resetTrigger → tf 리셋
+  useEffect(() => {
+    if (externalTf !== undefined && resetTrigger !== undefined) {
+      setTf(externalTf);
+    }
+    // resetTrigger 변경 시만 실행
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetTrigger]);
+
+  // [프리셋] tf 변경 → 부모 알림
+  useEffect(() => {
+    onTfChange?.(tf);
+  }, [tf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset on new file
   const prevPreviewRef = useRef<string | null>(null);
@@ -320,6 +369,34 @@ function WorkspaceCanvas({
   };
 
   const onMouseMove = (e: React.MouseEvent) => {
+    // [프리셋] 가이드 박스 편집 드래그
+    if (editBoxDrag !== null && editMode) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const dx = (e.clientX - editBoxDrag.startMouseX) / rect.width;
+        const dy = (e.clientY - editBoxDrag.startMouseY) / rect.height;
+        const { x: sx, y: sy, w: sw, h: sh } = editBoxDrag.startBox;
+        const MIN_W = 0.02, MIN_H = 0.01;
+        let nx = sx, ny = sy, nw = sw, nh = sh;
+        if (editBoxDrag.type === "move") {
+          nx = Math.max(0, Math.min(1 - sw, sx + dx));
+          ny = Math.max(0, Math.min(1 - sh, sy + dy));
+        } else {
+          const h = editBoxDrag.handle;
+          const isN = h === "n"  || h === "nw" || h === "ne";
+          const isS = h === "s"  || h === "sw" || h === "se";
+          const isW = h === "w"  || h === "nw" || h === "sw";
+          const isE = h === "e"  || h === "ne" || h === "se";
+          if (isW) { nx = Math.max(0, Math.min(sx + sw - MIN_W, sx + dx)); nw = sw - (nx - sx); }
+          if (isE) { nw = Math.max(MIN_W, Math.min(1 - sx, sw + dx)); }
+          if (isN) { ny = Math.max(0, Math.min(sy + sh - MIN_H, sy + dy)); nh = sh - (ny - sy); }
+          if (isS) { nh = Math.max(MIN_H, Math.min(1 - sy, sh + dy)); }
+          nw = Math.min(1 - nx, nw); nh = Math.min(1 - ny, nh);
+        }
+        setEditBoxLive({ key: editBoxDrag.key, box: { x: nx, y: ny, w: nw, h: nh } });
+      }
+      return;
+    }
     if (drawing !== null) {
       const { nx, ny } = getContainerNorm(e.clientX, e.clientY);
       setDrawing(d => d ? { ...d, ex: nx, ey: ny } : null);
@@ -333,6 +410,12 @@ function WorkspaceCanvas({
   };
 
   const onMouseUp = (e: React.MouseEvent) => {
+    // [프리셋] 편집 박스 드래그 완료 → onBoxChange 콜백
+    if (editBoxDrag !== null) {
+      if (editBoxLive && onBoxChange) onBoxChange(editBoxLive.key, editBoxLive.box);
+      setEditBoxDrag(null); setEditBoxLive(null);
+      return;
+    }
     if (drawing !== null && selectingFor !== null) {
       const { nx, ny } = getContainerNorm(e.clientX, e.clientY);
       const x = Math.min(drawing.sx, nx);
@@ -345,7 +428,14 @@ function WorkspaceCanvas({
     setDragging(false);
   };
 
-  const stopAll = () => { setDragging(false); setDrawing(null); };
+  const stopAll = () => {
+    setDragging(false); setDrawing(null);
+    // [프리셋] 마우스가 캔버스 밖으로 나가도 편집 결과 적용
+    if (editBoxDrag !== null) {
+      if (editBoxLive && onBoxChange) onBoxChange(editBoxLive.key, editBoxLive.box);
+      setEditBoxDrag(null); setEditBoxLive(null);
+    }
+  };
 
   if (!preview || !file) return <SampleBox text={sampleText} sampleSrc={sampleSrc} />;
 
@@ -410,21 +500,53 @@ function WorkspaceCanvas({
         {/* Fixed overlay layer */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none" }}>
           {/* Guide boxes — hidden in 선택식 mode (user draws their own areas) */}
-          {wsMode !== "선택식" && guides.map((box) => (
-            <div
-              key={box.key}
-              style={{
-                position: "absolute",
-                left: `${box.x * 100}%`, top: `${box.y * 100}%`,
-                width: `${box.w * 100}%`, height: `${box.h * 100}%`,
-                border: `2px dashed ${box.color}`,
-                boxSizing: "border-box",
-                background: `${box.color}20`,
-              }}
-            >
-              {renderLabel(box)}
-            </div>
-          ))}
+          {wsMode !== "선택식" && guides.map((box) => {
+            // [프리셋] 편집 중인 박스는 live 위치 사용
+            const live = (editBoxLive?.key === box.key) ? editBoxLive.box : box;
+            const isEditable = !!editMode;
+            return (
+              <div
+                key={box.key}
+                style={{
+                  position: "absolute",
+                  left: `${live.x * 100}%`, top: `${live.y * 100}%`,
+                  width: `${live.w * 100}%`, height: `${live.h * 100}%`,
+                  border: `${isEditable ? "2.5px solid" : "2px dashed"} ${box.color}`,
+                  boxSizing: "border-box",
+                  background: `${box.color}${isEditable ? "28" : "20"}`,
+                  pointerEvents: isEditable ? "auto" : "none",
+                  cursor: isEditable ? "move" : "default",
+                }}
+                onMouseDown={isEditable ? (e) => {
+                  e.stopPropagation(); e.preventDefault();
+                  setEditBoxDrag({ key: box.key, type: "move", handle: "move",
+                    startMouseX: e.clientX, startMouseY: e.clientY,
+                    startBox: { x: live.x, y: live.y, w: live.w, h: live.h } });
+                  setEditBoxLive({ key: box.key, box: { x: live.x, y: live.y, w: live.w, h: live.h } });
+                } : undefined}
+              >
+                {renderLabel(box)}
+                {/* [프리셋] 편집모드 리사이즈 핸들 */}
+                {isEditable && RESIZE_HANDLES.map(rh => (
+                  <div
+                    key={rh.id}
+                    style={{
+                      position: "absolute", width: 8, height: 8,
+                      background: box.color, borderRadius: 1,
+                      ...rh.style, pointerEvents: "auto", cursor: rh.cursor, zIndex: 1,
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      setEditBoxDrag({ key: box.key, type: "resize", handle: rh.id,
+                        startMouseX: e.clientX, startMouseY: e.clientY,
+                        startBox: { x: live.x, y: live.y, w: live.w, h: live.h } });
+                      setEditBoxLive({ key: box.key, box: { x: live.x, y: live.y, w: live.w, h: live.h } });
+                    }}
+                  />
+                ))}
+              </div>
+            );
+          })}
 
           {/* Completed selection ROIs — shown until the user re-selects that field.
                Re-clicking "영역선택" deletes customRois[key] before drawing starts,
@@ -444,7 +566,7 @@ function WorkspaceCanvas({
                 <span style={{
                   position: "absolute",
                   bottom: "calc(100% + 2px)", left: 0,
-                  fontSize: 10, fontWeight: 700, color: "#B7791F",
+                  fontSize: 10, fontWeight: 700, color: "#6B5314",
                   background: "rgba(0,0,0,0.75)",
                   padding: "1px 5px", borderRadius: 3, lineHeight: 1.5,
                   whiteSpace: "nowrap", pointerEvents: "none",
@@ -703,6 +825,31 @@ export default function ScanPage() {
   const passportWsRef = useRef<WsState>({ tf: DEFAULT_TF, container: { w: 1, h: 1 }, natural: { w: 1, h: 1 } });
   const arcWsRef      = useRef<WsState>({ tf: DEFAULT_TF, container: { w: 1, h: 1 }, natural: { w: 1, h: 1 } });
 
+  // [프리셋] tf 최신값 ref (onTfChange 콜백으로 업데이트)
+  const passportTfRef = useRef<WsTf>(DEFAULT_TF);
+  const arcTfRef      = useRef<WsTf>(DEFAULT_TF);
+
+  // [프리셋] 프리셋 state
+  const [presets, setPresets]         = useState<(RoiPreset | null)[]>([null, null, null]);
+  const [activeSlot, setActiveSlot]   = useState<1 | 2 | 3>(1);
+  const [editMode, setEditMode]       = useState(false);
+  const [isDirty, setIsDirty]         = useState(false);
+
+  // [프리셋] WorkspaceCanvas tf 외부 주입
+  const [passportExternalTf, setPassportExternalTf] = useState<WsTf | undefined>();
+  const [passportResetTrigger, setPassportResetTrigger] = useState(0);
+  const [arcExternalTf, setArcExternalTf]           = useState<WsTf | undefined>();
+  const [arcResetTrigger, setArcResetTrigger]       = useState(0);
+
+  // [프리셋] 가이드 박스 state (기존 하드코딩 상수에서 초기화)
+  const [passportMrzBox, setPassportMrzBox] = useState<RoiBox>({
+    x: PASSPORT_MRZ_GUIDE.x, y: PASSPORT_MRZ_GUIDE.y,
+    w: PASSPORT_MRZ_GUIDE.w, h: PASSPORT_MRZ_GUIDE.h,
+  });
+  const [arcBoxes, setArcBoxes] = useState<Record<string, RoiBox>>(() =>
+    Object.fromEntries(ARC_GUIDE_BOXES.map(b => [b.key, { x: b.x, y: b.y, w: b.w, h: b.h }]))
+  );
+
   // Field values
   const [성, set성]       = useState("");
   const [명, set명]       = useState("");
@@ -734,6 +881,112 @@ export default function ScanPage() {
       case "주소":   set주소(value);   break;
     }
   };
+
+  // ── [프리셋] 마운트 시 프리셋 로드 ───────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    fetchRoiPresets().then(loaded => {
+      setPresets(loaded);
+      const defaultPreset = loaded.find(p => p?.is_default) ?? loaded[0];
+      if (defaultPreset) {
+        applyPreset(defaultPreset);
+        setActiveSlot(defaultPreset.slot as 1 | 2 | 3);
+      }
+    }).catch(console.error);
+  }, []);
+
+  // 페이지 이탈 방지 (저장 안 된 변경사항)
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  // [프리셋] 프리셋 적용
+  function applyPreset(preset: RoiPreset) {
+    setPassportMrzBox(preset.data.passport.mrz);
+    const ppTf = transformToWsTf(preset.data.passport);
+    setPassportExternalTf(ppTf);
+    setPassportResetTrigger(v => v + 1);
+
+    const newArcBoxes: Record<string, RoiBox> = {};
+    (["한글", "등록증", "번호", "발급일", "만기일", "주소"] as const).forEach(k => {
+      if (preset.data.arc[k]) newArcBoxes[k] = preset.data.arc[k];
+    });
+    setArcBoxes(prev => ({ ...prev, ...newArcBoxes }));
+    const arcTf = transformToWsTf(preset.data.arc);
+    setArcExternalTf(arcTf);
+    setArcResetTrigger(v => v + 1);
+
+    setEditMode(false);
+    setIsDirty(false);
+  }
+
+  // [프리셋] 현재 화면 상태 수집
+  function collectCurrentData(): RoiPresetData {
+    const ppTf  = passportTfRef.current;
+    const aTf   = arcTfRef.current;
+    return {
+      passport: { mrz: passportMrzBox, ...wsTfToTransform(ppTf) },
+      arc: {
+        한글:   arcBoxes["한글"]   ?? { x: 0, y: 0, w: 0.1, h: 0.05 },
+        등록증: arcBoxes["등록증"] ?? { x: 0, y: 0, w: 0.1, h: 0.05 },
+        번호:   arcBoxes["번호"]   ?? { x: 0, y: 0, w: 0.1, h: 0.05 },
+        발급일: arcBoxes["발급일"] ?? { x: 0, y: 0, w: 0.1, h: 0.05 },
+        만기일: arcBoxes["만기일"] ?? { x: 0, y: 0, w: 0.1, h: 0.05 },
+        주소:   arcBoxes["주소"]   ?? { x: 0, y: 0, w: 0.1, h: 0.05 },
+        ...wsTfToTransform(aTf),
+      } as ArcRoiBoxes & import("@/lib/types/roiPreset").ImageTransform,
+    };
+  }
+
+  // [프리셋] 슬롯 변경
+  function handleSlotChange(slot: 1 | 2 | 3) {
+    if (isDirty) {
+      if (!confirm("저장하지 않은 변경사항이 있습니다. 슬롯을 변경하시겠습니까?")) return;
+    }
+    const preset = presets[slot - 1];
+    if (preset) { applyPreset(preset); setActiveSlot(slot); }
+  }
+
+  // [프리셋] 저장 — 활성 슬롯에 현재 화면 위치 덮어쓰기
+  async function handleSave() {
+    try {
+      const activePreset = presets[activeSlot - 1];
+      const name = activePreset?.name ?? `슬롯 ${activeSlot}`;
+      const data = collectCurrentData();
+      const saved = await saveRoiPreset(activeSlot, name, data, false);
+      setPresets(prev => {
+        const next = [...prev] as (RoiPreset | null)[];
+        next[activeSlot - 1] = saved;
+        return next;
+      });
+      setIsDirty(false);
+      toast.success("프리셋 저장 완료");
+    } catch {
+      toast.error("프리셋 저장 실패");
+    }
+  }
+
+  // [프리셋] 빈 슬롯에 현재 화면 위치 저장
+  async function handleSaveEmpty(slot: 1 | 2 | 3) {
+    try {
+      const data = collectCurrentData();
+      const saved = await saveRoiPreset(slot, `슬롯 ${slot}`, data, false);
+      setPresets(prev => {
+        const next = [...prev] as (RoiPreset | null)[];
+        next[slot - 1] = saved;
+        return next;
+      });
+      setActiveSlot(slot);
+      setIsDirty(false);
+      toast.success(`슬롯 ${slot} 저장 완료`);
+    } catch {
+      toast.error("슬롯 저장 실패");
+    }
+  }
 
   const convertPdfToImage = async (f: File): Promise<File> => {
     const formData = new FormData();
@@ -801,9 +1054,10 @@ export default function ScanPage() {
     try {
       const { tf, container, natural } = passportWsRef.current;
       // Use custom roi if drawn in 선택식 mode, else guide box
+      // [프리셋] 선택식이면 사용자 그린 ROI, 아니면 state 기반 가이드 박스
       const effectiveGuide = passportCustomRois["mrz"]
         ? { key: "mrz", label: "MRZ", ...passportCustomRois["mrz"] }
-        : PASSPORT_MRZ_GUIDE;
+        : { ...PASSPORT_MRZ_GUIDE, ...passportMrzBox };
       const roi = computeRoi(effectiveGuide, container, natural, tf);
       const calcChain = buildCalcChain(effectiveGuide, container, natural, tf, roi);
 
@@ -851,9 +1105,13 @@ export default function ScanPage() {
       // Use custom roi if drawn, else guide box
       const customRect = arcCustomRois[field];
       const guide = ARC_GUIDE_BOXES.find(b => b.key === field);
+      const stateBox = arcBoxes[field];
+      // [프리셋] 선택식이면 사용자 그린 ROI, 아니면 state 기반 가이드 박스
       const effectiveGuide = customRect
         ? { key: field, label: ARC_FIELD_LABELS[field], ...customRect }
-        : (guide ?? { key: field, label: field, x: 0, y: 0, w: 1, h: 1, color: "" });
+        : (guide && stateBox
+            ? { ...guide, ...stateBox }
+            : (guide ?? { key: field, label: field, x: 0, y: 0, w: 1, h: 1, color: "" }));
       const roi = computeRoi(effectiveGuide, container, natural, tf);
       const calcChain = buildCalcChain(effectiveGuide, container, natural, tf, roi);
 
@@ -956,6 +1214,28 @@ export default function ScanPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
+      {/* [프리셋] ROI 프리셋 슬롯 바 */}
+      <RoiPresetBar
+        presets={presets}
+        activeSlot={activeSlot}
+        editMode={editMode}
+        isDirty={isDirty}
+        onSlotChange={handleSlotChange}
+        onEditModeChange={setEditMode}
+        onSave={handleSave}
+        onSaveEmpty={handleSaveEmpty}
+        onRename={async (slot, name) => {
+          try {
+            const updated = await renameRoiPreset(slot, name);
+            setPresets(prev => {
+              const next = [...prev] as (RoiPreset | null)[];
+              next[slot - 1] = updated;
+              return next;
+            });
+          } catch { toast.error("이름 변경 실패"); }
+        }}
+      />
+
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1023,7 +1303,7 @@ export default function ScanPage() {
 
           <WorkspaceCanvas
             preview={passportPreview} file={passportFile}
-            guides={[PASSPORT_MRZ_GUIDE]}
+            guides={[{ ...PASSPORT_MRZ_GUIDE, ...passportMrzBox }]}
             sampleText="여권 이미지 예시 (업로드 필수)" sampleSrc="/passport-sample.jpg"
             stateRef={passportWsRef}
             debugOverlay={debugMode && passportDebug?.calc ? { key: "mrz", roi: passportDebug.calc.sentRoi } : null}
@@ -1031,6 +1311,14 @@ export default function ScanPage() {
             selectingFor={passportSelectingFor}
             onSelectDone={onPassportSelectDone}
             customRois={passportCustomRois}
+            externalTf={passportExternalTf}
+            resetTrigger={passportResetTrigger}
+            onTfChange={(tf) => { passportTfRef.current = tf; }}
+            editMode={editMode}
+            onBoxChange={(key, box) => {
+              setPassportMrzBox(box);
+              setIsDirty(true);
+            }}
           />
           {debugMode && passportDebug && <DebugPanel debug={passportDebug} title="여권 MRZ" />}
 
@@ -1066,7 +1354,7 @@ export default function ScanPage() {
         </div>
 
         {/* 여권 결과 */}
-        <div style={{ ...cardStyle, borderLeft: "3px solid #D69E2E" }}>
+        <div style={{ ...cardStyle, borderLeft: "3px solid #D4A843" }}>
           <div style={sectionTitleStyle}>여권 결과</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
@@ -1134,7 +1422,7 @@ export default function ScanPage() {
 
           <WorkspaceCanvas
             preview={arcPreview} file={arcFile}
-            guides={ARC_GUIDE_BOXES}
+            guides={ARC_GUIDE_BOXES.map(b => ({ ...b, ...(arcBoxes[b.key] ?? {}) }))}
             sampleText="등록증 이미지 예시 (업로드 선택)" sampleSrc="/arc-sample.jpg"
             stateRef={arcWsRef}
             debugOverlay={debugMode && arcDebug?.calc ? { key: arcDebug.fieldKey ?? "", roi: arcDebug.calc.sentRoi } : null}
@@ -1142,6 +1430,14 @@ export default function ScanPage() {
             selectingFor={arcSelectingFor}
             onSelectDone={onArcSelectDone}
             customRois={arcCustomRois}
+            externalTf={arcExternalTf}
+            resetTrigger={arcResetTrigger}
+            onTfChange={(tf) => { arcTfRef.current = tf; }}
+            editMode={editMode}
+            onBoxChange={(key, box) => {
+              setArcBoxes(prev => ({ ...prev, [key]: box }));
+              setIsDirty(true);
+            }}
           />
           {debugMode && arcDebug && <DebugPanel debug={arcDebug} title={`등록증 ${arcDebug.fieldKey ?? ""}`} />}
 
@@ -1201,7 +1497,7 @@ export default function ScanPage() {
                     </div>
                     {wsMode === "선택식" && arcCustomRois[key] && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                        <span style={{ fontSize: 10, color: "#B7791F", background: "#FEFCBF", padding: "1px 6px", borderRadius: 4 }}>
+                        <span style={{ fontSize: 10, color: "#6B5314", background: "#FFF9E6", padding: "1px 6px", borderRadius: 4 }}>
                           ✓ 선택된 영역 있음
                         </span>
                         <button

@@ -19,8 +19,8 @@ type SignupForm = {
   confirm_password: string;
 };
 
-const GOLD = "#F5A623";
-const GOLD_DARK = "#D4891A";
+const GOLD = "#D4A843";
+const GOLD_DARK = "#B8922E";
 const BORDER = "#E2E8F0";
 
 const inputStyle: React.CSSProperties = {
@@ -239,7 +239,7 @@ export default function LoginPage() {
                   background: tab === t ? GOLD : "transparent",
                   border: "none", cursor: "pointer",
                   transition: "all 0.15s",
-                  boxShadow: tab === t ? "0 1px 4px rgba(245,166,35,0.4)" : "none",
+                  boxShadow: tab === t ? "0 1px 4px rgba(212,168,67,0.4)" : "none",
                 }}
               >
                 {t === "login" ? "로그인" : "가입신청"}
@@ -256,8 +256,8 @@ export default function LoginPage() {
                   padding: "11px 14px",
                   borderRadius: 8,
                   background: "rgba(254,215,170,0.45)",
-                  color: "#744210",
-                  border: "1px solid rgba(245,166,35,0.45)",
+                  color: "#6B5314",
+                  border: "1px solid rgba(212,168,67,0.45)",
                   fontSize: 13,
                   fontWeight: 600,
                   lineHeight: 1.5,
@@ -314,7 +314,7 @@ export default function LoginPage() {
                   border: "none",
                   cursor: loading ? "not-allowed" : "pointer",
                   marginTop: 4,
-                  boxShadow: loading ? "none" : "0 2px 8px rgba(245,166,35,0.4)",
+                  boxShadow: loading ? "none" : "0 2px 8px rgba(212,168,67,0.4)",
                   transition: "background 0.15s",
                 }}
                 onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = GOLD_DARK; }}
@@ -334,9 +334,9 @@ export default function LoginPage() {
               <div
                 style={{
                   fontSize: 12, padding: "12px 14px", borderRadius: 8,
-                  background: "rgba(245,166,35,0.06)",
+                  background: "rgba(212,168,67,0.06)",
                   color: "#4A5568",
-                  border: `1px solid rgba(245,166,35,0.25)`,
+                  border: `1px solid rgba(212,168,67,0.25)`,
                   lineHeight: 1.7,
                 }}
               >
@@ -414,7 +414,7 @@ export default function LoginPage() {
                   color: "#1A1F2E", border: "none",
                   cursor: loading ? "not-allowed" : "pointer",
                   marginTop: 4,
-                  boxShadow: "0 2px 8px rgba(245,166,35,0.4)",
+                  boxShadow: "0 2px 8px rgba(212,168,67,0.4)",
                 }}
                 onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = GOLD_DARK; }}
                 onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = GOLD; }}

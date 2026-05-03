@@ -30,16 +30,16 @@
     --radius: 0.5rem;
 
     /* ── 한우리 골드 브랜드 ── */
-    --hw-gold:          #F5A623;
-    --hw-gold-hover:    #D4891A;
-    --hw-gold-light:    #FFF3D4;
-    --hw-gold-text:     #A0660A;
+    --hw-gold:          #D4A843;
+    --hw-gold-hover:    #B8922E;
+    --hw-gold-light:    #FFF9E6;
+    --hw-gold-text:     #6B5314;
 
     /* ── 사이드바 (다크 네이비) ── */
     --hw-sidebar-bg:    #1A1F2E;
     --hw-sidebar-text:  #CBD5E0;
     --hw-sidebar-muted: #718096;
-    --hw-sidebar-active-bg: rgba(245,166,35,0.12);
+    --hw-sidebar-active-bg: rgba(212,168,67,0.12);
 
     /* ── 페이지 배경 ── */
     --hw-page-bg:       #F8F9FA;
@@ -176,7 +176,7 @@
 }
 .hw-input:focus {
   border-color: var(--hw-gold);
-  box-shadow: 0 0 0 3px rgba(245,166,35,0.15);
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.15);
 }
 .hw-input::placeholder { color: var(--hw-text-muted); }
 
@@ -228,7 +228,7 @@
   padding: 0;
 }
 .hw-table-input:focus {
-  background: rgba(245,166,35,0.06);
+  background: rgba(212,168,67,0.06);
   border-radius: 4px;
   padding: 0 4px;
 }
@@ -359,7 +359,7 @@
 }
 .hw-search-bar input:focus {
   border-color: var(--hw-gold);
-  box-shadow: 0 0 0 3px rgba(245,166,35,0.12);
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.12);
   background: #FFFFFF;
 }
 .hw-search-bar .search-icon {
@@ -535,7 +535,7 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .hw-quick-actions {
   background: var(--hw-gold-light);
-  border: 1px solid #F0D898;
+  border: 1px solid #E8DFC8;
   border-radius: 10px;
   padding: 10px 16px;
   display: flex;
@@ -550,7 +550,7 @@
   padding: 6px 14px;
   border-radius: 8px;
   background: #FFFFFF;
-  border: 1px solid #F0D898;
+  border: 1px solid #E8DFC8;
   color: var(--hw-gold-text);
   font-size: 12px;
   font-weight: 500;
@@ -731,7 +731,7 @@ input[type="number"]::-webkit-outer-spin-button {
     flex: none !important;
     width: 100% !important;
     border-right: none !important;
-    border-bottom: 3px solid #F5A623;
+    border-bottom: 3px solid #D4A843;
     padding: 28px 20px !important;
     justify-content: flex-start !important;
   }

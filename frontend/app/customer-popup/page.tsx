@@ -62,7 +62,7 @@ function ExpiryRow({ label, value, days }: { label: string; value: string; days:
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "#F5A623", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: "#D4A843", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {title}
       </div>
       {children}
@@ -112,7 +112,7 @@ export default function CustomerPopupPage() {
   return (
     <div style={{ fontFamily: "sans-serif", background: "#fff", minHeight: "100vh", fontSize: 13 }}>
       {/* 헤더 */}
-      <div style={{ padding: "12px 16px", borderBottom: "3px solid #F5A623", background: "#FFFBF2", position: "sticky", top: 0 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "3px solid #D4A843", background: "#FFF9E6", position: "sticky", top: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2D3748" }}>{name}</div>
         {customer["V"] && (
           <div style={{ fontSize: 11, color: "#9C4221", marginTop: 2 }}>{customer["V"]}</div>

@@ -54,7 +54,7 @@ function MemoPanel({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {dirty && (
-            <span style={{ fontSize: "11px", color: "#F5A623" }}>● 미저장</span>
+            <span style={{ fontSize: "11px", color: "#D4A843" }}>● 미저장</span>
           )}
           <button
             onClick={handleSave}

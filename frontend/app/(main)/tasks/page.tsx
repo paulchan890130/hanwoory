@@ -4,7 +4,19 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { tasksApi, type ActiveTask, type PlannedTask, type CompletedTask } from "@/lib/api";
+import TaskCardView from "@/components/tasks/TaskCardView";
+import TaskTableView from "@/components/tasks/TaskTableView";
+import TaskSummaryCards from "@/components/tasks/TaskSummaryCards";
+import TaskCategoryFilter from "@/components/tasks/TaskCategoryFilter";
 import { today, safeInt, formatNumber, normalizeDate } from "@/lib/utils";
+
+// D+ 계산 (요약 카드용)
+function _dPlusFromTs(ts: string): number {
+  if (!ts) return 0;
+  const start = new Date(ts.slice(0, 10));
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
+}
 import { Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
 
 const newId = () => crypto.randomUUID();
@@ -117,7 +129,7 @@ function ActiveTaskRow({
       <td style={{ textAlign: "center", width: 36, verticalAlign: "middle" }}>
         {dirty && (
           <button onClick={handleSave}
-            style={{ padding: "2px 7px", fontSize: 9, fontWeight: 700, background: "#F5A623", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap" }}>
+            style={{ padding: "2px 7px", fontSize: 9, fontWeight: 700, background: "#D4A843", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap" }}>
             저장
           </button>
         )}
@@ -129,7 +141,7 @@ function ActiveTaskRow({
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
             {([
               { field: "reception",  label: "접수",  color: "#3182CE", onColor: "#2B6CB0", ts: pendingReception },
-              { field: "processing", label: "처리",  color: "#D69E2E", onColor: "#975A16", ts: pendingProcessing },
+              { field: "processing", label: "처리",  color: "#D4A843", onColor: "#96751E", ts: pendingProcessing },
               { field: "storage",    label: "보관중", color: "#9F7AEA", onColor: "#553C9A", ts: pendingStorage },
             ] as const).map(({ field, label, color, onColor, ts }) => (
               <label key={field} style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
@@ -220,6 +232,17 @@ export default function TasksPage() {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  // 뷰 모드 토글 (카드형 / 테이블형)
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  // 분류 필터
+  const [activeCategory, setActiveCategory] = useState<string | "all">("all");
+  // 완료업무 필터/정렬
+  const [completedSort, setCompletedSort] = useState<"newest" | "oldest">("newest");
+  const [completedFilterName, setCompletedFilterName] = useState("");
+  const [completedFilterCategory, setCompletedFilterCategory] = useState("");
+  const [completedFilterWork, setCompletedFilterWork] = useState("");
+  const [completedDateFrom, setCompletedDateFrom] = useState("");
+  const [completedDateTo, setCompletedDateTo] = useState("");
 
   type ProgressEntry = { reception: string; processing: string; storage: string };
   const [progressPending, setProgressPending] = useState<Map<string, ProgressEntry>>(new Map());
@@ -399,6 +422,23 @@ export default function TasksPage() {
     );
   });
 
+  // 완료업무 필터/정렬 계산 (컴포넌트 본문 — localStorage 사용 없음)
+  const completedCategories = Array.from(new Set((completed as CompletedTask[]).map((t) => t.category).filter(Boolean)));
+  const filteredCompleted = (completed as CompletedTask[])
+    .filter((t) => {
+      if (completedFilterName && !t.name?.toLowerCase().includes(completedFilterName.toLowerCase())) return false;
+      if (completedFilterCategory && t.category !== completedFilterCategory) return false;
+      if (completedFilterWork && !t.work?.toLowerCase().includes(completedFilterWork.toLowerCase())) return false;
+      if (completedDateFrom && (t.complete_date || t.date || "") < completedDateFrom) return false;
+      if (completedDateTo && (t.complete_date || t.date || "") > completedDateTo) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = a.complete_date || a.date || "";
+      const db = b.complete_date || b.date || "";
+      return completedSort === "newest" ? db.localeCompare(da) : da.localeCompare(db);
+    });
+
   return (
     <div className="space-y-5">
       {/* 페이지 헤더 */}
@@ -468,88 +508,107 @@ export default function TasksPage() {
       </div>
 
       {/* ── 진행업무 탭 ── */}
-      {tab === "진행업무" && (
-        <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
-          {(active as ActiveTask[]).length === 0 ? (
-            <div className="p-6 text-center text-sm" style={{ color: "#A0AEC0" }}>
-              진행 중인 업무가 없습니다. [업무 추가] 버튼을 눌러 등록하세요.
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="hw-table min-w-[1080px]">
-                  <thead>
-                    <tr>
-                      <th className="text-left">분류</th>
-                      <th className="text-left">날짜</th>
-                      <th className="text-left">이름</th>
-                      <th className="text-left">업무</th>
-                      <th className="text-left">세부내용</th>
-                      <th className="text-right w-14">이체</th>
-                      <th className="text-right w-14">현금</th>
-                      <th className="text-right w-14">카드</th>
-                      <th className="text-right w-14">인지</th>
-                      <th className="text-right w-14">미수</th>
-                      <th style={{ width: 36 }}></th>
-                      <th style={{ width: 160 }}>접수/처리/보관중</th>
-                      <th style={{ textAlign: "center", width: 44 }}>완료✅</th>
-                      <th style={{ textAlign: "center", width: 44 }}>삭제❌</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(active as ActiveTask[]).map((task) => (
-                      <ActiveTaskRow
-                        key={task.id}
-                        task={task}
-                        onSave={(id, data) => updateActive.mutate({ id, data })}
-                        onToggleComplete={(id) =>
-                          setCompletedIds((prev) => {
-                            const n = new Set(prev);
-                            n.has(id) ? n.delete(id) : n.add(id);
-                            return n;
-                          })
-                        }
-                        onToggleDelete={(id) =>
-                          setDeleteIds((prev) => {
-                            const n = new Set(prev);
-                            n.has(id) ? n.delete(id) : n.add(id);
-                            return n;
-                          })
-                        }
-                        markedComplete={completedIds.has(task.id)}
-                        markedDelete={deleteIds.has(task.id)}
-                        onProgressToggle={handleProgressToggle}
-                        pendingReception={progressPending.get(task.id)?.reception ?? (task.reception as string) ?? ""}
-                        pendingProcessing={progressPending.get(task.id)?.processing ?? (task.processing as string) ?? ""}
-                        pendingStorage={progressPending.get(task.id)?.storage ?? (task.storage as string) ?? ""}
-                      />
-                    ))}
-                  </tbody>
-                </table>
+      {tab === "진행업무" && (() => {
+        const allActive = active as ActiveTask[];
+        // 분류 목록 (중복 제거)
+        const categories = Array.from(new Set(allActive.map(t => t.category).filter(Boolean)));
+        // 분류 필터 적용
+        const filteredActive = activeCategory === "all"
+          ? allActive
+          : allActive.filter(t => t.category === activeCategory);
+        // 카테고리별 건수
+        const catCounts: Record<string, number> = {};
+        for (const t of allActive) { if (t.category) catCounts[t.category] = (catCounts[t.category] || 0) + 1; }
+        // 요약 카드 값 (필터된 데이터 기준)
+        const urgentCount = filteredActive.filter(t => {
+          const p = progressPending.get(t.id);
+          const latestTs = [
+            p?.storage ?? (t.storage as string) ?? "",
+            p?.processing ?? (t.processing as string) ?? "",
+            p?.reception ?? (t.reception as string) ?? "",
+          ].filter(Boolean).sort().reverse()[0] ?? "";
+          return _dPlusFromTs(latestTs) >= 20;
+        }).length;
+        const commonProps = {
+          progressPending, completedIds, deleteIds,
+          onProgressToggle: handleProgressToggle,
+          onSave: (id: string, data: Partial<ActiveTask>) => updateActive.mutate({ id, data }),
+          onToggleComplete: (id: string) => setCompletedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }),
+          onToggleDelete: (id: string) => setDeleteIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }),
+        };
+
+        return (
+          <>
+            {/* 요약 카드 */}
+            <TaskSummaryCards
+              totalCount={filteredActive.length}
+              urgentCount={urgentCount}
+              transferTotal={filteredActive.reduce((s, t) => s + safeInt(t.transfer), 0)}
+              cashTotal={filteredActive.reduce((s, t) => s + safeInt(t.cash), 0)}
+              stampTotal={filteredActive.reduce((s, t) => s + safeInt(t.stamp), 0)}
+              hasUnpaid={filteredActive.some(t => safeInt(t.receivable) > 0)}
+              receivableTotal={filteredActive.reduce((s, t) => s + safeInt(t.receivable), 0)}
+            />
+
+            {/* 분류 필터 + 뷰 토글 */}
+            <div className="hw-card" style={{ padding: "0 0 0 0", overflow: "hidden" }}>
+              <div style={{ padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <TaskCategoryFilter
+                  categories={categories}
+                  activeCategory={activeCategory}
+                  onChange={setActiveCategory}
+                  counts={catCounts}
+                  totalCount={allActive.length}
+                />
+                {/* 뷰 토글 */}
+                <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #E2E8F0", flexShrink: 0, marginLeft: 12 }}>
+                  {(["table", "card"] as const).map(mode => (
+                    <button key={mode} onClick={() => setViewMode(mode)} style={{
+                      height: 28, padding: "0 12px", fontSize: 11, fontWeight: 600,
+                      cursor: "pointer", border: "none",
+                      background: viewMode === mode ? "#4A5568" : "#F7FAFC",
+                      color: viewMode === mode ? "#fff" : "#718096",
+                    }}>
+                      {mode === "table" ? "☰ 테이블" : "⊞ 카드"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* 미수금 합계 푸터 */}
-              <div
-                className="px-4 py-2.5 flex flex-wrap gap-4 text-xs border-t"
-                style={{ borderColor: "#E2E8F0", color: "#718096" }}
-              >
-                {(["transfer", "cash", "card", "stamp", "receivable"] as const).map((f) => {
-                  const total = (active as ActiveTask[]).reduce(
-                    (s, t) => s + safeInt(t[f]),
-                    0
-                  );
-                  return total > 0 ? (
-                    <span key={f}>
-                      {f === "transfer" ? "이체" : f === "cash" ? "현금" : f === "card" ? "카드" : f === "stamp" ? "인지" : "미수"}:{" "}
-                      <strong style={{ color: "#2D3748" }}>{formatNumber(total)}</strong>
-                    </span>
-                  ) : null;
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              {filteredActive.length === 0 ? (
+                <div className="p-6 text-center text-sm" style={{ color: "#A0AEC0" }}>
+                  {allActive.length === 0 ? "진행 중인 업무가 없습니다." : "해당 분류의 업무가 없습니다."}
+                </div>
+              ) : (
+                <>
+                  {viewMode === "card" && (
+                    <div style={{ padding: "0 16px 16px" }}>
+                      <TaskCardView tasks={filteredActive} {...commonProps} />
+                    </div>
+                  )}
+                  {viewMode === "table" && (
+                    <TaskTableView tasks={filteredActive} {...commonProps} />
+                  )}
+
+                  {/* 합계 푸터 */}
+                  <div className="px-4 py-2.5 flex flex-wrap gap-4 text-xs border-t"
+                    style={{ borderColor: "#E2E8F0", color: "#718096" }}>
+                    {(["transfer", "cash", "card", "stamp", "receivable"] as const).map((f) => {
+                      const total = filteredActive.reduce((s, t) => s + safeInt(t[f]), 0);
+                      return total > 0 ? (
+                        <span key={f}>
+                          {f === "transfer" ? "이체" : f === "cash" ? "현금" : f === "card" ? "카드" : f === "stamp" ? "인지" : "미수"}:{" "}
+                          <strong style={{ color: "#2D3748" }}>{formatNumber(total)}</strong>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── 예정업무 탭 ── */}
       {tab === "예정업무" && (
@@ -631,8 +690,57 @@ export default function TasksPage() {
 
       {/* ── 완료업무 탭 ── */}
       {tab === "완료업무" && (
+        <div>
+          {/* 검색/필터 바 */}
+          <div className="hw-card" style={{ padding: "10px 14px", marginBottom: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <input
+                placeholder="이름 검색"
+                value={completedFilterName}
+                onChange={(e) => setCompletedFilterName(e.target.value)}
+                style={{ height: 28, padding: "0 8px", fontSize: 12, border: "1px solid #CBD5E0", borderRadius: 5, outline: "none", width: 110 }}
+              />
+              <select
+                value={completedFilterCategory}
+                onChange={(e) => setCompletedFilterCategory(e.target.value)}
+                style={{ height: 28, padding: "0 6px", fontSize: 12, border: "1px solid #CBD5E0", borderRadius: 5, outline: "none" }}
+              >
+                <option value="">분류 전체</option>
+                {completedCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input
+                placeholder="업무 검색"
+                value={completedFilterWork}
+                onChange={(e) => setCompletedFilterWork(e.target.value)}
+                style={{ height: 28, padding: "0 8px", fontSize: 12, border: "1px solid #CBD5E0", borderRadius: 5, outline: "none", width: 110 }}
+              />
+              <input type="date" value={completedDateFrom} onChange={(e) => setCompletedDateFrom(e.target.value)}
+                style={{ height: 28, padding: "0 6px", fontSize: 12, border: "1px solid #CBD5E0", borderRadius: 5, outline: "none" }} />
+              <span style={{ fontSize: 11, color: "#A0AEC0" }}>~</span>
+              <input type="date" value={completedDateTo} onChange={(e) => setCompletedDateTo(e.target.value)}
+                style={{ height: 28, padding: "0 6px", fontSize: 12, border: "1px solid #CBD5E0", borderRadius: 5, outline: "none" }} />
+              <button
+                onClick={() => setCompletedSort(completedSort === "newest" ? "oldest" : "newest")}
+                style={{ height: 28, padding: "0 10px", fontSize: 11, fontWeight: 600, border: "1px solid #CBD5E0", borderRadius: 5, background: "#F7FAFC", color: "#4A5568", cursor: "pointer" }}
+              >
+                {completedSort === "newest" ? "최신순 ↓" : "오래된순 ↑"}
+              </button>
+              {(completedFilterName || completedFilterCategory || completedFilterWork || completedDateFrom || completedDateTo) && (
+                <button
+                  onClick={() => { setCompletedFilterName(""); setCompletedFilterCategory(""); setCompletedFilterWork(""); setCompletedDateFrom(""); setCompletedDateTo(""); }}
+                  style={{ height: 28, padding: "0 10px", fontSize: 11, border: "1px solid #FEB2B2", borderRadius: 5, background: "#FFF5F5", color: "#E53E3E", cursor: "pointer" }}
+                >
+                  필터 초기화
+                </button>
+              )}
+              <span style={{ fontSize: 11, color: "#A0AEC0", marginLeft: "auto" }}>
+                {filteredCompleted.length} / {(completed as CompletedTask[]).length}건
+              </span>
+            </div>
+          </div>
+
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
-          {(completed as CompletedTask[]).length === 0 ? (
+          {filteredCompleted.length === 0 ? (
             <div className="p-6 text-center text-sm" style={{ color: "#A0AEC0" }}>
               완료된 업무가 없습니다.
             </div>
@@ -651,7 +759,7 @@ export default function TasksPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(completed as CompletedTask[]).map((task) => (
+                  {filteredCompleted.map((task) => (
                     <tr key={task.id}>
                       <td>{task.category}</td>
                       <td>{task.date}</td>
@@ -674,6 +782,7 @@ export default function TasksPage() {
               </table>
             </div>
           )}
+        </div>
         </div>
       )}
 

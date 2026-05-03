@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { dailyApi } from "@/lib/api";
 
 // ── 색상 ─────────────────────────────────────────────────────────────────
-const GOLD       = "#F5A623";
-const GOLD_LIGHT = "rgba(245,166,35,0.12)";
+const GOLD       = "#D4A843";
+const GOLD_LIGHT = "rgba(212,168,67,0.12)";
 const BLUE       = "#4299E1";
 const GREEN      = "#48BB78";
 const BORDER     = "#E2E8F0";

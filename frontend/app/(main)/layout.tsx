@@ -48,7 +48,7 @@ function PinnedCustomerCard({ customer, onClose }: { customer: PinnedCustomer; o
     <div style={{
       position: "fixed", right: 0, top: 56,
       width: 272, height: "calc(100vh - 56px)",
-      background: "#fff", borderLeft: "2px solid #F5A623",
+      background: "#fff", borderLeft: "2px solid #D4A843",
       boxShadow: "-3px 0 14px rgba(0,0,0,0.09)",
       zIndex: 150, display: "flex", flexDirection: "column",
       overflowY: "auto",
@@ -57,7 +57,7 @@ function PinnedCustomerCard({ customer, onClose }: { customer: PinnedCustomer; o
       <div style={{
         padding: "11px 14px", borderBottom: "1px solid #E2E8F0",
         display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-        flexShrink: 0, background: "#FFFBF2",
+        flexShrink: 0, background: "#FFF9E6",
       }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>{name}</div>

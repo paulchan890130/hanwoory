@@ -1,17 +1,29 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { BookMarked, RefreshCw } from "lucide-react";
 import { referenceApi } from "@/lib/api";
-import { BookMarked, ExternalLink, RefreshCw, ChevronRight } from "lucide-react";
+import { referenceEditApi } from "@/lib/api/referenceEdit";
+import type { SheetData } from "@/lib/types/reference";
+import ReferenceToolbar  from "@/components/reference/ReferenceToolbar";
+import ReferenceTabList  from "@/components/reference/ReferenceTabList";
+import ReferenceTable    from "@/components/reference/ReferenceTable";
 
 export default function ReferencePage() {
+  const qc = useQueryClient();
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
+  const [editMode, setEditMode]           = useState(false);
+  // 낙관적 업데이트용 로컬 사본 (구조변경 후 re-fetch로 동기화)
+  const [localData, setLocalData]         = useState<SheetData | null>(null);
 
+  // ── 시트 목록 ─────────────────────────────────────────────────────────────
   const { data: sheetInfo, isLoading: sheetsLoading, error: sheetsError } = useQuery({
     queryKey: ["reference", "sheets"],
     queryFn: () => referenceApi.listSheets().then((r) => r.data),
   });
 
+  // ── 시트 데이터 ───────────────────────────────────────────────────────────
   const { data: sheetData, isLoading: dataLoading, isFetching } = useQuery({
     queryKey: ["reference", "data", selectedSheet],
     queryFn: () =>
@@ -21,43 +33,90 @@ export default function ReferencePage() {
     enabled: !!selectedSheet,
   });
 
-  const sheets = sheetInfo?.sheets ?? [];
-  useEffect(() => {
-    if (sheets.length > 0 && selectedSheet === null) {
-      setSelectedSheet(sheets[0]);
-    }
-  }, [sheets, selectedSheet]);
-
+  const sheets     = sheetInfo?.sheets ?? [];
   const sheetEditUrl = sheetInfo?.sheet_key
     ? `https://docs.google.com/spreadsheets/d/${sheetInfo.sheet_key}/edit`
     : null;
 
+  // 첫 시트 자동 선택
+  useEffect(() => {
+    if (sheets.length > 0 && selectedSheet === null) setSelectedSheet(sheets[0]);
+  }, [sheets, selectedSheet]);
+
+  // sheetData가 바뀌면 localData 동기화
+  useEffect(() => {
+    if (sheetData) setLocalData({ sheet: sheetData.sheet, headers: sheetData.headers, rows: sheetData.rows });
+  }, [sheetData]);
+
+  // 데이터 re-fetch (구조적 변경 후)
+  function refetchData() {
+    qc.invalidateQueries({ queryKey: ["reference", "data", selectedSheet] });
+  }
+  function refetchSheets() {
+    qc.invalidateQueries({ queryKey: ["reference", "sheets"] });
+  }
+
+  // ── 탭 조작 핸들러 ────────────────────────────────────────────────────────
+  async function handleAddSheet(name: string) {
+    try {
+      await referenceEditApi.addSheet(name);
+      await refetchSheets();
+      // 목록 갱신 후 새 탭 선택
+      setSelectedSheet(name);
+    } catch (err) { toast.error(`탭 추가 실패: ${err}`); }
+  }
+
+  async function handleDeleteSheet(name: string) {
+    try {
+      await referenceEditApi.deleteSheet(name);
+      const result = await referenceApi.listSheets().then((r) => r.data);
+      qc.setQueryData(["reference", "sheets"], result);
+      if (selectedSheet === name) setSelectedSheet(result.sheets[0] ?? null);
+    } catch (err) { toast.error(`탭 삭제 실패: ${err}`); }
+  }
+
+  async function handleRenameSheet(oldName: string, newName: string) {
+    try {
+      await referenceEditApi.renameSheet(oldName, newName);
+      const result = await referenceApi.listSheets().then((r) => r.data);
+      qc.setQueryData(["reference", "sheets"], result);
+      if (selectedSheet === oldName) setSelectedSheet(newName);
+    } catch (err) { toast.error(`탭 이름 변경 실패: ${err}`); }
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* 페이지 헤더 */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* ── 페이지 헤더 ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <BookMarked size={18} style={{ color: "var(--hw-gold)" }} />
           <h1 className="hw-page-title">업무참고</h1>
         </div>
-        {sheetEditUrl && (
-          <a
-            href={sheetEditUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              fontSize: 12, padding: "5px 12px", borderRadius: 6,
-              color: "#3182CE", background: "#EBF8FF", border: "1px solid #BEE3F8",
-              textDecoration: "none",
-            }}
-          >
-            <ExternalLink size={12} />
-            원본 시트 열기
-          </a>
-        )}
+        <ReferenceToolbar
+          editMode={editMode}
+          onEditModeChange={setEditMode}
+          sheetEditUrl={sheetEditUrl}
+        />
       </div>
 
+      {/* 편집 모드 배너 */}
+      {editMode && (
+        <div style={{
+          background: "#FFF9E6", border: "1px solid #E8DFC8", borderRadius: 6,
+          padding: "8px 16px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", fontSize: 12, color: "#6B5314",
+        }}>
+          <span>⚠ 편집 모드 — 변경사항이 즉시 구글시트에 반영됩니다</span>
+          <button
+            onClick={() => setEditMode(false)}
+            style={{ padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: "#fff", border: "1px solid #D4A843", color: "#6B5314", cursor: "pointer" }}
+          >
+            편집 모드 끄기
+          </button>
+        </div>
+      )}
+
+      {/* ── 메인 컨텐츠 ── */}
       {sheetsLoading ? (
         <div className="hw-card" style={{ fontSize: 13, color: "#A0AEC0" }}>시트 목록 불러오는 중...</div>
       ) : sheetsError ? (
@@ -70,83 +129,40 @@ export default function ReferencePage() {
         </div>
       ) : (
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-          {/* 시트 탭 목록 (좌측) */}
-          <div className="hw-card" style={{ width: 180, flexShrink: 0, padding: "8px 0", minHeight: 200 }}>
-            <div style={{ padding: "6px 12px 8px", fontSize: 11, fontWeight: 600, color: "#A0AEC0", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-              시트 탭
-            </div>
-            {sheets.map((sheet) => (
-              <button
-                key={sheet}
-                onClick={() => setSelectedSheet(sheet)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  width: "100%", textAlign: "left", padding: "6px 12px",
-                  fontSize: 12, border: "none", cursor: "pointer",
-                  color: selectedSheet === sheet ? "var(--hw-gold-text)" : "#4A5568",
-                  background: selectedSheet === sheet ? "var(--hw-gold-light)" : "transparent",
-                  fontWeight: selectedSheet === sheet ? 600 : 400,
-                }}
-              >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sheet}</span>
-                {selectedSheet === sheet && <ChevronRight size={12} />}
-              </button>
-            ))}
-          </div>
+          {/* 좌측: 탭 목록 */}
+          <ReferenceTabList
+            sheets={sheets}
+            selectedSheet={selectedSheet}
+            editMode={editMode}
+            onSelect={setSelectedSheet}
+            onAdd={handleAddSheet}
+            onDelete={handleDeleteSheet}
+            onRename={handleRenameSheet}
+          />
 
-          {/* 시트 데이터 (우측) */}
+          {/* 우측: 테이블 */}
           <div style={{ flex: 1, minWidth: 0 }}>
             {dataLoading || isFetching ? (
               <div className="hw-card" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#A0AEC0" }}>
                 <RefreshCw size={14} style={{ animation: "spin 1s linear infinite", color: "var(--hw-gold)" }} />
                 데이터 불러오는 중...
               </div>
-            ) : !sheetData ? (
+            ) : !localData ? (
               <div className="hw-card" style={{ fontSize: 13, textAlign: "center", padding: "40px 0", color: "#A0AEC0" }}>
                 좌측에서 시트를 선택하세요.
               </div>
-            ) : sheetData.rows.length === 0 ? (
+            ) : localData.rows.length === 0 && !editMode ? (
               <div className="hw-card" style={{ fontSize: 13, textAlign: "center", padding: "40px 0", color: "#A0AEC0" }}>
-                <div style={{ fontWeight: 500, marginBottom: 4 }}>&quot;{sheetData.sheet}&quot; 시트에 데이터가 없습니다.</div>
-                <div style={{ fontSize: 12 }}>원본 시트에서 내용을 입력해주세요.</div>
+                <div style={{ fontWeight: 500, marginBottom: 4 }}>&quot;{localData.sheet}&quot; 시트에 데이터가 없습니다.</div>
+                <div style={{ fontSize: 12 }}>{editMode ? "아래 [+ 행 추가] 버튼을 눌러 시작하세요." : "원본 시트에서 내용을 입력해주세요."}</div>
               </div>
             ) : (
-              <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
-                {/* 시트명 + 행수 */}
-                <div style={{ padding: "10px 16px", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#2D3748" }}>{sheetData.sheet}</div>
-                  <div style={{ fontSize: 12, color: "#A0AEC0" }}>{sheetData.rows.length}행</div>
-                </div>
-                {/* 테이블 */}
-                <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 260px)" }}>
-                  <table className="hw-table" style={{ width: "100%", fontSize: 12 }}>
-                    <thead>
-                      <tr>
-                        {sheetData.headers.map((h: string) => (
-                          <th key={h} style={{ textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sheetData.rows.map((row: Record<string, string>, i: number) => (
-                        <tr key={i}>
-                          {sheetData.headers.map((h: string) => (
-                            <td
-                              key={h}
-                              style={{ verticalAlign: "top", whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: 400 }}
-                            >
-                              {row[h] ?? ""}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ padding: "6px 16px", borderTop: "1px solid #E2E8F0", fontSize: 11, color: "#A0AEC0" }}>
-                  편집은 원본 시트에서 해주세요.
-                </div>
-              </div>
+              <ReferenceTable
+                sheetData={localData}
+                editMode={editMode}
+                onDataChange={setLocalData}
+                onRefetch={refetchData}
+              />
             )}
           </div>
         </div>

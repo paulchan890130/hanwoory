@@ -39,7 +39,7 @@ function rowHighlight(c: Record<string, string>): React.CSSProperties {
   }, null);
   if (min === null) return {};
   if (min <= 30) return { background: "#FFF5F5" };
-  if (min <= 120) return { background: "#FFFBF0" };
+  if (min <= 120) return { background: "#FFF9E6" };
   return {};
 }
 
@@ -231,7 +231,7 @@ function CustomerDrawer({
         <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px", minHeight:0, boxSizing:"border-box" }}>
           {DRAWER_GROUPS.map((grp) => (
             <div key={grp.title} style={{ marginBottom:18 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:"#F5A623", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{grp.title}</div>
+              <div style={{ fontSize:11, fontWeight:700, color:"#D4A843", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{grp.title}</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                 {grp.fields.map((f) => {
                   const wide = (f as { wide?: boolean }).wide;
@@ -434,7 +434,7 @@ export default function CustomersPage() {
                   return (
                     <tr key={id} onClick={() => { setSelectedCustomer(c); setIsNewMode(false); }}
                       style={{ ...rowHighlight(c), cursor:"pointer", borderBottom:"1px solid #EDF2F7",
-                        ...(isSelected ? { background:"rgba(245,166,35,0.08)", outline:"2px solid rgba(245,166,35,0.3)" } : {}) }}>
+                        ...(isSelected ? { background:"rgba(212,168,67,0.08)", outline:"2px solid rgba(212,168,67,0.3)" } : {}) }}>
                       {TABLE_COLS.map((col) => {
                         const val = col.key === "_tel" ? tel : (c[col.key] || "");
                         const isExpiry = col.key === "만기일" || col.key === "만기";
@@ -474,7 +474,7 @@ export default function CustomersPage() {
                     onClick={() => setPage(n)}
                     style={{
                       padding:"4px 9px", fontSize:12, borderRadius:6, cursor:"pointer",
-                      border: n === page ? "1px solid #F5A623" : "1px solid #E2E8F0",
+                      border: n === page ? "1px solid #D4A843" : "1px solid #E2E8F0",
                       background: n === page ? "#FFF8EC" : "#fff",
                       color: n === page ? "#C27800" : "#4A5568",
                       fontWeight: n === page ? 700 : 400,

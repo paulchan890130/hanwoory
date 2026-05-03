@@ -31,8 +31,8 @@ const OVERRIDE_FIELDS: { label: string; key: string; placeholder: string }[] = [
 ];
 
 // ── 색상 상수 ─────────────────────────────────────────────────────────────
-const GOLD = "#F5A623";
-const GOLD_LIGHT = "rgba(245,166,35,0.10)";
+const GOLD = "#D4A843";
+const GOLD_LIGHT = "rgba(212,168,67,0.10)";
 const BORDER = "#E2E8F0";
 const GRAY_BG = "#F9FAFB";
 
@@ -553,7 +553,7 @@ function QuickDocPageInner() {
             style={{
               display: "flex", alignItems: "center", gap: 4,
               padding: "5px 10px", borderRadius: 8, border: `1px solid ${GOLD}`,
-              fontSize: 12, background: "#FFFBF0", cursor: "pointer", color: "#92631A",
+              fontSize: 12, background: "#FFF9E6", cursor: "pointer", color: "#6B5314",
               textDecoration: "none", fontWeight: 600,
             }}
           >
@@ -577,7 +577,7 @@ function QuickDocPageInner() {
         <div style={{
           display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
           fontSize: 12, padding: "7px 12px", borderRadius: 8, marginBottom: 14,
-          background: GOLD_LIGHT, color: "#92631A",
+          background: GOLD_LIGHT, color: "#6B5314",
         }}>
           {[category, minwon, kind, detail].filter(Boolean).map((v, i) => (
             <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
@@ -975,7 +975,7 @@ function QuickDocPageInner() {
                         width: "100%", padding: "6px 10px",
                         border: `1px solid ${editOverrides[key]?.trim() ? GOLD : BORDER}`,
                         borderRadius: 6, fontSize: 12, boxSizing: "border-box",
-                        background: editOverrides[key]?.trim() ? "#FFFBF0" : "#fff",
+                        background: editOverrides[key]?.trim() ? "#FFF9E6" : "#fff",
                       }}
                     />
                   </div>

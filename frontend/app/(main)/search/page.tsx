@@ -78,7 +78,7 @@ function ResultCard({ result, router }: { result: SearchResult; router: ReturnTy
       className="rounded-xl border p-4 cursor-pointer transition-all"
       style={{ background: "#fff", borderColor: "#E2E8F0" }}
       onClick={() => result.url && router.push(result.url)}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#F5A623"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(245,166,35,0.15)"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#D4A843"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(212,168,67,0.15)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#E2E8F0"; (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; }}
     >
       <div className="flex items-start gap-3">
@@ -108,7 +108,7 @@ function ResultCard({ result, router }: { result: SearchResult; router: ReturnTy
           {result.highlight && (
             <div
               className="text-xs mt-1 px-2 py-1 rounded"
-              style={{ background: "rgba(245,166,35,0.08)", color: "#744210" }}
+              style={{ background: "rgba(212,168,67,0.08)", color: "#6B5314" }}
               dangerouslySetInnerHTML={{ __html: result.highlight }}
             />
           )}
@@ -253,7 +253,7 @@ function SearchPageContent() {
                 padding: "0 16px 0 38px", fontSize: 13, outline: "none", background: "#F8F9FA",
                 boxSizing: "border-box",
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "#F5A623"; e.currentTarget.style.background = "#fff"; }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "#D4A843"; e.currentTarget.style.background = "#fff"; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = "#CBD5E0"; e.currentTarget.style.background = "#F8F9FA"; }}
             />
           </div>

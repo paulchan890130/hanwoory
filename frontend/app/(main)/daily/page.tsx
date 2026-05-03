@@ -567,8 +567,8 @@ export default function DailyPage() {
                 ))}
                 <div
                   onMouseDown={() => { setShowSuggestions(false); setShowNewCustomerModal(true); }}
-                  style={{ padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#F5A623", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#FFFBF0")}
+                  style={{ padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#D4A843", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF9E6")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                 >
                   <UserPlus size={11} /> 신규 고객 등록

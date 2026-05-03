@@ -9,6 +9,10 @@ import {
 } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { safeInt, formatNumber } from "@/lib/utils";
+import TaskSummaryCards from "@/components/tasks/TaskSummaryCards";
+import TaskCategoryFilter from "@/components/tasks/TaskCategoryFilter";
+import TaskCardView from "@/components/tasks/TaskCardView";
+import TaskTableView from "@/components/tasks/TaskTableView";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -253,7 +257,7 @@ function ActiveTaskRow({
             onClick={handleSave}
             style={{
               padding: "2px 7px", fontSize: 9, fontWeight: 700,
-              background: "#F5A623", color: "#fff",
+              background: "#D4A843", color: "#fff",
               border: "none", borderRadius: 4, cursor: "pointer",
               whiteSpace: "nowrap",
             }}
@@ -280,10 +284,10 @@ function ActiveTaskRow({
           {/* 처 (처리) */}
           <label style={{ display: "flex", alignItems: "center", gap: 2, cursor: "pointer", userSelect: "none" }}>
             <input type="checkbox" checked={!!pendingProcessing} onChange={() => toggleLocal("processing")}
-              style={{ accentColor: "#D69E2E", width: 11, height: 11, flexShrink: 0 }} />
-            <span style={{ fontSize: 10, color: pendingProcessing ? "#975A16" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처</span>
+              style={{ accentColor: "#D4A843", width: 11, height: 11, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: pendingProcessing ? "#96751E" : "#A0AEC0", fontWeight: pendingProcessing ? 700 : 400 }}>처</span>
             {pendingProcessing && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: pendingStorage ? "#CBD5E0" : "#975A16" }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: pendingStorage ? "#CBD5E0" : "#96751E" }}>
                 D+{daysBetween(pendingProcessing, pendingStorage || null)}
               </span>
             )}
@@ -354,7 +358,7 @@ function PlannedTaskRow({
 
   const periodColor =
     period === "단기🔴" ? "#C53030" :
-    period === "중기🟡" ? "#975A16" :
+    period === "중기🟡" ? "#96751E" :
     period === "장기🟢" ? "#276749" :
     period === "완료✅" ? "#A0AEC0" :
     "#4A5568";
@@ -390,7 +394,7 @@ function PlannedTaskRow({
           disabled={!dirty}
           style={{
             padding: "3px 8px", fontSize: 10, fontWeight: 700,
-            background: dirty ? "#F5A623" : "#E2E8F0",
+            background: dirty ? "#D4A843" : "#E2E8F0",
             color: dirty ? "#fff" : "#A0AEC0",
             border: "none", borderRadius: 4,
             cursor: dirty ? "pointer" : "default",
@@ -507,6 +511,8 @@ export default function DashboardPage() {
   }, []);
 
   const [memoText, setMemoText] = useState("");
+  const [dashViewMode, setDashViewMode] = useState<"table" | "card">("card");
+  const [dashCategory, setDashCategory] = useState<string | "all">("all");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
   // Map of task.id → {reception, processing, storage} — mirrors server state, updated on toggle
@@ -812,7 +818,7 @@ export default function DashboardPage() {
             {/* 본문 */}
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
               {todayScheduleLines.map((line, i) => (
-                <div key={i} style={{ fontSize: 13, color: "#2D3748", padding: "8px 12px", background: "#FFFBF0", border: "1px solid #FDE68A", borderRadius: 7, lineHeight: 1.6 }}>
+                <div key={i} style={{ fontSize: 13, color: "#2D3748", padding: "8px 12px", background: "#FFF9E6", border: "1px solid #FDE68A", borderRadius: 7, lineHeight: 1.6 }}>
                   {line}
                 </div>
               ))}
@@ -986,84 +992,103 @@ export default function DashboardPage() {
 
       {/* ── 진행업무 ── */}
       <div className="hw-card">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "#A0AEC0" }}>완료/삭제 체크 후 →</span>
-            <button
-              onClick={handleBatchSave}
-              disabled={completeTasksMut.isPending || deleteTasksMut.isPending}
-              className="btn-primary"
-              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: (completeTasksMut.isPending || deleteTasksMut.isPending) ? 0.5 : 1 }}
-            >
-              <CheckCircle size={12} /> 선택 처리
-            </button>
-          </div>
-        </div>
-
-        {activeTasks.length === 0 ? (
-          <p style={{ fontSize: 12, color: "#A0AEC0" }}>
-            진행 중인 업무가 없습니다. 업무관리 메뉴에서 추가하세요.
-          </p>
-        ) : (
+      {(() => {
+        const allActive = activeTasks as ActiveTask[];
+        const dashCats = Array.from(new Set(allActive.map(t => t.category).filter(Boolean)));
+        const dashCatCounts: Record<string, number> = {};
+        for (const t of allActive) { if (t.category) dashCatCounts[t.category] = (dashCatCounts[t.category] || 0) + 1; }
+        const dashFiltered = dashCategory === "all" ? allActive : allActive.filter(t => t.category === dashCategory);
+        const dashUrgent = dashFiltered.filter(t => {
+          const p = progressPending.get(t.id);
+          const ts = [p?.storage ?? (t.storage as string) ?? "", p?.processing ?? (t.processing as string) ?? "", p?.reception ?? (t.reception as string) ?? ""].filter(Boolean).sort().reverse()[0] ?? "";
+          if (!ts) return false;
+          const d = Math.max(0, Math.floor((new Date().setHours(0,0,0,0), (Date.now() - new Date(ts.slice(0,10)).getTime()) / 86400000)));
+          return d >= 20;
+        }).length;
+        const dashCommonProps = {
+          progressPending, completedIds, deleteIds,
+          onProgressToggle: handleProgressToggle,
+          onSave: handleActiveTaskSave,
+          onToggleComplete: (id: string) => setCompletedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }),
+          onToggleDelete: (id: string) => setDeleteIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }),
+        };
+        return (
           <>
-            <div style={{ overflowX: "auto" }}>
-              <table className="hw-table" style={{ minWidth: 960 }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left" }}>분류</th>
-                    <th style={{ textAlign: "left" }}>날짜</th>
-                    <th style={{ textAlign: "left" }}>이름</th>
-                    <th style={{ textAlign: "left" }}>업무</th>
-                    <th style={{ textAlign: "left" }}>세부내용</th>
-                    <th style={{ textAlign: "right", width: 56 }}>이체</th>
-                    <th style={{ textAlign: "right", width: 56 }}>현금</th>
-                    <th style={{ textAlign: "right", width: 56 }}>카드</th>
-                    <th style={{ textAlign: "right", width: 56 }}>인지</th>
-                    <th style={{ textAlign: "right", width: 56 }}>미수</th>
-                    <th style={{ width: 36 }}></th>
-                    <th style={{ width: 150 }}>접수/처리/보관중</th>
-                    <th style={{ textAlign: "center", width: 44 }}>완료✅</th>
-                    <th style={{ textAlign: "center", width: 44 }}>삭제❌</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(activeTasks as ActiveTask[]).map((task) => (
-                    <ActiveTaskRow
-                      key={task.id}
-                      task={task}
-                      onSave={handleActiveTaskSave}
-                      onToggleComplete={(id) =>
-                        setCompletedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })
-                      }
-                      onToggleDelete={(id) =>
-                        setDeleteIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })
-                      }
-                      markedComplete={completedIds.has(task.id)}
-                      markedDelete={deleteIds.has(task.id)}
-                      onProgressToggle={handleProgressToggle}
-                      pendingReception={progressPending.get(task.id)?.reception ?? (task.reception as string) ?? ""}
-                      pendingProcessing={progressPending.get(task.id)?.processing ?? (task.processing as string) ?? ""}
-                      pendingStorage={progressPending.get(task.id)?.storage ?? (task.storage as string) ?? ""}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            {/* 헤더 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: "#A0AEC0" }}>완료/삭제 체크 후 →</span>
+                <button onClick={handleBatchSave} disabled={completeTasksMut.isPending || deleteTasksMut.isPending}
+                  className="btn-primary"
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: (completeTasksMut.isPending || deleteTasksMut.isPending) ? 0.5 : 1 }}>
+                  <CheckCircle size={12} /> 선택 처리
+                </button>
+              </div>
             </div>
-            {/* 합계 푸터 */}
-            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, borderTop: "1px solid #E2E8F0", paddingTop: 8, color: "#718096" }}>
-              {(["transfer","cash","card","stamp","receivable"] as const).map((f) => {
-                const total = (activeTasks as ActiveTask[]).reduce((s, t) => s + safeInt(t[f]), 0);
-                return total > 0 ? (
-                  <span key={f}>
-                    {f === "transfer" ? "이체" : f === "cash" ? "현금" : f === "card" ? "카드" : f === "stamp" ? "인지" : "미수"}:{" "}
-                    <strong style={{ color: "#2D3748" }}>{formatNumber(total)}</strong>
-                  </span>
-                ) : null;
-              })}
-            </div>
+
+            {allActive.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#A0AEC0" }}>진행 중인 업무가 없습니다. 업무관리 메뉴에서 추가하세요.</p>
+            ) : (
+              <>
+                {/* 요약 카드 */}
+                <TaskSummaryCards
+                  totalCount={dashFiltered.length}
+                  urgentCount={dashUrgent}
+                  transferTotal={dashFiltered.reduce((s, t) => s + safeInt(t.transfer), 0)}
+                  cashTotal={dashFiltered.reduce((s, t) => s + safeInt(t.cash), 0)}
+                  stampTotal={dashFiltered.reduce((s, t) => s + safeInt(t.stamp), 0)}
+                  hasUnpaid={dashFiltered.some(t => safeInt(t.receivable) > 0)}
+                />
+
+                {/* 분류 필터 + 뷰 토글 */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "2px solid #E2E8F0", marginBottom: 0 }}>
+                  <TaskCategoryFilter
+                    categories={dashCats}
+                    activeCategory={dashCategory}
+                    onChange={setDashCategory}
+                    counts={dashCatCounts}
+                    totalCount={allActive.length}
+                  />
+                  <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #E2E8F0", flexShrink: 0, marginLeft: 12 }}>
+                    {(["card", "table"] as const).map(mode => (
+                      <button key={mode} onClick={() => setDashViewMode(mode)} style={{
+                        height: 26, padding: "0 10px", fontSize: 11, fontWeight: 600,
+                        cursor: "pointer", border: "none",
+                        background: dashViewMode === mode ? "#4A5568" : "#F7FAFC",
+                        color: dashViewMode === mode ? "#fff" : "#718096",
+                      }}>
+                        {mode === "table" ? "☰" : "⊞"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {dashFiltered.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "#A0AEC0", padding: "12px 0" }}>해당 분류의 업무가 없습니다.</p>
+                ) : dashViewMode === "card" ? (
+                  <TaskCardView tasks={dashFiltered} {...dashCommonProps} />
+                ) : (
+                  <TaskTableView tasks={dashFiltered} {...dashCommonProps} />
+                )}
+
+                {/* 합계 푸터 */}
+                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, borderTop: "1px solid #E2E8F0", paddingTop: 8, color: "#718096" }}>
+                  {(["transfer","cash","card","stamp","receivable"] as const).map((f) => {
+                    const total = dashFiltered.reduce((s, t) => s + safeInt(t[f]), 0);
+                    return total > 0 ? (
+                      <span key={f}>
+                        {f === "transfer" ? "이체" : f === "cash" ? "현금" : f === "card" ? "카드" : f === "stamp" ? "인지" : "미수"}:{" "}
+                        <strong style={{ color: "#2D3748" }}>{formatNumber(total)}</strong>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </>
+            )}
           </>
-        )}
+        );
+      })()}
       </div>
 
       {/* ── 캘린더 모달 ── */}

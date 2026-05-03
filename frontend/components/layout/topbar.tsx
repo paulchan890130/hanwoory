@@ -229,7 +229,7 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
                       className="hw-search-result-item"
                       onClick={() => { setSearchOpen(false); router.push(href); }}
                     >
-                      <Icon size={13} style={{ color: "#F5A623", flexShrink: 0 }} />
+                      <Icon size={13} style={{ color: "#D4A843", flexShrink: 0 }} />
                       <span>{label}</span>
                     </div>
                   ))}
@@ -244,7 +244,7 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
                     onClick={() => handleSearch()}
                     style={{ padding: "14px 20px" }}
                   >
-                    <Search size={14} style={{ color: "#F5A623", flexShrink: 0 }} />
+                    <Search size={14} style={{ color: "#D4A843", flexShrink: 0 }} />
                     <span>
                       <strong>&quot;{query}&quot;</strong> 전체 검색
                     </span>

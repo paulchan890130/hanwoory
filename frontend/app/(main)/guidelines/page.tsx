@@ -564,7 +564,7 @@ function ManualPdfViewer({ refs, onClose }: { refs: ManualRef[]; onClose: () => 
         <button onClick={() => setFullscreen(f => !f)} style={{ padding:5, borderRadius:6, background:"none", border:"none", cursor:"pointer", color:"#718096" }} title={fullscreen?"축소":"전체화면"}><Maximize2 size={13} /></button>
         <button onClick={onClose} style={{ padding:5, borderRadius:6, background:"none", border:"none", cursor:"pointer", color:"#A0AEC0" }} title="닫기"><X size={14} /></button>
       </div>
-      <div style={{ padding:"6px 14px", background:"#FFFBF0", borderBottom:"1px solid #F6E05E", fontSize:11, color:"#744210", flexShrink:0 }}>
+      <div style={{ padding:"6px 14px", background:"#FFF9E6", borderBottom:"1px solid #E8DFC8", fontSize:11, color:"#6B5314", flexShrink:0 }}>
         📖 <strong>{active.manual}</strong> p.{active.page_from}
         {active.page_to && active.page_to !== active.page_from && ` ~ ${active.page_to}`}
         {active.match_type === "section_only" && <span style={{ marginLeft:8, color:"#9C4221" }}>※ 자격 섹션 전체 — 페이지 내에서 키워드 검색 필요</span>}
@@ -697,9 +697,9 @@ function DetailPanel({
           )}
           {deepLinkUrl && (
             <button onClick={() => router.push(deepLinkUrl)}
-              style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"8px 14px", borderRadius:8, background:"rgba(245,166,35,0.10)", border:"1px solid #F5A623", color:"#92631A", fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}
-              onMouseEnter={e=>(e.currentTarget as HTMLButtonElement).style.background="rgba(245,166,35,0.20)"}
-              onMouseLeave={e=>(e.currentTarget as HTMLButtonElement).style.background="rgba(245,166,35,0.10)"}>
+              style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"8px 14px", borderRadius:8, background:"rgba(212,168,67,0.10)", border:"1px solid #D4A843", color:"#6B5314", fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}
+              onMouseEnter={e=>(e.currentTarget as HTMLButtonElement).style.background="rgba(212,168,67,0.20)"}
+              onMouseLeave={e=>(e.currentTarget as HTMLButtonElement).style.background="rgba(212,168,67,0.10)"}>
               <FileText size={13} /> 문서 자동작성으로 이동 <ArrowRight size={13} />
             </button>
           )}
@@ -810,7 +810,7 @@ function DetailPanel({
               style={{ width:"100%", fontSize:13, padding:"7px 10px", border:"1px solid #CBD5E0", borderRadius:7, outline:"none", boxSizing:"border-box" }}
             />
           ) : row.fee_rule ? (
-            <div style={{ fontSize:13, padding:"10px 14px", borderRadius:8, background:"#FFFBF0", color:"#744210", border:"1px solid #F6E05E", lineHeight:1.5, wordBreak:"break-word", overflowWrap:"break-word" }}>{row.fee_rule}</div>
+            <div style={{ fontSize:13, padding:"10px 14px", borderRadius:8, background:"#FFF9E6", color:"#6B5314", border:"1px solid #E8DFC8", lineHeight:1.5, wordBreak:"break-word", overflowWrap:"break-word" }}>{row.fee_rule}</div>
           ) : (
             <div style={{ fontSize:12, color:"#CBD5E0" }}>—</div>
           )}
@@ -976,7 +976,7 @@ function GuidelineCard({ row, isSelected, onClick }: { row: GuidelineRow; isSele
           </div>
           {row.fee_rule && (
             <div style={{ marginTop:8, fontSize:11, color:"#718096", wordBreak:"break-word", overflowWrap:"break-word" }}>
-              인지세: <span style={{color:"#744210",fontWeight:600}}>{row.fee_rule}</span>
+              인지세: <span style={{color:"#6B5314",fontWeight:600}}>{row.fee_rule}</span>
             </div>
           )}
         </div>
@@ -1398,7 +1398,7 @@ export default function GuidelinesPage() {
                 style={{
                   display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
                   border:`1.5px solid ${!treeMode ? "var(--hw-gold)" : "#CBD5E0"}`,
-                  background: !treeMode ? "rgba(245,166,35,0.08)" : "#fff",
+                  background: !treeMode ? "rgba(212,168,67,0.08)" : "#fff",
                   color: !treeMode ? "var(--hw-gold-text)" : "#718096",
                   fontWeight: !treeMode ? 700 : 400, cursor:"pointer",
                 }}>
@@ -1410,7 +1410,7 @@ export default function GuidelinesPage() {
                 style={{
                   display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
                   border:`1.5px solid ${treeMode ? "var(--hw-gold)" : "#CBD5E0"}`,
-                  background: treeMode ? "rgba(245,166,35,0.08)" : "#fff",
+                  background: treeMode ? "rgba(212,168,67,0.08)" : "#fff",
                   color: treeMode ? "var(--hw-gold-text)" : "#718096",
                   fontWeight: treeMode ? 700 : 400, cursor:"pointer",
                 }}>
@@ -1635,7 +1635,7 @@ export default function GuidelinesPage() {
                       {["통합신청서","사업자등록증","재직증명서","가족관계증명서","위임장"].map(hint => (
                         <button key={hint}
                           onClick={() => { setSearchQuery(hint); doSearch(hint, ""); }}
-                          style={{ fontSize:11, padding:"4px 12px", borderRadius:99, background:"rgba(245,166,35,0.08)", color:"var(--hw-gold-text)", border:"1px solid rgba(245,166,35,0.35)", cursor:"pointer" }}>
+                          style={{ fontSize:11, padding:"4px 12px", borderRadius:99, background:"rgba(212,168,67,0.08)", color:"var(--hw-gold-text)", border:"1px solid rgba(212,168,67,0.35)", cursor:"pointer" }}>
                           {hint}
                         </button>
                       ))}

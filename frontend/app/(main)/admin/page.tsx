@@ -516,7 +516,7 @@ interface RematchRow {
 
 const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
   PASS:         { label: "일치",     bg: "#F0FFF4", color: "#276749" },
-  PAGE_CHANGED: { label: "페이지 변경", bg: "#FFFFF0", color: "#744210" },
+  PAGE_CHANGED: { label: "페이지 변경", bg: "#FFFFF0", color: "#6B5314" },
   NOT_FOUND:    { label: "미발견",   bg: "#FFF5F5", color: "#C53030" },
   SKIP:         { label: "건너뜀",   bg: "#F7FAFC", color: "#A0AEC0" },
 };
@@ -1013,7 +1013,7 @@ export default function AdminPage() {
                               {partial && (
                                 <span
                                   className="text-xs px-2 py-0.5 rounded-full"
-                                  style={{ background: "#FEFCBF", color: "#744210" }}
+                                  style={{ background: "#FFF9E6", color: "#6B5314" }}
                                   title={`folder: ${acc.folder_id || "(없음)"}\ncustomer: ${acc.customer_sheet_key || "(없음)"}\nwork: ${acc.work_sheet_key || "(없음)"}`}
                                 >
                                   <AlertTriangle size={9} style={{ display: "inline", marginRight: 2 }} />

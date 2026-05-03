@@ -47,6 +47,7 @@ from backend.routers import (
     board,
     scan,
     scan_workspace,
+    scan_roi_preset,
     admin,
     search,
     reference,
@@ -85,7 +86,8 @@ app.include_router(memos.router,     prefix="/api/memos",     tags=["메모"])
 app.include_router(events.router,    prefix="/api/events",    tags=["일정"])
 app.include_router(board.router,     prefix="/api/board",     tags=["게시판"])
 app.include_router(scan.router,      prefix="/api/scan",      tags=["OCR 스캔"])
-app.include_router(scan_workspace.router, prefix="/api/scan-workspace",  tags=["OCR 작업판"])
+app.include_router(scan_workspace.router,   prefix="/api/scan-workspace", tags=["OCR 작업판"])
+app.include_router(scan_roi_preset.router, prefix="/api/scan",            tags=["ROI 프리셋"])
 app.include_router(admin.router,     prefix="/api/admin",     tags=["관리자"])
 app.include_router(search.router,    prefix="/api/search",    tags=["통합검색"])
 app.include_router(reference.router, prefix="/api/reference", tags=["업무참고"])
