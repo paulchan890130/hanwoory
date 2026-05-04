@@ -258,6 +258,7 @@ function WorkspaceCanvas({
   wsMode, selectingFor, onSelectDone, customRois,
   externalTf, resetTrigger, onTfChange,
   editMode, onBoxChange,
+  initialAlign = "center",
 }: {
   preview: string | null;
   file: File | null;
@@ -277,6 +278,8 @@ function WorkspaceCanvas({
   // [프리셋] 가이드 박스 편집 모드
   editMode?: boolean;
   onBoxChange?: (key: string, box: { x: number; y: number; w: number; h: number }) => void;
+  // 초기 정렬: center(여권) 또는 top(등록증)
+  initialAlign?: "center" | "top";
 }) {
   const [tf, setTf]             = useState<WsTf>(DEFAULT_TF);
   const [dragging, setDragging] = useState(false);
@@ -325,12 +328,19 @@ function WorkspaceCanvas({
     natural:   { w: img?.naturalWidth  ?? 1, h: img?.naturalHeight ?? 1 },
   };
 
+  const calcInitialTf = (c: HTMLDivElement, i: HTMLImageElement): WsTf => {
+    const scale = c.clientWidth / i.naturalWidth;
+    const ty = initialAlign === "top"
+      ? (i.naturalHeight * scale) / 2 - WORKSPACE_H / 2
+      : 0;
+    return { scale, tx: 0, ty, rot: 0 };
+  };
+
   const onImgLoad = () => {
     const c = containerRef.current;
     const i = imgRef.current;
     if (!c || !i || !i.naturalWidth) return;
-    const scale = Math.min(c.clientWidth / i.naturalWidth, WORKSPACE_H / i.naturalHeight);
-    setTf({ scale, tx: 0, ty: 0, rot: 0 });
+    setTf(calcInitialTf(c, i));
   };
 
   const zoomIn   = () => setTf(p => ({ ...p, scale: Math.min(20,   p.scale * 1.25) }));
@@ -341,8 +351,7 @@ function WorkspaceCanvas({
     const c = containerRef.current;
     const i = imgRef.current;
     if (c && i && i.naturalWidth) {
-      const scale = Math.min(c.clientWidth / i.naturalWidth, WORKSPACE_H / i.naturalHeight);
-      setTf({ scale, tx: 0, ty: 0, rot: 0 });
+      setTf(calcInitialTf(c, i));
     } else {
       setTf(DEFAULT_TF);
     }
@@ -1438,6 +1447,7 @@ export default function ScanPage() {
               setArcBoxes(prev => ({ ...prev, [key]: box }));
               setIsDirty(true);
             }}
+            initialAlign="top"
           />
           {debugMode && arcDebug && <DebugPanel debug={arcDebug} title={`등록증 ${arcDebug.fieldKey ?? ""}`} />}
 
