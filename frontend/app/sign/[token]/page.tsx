@@ -7,21 +7,11 @@ type Status = "loading" | "ready" | "submitting" | "submitted" | "expired" | "er
 export default function SignPage() {
   const { token } = useParams<{ token: string }>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<import("signature_pad").default | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [msg, setMsg] = useState("");
   const [officeName, setOfficeName] = useState("");
-  const [isPortrait, setIsPortrait] = useState(false);
-
-  // portrait/landscape 감지
-  useEffect(() => {
-    const check = () => {
-      setIsPortrait(window.innerHeight > window.innerWidth);
-    };
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   // 토큰 유효성 + 사무소 이름 조회
   useEffect(() => {
@@ -34,32 +24,24 @@ export default function SignPage() {
       .catch(() => {});
   }, [token]);
 
-  // 캔버스 크기 재계산
   const resizeCanvas = () => {
     const canvas = canvasRef.current;
-    const pad = padRef.current;
-    if (!canvas || !pad) return;
+    if (!canvas) return;
     const ratio = window.devicePixelRatio || 1;
     canvas.width = canvas.offsetWidth * ratio;
     canvas.height = canvas.offsetHeight * ratio;
     const ctx = canvas.getContext("2d");
-    if (ctx) ctx.scale(ratio, ratio);
-    pad.clear();
+    ctx?.scale(ratio, ratio);
   };
 
-  // SignaturePad 초기화
+  // SignaturePad 초기화 + ResizeObserver
   useEffect(() => {
     import("signature_pad").then((mod) => {
       const SignaturePad = mod.default;
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      const ctx = canvas.getContext("2d");
-      if (ctx) ctx.scale(ratio, ratio);
-
+      resizeCanvas();
       padRef.current = new SignaturePad(canvas, {
         backgroundColor: "rgba(0,0,0,0)",
         penColor: "#000",
@@ -67,8 +49,11 @@ export default function SignPage() {
       if (status !== "expired") setStatus("ready");
     });
 
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
+    const wrapper = canvasWrapperRef.current;
+    if (!wrapper) return;
+    const ro = new ResizeObserver(() => resizeCanvas());
+    ro.observe(wrapper);
+    return () => ro.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -99,45 +84,17 @@ export default function SignPage() {
     }
   };
 
-  // portrait → 90도 회전 래퍼 스타일
-  const wrapperStyle: React.CSSProperties = isPortrait
-    ? {
-        position: "fixed",
-        top: 0,
-        left: "100vw",
-        width: "100vh",
-        height: "100vw",
-        transform: "rotate(90deg)",
-        transformOrigin: "top left",
-        background: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }
-    : {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      };
-
-  // ── 완료/만료 공용 전체화면 ──
-  const overlayStyle: React.CSSProperties = {
-    ...wrapperStyle,
-    alignItems: "center",
-    justifyContent: "center",
+  const fullScreen: React.CSSProperties = {
+    width: "100vw", height: "100dvh",
+    display: "flex", flexDirection: "column",
+    background: "#fff", overflow: "hidden",
   };
 
   if (status === "submitted") {
     return (
-      <div style={overlayStyle}>
+      <div style={{ ...fullScreen, alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+          <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#276749", marginBottom: 6 }}>
             서명이 저장되었습니다.
           </div>
@@ -149,9 +106,9 @@ export default function SignPage() {
 
   if (status === "expired") {
     return (
-      <div style={overlayStyle}>
+      <div style={{ ...fullScreen, alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>⏰</div>
+          <div style={{ fontSize: 44, marginBottom: 12 }}>⏰</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#C53030", marginBottom: 6 }}>
             링크가 만료되었습니다.
           </div>
@@ -162,13 +119,11 @@ export default function SignPage() {
   }
 
   return (
-    <div style={wrapperStyle}>
+    <div style={fullScreen}>
       {/* 헤더 */}
       <div style={{
         flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 16px",
         borderBottom: "1px solid #E2E8F0",
       }}>
@@ -179,14 +134,14 @@ export default function SignPage() {
       </div>
 
       {/* 캔버스 영역 */}
-      <div style={{
-        flex: 1,
-        position: "relative",
-        overflow: "hidden",
-        border: "1.5px dashed #CBD5E0",
-        margin: "8px 12px",
-        borderRadius: 8,
-      }}>
+      <div
+        ref={canvasWrapperRef}
+        style={{
+          flex: 1, position: "relative", overflow: "hidden",
+          border: "1.5px dashed #CBD5E0",
+          margin: "8px 12px", borderRadius: 8,
+        }}
+      >
         {/* 중앙 안내선 */}
         <div style={{
           position: "absolute", left: "5%", right: "5%",
@@ -196,11 +151,9 @@ export default function SignPage() {
         <canvas
           ref={canvasRef}
           style={{
-            display: "block",
-            width: "100%",
-            height: "100%",
-            touchAction: "none",
-            background: "transparent",
+            position: "absolute", top: 0, left: 0,
+            width: "100%", height: "100%",
+            touchAction: "none", background: "transparent",
           }}
         />
         {status === "loading" && (
@@ -225,15 +178,14 @@ export default function SignPage() {
       {/* 푸터 */}
       <div style={{
         flexShrink: 0,
-        display: "flex",
-        gap: 12,
-        padding: "10px 16px 14px",
+        display: "flex", gap: 12,
+        padding: "10px 16px", height: 60, boxSizing: "border-box",
       }}>
         <button
           onClick={handleClear}
           disabled={status !== "ready"}
           style={{
-            flex: 1, height: 48, borderRadius: 10, fontSize: 14, fontWeight: 600,
+            flex: 1, borderRadius: 10, fontSize: 14, fontWeight: 600,
             cursor: status !== "ready" ? "default" : "pointer",
             background: "#fff", color: "#4A5568",
             border: "1.5px solid #CBD5E0",
@@ -246,7 +198,7 @@ export default function SignPage() {
           onClick={handleSave}
           disabled={status !== "ready"}
           style={{
-            flex: 2, height: 48, borderRadius: 10, fontSize: 15, fontWeight: 700,
+            flex: 2, borderRadius: 10, fontSize: 15, fontWeight: 700,
             cursor: status !== "ready" ? "default" : "pointer",
             background: status !== "ready" ? "#E2E8F0" : "#F5A623",
             color: "#fff", border: "none",
