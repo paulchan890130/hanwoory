@@ -803,6 +803,7 @@ export default function AdminPage() {
   const [wsDetail, setWsDetail] = useState<WsResult | null>(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<Record<string, string> | null>(null);
 
+
   useEffect(() => {
     if (!user?.is_admin) router.replace("/dashboard");
   }, [user, router]);

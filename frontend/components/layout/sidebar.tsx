@@ -6,7 +6,7 @@ import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, BookOpen, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
-  ExternalLink, X, Library, Globe,
+  ExternalLink, X, Library, Globe, User,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
 const HIKOREA_MANUAL_URL =
   "https://www.hikorea.go.kr/board/BoardNtcDetailR.pt?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1";
 
+const MY_ITEM = { href: "/my", label: "마이페이지", icon: User };
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: Settings };
 const MARKETING_ITEM = { href: "/marketing", label: "마케팅", icon: Globe };
 
@@ -144,6 +145,17 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
 
           {/* 구분선 */}
           <div className="my-2 mx-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />
+
+          {/* 마이페이지 — 모든 로그인 사용자 */}
+          <Link
+            href={MY_ITEM.href}
+            title={!showExpanded ? MY_ITEM.label : undefined}
+            className={`hw-sidebar-item ${isActive(MY_ITEM.href) ? "active" : ""}`}
+            onClick={isMobile ? onMobileClose : undefined}
+          >
+            <MY_ITEM.icon size={16} className="shrink-0" />
+            {showExpanded && <span className="truncate">{MY_ITEM.label}</span>}
+          </Link>
 
           {user?.is_admin && (
             <Link

@@ -330,6 +330,12 @@ export interface FullDocGenRequest {
   seal_guardian?: boolean;
   seal_aggregator?: boolean;
   seal_agent?: boolean;
+  sign_applicant?: boolean;
+  sign_accommodation?: boolean;
+  sign_guarantor?: boolean;
+  sign_guardian?: boolean;
+  sign_aggregator?: boolean;
+  sign_agent?: boolean;
   /** PDF 위젯 이름 → 값. generate-full 실행 후 편집 내용을 반영해 재생성할 때 사용. */
   direct_overrides?: Record<string, string>;
 }

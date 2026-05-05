@@ -1,8 +1,10 @@
-"""인증 라우터 - 로그인 / 회원가입"""
+"""인증 라우터 - 로그인 / 회원가입 / 마이페이지"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from typing import Optional
 from backend.models import LoginRequest, SignupRequest, TokenResponse
 from backend.auth import create_access_token, get_current_user
 
@@ -101,5 +103,106 @@ def signup(req: SignupRequest):
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/me")
 def get_me(current_user: dict = Depends(get_current_user)):
-    """현재 사용자 정보 (프론트에서 토큰 검증용)"""
-    return current_user
+    """현재 사용자 정보 — JWT 기본 + Accounts 시트 상세 정보."""
+    from backend.services.accounts_service import find_account
+    login_id = current_user.get("login_id", "")
+    acc = find_account(login_id) or {}
+    return {
+        **current_user,
+        "office_adr":   acc.get("office_adr",   ""),
+        "contact_tel":  acc.get("contact_tel",  ""),
+        "biz_reg_no":   acc.get("biz_reg_no",   ""),
+        # 주민등록번호는 뒷 8자리 마스킹
+        "agent_rrn":    _mask_rrn(acc.get("agent_rrn", "")),
+    }
+
+
+def _mask_rrn(rrn: str) -> str:
+    """주민등록번호 뒷 8자리 마스킹: 880101-1****** → 880101-1******"""
+    clean = rrn.replace("-", "")
+    if len(clean) < 7:
+        return rrn
+    return clean[:7] + "*" * (len(clean) - 7)
+
+
+class MeUpdateRequest(BaseModel):
+    office_name:  Optional[str] = None
+    office_adr:   Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_tel:  Optional[str] = None
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password:     str
+
+
+@router.patch("/me")
+def update_me(body: MeUpdateRequest, current_user: dict = Depends(get_current_user)):
+    """사무소 정보 수정."""
+    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
+    from backend.services.accounts_service import ACCOUNTS_SCHEMA
+    from config import ACCOUNTS_SHEET_NAME
+
+    login_id = current_user.get("login_id", "")
+    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
+    target = next((r for r in records if str(r.get("login_id", "")).strip() == login_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+
+    for field, value in body.model_dump(exclude_none=True).items():
+        target[field] = value
+
+    header_list = ACCOUNTS_SCHEMA[:]
+    for k in target:
+        if k not in header_list:
+            header_list.append(k)
+
+    ok = upsert_rows_by_id(ACCOUNTS_SHEET_NAME, header_list=header_list, records=[target], id_field="login_id")
+    if not ok:
+        raise HTTPException(status_code=500, detail="저장 실패")
+
+    # 테넌트 캐시 초기화
+    try:
+        import backend.services.tenant_service as _ts
+        _ts._TENANT_MAP_CACHE = {}
+        _ts._TENANT_MAP_TIME = 0
+    except Exception:
+        pass
+
+    return {"ok": True}
+
+
+@router.patch("/me/password")
+def change_password(body: PasswordChangeRequest, current_user: dict = Depends(get_current_user)):
+    """비밀번호 변경."""
+    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
+    from backend.services.accounts_service import (
+        ACCOUNTS_SCHEMA, verify_password, hash_password,
+    )
+    from config import ACCOUNTS_SHEET_NAME
+
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="새 비밀번호는 6자 이상이어야 합니다.")
+
+    login_id = current_user.get("login_id", "")
+    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
+    target = next((r for r in records if str(r.get("login_id", "")).strip() == login_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+
+    if not verify_password(body.current_password, str(target.get("password_hash", ""))):
+        raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
+
+    target["password_hash"] = hash_password(body.new_password)
+
+    header_list = ACCOUNTS_SCHEMA[:]
+    for k in target:
+        if k not in header_list:
+            header_list.append(k)
+
+    ok = upsert_rows_by_id(ACCOUNTS_SHEET_NAME, header_list=header_list, records=[target], id_field="login_id")
+    if not ok:
+        raise HTTPException(status_code=500, detail="비밀번호 변경 실패")
+
+    return {"ok": True}

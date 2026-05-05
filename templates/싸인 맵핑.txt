@@ -1,0 +1,6 @@
+  yin  → ysign   (신청인 서명)
+  ayin → aysign  (행정사 서명)
+  hyin → hysign  (숙소제공자 서명)
+  byin → bysign  (신원보증인 서명)
+  gyin → gysign  (법정대리인 서명)
+  pyin → pysign  (합산자 서명)

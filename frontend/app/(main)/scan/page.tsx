@@ -9,6 +9,7 @@ import type { RoiPreset, RoiPresetData, RoiBox, ArcRoiBoxes } from "@/lib/types/
 import { wsTfToTransform, transformToWsTf } from "@/lib/types/roiPreset";
 import { fetchRoiPresets, saveRoiPreset, renameRoiPreset } from "@/lib/api/roiPreset";
 import RoiPresetBar from "@/components/scan/RoiPresetBar";
+import SignatureModal from "@/components/SignatureModal";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -859,6 +860,10 @@ export default function ScanPage() {
     Object.fromEntries(ARC_GUIDE_BOXES.map(b => [b.key, { x: b.x, y: b.y, w: b.w, h: b.h }]))
   );
 
+  // 등록 후 서명 프롬프트
+  const [signPrompt, setSignPrompt] = useState<{ name: string; customerId: string } | null>(null);
+  const [showSignModal, setShowSignModal] = useState(false);
+
   // Field values
   const [성, set성]       = useState("");
   const [명, set명]       = useState("");
@@ -1178,10 +1183,14 @@ export default function ScanPage() {
   const registerMut = useMutation({
     mutationFn: (data: Record<string, string>) => api.post("/api/scan/register", data),
     onSuccess: (res) => {
-      const { status, message } = res.data as { status: string; message: string };
+      const { status, message, 고객ID: newId } = res.data as { status: string; message: string; 고객ID?: string };
       toast.success(status === "updated" ? `✅ ${message}` : `🆕 ${message}`);
       qc.invalidateQueries({ queryKey: ["customers"] });
+      const savedName = 한글.trim() || `${성.trim()} ${명.trim()}`.trim() || "신규 고객";
       resetAll();
+      if (status === "created" && newId) {
+        setSignPrompt({ name: savedName, customerId: newId });
+      }
     },
     onError: () => toast.error("고객 등록/업데이트 실패"),
   });
@@ -1221,6 +1230,7 @@ export default function ScanPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* [프리셋] ROI 프리셋 슬롯 바 */}
@@ -1566,5 +1576,57 @@ export default function ScanPage() {
         </div>
       </div>
     </div>
+
+    {/* OCR 신규 등록 후 서명 프롬프트 */}
+    {signPrompt && !showSignModal && (
+      <>
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:200 }}
+          onClick={() => setSignPrompt(null)} />
+        <div style={{
+          position:"fixed", top:"50%", left:"50%",
+          transform:"translate(-50%,-50%)", zIndex:201,
+          width:"min(340px,92vw)", background:"#fff",
+          borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.16)",
+          padding:"28px 24px",
+        }}>
+          <div style={{ fontSize:15, fontWeight:700, color:"#1A202C", marginBottom:10 }}>
+            신규 고객 서명 등록
+          </div>
+          <div style={{ fontSize:13, color:"#4A5568", marginBottom:24, lineHeight:1.6 }}>
+            <strong>{signPrompt.name}</strong> 고객의 서명을 등록하시겠습니까?
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button
+              onClick={() => setSignPrompt(null)}
+              style={{ padding:"9px 18px", borderRadius:8, border:"1px solid #E2E8F0", background:"#fff", color:"#718096", fontSize:13, cursor:"pointer", fontWeight:600 }}>
+              나중에
+            </button>
+            <button
+              onClick={() => setShowSignModal(true)}
+              style={{ padding:"9px 18px", borderRadius:8, border:"none", background:"#F5A623", color:"#fff", fontSize:13, cursor:"pointer", fontWeight:700 }}>
+              서명 등록하기
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+
+    {/* 서명 모달 */}
+    {showSignModal && signPrompt && (
+      <SignatureModal
+        type="customer"
+        customerId={signPrompt.customerId}
+        onSave={() => {
+          toast.success("서명이 등록되었습니다");
+          setShowSignModal(false);
+          setSignPrompt(null);
+        }}
+        onClose={() => {
+          setShowSignModal(false);
+          setSignPrompt(null);
+        }}
+      />
+    )}
+    </>
   );
 }

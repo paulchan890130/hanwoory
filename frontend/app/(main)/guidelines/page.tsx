@@ -184,6 +184,81 @@ const ACTION_TYPE_TABS = [
   { key: "ACTIVITY_EXTRA",            label: "활동범위" },
 ];
 
+// ── EXTRA_WORK: row_id → 신청자 현재 자격 키 ─────────────────────────────────
+const EXTRA_WORK_APPLICANT_MAP: Record<string, string> = {
+  "M1-0042": "E-1/E-3/E-4/E-5",
+  "M1-0047": "F-3 (전문인력 배우자)",
+  "M1-0050": "D-2",
+  "M1-0052": "F-3 (전문인력 배우자)",
+  "M1-0058": "A-3",
+  "M1-0059": "F-3 (전문인력 배우자)",
+  "M1-0060": "F-3 (전문인력 배우자)",
+  "M1-0061": "F-3 (전문인력 배우자)",
+  "M1-0062": "C-4-5/E-7",
+  "M1-0063": "C-4-5/E-7",
+  "M1-0064": "C-4-5/E-7",
+  "M1-0065": "A-1/A-2",
+  "M1-0066": "A-1/A-2",
+  "M1-0067": "A-1/A-2",
+  "M1-0068": "A-1/A-2",
+  "M1-0069": "A-1/A-2",
+  "M1-0070": "F-3 (전문인력 배우자)",
+  "M1-0071": "F-1/F-3",
+  "M1-0072": "F-1/F-3",
+  "M1-0073": "F-1 (중국동포)",
+  "M1-0074": "제주 특화",
+  "M1-0075": "제주 특화",
+  "M1-0076": "제주 특화",
+  "M1-0077": "G-1",
+  "M1-0078": "G-1",
+  "M1-0079": "A-1/A-2",
+  "M1-0080": "F-1 (중국동포)",
+  "M1-0081": "E-7",
+  "M1-0082": "G-1",
+  "M1-0083": "F-3 (전문인력 배우자)",
+};
+
+const APPLICANT_LABELS: Record<string, string> = {
+  "A-1":                   "A-1 (외교)",
+  "A-2":                   "A-2 (공무)",
+  "A-1/A-2":               "A-1/A-2 (외교·공무)",
+  "A-3":                   "A-3 (협정)",
+  "C-4-5/E-7":             "C-4-5/E-7 (단기취업·특정활동)",
+  "D-1":                   "D-1 (문화예술)",
+  "D-2":                   "D-2 (유학)",
+  "D-2-1":                 "D-2-1 (전문학사 유학)",
+  "D-2-2":                 "D-2-2 (학사 유학)",
+  "D-2-3":                 "D-2-3 (석사 유학)",
+  "D-2-4":                 "D-2-4 (박사 유학)",
+  "D-2-5":                 "D-2-5 (연구과정 유학)",
+  "D-2-6":                 "D-2-6 (교환학생)",
+  "D-2-7":                 "D-2-7 (일-학습 연계)",
+  "D-2-8":                 "D-2-8 (방문학생)",
+  "D-4-1":                 "D-4-1 (한국어연수)",
+  "D-4-2":                 "D-4-2 (일반연수)",
+  "D-4-7":                 "D-4-7 (외국어연수)",
+  "D-6":                   "D-6 (종교)",
+  "D-7":                   "D-7 (주재)",
+  "D-8-1":                 "D-8-1 (법인투자)",
+  "D-8-3":                 "D-8-3 (개인기업투자)",
+  "D-10-1":                "D-10-1 (일반구직)",
+  "D-10-2":                "D-10-2 (기술창업준비)",
+  "D-10-3":                "D-10-3 (첨단기술인턴)",
+  "E-1":                   "E-1 (교수)",
+  "E-1/E-3/E-4/E-5":       "E-1/E-3/E-4/E-5 (교수·연구·기술지도·전문직업)",
+  "E-3":                   "E-3 (연구)",
+  "E-4":                   "E-4 (기술지도)",
+  "E-5":                   "E-5 (전문직업)",
+  "E-7":                   "E-7 (특정활동)",
+  "F-1/F-3":               "F-1/F-3 (방문동거·동반)",
+  "F-1 (중국동포)":        "F-1 (방문동거 중국동포)",
+  "F-3 (전문인력 배우자)": "F-3 (전문인력·고액투자자 배우자)",
+  "F-3-2R":                "F-3-2R (지역동포가족)",
+  "F-4":                   "F-4 (재외동포)",
+  "G-1":                   "G-1 (기타)",
+  "제주 특화":             "제주도 특화 대상",
+};
+
 // ── TB 적용 대상 action_type ───────────────────────────────────────────────────
 const TB_APPLICABLE_TYPES = new Set(["REGISTRATION", "CHANGE", "EXTEND", "GRANT"]);
 const TB_STAGE_LABEL: Record<string, string> = {
@@ -1174,6 +1249,28 @@ export default function GuidelinesPage() {
     return [];  // sub 있는데 아직 미선택
   }, [treeSelectedRows, treeSubGroups, selSub]);
 
+  // EXTRA_WORK: 신청자 자격 선택 상태
+  const [selApplicant, setSelApplicant] = useState<string | null>(null);
+
+  // EXTRA_WORK: 신청자 자격별 그룹핑 (알파벳 순 정렬)
+  const extraWorkApplicantGroups = useMemo<Map<string, GuidelineRow[]>>(() => {
+    const groups = new Map<string, GuidelineRow[]>();
+    for (const row of allRows) {
+      if (row.action_type !== "EXTRA_WORK") continue;
+      const applicant = EXTRA_WORK_APPLICANT_MAP[row.row_id] ?? row.detailed_code ?? "_OTHER";
+      if (!groups.has(applicant)) groups.set(applicant, []);
+      groups.get(applicant)!.push(row);
+    }
+    const sorted: Array<[string, GuidelineRow[]]> = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return new Map<string, GuidelineRow[]>(sorted);
+  }, [allRows]);
+
+  // EXTRA_WORK: 선택된 신청자 자격의 rows
+  const extraWorkSelectedRows = useMemo<GuidelineRow[]>(() => {
+    if (!selApplicant) return [];
+    return extraWorkApplicantGroups.get(selApplicant) ?? [];
+  }, [extraWorkApplicantGroups, selApplicant]);
+
   // 기존 트리 헬퍼
   const entryRowCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1279,8 +1376,23 @@ export default function GuidelinesPage() {
 
   // 새 트리 reset
   const resetTree = useCallback(() => {
-    setSelAction(null); setSelFamily(null); setSelMid(null); setSelSub(null);
+    setSelAction(null); setSelFamily(null); setSelMid(null); setSelSub(null); setSelApplicant(null);
+    setSelectedRow(null);
   }, []);
+
+  // 단일 항목 자동 열기 (일반 트리)
+  useEffect(() => {
+    if (selAction && selAction !== "EXTRA_WORK" && treeTerminalRows.length === 1) {
+      setSelectedRow(treeTerminalRows[0]);
+    }
+  }, [treeTerminalRows, selAction]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // EXTRA_WORK 단일 항목 자동 열기
+  useEffect(() => {
+    if (selAction === "EXTRA_WORK" && selApplicant && extraWorkSelectedRows.length === 1) {
+      setSelectedRow(extraWorkSelectedRows[0]);
+    }
+  }, [extraWorkSelectedRows, selAction, selApplicant]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enterTreeMode = () => {
     setTreeMode(true);
@@ -1459,18 +1571,34 @@ export default function GuidelinesPage() {
                   </button>
                   <ChevronRight size={13} style={{color:"#CBD5E0"}}/>
                   <button
-                    onClick={() => { setSelFamily(null); setSelMid(null); setSelSub(null); }}
-                    style={{ fontSize:12, fontWeight: selFamily ? 400 : 700, padding:"4px 12px", borderRadius:20,
-                      background: selFamily ? "#F7FAFC" : `${actionColor}18`,
-                      border: selFamily ? "1px solid #E2E8F0" : `1px solid ${actionColor}40`,
-                      color: selFamily ? "#718096" : actionColor, cursor:"pointer" }}>
+                    onClick={() => {
+                      if (selAction === "EXTRA_WORK") { setSelApplicant(null); setSelectedRow(null); }
+                      else { setSelFamily(null); setSelMid(null); setSelSub(null); setSelectedRow(null); }
+                    }}
+                    style={{ fontSize:12,
+                      fontWeight: (selAction === "EXTRA_WORK" ? selApplicant : selFamily) ? 400 : 700,
+                      padding:"4px 12px", borderRadius:20,
+                      background: (selAction === "EXTRA_WORK" ? selApplicant : selFamily) ? "#F7FAFC" : `${actionColor}18`,
+                      border: (selAction === "EXTRA_WORK" ? selApplicant : selFamily) ? "1px solid #E2E8F0" : `1px solid ${actionColor}40`,
+                      color: (selAction === "EXTRA_WORK" ? selApplicant : selFamily) ? "#718096" : actionColor,
+                      cursor:"pointer" }}>
                     {ACTION_LABELS[selAction] ?? selAction}
                   </button>
-                  {selFamily && (
+                  {/* EXTRA_WORK: 신청자 자격 */}
+                  {selAction === "EXTRA_WORK" && selApplicant && (
+                    <>
+                      <ChevronRight size={13} style={{color:"#CBD5E0"}}/>
+                      <span style={{ fontSize:12, fontWeight:700, padding:"4px 12px", borderRadius:20, background:`${actionColor}18`, border:`1px solid ${actionColor}40`, color:actionColor }}>
+                        {APPLICANT_LABELS[selApplicant] ?? selApplicant}
+                      </span>
+                    </>
+                  )}
+                  {/* 일반 트리: 계열 → 중분류 → 소분류 */}
+                  {selAction !== "EXTRA_WORK" && selFamily && (
                     <>
                       <ChevronRight size={13} style={{color:"#CBD5E0"}}/>
                       <button
-                        onClick={() => { setSelMid(null); setSelSub(null); }}
+                        onClick={() => { setSelMid(null); setSelSub(null); setSelectedRow(null); }}
                         style={{ fontSize:12, fontWeight: selMid ? 400 : 700, padding:"4px 12px", borderRadius:20,
                           background: selMid ? "#F7FAFC" : `${actionColor}18`,
                           border: selMid ? "1px solid #E2E8F0" : `1px solid ${actionColor}40`,
@@ -1479,11 +1607,11 @@ export default function GuidelinesPage() {
                       </button>
                     </>
                   )}
-                  {selMid && (
+                  {selAction !== "EXTRA_WORK" && selMid && (
                     <>
                       <ChevronRight size={13} style={{color:"#CBD5E0"}}/>
                       <button
-                        onClick={() => setSelSub(null)}
+                        onClick={() => { setSelSub(null); setSelectedRow(null); }}
                         style={{ fontSize:12, fontWeight: selSub ? 400 : 700, padding:"4px 12px", borderRadius:20,
                           background: selSub ? "#F7FAFC" : `${actionColor}18`,
                           border: selSub ? "1px solid #E2E8F0" : `1px solid ${actionColor}40`,
@@ -1492,7 +1620,7 @@ export default function GuidelinesPage() {
                       </button>
                     </>
                   )}
-                  {selSub && (
+                  {selAction !== "EXTRA_WORK" && selSub && (
                     <>
                       <ChevronRight size={13} style={{color:"#CBD5E0"}}/>
                       <span style={{ fontSize:12, fontWeight:700, padding:"4px 12px", borderRadius:20, background:`${actionColor}18`, border:`1px solid ${actionColor}40`, color:actionColor }}>
@@ -1518,7 +1646,7 @@ export default function GuidelinesPage() {
                           label={ACTION_LABELS[action] ?? action}
                           color={color}
                           selected={false}
-                          onClick={() => { setSelAction(action); setSelFamily(null); setSelMid(null); setSelSub(null); }}
+                          onClick={() => { setSelAction(action); setSelFamily(null); setSelMid(null); setSelSub(null); setSelApplicant(null); setSelectedRow(null); }}
                         />
                       );
                     })}
@@ -1526,8 +1654,29 @@ export default function GuidelinesPage() {
                 </div>
               )}
 
+              {/* L2: EXTRA_WORK — 신청자 현재 자격 선택 */}
+              {selAction === "EXTRA_WORK" && !selApplicant && (
+                <div>
+                  <div style={{ fontSize:12, color:"#718096", marginBottom:12 }}>
+                    <strong style={{color:actionColor}}>{ACTION_LABELS["EXTRA_WORK"]}</strong> — 현재 가지고 계신 체류자격을 선택하세요
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(220px, 1fr))", gap:8 }}>
+                    {Array.from(extraWorkApplicantGroups.entries()).map(([applicant, rows]) => (
+                      <TreeSelectButton
+                        key={applicant}
+                        label={APPLICANT_LABELS[applicant] ?? applicant}
+                        subtitle={`${rows.length}건`}
+                        color={actionColor}
+                        selected={false}
+                        onClick={() => setSelApplicant(applicant)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* L2: 대분류(알파벳 계열) 선택 */}
-              {selAction && !selFamily && (
+              {selAction && selAction !== "EXTRA_WORK" && !selFamily && (
                 <div>
                   <div style={{ fontSize:12, color:"#718096", marginBottom:12 }}>
                     <strong style={{color:actionColor}}>{ACTION_LABELS[selAction]}</strong> — 자격 계열을 선택하세요
@@ -1547,7 +1696,7 @@ export default function GuidelinesPage() {
               )}
 
               {/* L3: 중분류 선택 */}
-              {selAction && selFamily && !selMid && (
+              {selAction && selAction !== "EXTRA_WORK" && selFamily && !selMid && (
                 <div>
                   <div style={{ fontSize:12, color:"#718096", marginBottom:12 }}>
                     <strong style={{color:actionColor}}>{FAMILY_LABELS[selFamily] ?? selFamily}</strong> — 자격코드를 선택하세요
@@ -1567,8 +1716,24 @@ export default function GuidelinesPage() {
                 </div>
               )}
 
+              {/* L3: EXTRA_WORK — 신청 가능한 활동 목록 */}
+              {selAction === "EXTRA_WORK" && selApplicant && (
+                <div>
+                  <div style={{ fontSize:12, color:"#718096", marginBottom:12 }}>
+                    <strong style={{color:actionColor}}>{APPLICANT_LABELS[selApplicant] ?? selApplicant}</strong> — {extraWorkSelectedRows.length}건
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {extraWorkSelectedRows.map(row => (
+                      <GuidelineCard key={row.row_id} row={row}
+                        isSelected={selectedRow?.row_id === row.row_id}
+                        onClick={() => setSelectedRow(selectedRow?.row_id === row.row_id ? null : row)}/>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* L4: 소분류 선택 (있는 경우) 또는 바로 카드 목록 */}
-              {selAction && selFamily && selMid && (
+              {selAction && selAction !== "EXTRA_WORK" && selFamily && selMid && (
                 <div>
                   {treeSubGroups && !selSub ? (
                     /* 소분류 있음 → 소분류 선택 */

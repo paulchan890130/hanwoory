@@ -8,6 +8,7 @@ import {
   type CustomerSearchResult,
   type FullDocGenRequest,
 } from "@/lib/api";
+import SignatureModal from "@/components/SignatureModal";
 import {
   FileText, Download, Loader2, Search, X,
   RotateCcw, User, Home, Shield, Users, UserCheck, Stamp, Zap, Edit2,
@@ -70,12 +71,14 @@ function calcIsMinor(regNo: string): boolean {
 // ─────────────────────────────────────────────────────────────────────────
 interface RoleState {
   customer: CustomerSearchResult | null;
-  directName: string;    // 직접 이름 입력
+  directName: string;
   seal: boolean;
+  sign: boolean;        // 서명 사용 여부
+  hasSignature: boolean; // 서명 등록 여부 (DB에 있으면 true)
 }
 
 function emptyRole(sealDefault = true): RoleState {
-  return { customer: null, directName: "", seal: sealDefault };
+  return { customer: null, directName: "", seal: sealDefault, sign: false, hasSignature: false };
 }
 
 function roleDisplayName(r: RoleState): string {
@@ -128,8 +131,25 @@ function RoleSelector({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const selectCustomer = (c: CustomerSearchResult) => {
-    onChange({ ...role, customer: c, directName: "" });
+  const selectCustomer = async (c: CustomerSearchResult) => {
+    // 서명 존재 여부 확인
+    let hasSign = false;
+    try {
+      const r = await fetch(`/api/signature/customer/${encodeURIComponent(c.id)}/exists`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+      });
+      const j = await r.json();
+      hasSign = j.exists ?? false;
+    } catch { /* 실패 시 도장 기본값 유지 */ }
+
+    onChange({
+      ...role,
+      customer: c,
+      directName: "",
+      hasSignature: hasSign,
+      sign: hasSign,
+      seal: !hasSign,
+    });
     setOpen(false);
     setQuery("");
   };
@@ -160,16 +180,37 @@ function RoleSelector({
             </span>
           )}
         </div>
-        {/* 도장 토글 */}
-        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}>
-          <input
-            type="checkbox"
-            checked={role.seal}
-            onChange={(e) => onChange({ ...role, seal: e.target.checked })}
-            style={{ accentColor: GOLD, width: 14, height: 14 }}
-          />
-          <span style={{ fontSize: 11, color: "#718096" }}>도장</span>
-        </label>
+        {/* 도장 / 서명 / 없음 라디오 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "#718096" }}>
+          {(["sign", "seal", "none"] as const).map((opt) => {
+            const labels = { sign: "서명", seal: "도장", none: "없음" };
+            const isChecked =
+              opt === "sign" ? role.sign :
+              opt === "seal" ? (!role.sign && role.seal) :
+              (!role.sign && !role.seal);
+            const disabled = opt === "sign" && !role.hasSignature;
+            return (
+              <label
+                key={opt}
+                style={{ display: "flex", alignItems: "center", gap: 3, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1 }}
+              >
+                <input
+                  type="radio"
+                  name={`role-opt-${label}`}
+                  checked={isChecked}
+                  disabled={disabled}
+                  onChange={() => {
+                    if (opt === "sign") onChange({ ...role, sign: true, seal: false });
+                    else if (opt === "seal") onChange({ ...role, sign: false, seal: true });
+                    else onChange({ ...role, sign: false, seal: false });
+                  }}
+                  style={{ accentColor: GOLD }}
+                />
+                {labels[opt]}
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {/* 검색 + 직접입력 */}
@@ -275,6 +316,8 @@ function QuickDocPageInner() {
   const [guardian,      setGuardian]      = useState<RoleState>(emptyRole(true));
   const [aggregator,    setAggregator]    = useState<RoleState>(emptyRole(true));
   const [agentSeal,     setAgentSeal]     = useState(true);
+  const [agentSign,     setAgentSign]     = useState(false);
+  const [agentHasSign,  setAgentHasSign]  = useState(false);
 
   // ── PDF ──
   const [pdfUrl, setPdfUrl]         = useState<string | null>(null);
@@ -294,6 +337,19 @@ function QuickDocPageInner() {
     if (raw) {
       try { setAgentInfo(JSON.parse(raw)); } catch { /* ignore */ }
     }
+    // 행정사 서명 존재 여부 확인
+    fetch("/api/signature/agent", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.data) {
+          setAgentHasSign(true);
+          setAgentSign(true);
+          setAgentSeal(false);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // ── 딥링크 파라미터 처리 (실무지침에서 넘어올 때) ──
@@ -396,6 +452,8 @@ function QuickDocPageInner() {
     setGuarantor(emptyRole(true));
     setGuardian(emptyRole(true));
     setAggregator(emptyRole(true));
+    setAgentSeal(!agentHasSign);
+    setAgentSign(agentHasSign);
     if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
     setConfirmMissing(null);
     setShowEditPanel(false);
@@ -477,6 +535,12 @@ function QuickDocPageInner() {
       seal_guardian:      guardian.seal,
       seal_aggregator:    aggregator.seal,
       seal_agent:         agentSeal,
+      sign_applicant:     applicant.sign,
+      sign_accommodation: accommodation.sign,
+      sign_guarantor:     guarantor.sign,
+      sign_guardian:      guardian.sign,
+      sign_aggregator:    aggregator.sign,
+      sign_agent:         agentSign,
     };
 
     const blob = await _runGenerate(payload);
@@ -817,24 +881,47 @@ function QuickDocPageInner() {
             />
           )}
 
-          {/* 행정사 도장 */}
+          {/* 행정사 도장/서명 */}
           <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "9px 12px", border: `1px solid ${BORDER}`, borderRadius: 10,
             background: GRAY_BG, marginBottom: 8,
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Stamp size={13} style={{ color: GOLD }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>행정사</span>
-              <span style={{ fontSize: 12, color: "#718096" }}>
-                {agentInfo?.contact_name || agentInfo?.office_name || "계정 정보 없음"} — 자동 채움
-              </span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Stamp size={13} style={{ color: GOLD }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>행정사</span>
+                <span style={{ fontSize: 12, color: "#718096" }}>
+                  {agentInfo?.contact_name || agentInfo?.office_name || "계정 정보 없음"} — 자동 채움
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "#718096" }}>
+                {(["sign", "seal", "none"] as const).map((opt) => {
+                  const labels = { sign: "서명", seal: "도장", none: "없음" };
+                  const isChecked =
+                    opt === "sign" ? agentSign :
+                    opt === "seal" ? (!agentSign && agentSeal) :
+                    (!agentSign && !agentSeal);
+                  const disabled = opt === "sign" && !agentHasSign;
+                  return (
+                    <label key={opt} style={{ display: "flex", alignItems: "center", gap: 3, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1 }}>
+                      <input
+                        type="radio"
+                        name="agent-opt"
+                        checked={isChecked}
+                        disabled={disabled}
+                        onChange={() => {
+                          if (opt === "sign") { setAgentSign(true); setAgentSeal(false); }
+                          else if (opt === "seal") { setAgentSign(false); setAgentSeal(true); }
+                          else { setAgentSign(false); setAgentSeal(false); }
+                        }}
+                        style={{ accentColor: GOLD }}
+                      />
+                      {labels[opt]}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={agentSeal} onChange={(e) => setAgentSeal(e.target.checked)}
-                style={{ accentColor: GOLD, width: 14, height: 14 }} />
-              <span style={{ fontSize: 11, color: "#718096" }}>도장</span>
-            </label>
           </div>
 
           {/* 관계인 조건 안내 */}

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { customersApi } from "@/lib/api";
 import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
+import SignatureModal from "@/components/SignatureModal";
 
 // ── 만기 D-Day 계산 ────────────────────────────────────────────────────────────
 function parseDateStr(s: string): Date | null {
@@ -150,9 +151,33 @@ function CustomerDrawer({
   const [form, setForm] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
 
+  // ── 서명 상태 ──
+  const [hasSignature, setHasSignature] = useState<boolean | null>(null);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [showSignatureFull, setShowSignatureFull] = useState(false);
+  const [showSignModal, setShowSignModal] = useState(false);
+
   useEffect(() => {
-    if (customer) { setForm({ ...customer }); setDirty(false); }
+    if (customer) {
+      setForm({ ...customer });
+      setDirty(false);
+      setHasSignature(null);
+      setSignatureData(null);
+      setShowSignatureFull(false);
+    }
   }, [customer]);
+
+  // 드로어 열릴 때 서명 존재 여부 확인 (신규 고객 제외)
+  useEffect(() => {
+    const id = customer?.["고객ID"];
+    if (!id || isNew) return;
+    fetch(`/api/signature/customer/${encodeURIComponent(id)}/exists`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+    })
+      .then((r) => r.json())
+      .then((j) => setHasSignature(j.exists ?? false))
+      .catch(() => setHasSignature(false));
+  }, [customer, isNew]);
 
   if (!customer) return null;
 
@@ -252,6 +277,53 @@ function CustomerDrawer({
               </div>
             </div>
           ))}
+
+          {/* 서명 섹션 (신규 등록 제외) */}
+          {!isNew && (
+            <div style={{ marginBottom:18 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#D4A843", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>서명</div>
+              <div style={{ border:"1px solid #E2E8F0", borderRadius:8, padding:"10px 12px", background:"#FAFAFA" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                  {hasSignature === null && <span style={{ fontSize:12, color:"#A0AEC0" }}>확인 중...</span>}
+                  {hasSignature === true && (
+                    <span style={{ fontSize:12, color:"#276749", fontWeight:600 }}>● 서명 있음</span>
+                  )}
+                  {hasSignature === false && (
+                    <span style={{ fontSize:12, color:"#A0AEC0" }}>○ 서명 없음</span>
+                  )}
+                  {hasSignature === true && !showSignatureFull && (
+                    <button
+                      onClick={() => {
+                        const id = customer?.["고객ID"] || "";
+                        fetch(`/api/signature/customer/${encodeURIComponent(id)}`, {
+                          headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+                        })
+                          .then((r) => r.json())
+                          .then((j) => { setSignatureData(j.data ?? null); setShowSignatureFull(true); })
+                          .catch(() => toast.error("서명 로딩 실패"));
+                      }}
+                      style={{ fontSize:11, color:"#3182CE", background:"none", border:"none", cursor:"pointer", padding:0 }}
+                    >
+                      서명 확인
+                    </button>
+                  )}
+                </div>
+                {showSignatureFull && signatureData && (
+                  <img src={signatureData} alt="고객 서명" style={{ maxWidth:"100%", border:"1px solid #E2E8F0", borderRadius:6, marginBottom:8 }} />
+                )}
+                <button
+                  onClick={() => setShowSignModal(true)}
+                  style={{
+                    fontSize:11, padding:"5px 12px", borderRadius:6,
+                    border:"1px solid #D4A843", color:"#C27800",
+                    background:"#FFF8EC", cursor:"pointer", fontWeight:600,
+                  }}
+                >
+                  {hasSignature ? "서명 재등록" : "서명 등록"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 푸터 */}
@@ -273,6 +345,20 @@ function CustomerDrawer({
           </div>
         </div>
       </div>
+
+      {/* 서명 모달 */}
+      {showSignModal && (
+        <SignatureModal
+          type="customer"
+          customerId={id}
+          onSave={(data) => {
+            setHasSignature(true);
+            setSignatureData(data);
+            setShowSignatureFull(true);
+          }}
+          onClose={() => setShowSignModal(false)}
+        />
+      )}
     </>
   );
 }
@@ -288,6 +374,10 @@ export default function CustomersPage() {
   const [isNewMode, setIsNewMode] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
+
+  // 신규 등록 후 서명 프롬프트
+  const [signPrompt, setSignPrompt] = useState<{ name: string; customerId: string } | null>(null);
+  const [showSignModal, setShowSignModal] = useState(false);
 
   // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
@@ -346,7 +436,15 @@ export default function CustomersPage() {
   });
   const addMut = useMutation({
     mutationFn: (data: Record<string, string>) => customersApi.add(data),
-    onSuccess: () => { toast.success("신규 고객 등록됨"); qc.invalidateQueries({ queryKey: ["customers"] }); setSelectedCustomer(null); setIsNewMode(false); },
+    onSuccess: (res, variables) => {
+      const newId = (res.data as { 고객ID?: string })?.["고객ID"] ?? "";
+      const name = (variables["한글"] || `${variables["성"] ?? ""} ${variables["명"] ?? ""}`.trim()) || "신규 고객";
+      toast.success("신규 고객 등록됨");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      setSelectedCustomer(null);
+      setIsNewMode(false);
+      if (newId) setSignPrompt({ name, customerId: newId });
+    },
     onError: () => toast.error("등록 실패"),
   });
   const deleteMut = useMutation({
@@ -500,6 +598,57 @@ export default function CustomersPage() {
           onSave={handleSave}
           onDelete={!isNewMode ? (id) => deleteMut.mutate(id) : undefined}
           isSaving={updateMut.isPending || addMut.isPending}
+        />
+      )}
+
+      {/* 신규 고객 등록 직후 서명 프롬프트 */}
+      {signPrompt && !showSignModal && (
+        <>
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:200 }}
+            onClick={() => setSignPrompt(null)} />
+          <div style={{
+            position:"fixed", top:"50%", left:"50%",
+            transform:"translate(-50%,-50%)", zIndex:201,
+            width:"min(340px,92vw)", background:"#fff",
+            borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.16)",
+            padding:"28px 24px",
+          }}>
+            <div style={{ fontSize:15, fontWeight:700, color:"#1A202C", marginBottom:10 }}>
+              신규 고객 서명 등록
+            </div>
+            <div style={{ fontSize:13, color:"#4A5568", marginBottom:24, lineHeight:1.6 }}>
+              <strong>{signPrompt.name}</strong> 고객의 서명을 등록하시겠습니까?
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <button
+                onClick={() => setSignPrompt(null)}
+                style={{ padding:"9px 18px", borderRadius:8, border:"1px solid #E2E8F0", background:"#fff", color:"#718096", fontSize:13, cursor:"pointer", fontWeight:600 }}>
+                나중에
+              </button>
+              <button
+                onClick={() => setShowSignModal(true)}
+                style={{ padding:"9px 18px", borderRadius:8, border:"none", background:"#F5A623", color:"#fff", fontSize:13, cursor:"pointer", fontWeight:700 }}>
+                서명 등록하기
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 서명 모달 (프롬프트에서 "등록하기" 클릭 시) */}
+      {showSignModal && signPrompt && (
+        <SignatureModal
+          type="customer"
+          customerId={signPrompt.customerId}
+          onSave={() => {
+            toast.success("서명이 등록되었습니다");
+            setShowSignModal(false);
+            setSignPrompt(null);
+          }}
+          onClose={() => {
+            setShowSignModal(false);
+            setSignPrompt(null);
+          }}
         />
       )}
     </div>

@@ -167,6 +167,16 @@ ROLE_WIDGETS: dict = {
     "agent":         "ayin",  # 행정사
 }
 
+# 역할별 서명 필드 이름 (PDF 위젯) — ROLE_WIDGETS와 별도
+ROLE_SIGN_WIDGETS: dict = {
+    "applicant":     "ysign",
+    "accommodation": "hysign",
+    "guarantor":     "bysign",
+    "guardian":      "gysign",
+    "aggregator":    "pysign",
+    "agent":         "aysign",
+}
+
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
 def normalize_field_name(name: str) -> str:
@@ -527,8 +537,9 @@ def make_seal_bytes(name: Optional[str]) -> Optional[bytes]:
 
 
 def fill_and_append_pdf(template_path: str, field_values: dict,
-                        seal_bytes_by_role: dict, merged_doc) -> None:
-    """PyMuPDF로 PDF 필드 채우기 + 도장 삽입 + merged_doc에 추가"""
+                        seal_bytes_by_role: dict, merged_doc,
+                        sign_bytes_by_role: Optional[dict] = None) -> None:
+    """PyMuPDF로 PDF 필드 채우기 + 도장/서명 삽입 + merged_doc에 추가"""
     if not template_path:
         return
     abs_path = template_path if os.path.isabs(template_path) else os.path.join(_BASE, template_path)
@@ -546,11 +557,19 @@ def fill_and_append_pdf(template_path: str, field_values: dict,
                     widget.update()
             for widget in widgets:
                 base = normalize_field_name(widget.field_name)
+                # 도장 삽입 (기존 로직 유지)
                 for role, widget_name in ROLE_WIDGETS.items():
                     if base == widget_name:
                         img_bytes = seal_bytes_by_role.get(role)
                         if img_bytes:
                             page.insert_image(widget.rect, stream=img_bytes)
+                # 서명 삽입 (신규 추가)
+                if sign_bytes_by_role:
+                    for role, widget_name in ROLE_SIGN_WIDGETS.items():
+                        if base == widget_name:
+                            sig_bytes = sign_bytes_by_role.get(role)
+                            if sig_bytes:
+                                page.insert_image(widget.rect, stream=sig_bytes)
         merged_doc.insert_pdf(doc)
         doc.close()
     except Exception:
@@ -598,6 +617,12 @@ class FullDocGenRequest(BaseModel):
     seal_guardian: bool = True
     seal_aggregator: bool = True
     seal_agent: bool = True
+    sign_applicant: bool = False
+    sign_accommodation: bool = False
+    sign_guarantor: bool = False
+    sign_guardian: bool = False
+    sign_aggregator: bool = False
+    sign_agent: bool = False
     direct_overrides: Optional[dict] = None
 
 
@@ -721,6 +746,44 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         "agent":         make_seal_bytes(account.get("contact_name") if account else None) if req.seal_agent    else None,
     }
 
+    # ── 서명 이미지 준비 ──
+    from backend.services.signature_service import (
+        get_agent_signature as _get_agent_sign,
+        get_customer_signature as _get_cust_sign,
+    )
+    import base64 as _b64
+
+    def _sign_b64_to_bytes(b64: Optional[str]) -> Optional[bytes]:
+        if not b64:
+            return None
+        try:
+            raw = b64.split(",", 1)[1] if b64.startswith("data:") else b64
+            return _b64.b64decode(raw)
+        except Exception:
+            return None
+
+    def _cust_sign_bytes(customer_obj: Optional[dict]) -> Optional[bytes]:
+        if not customer_obj:
+            return None
+        cid = str(customer_obj.get("고객ID", "")).strip()
+        if not cid:
+            return None
+        try:
+            from backend.services.tenant_service import get_customer_sheet_key
+            csk = get_customer_sheet_key(tenant_id)
+            return _sign_b64_to_bytes(_get_cust_sign(csk, cid))
+        except Exception:
+            return None
+
+    sign_bytes_by_role: dict = {
+        "applicant":     _cust_sign_bytes(applicant)     if req.sign_applicant     else None,
+        "accommodation": _cust_sign_bytes(prov)          if req.sign_accommodation else None,
+        "guarantor":     _cust_sign_bytes(guarantor)     if req.sign_guarantor     else None,
+        "guardian":      _cust_sign_bytes(guardian)      if req.sign_guardian      else None,
+        "aggregator":    _cust_sign_bytes(aggregator)    if req.sign_aggregator    else None,
+        "agent":         _sign_b64_to_bytes(_get_agent_sign(tenant_id)) if req.sign_agent else None,
+    }
+
     # ── 필드 값 구성 ──
     kind   = req.kind   if req.kind   and req.kind   != "x" else ""
     detail = req.detail if req.detail                       else ""
@@ -765,7 +828,7 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
             if not os.path.exists(abs_path):
                 missing.append(f"{doc_name}(파일없음:{rel_path})")
                 continue
-            fill_and_append_pdf(rel_path, field_values, seal_bytes_by_role, merged)
+            fill_and_append_pdf(rel_path, field_values, seal_bytes_by_role, merged, sign_bytes_by_role)
 
         # 누락 파일이 있으면 422로 명시적 안내 (일부라도 있으면 생성은 계속)
         if missing and merged.page_count == 0:
@@ -878,6 +941,9 @@ class QuickPoaRequest(BaseModel):
     # 도장 옵션
     apply_applicant_seal: bool = True
     apply_agent_seal: bool = True
+    # 서명 옵션
+    apply_applicant_sign: bool = False
+    apply_agent_sign: bool = False
     # 해상도
     dpi: int = 200
     # 위임업무 체크
@@ -1011,11 +1077,26 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
         "aggregator":    None,
     }
 
+    # quick-poa 서명 합성
+    _poa_sign_bytes: dict = {"accommodation": None, "guarantor": None, "guardian": None, "aggregator": None}
+    try:
+        from backend.services.signature_service import get_agent_signature as _gas
+        import base64 as _b64poa
+        def _b64tobytes(b64: Optional[str]) -> Optional[bytes]:
+            if not b64: return None
+            raw = b64.split(",", 1)[1] if b64.startswith("data:") else b64
+            return _b64poa.b64decode(raw)
+        _poa_sign_bytes["applicant"] = None  # direct name input — no customer_id
+        _poa_sign_bytes["agent"] = _b64tobytes(_gas(tenant_id)) if req.apply_agent_sign else None
+    except Exception:
+        _poa_sign_bytes["applicant"] = None
+        _poa_sign_bytes["agent"] = None
+
     try:
         import fitz
         merged_doc = fitz.open()
         for out_type in ordered_outputs:
-            fill_and_append_pdf(template_paths[out_type], field_values, seal_bytes_by_role, merged_doc)
+            fill_and_append_pdf(template_paths[out_type], field_values, seal_bytes_by_role, merged_doc, _poa_sign_bytes)
         out = io.BytesIO()
         merged_doc.save(out)
         merged_doc.close()

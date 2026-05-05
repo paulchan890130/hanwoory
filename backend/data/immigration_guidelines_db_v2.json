@@ -2307,7 +2307,7 @@
       "manual_ref": [
         {
           "manual": "체류민원",
-          "page_from": 215,
+          "page_from": 217,
           "page_to": 217,
           "match_text": "structure E-7.actions.EXTRA_WORK",
           "match_type": "action_exact"
