@@ -155,6 +155,25 @@ def find_account(login_id: str) -> dict | None:
     return None
 
 
+def get_office_name(tenant_id: str) -> str:
+    """Accounts 시트에서 tenant_id 행의 office_name 반환. 없으면 빈 문자열."""
+    try:
+        ws = _get_ws_readonly()
+        values = ws.get_all_values()
+    except Exception:
+        return ""
+    if not values or len(values) < 2:
+        return ""
+    header = values[0]
+    for row in values[1:]:
+        if not any(c.strip() for c in row):
+            continue
+        r = dict(zip(header, row))
+        if r.get("tenant_id", "").strip() == tenant_id.strip():
+            return r.get("office_name", "").strip()
+    return ""
+
+
 def append_account(account_dict: dict) -> None:
     """
     Accounts 시트에 계정 1행을 추가.

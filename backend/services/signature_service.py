@@ -123,7 +123,7 @@ def has_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
 
 def compress_signature(b64: str) -> str:
     """
-    base64 서명 이미지 → 400×150 이내 리사이즈 + 흑백 → 압축 base64 반환.
+    base64 서명 이미지 → 흰색/밝은 픽셀 투명 처리 + 400×150 이내 리사이즈 → 압축 base64 반환.
     50,000자 초과 시 ValueError.
     """
     from PIL import Image
@@ -134,22 +134,26 @@ def compress_signature(b64: str) -> str:
         raw = raw.split(",", 1)[1]
 
     img_bytes = base64.b64decode(raw)
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+    img = Image.open(io.BytesIO(img_bytes))
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
 
-    # 흰 배경으로 합성 후 흑백 변환
-    bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
-    bg.alpha_composite(img)
-    gray = bg.convert("L")
+    # 흰색/밝은 픽셀 → 투명 처리
+    data = img.getdata()
+    new_data = []
+    for pixel in data:
+        r, g, b, a = pixel
+        if r > 200 and g > 200 and b > 200:
+            new_data.append((255, 255, 255, 0))
+        else:
+            new_data.append(pixel)
+    img.putdata(new_data)
 
     # 400×150 이내 비율 유지 리사이즈
-    max_w, max_h = 400, 150
-    w, h = gray.size
-    if w > max_w or h > max_h:
-        ratio = min(max_w / w, max_h / h)
-        gray = gray.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+    img.thumbnail((400, 150), Image.LANCZOS)
 
     buf = io.BytesIO()
-    gray.save(buf, format="PNG", optimize=True)
+    img.save(buf, format="PNG")
     compressed = base64.b64encode(buf.getvalue()).decode("ascii")
     result = f"data:image/png;base64,{compressed}"
 

@@ -79,17 +79,34 @@ def request_signature(
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
 
+    # 사무소 이름 조회
+    try:
+        from backend.services.accounts_service import get_office_name
+        office_name = get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
+    except Exception:
+        office_name = user.get("office_name", "") or "행정사사무소"
+
     token = secrets.token_urlsafe(6)
     _pending[token] = {
         "type":               body.type,
         "tenant_id":          tenant_id,
         "customer_id":        body.customer_id,
         "customer_sheet_key": customer_sheet_key,
+        "office_name":        office_name,
         "created_at":         _now(),
         "data":               None,
     }
     url = f"https://www.hanwory.com/sign/{token}"
     return {"token": token, "url": url}
+
+
+@router.get("/info/{token}")
+def get_signature_info(token: str):
+    """모바일 서명 페이지용 토큰 정보 — 인증 불필요."""
+    entry = _pending.get(token)
+    if entry is None or _is_expired(entry):
+        return {"status": "expired", "office_name": ""}
+    return {"status": "valid", "office_name": entry.get("office_name", "")}
 
 
 @router.get("/poll/{token}")

@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  api,
   quickDocApi,
   type CustomerSearchResult,
   type FullDocGenRequest,
@@ -338,15 +339,18 @@ function QuickDocPageInner() {
       try { setAgentInfo(JSON.parse(raw)); } catch { /* ignore */ }
     }
     // 행정사 서명 존재 여부 확인
-    fetch("/api/signature/agent", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
-    })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.data) {
+    api.get<{ data: string | null }>("/api/signature/agent")
+      .then((r) => {
+        if (r.data.data) {
           setAgentHasSign(true);
           setAgentSign(true);
           setAgentSeal(false);
+          console.log("[quick-doc] 행정사 서명 있음 → agentSign=true, agentSeal=false");
+        } else {
+          setAgentHasSign(false);
+          setAgentSign(false);
+          setAgentSeal(true);
+          console.log("[quick-doc] 행정사 서명 없음 → agentSign=false, agentSeal=true");
         }
       })
       .catch(() => {});
@@ -543,6 +547,7 @@ function QuickDocPageInner() {
       sign_agent:         agentSign,
     };
 
+    console.log("[quick-doc] payload sign_agent:", agentSign, "seal_agent:", agentSeal, "docs:", payload.selected_docs);
     const blob = await _runGenerate(payload);
     if (blob) {
       setLastPayload(payload);

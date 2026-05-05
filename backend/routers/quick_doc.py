@@ -670,6 +670,7 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     역할별 고객 데이터 + 행정사 정보 기반 PDF 필드 자동 주입 + 도장 삽입 후 병합 PDF 반환.
     템플릿 파일 없는 서류는 무시(건너뜀).
     """
+    print(f"[DEBUG] sign_agent={req.sign_agent} seal_agent={req.seal_agent} docs={req.selected_docs}")
     if not req.selected_docs:
         raise HTTPException(status_code=400, detail="선택된 서류가 없습니다.")
     if not req.applicant_id and not (req.applicant_name or "").strip():
