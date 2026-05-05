@@ -40,11 +40,12 @@ export default function SignPage() {
       const SignaturePad = mod.default;
       const canvas = canvasRef.current;
       if (!canvas) return;
-
       resizeCanvas();
       padRef.current = new SignaturePad(canvas, {
         backgroundColor: "rgba(0,0,0,0)",
-        penColor: "#000",
+        penColor: "#000000",
+        minWidth: 1.5,
+        maxWidth: 3,
       });
       if (status !== "expired") setStatus("ready");
     });
@@ -84,21 +85,45 @@ export default function SignPage() {
     }
   };
 
-  const fullScreen: React.CSSProperties = {
-    width: "100vw", height: "100dvh",
-    display: "flex", flexDirection: "column",
-    background: "#fff", overflow: "hidden",
+  const wrapper: React.CSSProperties = {
+    width: "100vw",
+    height: "100dvh",
+    display: "flex",
+    flexDirection: "column",
+    background: "#fff",
+    overflow: "hidden",
+  };
+
+  const header: React.CSSProperties = {
+    height: 40,
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 16px",
+    borderBottom: "0.5px solid #E2E8F0",
+  };
+
+  const footer: React.CSSProperties = {
+    height: 72,
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "0 16px",
+    borderTop: "0.5px solid #E2E8F0",
   };
 
   if (status === "submitted") {
     return (
-      <div style={{ ...fullScreen, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#276749", marginBottom: 6 }}>
-            서명이 저장되었습니다.
-          </div>
-          <div style={{ fontSize: 13, color: "#718096" }}>창을 닫아도 됩니다.</div>
+      <div style={wrapper}>
+        <div style={header}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#1A202C" }}>{officeName || "서명 등록"}</span>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <span style={{ fontSize: 40, color: "#48BB78" }}>✓</span>
+          <span style={{ fontSize: 18, fontWeight: 600, color: "#1A202C" }}>서명이 저장되었습니다</span>
+          <span style={{ fontSize: 14, color: "#718096" }}>창을 닫아도 됩니다</span>
         </div>
       </div>
     );
@@ -106,54 +131,52 @@ export default function SignPage() {
 
   if (status === "expired") {
     return (
-      <div style={{ ...fullScreen, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 44, marginBottom: 12 }}>⏰</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#C53030", marginBottom: 6 }}>
-            링크가 만료되었습니다.
-          </div>
-          <div style={{ fontSize: 13, color: "#718096" }}>담당자에게 새 링크를 요청해 주세요.</div>
+      <div style={wrapper}>
+        <div style={header}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#1A202C" }}>{officeName || "서명 등록"}</span>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <span style={{ fontSize: 18, fontWeight: 600, color: "#C53030" }}>링크가 만료되었습니다</span>
+          <span style={{ fontSize: 14, color: "#718096" }}>새로 요청해 주세요</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={fullScreen}>
+    <div style={wrapper}>
       {/* 헤더 */}
-      <div style={{
-        flexShrink: 0,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 16px",
-        borderBottom: "1px solid #E2E8F0",
-      }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#1A202C" }}>
+      <div style={header}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#1A202C" }}>
           {officeName || "서명 등록"}
         </span>
-        <span style={{ fontSize: 12, color: "#A0AEC0" }}>아래에 서명해 주세요</span>
+        <span style={{ fontSize: 11, color: "#718096" }}>아래에 서명해 주세요</span>
       </div>
 
       {/* 캔버스 영역 */}
-      <div
-        ref={canvasWrapperRef}
-        style={{
-          flex: 1, position: "relative", overflow: "hidden",
-          border: "1.5px dashed #CBD5E0",
-          margin: "8px 12px", borderRadius: 8,
-        }}
-      >
-        {/* 중앙 안내선 */}
+      <div ref={canvasWrapperRef} style={{ flex: 1, position: "relative" }}>
+        {/* 점선 테두리 */}
         <div style={{
-          position: "absolute", left: "5%", right: "5%",
-          top: "50%", height: 1,
-          background: "#E2E8F0", pointerEvents: "none",
+          position: "absolute", inset: 10,
+          border: "1.5px dashed #CBD5E0",
+          borderRadius: 4,
+          pointerEvents: "none",
+        }} />
+        {/* 중앙 가이드라인 */}
+        <div style={{
+          position: "absolute",
+          top: "50%", left: 10, right: 10,
+          height: 1,
+          background: "#E2E8F0",
+          pointerEvents: "none",
         }} />
         <canvas
           ref={canvasRef}
           style={{
-            position: "absolute", top: 0, left: 0,
+            position: "absolute", inset: 0,
             width: "100%", height: "100%",
-            touchAction: "none", background: "transparent",
+            touchAction: "none",
+            background: "transparent",
           }}
         />
         {status === "loading" && (
@@ -167,7 +190,7 @@ export default function SignPage() {
         )}
         {msg && (
           <div style={{
-            position: "absolute", bottom: 8, left: 0, right: 0,
+            position: "absolute", bottom: 14, left: 0, right: 0,
             textAlign: "center", fontSize: 12, color: "#C53030",
           }}>
             {msg}
@@ -176,20 +199,16 @@ export default function SignPage() {
       </div>
 
       {/* 푸터 */}
-      <div style={{
-        flexShrink: 0,
-        display: "flex", gap: 12,
-        padding: "10px 16px", height: 60, boxSizing: "border-box",
-      }}>
+      <div style={footer}>
         <button
           onClick={handleClear}
           disabled={status !== "ready"}
           style={{
-            flex: 1, borderRadius: 10, fontSize: 14, fontWeight: 600,
+            flex: 1, height: 48,
+            border: "1px solid #CBD5E0", borderRadius: 12,
+            background: "#fff", fontSize: 14, color: "#4A5568",
             cursor: status !== "ready" ? "default" : "pointer",
-            background: "#fff", color: "#4A5568",
-            border: "1.5px solid #CBD5E0",
-            opacity: status !== "ready" ? 0.5 : 1,
+            opacity: status !== "ready" ? 0.45 : 1,
           }}
         >
           다시 그리기
@@ -198,11 +217,12 @@ export default function SignPage() {
           onClick={handleSave}
           disabled={status !== "ready"}
           style={{
-            flex: 2, borderRadius: 10, fontSize: 15, fontWeight: 700,
-            cursor: status !== "ready" ? "default" : "pointer",
+            flex: 2, height: 48,
             background: status !== "ready" ? "#E2E8F0" : "#F5A623",
-            color: "#fff", border: "none",
-            opacity: status === "submitting" ? 0.7 : 1,
+            border: "none", borderRadius: 12,
+            color: "#fff", fontSize: 14, fontWeight: 600,
+            cursor: status !== "ready" ? "default" : "pointer",
+            opacity: status === "submitting" ? 0.65 : 1,
           }}
         >
           {status === "submitting" ? "저장 중..." : "저장하기"}
