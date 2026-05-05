@@ -18,3 +18,4 @@ fastapi
 uvicorn[standard]
 python-multipart
 python-jose[cryptography]
+apscheduler>=3.10.0
