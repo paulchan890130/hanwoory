@@ -1,8 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
-
-type Status = "loading" | "ready" | "submitting" | "submitted" | "expired" | "error";
 
 const pageStyle: React.CSSProperties = {
   width: "100vw",
@@ -13,25 +10,14 @@ const pageStyle: React.CSSProperties = {
   overflow: "hidden",
 };
 
-export default function SignPage() {
-  const { token } = useParams<{ token: string }>();
+export default function SignTestPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signWrapperRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<import("signature_pad").default | null>(null);
-  const [status, setStatus] = useState<Status>("loading");
+  const [ready, setReady] = useState(false);
   const [msg, setMsg] = useState("");
-  const [officeName, setOfficeName] = useState("");
-
-  // 토큰 유효성 + 사무소 이름 조회 — 기존 로직 유지
-  useEffect(() => {
-    fetch(`/api/signature/info/${token}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.status === "expired") setStatus("expired");
-        if (j.office_name) setOfficeName(j.office_name);
-      })
-      .catch(() => {});
-  }, [token]);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const resizeCanvas = () => {
     const canvas = canvasRef.current;
@@ -45,7 +31,6 @@ export default function SignPage() {
     padRef.current?.clear();
   };
 
-  // SignaturePad 초기화 — ResizeObserver는 서명칸 wrapper 기준
   useEffect(() => {
     import("signature_pad").then((mod) => {
       const SignaturePad = mod.default;
@@ -60,7 +45,7 @@ export default function SignPage() {
         minWidth: 1.5,
         maxWidth: 3,
       });
-      if (status !== "expired") setStatus("ready");
+      setReady(true);
 
       const ro = new ResizeObserver(() => resizeCanvas());
       ro.observe(wrapper);
@@ -72,52 +57,20 @@ export default function SignPage() {
   const handleClear = () => {
     padRef.current?.clear();
     setMsg("");
+    setPreview(null);
+    setSaved(false);
   };
 
-  // 기존 submit 로직 완전 유지
-  const handleSave = async () => {
+  const handleSave = () => {
     const pad = padRef.current;
     if (!pad) return;
     if (pad.isEmpty()) { setMsg("서명을 먼저 그려주세요."); return; }
-    setStatus("submitting");
     setMsg("");
-    try {
-      const dataUrl = pad.toDataURL("image/png");
-      const res = await fetch(`/api/signature/submit/${token}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: dataUrl }),
-      });
-      if (res.status === 404) { setStatus("expired"); return; }
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.detail || "저장 실패");
-      }
-      setStatus("submitted");
-    } catch (e: unknown) {
-      setStatus("error");
-      setMsg(e instanceof Error ? e.message : "저장 실패. 다시 시도해 주세요.");
-    }
+    const dataUrl = pad.toDataURL("image/png");
+    console.log("[sign-test] dataUrl length:", dataUrl.length, "| starts with:", dataUrl.slice(0, 30));
+    setPreview(dataUrl);
+    setSaved(true);
   };
-
-  if (status === "submitted") {
-    return (
-      <div style={{ ...pageStyle, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <span style={{ fontSize: 40, color: "#48BB78" }}>✓</span>
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#1A202C" }}>서명이 저장되었습니다</span>
-        <span style={{ fontSize: 13, color: "#718096" }}>창을 닫아도 됩니다</span>
-      </div>
-    );
-  }
-
-  if (status === "expired") {
-    return (
-      <div style={{ ...pageStyle, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#E53E3E" }}>링크가 만료되었습니다</span>
-        <span style={{ fontSize: 13, color: "#718096" }}>새로 요청해 주세요</span>
-      </div>
-    );
-  }
 
   return (
     <div style={pageStyle}>
@@ -129,19 +82,18 @@ export default function SignPage() {
         padding: "0 16px",
         borderBottom: "0.5px solid #E2E8F0",
       }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#1A202C" }}>
-          {officeName || "서명 등록"}
-        </span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#1A202C" }}>한우리소프트</span>
         <span style={{ fontSize: 12, color: "#718096" }}>아래에 서명해 주세요</span>
       </div>
 
-      {/* 중앙 영역 — 서명칸을 가운데 배치 */}
+      {/* 중앙 영역 */}
       <div style={{
         flex: 1,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 16, overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: 16, overflow: "hidden", gap: 12,
       }}>
-        {/* 서명칸 wrapper — aspectRatio만, flex:1 금지 */}
+        {/* 서명칸 */}
         <div
           ref={signWrapperRef}
           style={{
@@ -153,14 +105,12 @@ export default function SignPage() {
             background: "transparent",
           }}
         >
-          {/* 점선 가이드 */}
           <div style={{
             position: "absolute", inset: 0,
             border: "1.5px dashed #CBD5E0",
             borderRadius: 8,
             pointerEvents: "none",
           }} />
-
           <canvas
             ref={canvasRef}
             style={{
@@ -170,8 +120,7 @@ export default function SignPage() {
               background: "transparent",
             }}
           />
-
-          {status === "loading" && (
+          {!ready && (
             <div style={{
               position: "absolute", inset: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -181,6 +130,28 @@ export default function SignPage() {
             </div>
           )}
         </div>
+
+        {/* 저장 완료 + 프리뷰 */}
+        {saved && preview && (
+          <div style={{ textAlign: "center", width: "100%", maxWidth: 720 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#276749", marginBottom: 6 }}>
+              ✓ 테스트 저장 완료 — 투명 PNG 확인
+            </div>
+            <div style={{
+              display: "inline-block",
+              background: "repeating-conic-gradient(#e0e0e0 0% 25%, #fff 0% 50%) 0 0 / 12px 12px",
+              borderRadius: 6,
+              padding: 4,
+              border: "1px solid #E2E8F0",
+            }}>
+              <img
+                src={preview}
+                alt="서명 미리보기"
+                style={{ display: "block", maxWidth: "100%", maxHeight: 80 }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 푸터 */}
@@ -202,30 +173,29 @@ export default function SignPage() {
         )}
         <button
           onClick={handleClear}
-          disabled={status !== "ready"}
+          disabled={!ready}
           style={{
             flex: 1, height: 48,
             border: "1px solid #CBD5E0", borderRadius: 12,
             background: "#fff", fontSize: 14, color: "#4A5568",
-            cursor: status !== "ready" ? "default" : "pointer",
-            opacity: status !== "ready" ? 0.45 : 1,
+            cursor: !ready ? "default" : "pointer",
+            opacity: !ready ? 0.45 : 1,
           }}
         >
           다시 서명하기
         </button>
         <button
           onClick={handleSave}
-          disabled={status !== "ready"}
+          disabled={!ready}
           style={{
             flex: 1, height: 48,
-            background: status !== "ready" ? "#E2E8F0" : "#F5A623",
+            background: !ready ? "#E2E8F0" : "#F5A623",
             border: "none", borderRadius: 12,
             color: "#fff", fontSize: 14, fontWeight: 600,
-            cursor: status !== "ready" ? "default" : "pointer",
-            opacity: status === "submitting" ? 0.65 : 1,
+            cursor: !ready ? "default" : "pointer",
           }}
         >
-          {status === "submitting" ? "저장 중..." : "저장하기"}
+          저장하기
         </button>
       </div>
 

@@ -893,7 +893,18 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
 
     q = q.strip()
     if q:
-        customers = [c for c in customers if q in str(c.get("한글", ""))]
+        q_lower = q.lower()
+        def _match(c: dict) -> bool:
+            kor = str(c.get("한글", "")).lower()
+            sur = str(c.get("성", "")).lower()
+            giv = str(c.get("명", "")).lower()
+            eng = f"{sur} {giv}".strip()
+            if len(q) >= 1 and q_lower in kor:
+                return True
+            if len(q) >= 3 and (q_lower in eng or q_lower in sur or q_lower in giv):
+                return True
+            return False
+        customers = [c for c in customers if _match(c)]
 
     results = []
     for c in customers[:30]:
@@ -908,11 +919,15 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
             label_parts.append(str(c["등록증"]))
         if phone:
             label_parts.append(phone)
+        sur = str(c.get("성", "")).strip()
+        giv = str(c.get("명", "")).strip()
+        name_en = f"{sur} {giv}".strip()
         results.append({
-            "id":    str(c.get("고객ID", "")),
-            "label": " / ".join(label_parts),
-            "name":  str(c.get("한글", "")),
-            "reg_no": str(c.get("등록증", "")),
+            "id":      str(c.get("고객ID", "")),
+            "label":   " / ".join(label_parts),
+            "name":    str(c.get("한글", "")),
+            "name_en": name_en,
+            "reg_no":  str(c.get("등록증", "")),
         })
     return results
 

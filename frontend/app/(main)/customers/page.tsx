@@ -157,6 +157,10 @@ function CustomerDrawer({
   const [showSignatureFull, setShowSignatureFull] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
 
+  // ── 임시저장 슬롯 ──
+  const [tempSlots, setTempSlots] = useState<{ slot: number; has_data: boolean; 비고: string }[]>([]);
+  const [showTempSlots, setShowTempSlots] = useState(false);
+
   useEffect(() => {
     if (customer) {
       setForm({ ...customer });
@@ -164,8 +168,20 @@ function CustomerDrawer({
       setHasSignature(null);
       setSignatureData(null);
       setShowSignatureFull(false);
+      setShowTempSlots(false);
     }
   }, [customer]);
+
+  // 임시저장 슬롯 로드 (서명 없는 고객 드로어에서만)
+  useEffect(() => {
+    if (isNew || hasSignature !== false) return;
+    fetch("/api/signature/temp-slots", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+    })
+      .then((r) => r.json())
+      .then((j) => setTempSlots(Array.isArray(j) ? j : []))
+      .catch(() => {});
+  }, [isNew, hasSignature]);
 
   // 드로어 열릴 때 서명 존재 여부 확인 (신규 고객 제외)
   useEffect(() => {
@@ -311,16 +327,75 @@ function CustomerDrawer({
                 {showSignatureFull && signatureData && (
                   <img src={signatureData} alt="고객 서명" style={{ maxWidth:"100%", border:"1px solid #E2E8F0", borderRadius:6, marginBottom:8 }} />
                 )}
-                <button
-                  onClick={() => setShowSignModal(true)}
-                  style={{
-                    fontSize:11, padding:"5px 12px", borderRadius:6,
-                    border:"1px solid #D4A843", color:"#C27800",
-                    background:"#FFF8EC", cursor:"pointer", fontWeight:600,
-                  }}
-                >
-                  {hasSignature ? "서명 재등록" : "서명 등록"}
-                </button>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <button
+                    onClick={() => setShowSignModal(true)}
+                    style={{
+                      fontSize:11, padding:"5px 12px", borderRadius:6,
+                      border:"1px solid #D4A843", color:"#C27800",
+                      background:"#FFF8EC", cursor:"pointer", fontWeight:600,
+                    }}
+                  >
+                    {hasSignature ? "서명 재등록" : "서명 등록"}
+                  </button>
+                  {/* 임시저장 서명 사용 — 서명 없고 슬롯에 데이터 있을 때만 표시 */}
+                  {hasSignature === false && tempSlots.some((s) => s.has_data) && (
+                    <button
+                      onClick={() => setShowTempSlots((v) => !v)}
+                      style={{
+                        fontSize:11, padding:"5px 12px", borderRadius:6,
+                        border:"1px solid #CBD5E0", color:"#4A5568",
+                        background:"#F7FAFC", cursor:"pointer", fontWeight:600,
+                      }}
+                    >
+                      임시저장 서명 사용
+                    </button>
+                  )}
+                </div>
+                {/* 슬롯 선택 목록 */}
+                {showTempSlots && (
+                  <div style={{ marginTop:8, border:"1px solid #E2E8F0", borderRadius:6, overflow:"hidden" }}>
+                    {tempSlots.map((s) => (
+                      <button
+                        key={s.slot}
+                        disabled={!s.has_data}
+                        onClick={async () => {
+                          if (!s.has_data) return;
+                          try {
+                            const res = await fetch(
+                              `/api/signature/temp-slots/${s.slot}/map/${encodeURIComponent(id)}`,
+                              { method:"POST", headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` } }
+                            );
+                            if (!res.ok) throw new Error();
+                            // 완료 처리
+                            const dataRes = await fetch(
+                              `/api/signature/customer/${encodeURIComponent(id)}`,
+                              { headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` } }
+                            );
+                            const dataJson = await dataRes.json();
+                            setHasSignature(true);
+                            setSignatureData(dataJson.data ?? null);
+                            setShowSignatureFull(true);
+                            setShowTempSlots(false);
+                            toast.success("임시저장 서명이 고객에 연결되었습니다.");
+                          } catch {
+                            toast.error("매핑 실패");
+                          }
+                        }}
+                        style={{
+                          display:"block", width:"100%", textAlign:"left",
+                          padding:"7px 12px", background: s.has_data ? "#fff" : "#F7FAFC",
+                          border:"none", borderBottom:"1px solid #E2E8F0",
+                          cursor: s.has_data ? "pointer" : "default",
+                          fontSize:12,
+                          color: s.has_data ? "#2D3748" : "#A0AEC0",
+                        }}
+                      >
+                        슬롯 {s.slot}: {s.has_data ? (s.비고 || "서명 있음") : "비어있음"}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

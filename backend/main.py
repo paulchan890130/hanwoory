@@ -34,8 +34,31 @@ except ImportError:
     pass
 # ─────────────────────────────────────────────────────────────────────────────
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
+def _run_watcher():
+    try:
+        from backend.services.manual_watcher import check_and_update
+        result = check_and_update(notify_board=True)
+        print(f"[watcher] 자동 실행 완료: changed={len(result.get('changed', []))} errors={len(result.get('errors', []))}")
+    except Exception as e:
+        print(f"[watcher] 오류: {e}")
+
+
+_scheduler = BackgroundScheduler()
+_scheduler.add_job(_run_watcher, "interval", hours=12, id="manual_watcher")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _scheduler.start()
+    print("[watcher] 스케줄러 시작 (12시간마다 자동 실행)")
+    yield
+    _scheduler.shutdown(wait=False)
 
 from backend.routers import (
     auth,
@@ -62,6 +85,7 @@ app = FastAPI(
     title="K.ID 출입국업무관리 API",
     version="2.0.0",
     description="출입국 업무관리 시스템 REST API",
+    lifespan=lifespan,
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────

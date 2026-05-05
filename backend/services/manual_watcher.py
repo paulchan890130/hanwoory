@@ -138,7 +138,7 @@ def save_state(state: dict) -> None:
 def check_and_update(
     *,
     convert_pdf: bool = True,
-    notify_board: bool = False,
+    notify_board: bool = True,   # 기본값 True — 새 버전 감지 시 1회만 자동 발송
     force_refresh: bool = False,
 ) -> dict:
     """
@@ -146,7 +146,7 @@ def check_and_update(
 
     Args:
         convert_pdf: HWP→PDF 변환까지 수행할지 (한컴오피스 필요, 시간 소요)
-        notify_board: 변경 감지 시 게시판에 자동 공지 (admin SHEET_KEY)
+        notify_board: 변경 감지 시 게시판 자동 공지 — last_notified_timestamp 비교로 1회만
         force_refresh: 캐시 무시하고 무조건 재다운로드
 
     Returns:
@@ -198,8 +198,10 @@ def check_and_update(
                 pr = hwp_to_pdf(unlocked_path, pdf_path, overwrite=True, timeout_sec=300)
                 print(f"  [PDF] {pr['size_bytes']:,} bytes ({pr['elapsed_sec']}s)")
 
-            # 4. 상태 갱신
+            # 4. 상태 갱신 — 기존 값(last_notified_timestamp 등) 보존
+            existing = state["manuals"].get(label, {})
             state["manuals"][label] = {
+                **existing,
                 "ori_filename":   att["ori"],
                 "apnd_filename":  att["apnd"],
                 "apnd_seq":       att["apndSeq"],
@@ -257,12 +259,27 @@ def check_and_update(
         except Exception as e:
             print(f"  [REMATCH] 예외: {e}")
 
-    # 6. 게시판 공지 (옵션)
+    # 6. 게시판 공지 — last_notified_timestamp 기준 1회만 발송
     if notify_board and changed:
-        try:
-            _post_board_notice(changed, rematch_summary=rematch_summary)
-        except Exception as e:
-            errors.append({"step": "board_notice", "error": str(e)})
+        to_notify = []
+        for c in changed:
+            label = c["label"]
+            new_ts = c["new_ts"]
+            last_notified = state["manuals"].get(label, {}).get("last_notified_timestamp")
+            if last_notified != new_ts:
+                to_notify.append(c)
+            else:
+                print(f"[watcher] {label}: 알림 이미 발송됨 (ts={new_ts}), 건너뜀")
+        if to_notify:
+            try:
+                _post_board_notice(to_notify, rematch_summary=rematch_summary)
+                # 발송 완료 기록 — 즉시 파일에 저장
+                for c in to_notify:
+                    state["manuals"].setdefault(c["label"], {})["last_notified_timestamp"] = c["new_ts"]
+                save_state(state)
+                print(f"[watcher] 게시판 공지 발송 + last_notified_timestamp 저장: {[c['label'] for c in to_notify]}")
+            except Exception as e:
+                errors.append({"step": "board_notice", "error": str(e)})
 
     return {"checked_at": now_iso, "changed": changed, "errors": errors, "rematch": rematch_summary}
 

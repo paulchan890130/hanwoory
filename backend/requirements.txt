@@ -15,3 +15,4 @@ paddlepaddle
 requests>=2.31.0
 pymupdf>=1.23.0
 holidays>=0.44
+apscheduler>=3.10.0

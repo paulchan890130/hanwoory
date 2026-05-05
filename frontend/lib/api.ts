@@ -305,6 +305,7 @@ export interface CustomerSearchResult {
   id: string;
   label: string;
   name: string;
+  name_en?: string;
   reg_no: string;
 }
 

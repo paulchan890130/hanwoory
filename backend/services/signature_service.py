@@ -7,9 +7,11 @@ import datetime
 
 AGENT_SIGN_SHEET    = "행정사서명"
 CUSTOMER_SIGN_SHEET = "고객서명"
+TEMP_SIGN_SHEET     = "서명임시저장"
 
 _AGENT_HEADERS    = ["tenant_id", "서명데이터", "등록일시"]
 _CUSTOMER_HEADERS = ["고객ID",    "서명데이터", "등록일시"]
+_TEMP_HEADERS     = ["slot", "tenant_id", "서명데이터", "비고", "저장일시"]
 
 
 def _get_gspread_client():
@@ -117,6 +119,75 @@ def has_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
         return bool(record.get("서명데이터", "").strip())
     except Exception:
         return False
+
+
+# ── 임시저장 슬롯 ─────────────────────────────────────────────────────────────
+
+def _find_temp_row(ws, tenant_id: str, slot: int):
+    """(slot, tenant_id) 복합키로 행 탐색."""
+    values = ws.get_all_values()
+    if len(values) < 2:
+        return None, None
+    header = values[0]
+    for i, row in enumerate(values[1:], start=2):
+        if len(row) >= 2 and row[0].strip() == str(slot) and row[1].strip() == tenant_id.strip():
+            return i, dict(zip(header, row))
+    return None, None
+
+
+def get_temp_slots(tenant_id: str) -> list:
+    """테넌트의 임시저장 슬롯 1~3 상태 반환. 서명데이터는 제외."""
+    try:
+        sh = _master_sh()
+        ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
+        result = []
+        for slot in (1, 2, 3):
+            _, record = _find_temp_row(ws, tenant_id, slot)
+            if record:
+                has_data = bool(record.get("서명데이터", "").strip())
+                memo = record.get("비고", "").strip()
+            else:
+                has_data, memo = False, ""
+            result.append({"slot": slot, "has_data": has_data, "비고": memo})
+        return result
+    except Exception as e:
+        print(f"[signature_service.get_temp_slots] 오류: {e}")
+        return [{"slot": s, "has_data": False, "비고": ""} for s in (1, 2, 3)]
+
+
+def save_temp_slot(tenant_id: str, slot: int, b64: str, memo: str) -> None:
+    sh = _master_sh()
+    ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    new_row = [str(slot), tenant_id, b64, memo, now]
+    row_idx, _ = _find_temp_row(ws, tenant_id, slot)
+    if row_idx:
+        ws.update(f"A{row_idx}", [new_row], value_input_option="RAW")
+    else:
+        ws.append_row(new_row, value_input_option="RAW")
+
+
+def get_temp_slot_data(tenant_id: str, slot: int) -> str | None:
+    try:
+        sh = _master_sh()
+        ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
+        _, record = _find_temp_row(ws, tenant_id, slot)
+        if record is None:
+            return None
+        data = record.get("서명데이터", "").strip()
+        return data if data else None
+    except Exception as e:
+        print(f"[signature_service.get_temp_slot_data] 오류: {e}")
+        return None
+
+
+def clear_temp_slot(tenant_id: str, slot: int) -> None:
+    sh = _master_sh()
+    ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
+    row_idx, record = _find_temp_row(ws, tenant_id, slot)
+    if row_idx and record:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ws.update(f"A{row_idx}", [[str(slot), tenant_id, "", "", now]], value_input_option="RAW")
 
 
 # ── 압축 ─────────────────────────────────────────────────────────────────────

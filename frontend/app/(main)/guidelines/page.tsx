@@ -1528,34 +1528,38 @@ export default function GuidelinesPage() {
                 }}>
                 <Trees size={13} /> 업무별 찾기
               </button>
-              {/* 체류 매뉴얼 다운로드 */}
-              <a
-                href="https://www.hikorea.go.kr/board/BoardNtcDetailR.pt?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1"
-                target="_blank" rel="noopener noreferrer"
+              {/* 체류 매뉴얼 다운로드 — 서버 PDF */}
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem("access_token") || "";
+                  window.open(`/api/manual/download/체류민원?token=${encodeURIComponent(token)}`, "_blank");
+                }}
                 style={{
                   display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
                   border:"1.5px solid #CBD5E0", background:"#fff", color:"#4A5568",
-                  textDecoration:"none", cursor:"pointer",
+                  cursor:"pointer",
                 }}>
                 <Download size={12} />
                 {formatManualDate(manualDates.체류민원)
                   ? `${formatManualDate(manualDates.체류민원)} 체류 매뉴얼`
                   : "체류 매뉴얼"} ↓
-              </a>
-              {/* 사증 매뉴얼 다운로드 */}
-              <a
-                href="https://www.hikorea.go.kr/board/BoardNtcDetailR.pt?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1"
-                target="_blank" rel="noopener noreferrer"
+              </button>
+              {/* 사증 매뉴얼 다운로드 — 서버 PDF */}
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem("access_token") || "";
+                  window.open(`/api/manual/download/사증민원?token=${encodeURIComponent(token)}`, "_blank");
+                }}
                 style={{
                   display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
                   border:"1.5px solid #CBD5E0", background:"#fff", color:"#4A5568",
-                  textDecoration:"none", cursor:"pointer",
+                  cursor:"pointer",
                 }}>
                 <Download size={12} />
                 {formatManualDate(manualDates.사증민원)
                   ? `${formatManualDate(manualDates.사증민원)} 사증 매뉴얼`
                   : "사증 매뉴얼"} ↓
-              </a>
+              </button>
             </div>
           )}
 

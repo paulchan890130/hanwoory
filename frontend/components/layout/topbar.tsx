@@ -1,10 +1,11 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, LogOut, X, Clock, User, ClipboardList, Calendar, FileText, BookOpen, BookMarked, Menu } from "lucide-react";
+import { Search, Bell, LogOut, X, Clock, User, ClipboardList, Calendar, FileText, BookOpen, BookMarked, Menu, PenLine } from "lucide-react";
 import { getUser, clearUser } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { customersApi } from "@/lib/api";
+import { customersApi, api } from "@/lib/api";
+import TempSlotModal from "@/components/TempSlotModal";
 
 interface TopbarProps {
   leftOffset: number;
@@ -26,6 +27,8 @@ function addRecentSearch(q: string) {
   localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify([q, ...prev].slice(0, 8)));
 }
 
+interface SlotInfo { slot: number; has_data: boolean; 비고: string; }
+
 export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: TopbarProps) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -33,6 +36,27 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 임시저장 슬롯 상태
+  const [slots, setSlots] = useState<SlotInfo[]>([
+    { slot: 1, has_data: false, 비고: "" },
+    { slot: 2, has_data: false, 비고: "" },
+    { slot: 3, has_data: false, 비고: "" },
+  ]);
+  const [activeSlot, setActiveSlot] = useState<SlotInfo | null>(null);
+
+  const fetchSlots = () => {
+    api.get<SlotInfo[]>("/api/signature/temp-slots")
+      .then((r) => setSlots(r.data))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchSlots();
+    const id = setInterval(fetchSlots, 30_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 만기 알림 건수 (배지용)
   const { data: expiryData } = useQuery({
@@ -119,6 +143,24 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
             style={{ cursor: "pointer" }}
           />
         </div>
+
+        {/* 서명 임시저장 슬롯 아이콘 */}
+        {slots.map((s) => (
+          <div
+            key={s.slot}
+            onClick={() => setActiveSlot(s)}
+            style={{ position: "relative", cursor: "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 4 }}
+            title={`서명 슬롯 ${s.slot}번${s.has_data ? ` — ${s.비고 || "저장됨"}` : " — 비어있음"}`}
+          >
+            <PenLine size={18} style={{ color: "#718096" }} />
+            <span style={{
+              position: "absolute", top: 0, right: 0,
+              width: 8, height: 8, borderRadius: "50%",
+              background: s.has_data ? "#F5A623" : "#48BB78",
+              border: "1.5px solid #fff",
+            }} />
+          </div>
+        ))}
 
         {/* 알림 벨 */}
         <div style={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
@@ -293,6 +335,16 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
             </div>
           </div>
         </div>
+      )}
+      {/* 임시저장 슬롯 모달 */}
+      {activeSlot && (
+        <TempSlotModal
+          slot={activeSlot.slot as 1 | 2 | 3}
+          hasData={activeSlot.has_data}
+          memo={activeSlot.비고}
+          onClose={() => setActiveSlot(null)}
+          onUpdate={() => { fetchSlots(); setActiveSlot(null); }}
+        />
       )}
     </>
   );

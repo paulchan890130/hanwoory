@@ -258,7 +258,11 @@ function RoleSelector({
                     onMouseEnter={(e) => (e.currentTarget.style.background = GOLD_LIGHT)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    {c.label}
+                    {c.name}
+                    {c.name_en && (
+                      <span style={{ fontSize: 10, color: "#A0AEC0", marginLeft: 4 }}>({c.name_en})</span>
+                    )}
+                    <span style={{ fontSize: 10, color: "#CBD5E0", marginLeft: 4 }}>{c.label.split(" / ").slice(1).join(" / ")}</span>
                   </button>
                 ))}
               </div>

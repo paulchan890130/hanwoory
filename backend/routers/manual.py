@@ -17,9 +17,11 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from backend.auth import get_current_user, require_admin
+from urllib.parse import quote as _url_quote
+from backend.auth import get_current_user, require_admin, decode_token
 
 router = APIRouter()
 
@@ -30,6 +32,59 @@ STATE_PATH  = MANUALS / ".watcher_state.json"
 REVIEW_PATH = MANUALS / "manual_update_review.json"
 DB_PATH     = ROOT / "backend" / "data" / "immigration_guidelines_db_v2.json"
 REMATCH_PY  = ROOT / "backend" / "scripts" / "manual_ref_rematch.py"
+
+
+# ── 매뉴얼 PDF 직접 다운로드 ─────────────────────────────────────────────────
+ALLOWED_MANUAL_TYPES = {"체류민원", "사증민원"}
+
+
+@router.get("/download/{manual_type}")
+def download_manual_pdf(
+    manual_type: str,
+    token: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
+):
+    """서버에 저장된 잠금해제 PDF 직접 다운로드 — query token 또는 Authorization 헤더 허용."""
+    actual = token
+    if not actual and authorization and authorization.startswith("Bearer "):
+        actual = authorization[7:]
+    if not actual:
+        raise HTTPException(status_code=401, detail="인증 토큰 필요")
+    try:
+        payload = decode_token(actual)
+        if not payload.get("sub"):
+            raise HTTPException(status_code=401, detail="유효하지 않은 토큰")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰")
+
+    if manual_type not in ALLOWED_MANUAL_TYPES:
+        raise HTTPException(status_code=400, detail=f"manual_type은 {ALLOWED_MANUAL_TYPES} 중 하나여야 합니다.")
+
+    pdf_path = MANUALS / f"unlocked_{manual_type}.pdf"
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail=f"{manual_type} PDF 파일이 없습니다.")
+
+    # watcher_state.json에서 timestamp 읽어 파일명에 포함
+    timestamp_part = ""
+    if STATE_PATH.exists():
+        try:
+            st = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+            ts = st.get("manuals", {}).get(manual_type, {}).get("timestamp", "")
+            if ts:
+                timestamp_part = f"_{ts[:8]}"   # YYYYMMDD만 사용
+        except Exception:
+            pass
+
+    filename = f"{manual_type}{timestamp_part}.pdf"
+    encoded = _url_quote(filename, safe="")
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        filename=filename,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+    )
 
 
 # ── GPT 검색 (기존) ──────────────────────────────────────────────────────────

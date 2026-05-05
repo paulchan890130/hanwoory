@@ -50,6 +50,14 @@ class SignatureSubmitBody(BaseModel):
     data: str                              # base64 PNG
 
 
+class TempSlotRequestBody(BaseModel):
+    memo: str = ""
+
+
+class TempMapCustomerBody(BaseModel):
+    customer_id: str
+
+
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
 
 def _resolve_customer_sheet_key(tenant_id: str, provided: Optional[str]) -> str:
@@ -190,6 +198,130 @@ def get_customer_signature(
         raise HTTPException(status_code=400, detail=str(e))
     data = _get(csk, customer_id)
     return {"data": data}
+
+
+# ── 임시저장 슬롯 엔드포인트 ──────────────────────────────────────────────────
+
+@router.get("/temp-slots")
+def get_temp_slots(user: dict = Depends(get_current_user)):
+    """슬롯 1~3 상태 반환 (서명데이터 제외)."""
+    from backend.services.signature_service import get_temp_slots as _get
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    return _get(tenant_id)
+
+
+@router.post("/temp-slots/{slot}/request")
+def request_temp_slot(slot: int, body: TempSlotRequestBody, user: dict = Depends(get_current_user)):
+    """임시저장 슬롯용 QR 서명 요청 — 토큰 + URL 반환."""
+    if slot not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="slot은 1, 2, 3 중 하나여야 합니다.")
+    _cleanup()
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    try:
+        from backend.services.accounts_service import get_office_name
+        office_name = get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
+    except Exception:
+        office_name = user.get("office_name", "") or "행정사사무소"
+
+    token = secrets.token_urlsafe(6)
+    _pending[token] = {
+        "type":       "temp",
+        "tenant_id":  tenant_id,
+        "slot":       slot,
+        "memo":       body.memo,
+        "office_name": office_name,
+        "created_at": _now(),
+        "data":       None,
+    }
+    url = f"https://www.hanwory.com/sign/{token}"
+    return {"token": token, "url": url}
+
+
+@router.post("/temp-slots/{slot}/save/{token}")
+def save_temp_slot_endpoint(slot: int, token: str, user: dict = Depends(get_current_user)):
+    """폴링 완료 후 임시저장 슬롯에 저장."""
+    entry = _pending.get(token)
+    if entry is None or _is_expired(entry):
+        raise HTTPException(status_code=404, detail="토큰이 만료되었습니다.")
+    if entry["data"] is None:
+        raise HTTPException(status_code=400, detail="아직 서명이 제출되지 않았습니다.")
+    from backend.services.signature_service import save_temp_slot
+    try:
+        save_temp_slot(entry["tenant_id"], slot, entry["data"], entry.get("memo", ""))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"저장 실패: {e}")
+    del _pending[token]
+    return {"status": "ok"}
+
+
+@router.get("/temp-slots/{slot}/data")
+def get_temp_slot_data_endpoint(slot: int, user: dict = Depends(get_current_user)):
+    """슬롯 서명 데이터 조회."""
+    from backend.services.signature_service import get_temp_slot_data
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    data = get_temp_slot_data(tenant_id, slot)
+    return {"data": data}
+
+
+@router.post("/temp-slots/{slot}/clear")
+def clear_temp_slot_endpoint(slot: int, user: dict = Depends(get_current_user)):
+    """슬롯 데이터 삭제."""
+    from backend.services.signature_service import clear_temp_slot
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    clear_temp_slot(tenant_id, slot)
+    return {"status": "ok"}
+
+
+@router.post("/temp-slots/{slot}/map-customer")
+def map_temp_slot_to_customer(
+    slot: int,
+    body: TempMapCustomerBody,
+    user: dict = Depends(get_current_user),
+):
+    """슬롯 서명 → 고객 서명으로 복사 후 슬롯 삭제."""
+    from backend.services.signature_service import (
+        get_temp_slot_data, save_customer_signature, clear_temp_slot,
+    )
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    data = get_temp_slot_data(tenant_id, slot)
+    if not data:
+        raise HTTPException(status_code=404, detail="슬롯에 서명 데이터가 없습니다.")
+    try:
+        csk = _resolve_customer_sheet_key(tenant_id, None)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
+    try:
+        save_customer_signature(csk, body.customer_id, data)
+        clear_temp_slot(tenant_id, slot)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"매핑 실패: {e}")
+    return {"status": "ok"}
+
+
+@router.post("/temp-slots/{slot}/map/{customer_id}")
+def map_temp_slot_url(
+    slot: int,
+    customer_id: str,
+    user: dict = Depends(get_current_user),
+):
+    """슬롯 서명 → 고객 서명 복사 + 슬롯 삭제 (URL 방식)."""
+    from backend.services.signature_service import (
+        get_temp_slot_data, save_customer_signature, clear_temp_slot,
+    )
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    data = get_temp_slot_data(tenant_id, slot)
+    if not data:
+        raise HTTPException(status_code=404, detail="슬롯에 서명 데이터가 없습니다.")
+    try:
+        csk = _resolve_customer_sheet_key(tenant_id, None)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
+    try:
+        save_customer_signature(csk, customer_id, data)
+        clear_temp_slot(tenant_id, slot)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"매핑 실패: {e}")
+    return {"status": "ok"}
 
 
 @router.get("/customer/{customer_id}/exists")
