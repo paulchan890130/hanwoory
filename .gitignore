@@ -15,6 +15,7 @@ hanwoory-*.json
 client_secret*.json
 token.json
 service_account*.json
+secrets/
 
 # ===== Local data / cache =====
 *.xlsx

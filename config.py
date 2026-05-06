@@ -33,21 +33,21 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ===== 구글 서비스 계정 키 경로 =====
 if platform.system() == "Windows":
-    KEY_PATH = r"C:\Users\66885\Documents\K.ID 출입국업무관리 실험\hanwoory-9eaa1a4c54d7.json"
+    _env_key   = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    _local_key = os.path.join(BASE_DIR, "secrets", "hanwoory-9eaa1a4c54d7.json")
+    KEY_PATH = _env_key if _env_key else _local_key
 else:
     KEY_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "/etc/secrets/hanwoory-9eaa1a4c54d7.json")
 
-# ===== 어드민 마스터 스프레드시트 (Accounts 탭 포함) =====
-# 기준 업무정리 — 어드민 워크스페이스 / Accounts 탭이 이 파일에 있어야 합니다.
-SHEET_KEY = "14ArpDF4b9UZkjUFEpiEQUC59L39yHjZDHTKp9yjnETQ"
-# 어드민 고객 데이터 마스터 (기준 고객 데이터)
-ADMIN_CUSTOMER_SHEET_KEY = "1lWjBjlrsNcwiDZ6aWQvY1Fj1zZcU7d9Lda-I-PlkrN8"
+# ===== 어드민 마스터 스프레드시트 =====
+# 신 고객 데이터 — Accounts, 고객 데이터, 시스템 마스터 탭 모두 이 파일에 있어야 합니다.
+SHEET_KEY = "1W7myK9dOQQnN3BAVLzFR_kjV91LSmKzO_9v7lWS0bI8"
 
 # ===== 테넌트용 템플릿 스프레드시트 ID =====
 # 새 사무실 생성 시, 아래 두 파일을 복사해서 사용한다.
-# ※ 어드민 시트 ID와 절대 혼용하지 말 것.
-CUSTOMER_DATA_TEMPLATE_ID  = "1BzVTyjEq3or9kqbIKdQEQV3owSY-U57j0bcvD98Abl0"  # 신 고객 데이터 (템플릿)
-WORK_REFERENCE_TEMPLATE_ID = "1-0VPVgTXj4WavlSCWdpQ5TEEqUNNUV1twsZ0wrsRlek"   # 신 업무정리 (템플릿)
+# ※ SHEET_KEY(어드민 시트)와 절대 혼용하지 말 것.
+CUSTOMER_DATA_TEMPLATE_ID  = "1BzVTyjEq3or9kqbIKdQEQV3owSY-U57j0bcvD98Abl0"  # 기준 고객 데이터 (템플릿)
+WORK_REFERENCE_TEMPLATE_ID = "1-0VPVgTXj4WavlSCWdpQ5TEEqUNNUV1twsZ0wrsRlek"  # 기준 업무정리 (템플릿)
 
 # --- 계정/테넌트 관련 ---
 ACCOUNTS_SHEET_NAME = "Accounts"
