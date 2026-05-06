@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { memosApi } from "@/lib/api";
 import { Save } from "lucide-react";
+import { SubmitButton } from "@/components/SubmitButton";
 
 function MemoPanel({
   memoType,
@@ -56,15 +57,15 @@ function MemoPanel({
           {dirty && (
             <span style={{ fontSize: "11px", color: "#D4A843" }}>● 미저장</span>
           )}
-          <button
+          <SubmitButton
+            isSubmitting={saveMut.isPending}
+            disabled={!dirty}
             onClick={handleSave}
-            disabled={saveMut.isPending || !dirty}
-            className="btn-primary"
-            style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", opacity: (saveMut.isPending || !dirty) ? 0.4 : 1 }}
+            loadingText="저장 중..."
+            style={{ padding: "6px 12px", fontSize: 12 }}
           >
-            <Save size={12} />
-            {saveMut.isPending ? "저장 중..." : "저장"}
-          </button>
+            <><Save size={12} /> 저장</>
+          </SubmitButton>
         </div>
       </div>
 

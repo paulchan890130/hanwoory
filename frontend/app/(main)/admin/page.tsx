@@ -10,6 +10,8 @@ import {
   FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw, Trash2,
   BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText,
 } from "lucide-react";
+import { useSubmit } from "@/lib/useSubmit";
+import { SubmitButton } from "@/components/SubmitButton";
 
 // ── 워크스페이스 단계별 결과 타입 ─────────────────────────────────────────────
 interface WsProbe {
@@ -171,8 +173,8 @@ function CreateAccountModal({
     sheet_key: "",
     is_admin: false,
   });
-  const [creating, setCreating] = useState(false);
-  const [wsCreating, setWsCreating] = useState(false);
+  const { submit: submitCreate, isSubmitting: creating } = useSubmit();
+  const { submit: submitWs, isSubmitting: wsCreating } = useSubmit();
 
   const F = (name: string, label: string, placeholder = "", mono = false) => (
     <div key={name}>
@@ -186,63 +188,58 @@ function CreateAccountModal({
     </div>
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.login_id.trim() || !form.password.trim() || !form.office_name.trim()) {
       toast.error("ID, 비밀번호, 사무실명은 필수입니다.");
       return;
     }
-    setCreating(true);
-    try {
-      await adminApi.createAccount(form);
-      toast.success(`계정 '${form.login_id}' 생성됨`);
-      onCreated();
-      onClose();
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "계정 생성 실패";
-      toast.error(msg);
-    } finally {
-      setCreating(false);
-    }
+    submitCreate(
+      async () => {
+        await adminApi.createAccount(form);
+        onCreated();
+        onClose();
+      },
+      {
+        successMessage: `계정 '${form.login_id}' 생성됨`,
+        errorMessage: "계정 생성 실패",
+      }
+    );
   };
 
-  const handleCreateWorkspace = async () => {
+  const handleCreateWorkspace = () => {
     if (!form.login_id.trim() || !form.office_name.trim()) {
       toast.error("로그인 ID와 사무실명을 먼저 입력하세요.");
       return;
     }
-    setWsCreating(true);
-    try {
-      const res = await adminApi.createWorkspace(form.login_id, form.office_name);
-      const data = res.data as WsResult;
-      setForm((prev) => ({
-        ...prev,
-        customer_sheet_key: data.customer_sheet_key || prev.customer_sheet_key,
-        work_sheet_key: data.work_sheet_key || prev.work_sheet_key,
-        folder_id: data.folder_id || prev.folder_id,
-      }));
-      const lines = [
-        stageLabel(data.stages?.folder_create,   "폴더"),
-        stageLabel(data.stages?.customer_copy,   "고객시트"),
-        stageLabel(data.stages?.work_copy,        "업무시트"),
-        stageLabel(data.stages?.accounts_update, "Accounts"),
-        data.drive_user ? `🔑 Drive 계정: ${data.drive_user}` : "",
-      ].filter(Boolean).join("\n");
-      if (data.ok) toast.success(`워크스페이스 완료\n${lines}`);
-      else {
-        onWsResult?.(data);
-        toast.warning("워크스페이스 부분 완료 — 진단 패널 확인");
+    submitWs(
+      async () => {
+        const res = await adminApi.createWorkspace(form.login_id, form.office_name);
+        const data = res.data as WsResult;
+        setForm((prev) => ({
+          ...prev,
+          customer_sheet_key: data.customer_sheet_key || prev.customer_sheet_key,
+          work_sheet_key: data.work_sheet_key || prev.work_sheet_key,
+          folder_id: data.folder_id || prev.folder_id,
+        }));
+        const lines = [
+          stageLabel(data.stages?.folder_create,   "폴더"),
+          stageLabel(data.stages?.customer_copy,   "고객시트"),
+          stageLabel(data.stages?.work_copy,        "업무시트"),
+          stageLabel(data.stages?.accounts_update, "Accounts"),
+          data.drive_user ? `🔑 Drive 계정: ${data.drive_user}` : "",
+        ].filter(Boolean).join("\n");
+        if (data.ok) toast.success(`워크스페이스 완료\n${lines}`);
+        else {
+          onWsResult?.(data);
+          toast.warning("워크스페이스 부분 완료 — 진단 패널 확인");
+        }
+      },
+      {
+        successMessage: "",
+        errorMessage: "워크스페이스 생성 실패",
       }
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "워크스페이스 생성 실패";
-      toast.error(msg);
-    } finally {
-      setWsCreating(false);
-    }
+    );
   };
 
   return (
@@ -311,15 +308,17 @@ function CreateAccountModal({
               <div className="text-[11px] font-semibold uppercase px-2 py-1 rounded" style={{ color: "#718096", background: "#F7FAFC" }}>
                 Google Sheets 연동
               </div>
-              <button
+              <SubmitButton
                 type="button"
+                isSubmitting={wsCreating}
+                disabled={!form.login_id.trim() || !form.office_name.trim()}
                 onClick={handleCreateWorkspace}
-                disabled={wsCreating || !form.login_id.trim() || !form.office_name.trim()}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50"
-                style={{ borderColor: "var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
+                loadingText="생성 중..."
+                className="text-xs"
+                style={{ padding: "6px 12px", fontSize: 11, borderRadius: 8, border: "1px solid var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
               >
-                {wsCreating ? <><Loader2 size={11} className="animate-spin" /> 생성 중...</> : <><FolderOpen size={11} /> 워크스페이스 자동 생성</>}
-              </button>
+                <><FolderOpen size={11} /> 워크스페이스 자동 생성</>
+              </SubmitButton>
             </div>
             {(form.customer_sheet_key || form.folder_id) && (
               <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: "#C6F6D5", color: "#276749" }}>
@@ -351,10 +350,16 @@ function CreateAccountModal({
           {/* 버튼 */}
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="btn-secondary text-xs">취소</button>
-            <button type="submit" disabled={creating} className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50">
-              <Save size={12} />
-              {creating ? "생성 중..." : "계정 생성"}
-            </button>
+            <SubmitButton
+              type="submit"
+              isSubmitting={creating}
+              onClick={() => {}}
+              loadingText="생성 중..."
+              className="text-xs"
+              style={{ padding: "6px 12px", fontSize: 12 }}
+            >
+              <><Save size={12} /> 계정 생성</>
+            </SubmitButton>
           </div>
         </form>
       </div>
@@ -374,7 +379,7 @@ function AccountDetailPanel({
   onClose: () => void;
 }) {
   const [form, setForm] = useState({ ...acc });
-  const [saving, setSaving] = useState(false);
+  const { submit: submitSave, isSubmitting: saving } = useSubmit();
 
   const F = (key: string, label: string, mono = false) => (
     <div key={key}>
@@ -387,20 +392,20 @@ function AccountDetailPanel({
     </div>
   );
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const {
-        login_id, password_hash, is_admin, is_active, created_at,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        ...editable
-      } = form;
-      void login_id; void password_hash; void is_admin; void is_active; void created_at;
-      onUpdate(acc.login_id, editable);
-      onClose();
-    } finally {
-      setSaving(false);
-    }
+  const handleSave = () => {
+    submitSave(
+      async () => {
+        const {
+          login_id, password_hash, is_admin, is_active, created_at,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          ...editable
+        } = form;
+        void login_id; void password_hash; void is_admin; void is_active; void created_at;
+        onUpdate(acc.login_id, editable);
+        onClose();
+      },
+      { successMessage: "" }
+    );
   };
 
   return (
@@ -442,9 +447,15 @@ function AccountDetailPanel({
         </div>
         <div className="hw-drawer-footer">
           <button onClick={onClose} className="btn-secondary text-xs">닫기</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50">
-            <Save size={12} /> {saving ? "저장 중..." : "저장"}
-          </button>
+          <SubmitButton
+            isSubmitting={saving}
+            onClick={handleSave}
+            loadingText="저장 중..."
+            className="text-xs"
+            style={{ padding: "6px 12px", fontSize: 12 }}
+          >
+            <><Save size={12} /> 저장</>
+          </SubmitButton>
         </div>
       </div>
     </>
@@ -487,15 +498,16 @@ function DeleteConfirmModal({
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={onClose} disabled={isDeleting} className="btn-secondary text-xs">취소</button>
-            <button
+            <SubmitButton
+              isSubmitting={isDeleting}
               onClick={onConfirm}
-              disabled={isDeleting}
-              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium disabled:opacity-50"
-              style={{ background: "#E53E3E", color: "#fff" }}
+              variant="danger"
+              loadingText="처리 중..."
+              className="text-xs"
+              style={{ padding: "6px 12px", fontSize: 12 }}
             >
-              <Trash2 size={12} />
-              {isDeleting ? "처리 중..." : "삭제 확인"}
-            </button>
+              <><Trash2 size={12} /> 삭제 확인</>
+            </SubmitButton>
           </div>
         </div>
       </div>
@@ -523,7 +535,7 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }>
 
 function ManualReviewTab() {
   const [filter, setFilter] = useState<"all" | "changed" | "review" | "done">("all");
-  const [runningRematch, setRunningRematch] = useState(false);
+  const { submit: submitRematch, isSubmitting: runningRematch } = useSubmit();
   const [rows, setRows] = useState<RematchRow[]>([]);
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [totalOverride, setTotalOverride] = useState(0);
@@ -546,14 +558,14 @@ function ManualReviewTab() {
 
   useEffect(() => { void loadReview(); }, [loadReview]);
 
-  const handleRunRematch = async () => {
-    setRunningRematch(true);
-    try {
-      await api.post("/api/manual/run-rematch");
-      toast.success("재탐색 완료");
-      await loadReview();
-    } catch { toast.error("재탐색 실패"); }
-    finally { setRunningRematch(false); }
+  const handleRunRematch = () => {
+    submitRematch(
+      async () => {
+        await api.post("/api/manual/run-rematch");
+        await loadReview();
+      },
+      { successMessage: "재탐색 완료", errorMessage: "재탐색 실패" }
+    );
   };
 
   const handleApply = async (row: RematchRow, pf: number, pt: number) => {
@@ -599,12 +611,15 @@ function ManualReviewTab() {
             </span>
           )}
         </div>
-        <button onClick={handleRunRematch} disabled={runningRematch}
-          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0" }}>
-          {runningRematch ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
-          {runningRematch ? "탐색 중..." : "지금 재탐색"}
-        </button>
+        <SubmitButton
+          isSubmitting={runningRematch}
+          onClick={handleRunRematch}
+          loadingText="탐색 중..."
+          className="text-xs"
+          style={{ padding: "6px 12px", fontSize: 12, background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0" }}
+        >
+          <><RotateCcw size={13} /> 지금 재탐색</>
+        </SubmitButton>
       </div>
 
       {/* 필터 */}

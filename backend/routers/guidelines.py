@@ -63,7 +63,7 @@ def _paginate(items: list, page: int, limit: int) -> dict:
         "page": page,
         "limit": limit,
         "pages": max(1, (len(items) + limit - 1) // limit),
-        "data": items[start:end],
+        "data": [_clean_row_display(r) if isinstance(r, dict) else r for r in items[start:end]],
     }
 
 
@@ -143,7 +143,7 @@ def get_by_code(code: str, user: dict = Depends(get_current_user)):
         "code": code,
         "count": len(result),
         "action_types": list(set(r["action_type"] for r in result)),
-        "data": result,
+        "data": [_clean_row_display(r) for r in result],
     }
 
 
@@ -248,6 +248,44 @@ class TbEvaluateRequest(BaseModel):
 
 import re as _re
 _CODE_PATTERN = _re.compile(r'^[A-Z]-[0-9A-Z]', _re.I)
+
+# ── 사용자 노출 텍스트에서 '편람' 제거 ────────────────────────────────────────
+def _strip_pyolam(text: str) -> str:
+    """API 응답 전, 사용자에게 보이는 필드에서 '편람' 단어를 제거한다.
+    JSON 원본은 건드리지 않음 — 응답 dict 복사본에만 적용."""
+    if not text or "편람" not in text:
+        return text
+    t = text
+    t = _re.sub(r"\d{6}\s+체류관리편람\s+", "", t)         # "221230 체류관리편람 섹션명"
+    t = _re.sub(r"\d{4}\s+편람\s+기준\s*", "", t)           # "2022 편람 기준"
+    t = _re.sub(r"\d{4}\s+편람상\s*", "", t)                # "2022 편람상"
+    t = _re.sub(r"\(편람\s+기준\)", "", t)                   # "(편람 기준)"
+    # "편람 p.숫자[조사] 명시" — 조사 최대 4글자, 명시가 바로 다음에 올 때만
+    t = _re.sub(r"편람\s+p\.\d+[가-힣]{0,4}\s+명시\s*", "", t)
+    # "편람 p.숫자[짧은조사]" — 조사 최대 3글자 (에, 에서, 에는 등)
+    t = _re.sub(r"편람\s+p\.\d+[가-힣]{0,3}\s*", "", t)
+    t = _re.sub(r"편람에\s+따르면\s*", "", t)                # "편람에 따르면"
+    t = _re.sub(r"편람에\s+명시된?\s*", "", t)               # "편람에 명시된 / 명시"
+    t = _re.sub(r"편람상\s*", "", t)                         # "편람상"
+    t = _re.sub(r"편람의?\s*", "", t)                        # "편람의 / 편람" (catch-all)
+    t = _re.sub(r"\(\s*\)", "", t)                           # 빈 괄호 정리
+    t = _re.sub(r"\s+\.", ".", t)                            # " ." → "."
+    t = _re.sub(r"  +", " ", t)                             # 다중 공백 정리
+    return t.strip()
+
+
+_DISPLAY_CLEAN_FIELDS = ("basis_section", "practical_notes", "exceptions_summary")
+
+
+def _clean_row_display(row: dict) -> dict:
+    """편람 포함 필드가 있는 row만 shallow-copy 후 정제해 반환."""
+    if not any("편람" in str(row.get(f, "")) for f in _DISPLAY_CLEAN_FIELDS):
+        return row
+    out = dict(row)
+    for f in _DISPLAY_CLEAN_FIELDS:
+        if out.get(f):
+            out[f] = _strip_pyolam(str(out[f]))
+    return out
 
 @router.get("/tree/entry-points")
 def get_entry_points(user: dict = Depends(get_current_user)):
@@ -515,7 +553,7 @@ def get_guideline(row_id: str, user: dict = Depends(get_current_user)):
         return code_ok and major_ok
 
     return {
-        **row,
+        **_clean_row_display(dict(row)),
         "related_rules": [r for r in _RULES if _rule_matches(r)],
         "related_exceptions": [e for e in _EXCEPTIONS if _exc_matches(e)],
     }

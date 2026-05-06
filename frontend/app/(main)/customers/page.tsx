@@ -7,6 +7,8 @@ import { customersApi } from "@/lib/api";
 import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
 import SignatureModal from "@/components/SignatureModal";
+import { useSubmit } from "@/lib/useSubmit";
+import { SubmitButton } from "@/components/SubmitButton";
 
 // ── 만기 D-Day 계산 ────────────────────────────────────────────────────────────
 function parseDateStr(s: string): Date | null {
@@ -160,6 +162,7 @@ function CustomerDrawer({
   // ── 임시저장 슬롯 ──
   const [tempSlots, setTempSlots] = useState<{ slot: number; has_data: boolean; 비고: string }[]>([]);
   const [showTempSlots, setShowTempSlots] = useState(false);
+  const { submit: submitSlotMap, isSubmitting: slotMapping } = useSubmit();
 
   useEffect(() => {
     if (customer) {
@@ -359,28 +362,27 @@ function CustomerDrawer({
                       <button
                         key={s.slot}
                         disabled={!s.has_data}
-                        onClick={async () => {
-                          if (!s.has_data) return;
-                          try {
-                            const res = await fetch(
-                              `/api/signature/temp-slots/${s.slot}/map/${encodeURIComponent(id)}`,
-                              { method:"POST", headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` } }
-                            );
-                            if (!res.ok) throw new Error();
-                            // 완료 처리
-                            const dataRes = await fetch(
-                              `/api/signature/customer/${encodeURIComponent(id)}`,
-                              { headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` } }
-                            );
-                            const dataJson = await dataRes.json();
-                            setHasSignature(true);
-                            setSignatureData(dataJson.data ?? null);
-                            setShowSignatureFull(true);
-                            setShowTempSlots(false);
-                            toast.success("임시저장 서명이 고객에 연결되었습니다.");
-                          } catch {
-                            toast.error("매핑 실패");
-                          }
+                        onClick={() => {
+                          if (!s.has_data || slotMapping) return;
+                          submitSlotMap(
+                            async () => {
+                              const res = await fetch(
+                                `/api/signature/temp-slots/${s.slot}/map/${encodeURIComponent(id)}`,
+                                { method:"POST", headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` } }
+                              );
+                              if (!res.ok) throw new Error();
+                              const dataRes = await fetch(
+                                `/api/signature/customer/${encodeURIComponent(id)}`,
+                                { headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` } }
+                              );
+                              const dataJson = await dataRes.json();
+                              setHasSignature(true);
+                              setSignatureData(dataJson.data ?? null);
+                              setShowSignatureFull(true);
+                              setShowTempSlots(false);
+                            },
+                            { successMessage: "임시저장 서명이 고객에 연결되었습니다.", errorMessage: "매핑 실패" }
+                          );
                         }}
                         style={{
                           display:"block", width:"100%", textAlign:"left",
@@ -405,18 +407,29 @@ function CustomerDrawer({
         <div style={{ padding:"12px 20px", borderTop:"1px solid #E2E8F0", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
           <div>
             {!isNew && onDelete && (
-              <button className="btn-danger flex items-center gap-1.5 text-xs"
-                onClick={() => { if (confirm(`'${name}' 고객을 삭제하시겠습니까?`)) onDelete(id); }}>
-                <Trash2 size={12} /> 삭제
-              </button>
+              <SubmitButton
+                isSubmitting={false}
+                onClick={() => { if (confirm(`'${name}' 고객을 삭제하시겠습니까?`)) onDelete(id); }}
+                variant="danger"
+                className="text-xs"
+                style={{ padding: "6px 12px", fontSize: 12 }}
+              >
+                <><Trash2 size={12} /> 삭제</>
+              </SubmitButton>
             )}
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={onClose} className="btn-secondary text-xs">취소</button>
-            <button onClick={() => onSave(form)} disabled={(!dirty && !isNew) || isSaving}
-              className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50">
-              <Save size={12} /> {isNew ? "등록" : "저장"}
-            </button>
+            <SubmitButton
+              isSubmitting={isSaving}
+              disabled={!dirty && !isNew}
+              onClick={() => onSave(form)}
+              loadingText={isNew ? "등록 중..." : "저장 중..."}
+              className="text-xs"
+              style={{ padding: "6px 12px", fontSize: 12 }}
+            >
+              <><Save size={12} /> {isNew ? "등록" : "저장"}</>
+            </SubmitButton>
           </div>
         </div>
       </div>

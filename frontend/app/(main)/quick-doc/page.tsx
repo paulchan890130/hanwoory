@@ -15,6 +15,7 @@ import {
   RotateCcw, User, Home, Shield, Users, UserCheck, Stamp, Zap, Edit2,
 } from "lucide-react";
 import Link from "next/link";
+import { SubmitButton } from "@/components/SubmitButton";
 
 // ─────────────────────────────────────────────────────────────────────────
 // 편집 후 재다운로드 패널에 노출할 필드
@@ -973,22 +974,22 @@ function QuickDocPageInner() {
           )}
 
           {/* PDF 생성 버튼 */}
-          <button
+          <SubmitButton
+            isSubmitting={generating}
+            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0}
             onClick={handleGenerate}
-            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || generating}
+            loadingText="PDF 생성 중..."
             style={{
               width: "100%", padding: "12px 0",
               background: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0) ? "#E2E8F0" : GOLD,
               color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0) ? "#A0AEC0" : "#fff",
-              border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              borderRadius: 10, fontSize: 14, fontWeight: 700,
               transition: "all 0.15s",
               marginBottom: 12,
-            }}>
-            {generating
-              ? <><Loader2 size={14} className="animate-spin" /> PDF 생성 중...</>
-              : <><FileText size={14} /> 🖨 PDF 생성</>}
-          </button>
+            }}
+          >
+            <><FileText size={14} /> 🖨 PDF 생성</>
+          </SubmitButton>
 
           {/* 비활성화 안내 */}
           {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0) && !generating && (
@@ -1032,21 +1033,14 @@ function QuickDocPageInner() {
                 <Edit2 size={13} /> 내용 수정
               </button>
               {/* 다운로드: 수정사항이 있으면 재생성, 없으면 기존 blob */}
-              <button
+              <SubmitButton
+                isSubmitting={regenLoading}
                 onClick={handleEditDownload}
-                disabled={regenLoading}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "8px 18px", borderRadius: 8, fontSize: 13,
-                  background: GOLD, color: "#fff", border: "none",
-                  cursor: regenLoading ? "default" : "pointer",
-                  fontWeight: 700, opacity: regenLoading ? 0.6 : 1,
-                }}>
-                {regenLoading
-                  ? <><Loader2 size={13} className="animate-spin" /> 재생성 중...</>
-                  : <><Download size={14} /> {Object.values(editOverrides).some(v => v.trim()) ? "수정 후 다운로드" : "다운로드"}</>
-                }
-              </button>
+                loadingText="재생성 중..."
+                style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700 }}
+              >
+                <><Download size={14} /> {Object.values(editOverrides).some(v => v.trim()) ? "수정 후 다운로드" : "다운로드"}</>
+              </SubmitButton>
             </div>
           </div>
 

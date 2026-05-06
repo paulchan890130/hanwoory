@@ -512,8 +512,8 @@ export default function DailyPage() {
             <input type="time" title="시간 (비워두면 자동)" style={{ ...inputSm, width: "100%" }}
               value={newTime} onChange={(e) => setNewTime(e.target.value)} />
           </div>
-          {/* 구분 (60px) */}
-          <div style={{ width: 60, flexShrink: 0 }}>
+          {/* 구분 (70px) */}
+          <div style={{ width: 70, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>구분</div>
             <select style={{ ...inputSm, width: "100%" }} value={newCategory} onChange={(e) => setNewCategory(e.target.value)}>
               <option value="">선택</option>
@@ -581,7 +581,7 @@ export default function DailyPage() {
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>세부내용</div>
             <div style={{ display: "flex", gap: 4 }}>
               <input style={{ ...inputSm, flex: 1 }} placeholder="세부내용" value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-              <input style={{ ...inputSm, width: 72, flexShrink: 0 }} placeholder="비고" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} />
+              <input style={{ ...inputSm, width: 102, flexShrink: 0 }} placeholder="비고" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} />
             </div>
           </div>
           {/* 수입 (90px) */}
@@ -646,9 +646,10 @@ export default function DailyPage() {
           <table className="hw-table" style={{ minWidth: 820 }}>
             <thead>
               <tr>
-                <th style={{ width: 60, textAlign: "left" }}>구분</th>
+                <th style={{ width: 70, textAlign: "left" }}>구분</th>
                 <th style={{ width: 72, textAlign: "left" }}>성명</th>
                 <th style={{ textAlign: "left" }}>세부내용</th>
+                <th style={{ width: 80, textAlign: "left" }}>비고</th>
                 <th style={{ width: 90, textAlign: "right" }}>수입</th>
                 <th style={{ width: 90, textAlign: "right" }}>지출1</th>
                 <th style={{ width: 90, textAlign: "right" }}>지출2</th>
@@ -701,6 +702,9 @@ export default function DailyPage() {
                           <input type="time" style={{ ...cellStyle, width: 80 }} value={ev.time || ""} onChange={(e) => setEditValues((p) => ({ ...p, time: e.target.value }))} />
                           <input style={{ ...cellStyle, flex: 1 }} value={ev.task || ""} onChange={(e) => setEditValues((p) => ({ ...p, task: e.target.value }))} />
                         </div>
+                      </td>
+                      <td>
+                        <input style={{ ...cellStyle }} value={ev.user_memo || ""} onChange={(e) => setEditValues((p) => ({ ...p, user_memo: e.target.value }))} placeholder="비고" />
                       </td>
                       {editIsCashOut ? (
                         <>
@@ -775,10 +779,8 @@ export default function DailyPage() {
                       {entry.category}
                     </td>
                     <td style={{ fontSize: 12 }}>{entry.name}</td>
-                    <td style={{ fontSize: 12 }}>
-                      {entry.task}
-                      {meta.user && <span style={{ fontSize: 10, color: "#A0AEC0", marginLeft: 4 }}>({meta.user})</span>}
-                    </td>
+                    <td style={{ fontSize: 12 }}>{entry.task}</td>
+                    <td style={{ fontSize: 11, color: "#718096" }}>{meta.user}</td>
                     <td style={{ textAlign: "right", fontSize: 12 }}>
                       {dispInc > 0 && (
                         <span>{incLabel && <span style={{ fontSize: 10, color: "#718096", marginRight: 2 }}>{incLabel}</span>}{formatNumber(dispInc)}</span>
@@ -816,7 +818,7 @@ export default function DailyPage() {
             </tbody>
             <tfoot>
               <tr style={{ background: "#F7FAFC", fontWeight: 600, fontSize: 12, color: "#2D3748", borderTop: "2px solid #E2E8F0" }}>
-                <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right" }}>합계</td>
+                <td colSpan={4} style={{ padding: "6px 8px", textAlign: "right" }}>합계</td>
                 <td style={{ padding: "6px 8px", textAlign: "right", color: "#2B6CB0" }}>{formatNumber(sumInCash + sumInEtc)}</td>
                 <td style={{ padding: "6px 8px", textAlign: "right", color: "#C53030" }}>{formatNumber(sumExCash + sumCashOut)}</td>
                 <td style={{ padding: "6px 8px", textAlign: "right", color: "#C53030" }}>{formatNumber(sumExEtc)}</td>

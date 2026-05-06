@@ -18,6 +18,7 @@ function _dPlusFromTs(ts: string): number {
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
 }
 import { Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const newId = () => crypto.randomUUID();
 
@@ -447,38 +448,43 @@ export default function TasksPage() {
         <div className="flex items-center gap-2">
           {tab === "진행업무" && (
             <>
-              <button
+              <SubmitButton
+                isSubmitting={addActive.isPending}
                 onClick={() => addActive.mutate({
                   id: newId(), date: today(), category: "", name: "", work: "", details: "",
                 })}
-                disabled={addActive.isPending}
-                className="btn-primary flex items-center gap-1.5 text-xs"
+                loadingText="추가 중..."
+                className="text-xs"
+                style={{ padding: "6px 12px", fontSize: 12 }}
               >
-                <Plus size={13} /> 업무 추가
-              </button>
+                <><Plus size={13} /> 업무 추가</>
+              </SubmitButton>
               {(completedIds.size > 0 || deleteIds.size > 0 || hasProgressChanges) && (
-                <button
+                <SubmitButton
+                  isSubmitting={completeMany.isPending || deleteActiveMut.isPending}
                   onClick={handleBatch}
-                  disabled={completeMany.isPending || deleteActiveMut.isPending}
-                  className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50"
-                  style={{ background: "#38A169" }}
+                  loadingText="처리 중..."
+                  className="text-xs"
+                  style={{ padding: "6px 12px", fontSize: 12, background: "#38A169" }}
                 >
-                  <CheckCircle size={13} /> 선택 처리
-                  {(completedIds.size + deleteIds.size) > 0 && ` (${completedIds.size + deleteIds.size}건)`}
-                </button>
+                  <><CheckCircle size={13} /> 선택 처리
+                  {(completedIds.size + deleteIds.size) > 0 && ` (${completedIds.size + deleteIds.size}건)`}</>
+                </SubmitButton>
               )}
             </>
           )}
           {tab === "예정업무" && (
-            <button
+            <SubmitButton
+              isSubmitting={addPlanned.isPending}
               onClick={() => addPlanned.mutate({
                 id: newId(), date: today(), period: "단기🔴", content: "", note: "",
               })}
-              disabled={addPlanned.isPending}
-              className="btn-primary flex items-center gap-1.5 text-xs"
+              loadingText="추가 중..."
+              className="text-xs"
+              style={{ padding: "6px 12px", fontSize: 12 }}
             >
-              <Plus size={13} /> 추가
-            </button>
+              <><Plus size={13} /> 추가</>
+            </SubmitButton>
           )}
         </div>
       </div>

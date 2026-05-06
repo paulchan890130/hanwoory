@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Save, KeyRound, User } from "lucide-react";
 import SignatureModal from "@/components/SignatureModal";
+import { useSubmit } from "@/lib/useSubmit";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const GOLD = "#D4A843";
 const BORDER = "#E2E8F0";
@@ -58,11 +60,11 @@ export default function MyPage() {
     login_id: "", office_name: "", office_adr: "",
     contact_name: "", contact_tel: "", biz_reg_no: "", agent_rrn: "",
   });
-  const [infoSaving, setInfoSaving] = useState(false);
+  const { submit: submitInfo, isSubmitting: infoSaving } = useSubmit();
 
   // ── 비밀번호 ──
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
-  const [pwSaving, setPwSaving] = useState(false);
+  const { submit: submitPw, isSubmitting: pwSaving } = useSubmit();
 
   // ── 서명 ──
   const [signData, setSignData] = useState<string | null>(null);
@@ -77,41 +79,37 @@ export default function MyPage() {
       .catch(() => {});
   }, []);
 
-  const handleInfoSave = async () => {
-    setInfoSaving(true);
-    try {
-      await api.patch("/api/auth/me", {
-        office_name:  info.office_name,
-        office_adr:   info.office_adr,
-        contact_name: info.contact_name,
-        contact_tel:  info.contact_tel,
-      });
-      toast.success("사무소 정보가 저장되었습니다.");
-    } catch {
-      toast.error("저장 실패");
-    } finally {
-      setInfoSaving(false);
-    }
+  const handleInfoSave = () => {
+    submitInfo(
+      async () => {
+        await api.patch("/api/auth/me", {
+          office_name:  info.office_name,
+          office_adr:   info.office_adr,
+          contact_name: info.contact_name,
+          contact_tel:  info.contact_tel,
+        });
+      },
+      { successMessage: "사무소 정보가 저장되었습니다.", errorMessage: "저장 실패" }
+    );
   };
 
-  const handlePasswordChange = async () => {
+  const handlePasswordChange = () => {
     if (!pwForm.current) { toast.error("현재 비밀번호를 입력하세요."); return; }
     if (pwForm.next.length < 6) { toast.error("새 비밀번호는 6자 이상이어야 합니다."); return; }
     if (pwForm.next !== pwForm.confirm) { toast.error("새 비밀번호가 일치하지 않습니다."); return; }
-    setPwSaving(true);
-    try {
-      await api.patch("/api/auth/me/password", {
-        current_password: pwForm.current,
-        new_password:     pwForm.next,
-      });
-      toast.success("비밀번호가 변경되었습니다.");
-      setPwForm({ current: "", next: "", confirm: "" });
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(msg || "비밀번호 변경 실패");
-    } finally {
-      setPwSaving(false);
-    }
+    submitPw(
+      async () => {
+        await api.patch("/api/auth/me/password", {
+          current_password: pwForm.current,
+          new_password:     pwForm.next,
+        });
+      },
+      {
+        successMessage: "비밀번호가 변경되었습니다.",
+        errorMessage: "비밀번호 변경 실패",
+        onSuccess: () => setPwForm({ current: "", next: "", confirm: "" }),
+      }
+    );
   };
 
   return (
@@ -144,13 +142,15 @@ export default function MyPage() {
             placeholder="010-0000-0000" />
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-          <button
+          <SubmitButton
+            isSubmitting={infoSaving}
             onClick={handleInfoSave}
-            disabled={infoSaving}
-            className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50"
+            loadingText="저장 중..."
+            className="text-xs"
+            style={{ padding: "6px 12px", fontSize: 12 }}
           >
-            <Save size={12} /> {infoSaving ? "저장 중..." : "저장"}
-          </button>
+            <><Save size={12} /> 저장</>
+          </SubmitButton>
         </div>
       </Section>
 
@@ -164,13 +164,15 @@ export default function MyPage() {
         <Field label="새 비밀번호 확인" value={pwForm.confirm} type="password"
           onChange={(v) => setPwForm((p) => ({ ...p, confirm: v }))} />
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-          <button
+          <SubmitButton
+            isSubmitting={pwSaving}
             onClick={handlePasswordChange}
-            disabled={pwSaving}
-            className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50"
+            loadingText="변경 중..."
+            className="text-xs"
+            style={{ padding: "6px 12px", fontSize: 12 }}
           >
-            <KeyRound size={12} /> {pwSaving ? "변경 중..." : "변경"}
-          </button>
+            <><KeyRound size={12} /> 변경</>
+          </SubmitButton>
         </div>
       </Section>
 

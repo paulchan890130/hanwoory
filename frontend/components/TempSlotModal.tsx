@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { X, Search } from "lucide-react";
 import { api, quickDocApi, type CustomerSearchResult } from "@/lib/api";
 import { toast } from "sonner";
+import { useSubmit } from "@/lib/useSubmit";
+import { SubmitButton } from "@/components/SubmitButton";
 
 interface Props {
   slot: 1 | 2 | 3;
@@ -24,7 +26,8 @@ export default function TempSlotModal({ slot, hasData, memo: initMemo, onClose, 
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [customerQ, setCustomerQ] = useState("");
   const [customers, setCustomers] = useState<CustomerSearchResult[]>([]);
-  const [deleting, setDeleting] = useState(false);
+  const { submit: submitClear, isSubmitting: deleting } = useSubmit();
+  const { submit: submitMap, isSubmitting: mapping } = useSubmit();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPoll = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
@@ -77,15 +80,16 @@ export default function TempSlotModal({ slot, hasData, memo: initMemo, onClose, 
   }, [phase, token]);
 
   // 삭제
-  const handleClear = async () => {
+  const handleClear = () => {
     if (!confirm("슬롯 서명을 삭제하시겠습니까?")) return;
-    setDeleting(true);
-    try {
-      await api.post(`/api/signature/temp-slots/${slot}/clear`);
-      toast.success("삭제됨");
-      onUpdate();
-      onClose();
-    } catch { toast.error("삭제 실패"); } finally { setDeleting(false); }
+    submitClear(
+      async () => {
+        await api.post(`/api/signature/temp-slots/${slot}/clear`);
+        onUpdate();
+        onClose();
+      },
+      { successMessage: "삭제됨", errorMessage: "삭제 실패" }
+    );
   };
 
   // 고객 검색
@@ -95,13 +99,15 @@ export default function TempSlotModal({ slot, hasData, memo: initMemo, onClose, 
   }, [customerQ, phase]);
 
   // 고객에 매핑
-  const handleMap = async (c: CustomerSearchResult) => {
-    try {
-      await api.post(`/api/signature/temp-slots/${slot}/map-customer`, { customer_id: c.id });
-      toast.success(`${c.name} 고객에 서명 매핑 완료`);
-      onUpdate();
-      onClose();
-    } catch { toast.error("매핑 실패"); }
+  const handleMap = (c: CustomerSearchResult) => {
+    submitMap(
+      async () => {
+        await api.post(`/api/signature/temp-slots/${slot}/map-customer`, { customer_id: c.id });
+        onUpdate();
+        onClose();
+      },
+      { successMessage: `${c.name} 고객에 서명 매핑 완료`, errorMessage: "매핑 실패" }
+    );
   };
 
   const GOLD = "#F5A623";
@@ -200,13 +206,15 @@ export default function TempSlotModal({ slot, hasData, memo: initMemo, onClose, 
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button
+              <SubmitButton
+                isSubmitting={deleting}
                 onClick={handleClear}
-                disabled={deleting}
-                style={{ flex: 1, padding: "10px 0", border: `1px solid #FC8181`, borderRadius: 10, background: "#FFF5F5", color: "#C53030", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                variant="danger"
+                loadingText="삭제 중..."
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, fontSize: 13 }}
               >
                 삭제
-              </button>
+              </SubmitButton>
               <button
                 onClick={() => setPhase("mapping")}
                 style={{ flex: 2, padding: "10px 0", background: GOLD, border: "none", borderRadius: 10, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
@@ -237,11 +245,12 @@ export default function TempSlotModal({ slot, hasData, memo: initMemo, onClose, 
                   <button
                     key={c.id}
                     onClick={() => handleMap(c)}
-                    style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#2D3748", borderBottom: `1px solid ${BORDER}` }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#FFF9E6")}
+                    disabled={mapping}
+                    style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", background: "none", border: "none", cursor: mapping ? "not-allowed" : "pointer", fontSize: 12, color: "#2D3748", borderBottom: `1px solid ${BORDER}`, opacity: mapping ? 0.6 : 1 }}
+                    onMouseEnter={(e) => { if (!mapping) e.currentTarget.style.background = "#FFF9E6"; }}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
-                    {c.label}
+                    {mapping ? "매핑 중..." : c.label}
                   </button>
                 ))}
               </div>
