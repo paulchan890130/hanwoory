@@ -231,40 +231,102 @@ def _col_letter(n: int) -> str:
     return s
 
 
-# ── 단기 읽기 캐시 (429 버스트 방지) ─────────────────────────────────────────
-# 로그인 직후 대시보드가 동시에 5~6개 Sheets 읽기를 발생시켜 429 에러가 나는 것을 방지.
+# ── 읽기 캐시 + 동시 요청 직렬화 ────────────────────────────────────────────
+# 대시보드 로드 시 5~6개 Sheets 읽기가 동시에 cold-cache 를 뚫고
+# Google Sheets API를 동시 호출 → 429 / hang 을 방지하기 위해:
+#   1) TTL 을 120 초로 연장해 cold-cache 빈도를 줄임
+#   2) 시트별 per-key lock 으로 동일 (tenant, sheet) 의 동시 API 호출을 직렬화
+#      (double-checked locking — lock 획득 후 재확인하면 두 번째 이후 요청은 캐시 히트)
 # 쓰기(upsert/delete) 시 해당 키를 무효화하므로 데이터 일관성은 유지됨.
-_READ_CACHE: dict = {}  # (tenant_id, sheet_name) → (timestamp, records)
+_READ_CACHE: dict = {}            # (tenant_id, sheet_name) → (timestamp, records)
 _READ_CACHE_LOCK = threading.Lock()
-_READ_CACHE_TTL = 30  # seconds
+_READ_CACHE_TTL = 120             # seconds — was 30; extended to cut cold-call frequency
+
+# Per-(tenant,sheet) 직렬화 락 — thundering herd 방지
+_READ_KEY_LOCKS: dict = {}
+_READ_KEY_LOCKS_LOCK = threading.Lock()
+
+# 무효화 토큰 — read 도중 upsert가 캐시를 지웠을 때 stale 결과를 재캐싱하지 않도록
+_INVALIDATION_TOKENS: dict = {}  # (tenant_id, sheet_name) → float
+
+
+def _get_read_lock(key: tuple) -> threading.Lock:
+    with _READ_KEY_LOCKS_LOCK:
+        if key not in _READ_KEY_LOCKS:
+            _READ_KEY_LOCKS[key] = threading.Lock()
+        return _READ_KEY_LOCKS[key]
 
 
 def _invalidate_read_cache(sheet_name: str, tenant_id: str) -> None:
     key = (tenant_id, sheet_name)
     with _READ_CACHE_LOCK:
         _READ_CACHE.pop(key, None)
+        _INVALIDATION_TOKENS[key] = time.time()
+
+
+def invalidate_read_cache(tenant_id: str, sheet_name: str) -> None:
+    """Public helper: evict one (tenant, sheet) entry from the read cache.
+    Safe to call even if the key is absent. Logs only names, never data.
+    """
+    _invalidate_read_cache(sheet_name, tenant_id)
+    print(f"[sheets] cache invalidated: sheet={sheet_name!r} tenant={tenant_id!r}")
+
+
+def get_invalidation_token(tenant_id: str, sheet_name: str) -> float:
+    """Return current invalidation token for (tenant, sheet).
+    Callers can snapshot this before a slow read_sheet call and compare after
+    to detect whether a concurrent write invalidated the cache mid-read.
+    """
+    key = (tenant_id, sheet_name)
+    with _READ_CACHE_LOCK:
+        return _INVALIDATION_TOKENS.get(key, 0)
 
 
 def read_sheet(sheet_name: str, tenant_id: str, default_if_empty=None):
     """
     tenant_id 기반으로 sheet_name 워크시트에서 모든 레코드를 읽어 반환.
     get_all_values() 사용 → 모든 값이 문자열로 반환되어 선행0(010 등) 보존됨.
-    30초 단기 캐시로 로그인 직후 버스트 읽기에 의한 429 에러 방지.
+    120초 TTL 캐시 + per-key 직렬화락으로 동시 cold-cache burst 차단.
     """
     key = (tenant_id, sheet_name)
-    now = time.time()
+
+    # 1) 빠른 경로: 캐시 히트 (per-key 락 불필요)
     with _READ_CACHE_LOCK:
-        if key in _READ_CACHE:
-            ts, cached = _READ_CACHE[key]
-            if now - ts < _READ_CACHE_TTL:
-                return cached
-    try:
-        ws = get_worksheet(sheet_name, tenant_id)
-        values = ws.get_all_values()
+        entry = _READ_CACHE.get(key)
+        if entry and (time.time() - entry[0]) < _READ_CACHE_TTL:
+            return entry[1]
+
+    # 2) 느린 경로: per-key 락 획득 → 동일 시트에 대한 동시 API 호출 직렬화
+    klock = _get_read_lock(key)
+    with klock:
+        # double-check: 락 대기 중 다른 스레드가 이미 채웠을 수 있음
+        with _READ_CACHE_LOCK:
+            entry = _READ_CACHE.get(key)
+            if entry and (time.time() - entry[0]) < _READ_CACHE_TTL:
+                return entry[1]
+            # API 호출 시작 전 무효화 토큰을 기록 — 읽기 도중 upsert가 캐시를 지웠는지 감지
+            read_token = _INVALIDATION_TOKENS.get(key, 0)
+
+        # 이 시점에서 이 (tenant, sheet) 에 대한 API 호출은 정확히 1개
+        t0 = time.time()
+        try:
+            ws = get_worksheet(sheet_name, tenant_id)
+            t1 = time.time()
+            values = ws.get_all_values()
+            t2 = time.time()
+            print(
+                f"[sheets] read_sheet({sheet_name!r}, {tenant_id!r}) "
+                f"ws_open={t1-t0:.2f}s data_fetch={t2-t1:.2f}s "
+                f"rows={len(values)} total={t2-t0:.2f}s"
+            )
+        except Exception as e:
+            print(f"[sheets] read_sheet 실패 ({sheet_name}, {tenant_id}): {e}")
+            return default_if_empty
+
         if not values:
             return default_if_empty
+
         header = values[0]
-        # 중복 헤더 처리
         seen: dict = {}
         clean_header: list = []
         for col in header:
@@ -280,11 +342,11 @@ def read_sheet(sheet_name: str, tenant_id: str, default_if_empty=None):
         ]
         result = records if records else default_if_empty
         with _READ_CACHE_LOCK:
-            _READ_CACHE[key] = (time.time(), result)
+            # 읽는 도중 upsert가 캐시를 무효화했으면 stale 결과를 저장하지 않는다.
+            # 다음 read_sheet 호출이 새로 API를 호출해 최신 데이터를 가져온다.
+            if _INVALIDATION_TOKENS.get(key, 0) == read_token:
+                _READ_CACHE[key] = (time.time(), result)
         return result
-    except Exception as e:
-        print(f"[tenant_service] read_sheet 실패 ({sheet_name}): {e}")
-        return default_if_empty
 
 
 def upsert_sheet(

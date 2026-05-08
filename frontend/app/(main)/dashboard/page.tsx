@@ -600,22 +600,23 @@ export default function DashboardPage() {
 
   const saveEventMut = useMutation({
     mutationFn: ({ date, text }: { date: string; text: string }) => {
-      const eventsMap = events as Record<string, string[]>;
-      const allEvents: { date_str: string; event_text: string }[] = [];
-      // 다른 날짜 이벤트는 그대로 유지
-      Object.entries(eventsMap).forEach(([d, txts]) => {
-        if (d !== date) txts.forEach((t) => allEvents.push({ date_str: d, event_text: t }));
-      });
-      // 선택한 날짜는 새 내용으로 교체 (append 아님)
-      const newLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-      newLines.forEach((t) => allEvents.push({ date_str: date, event_text: t }));
-      return eventsApi.save(allEvents);
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      // 빈칸 저장 = 해당 날짜 삭제 (다른 날짜 절대 건드리지 않음)
+      if (lines.length === 0) {
+        return eventsApi.delete(date);
+      }
+      return eventsApi.save(date, lines);
     },
-    onSuccess: () => {
-      toast.success("일정 저장됨");
+    onSuccess: (_, { text }) => {
+      const isEmpty = !text.split("\n").map((l) => l.trim()).filter(Boolean).length;
+      toast.success(isEmpty ? "일정이 삭제되었습니다." : "일정이 저장되었습니다.");
       qc.invalidateQueries({ queryKey: ["events"] });
       setShowCalModal(false);
       setCalendarMemo("");
+    },
+    onError: (_, { text }) => {
+      const isEmpty = !text.split("\n").map((l) => l.trim()).filter(Boolean).length;
+      toast.error(isEmpty ? "일정 삭제 실패 — 다시 시도해주세요" : "일정 저장 실패 — 다시 시도해주세요");
     },
   });
 
@@ -1121,14 +1122,19 @@ export default function DashboardPage() {
               </button>
               <button
                 onClick={() => {
-                  if (!calendarDate || !calendarMemo.trim()) return;
-                  saveEventMut.mutate({ date: calendarDate, text: calendarMemo.trim() });
+                  if (!calendarDate) return;
+                  // 빈칸이면 삭제, 내용이 있으면 저장 — 모두 정상적인 의도
+                  saveEventMut.mutate({ date: calendarDate, text: calendarMemo });
                 }}
-                disabled={!calendarMemo.trim() || saveEventMut.isPending}
+                disabled={saveEventMut.isPending}
                 className="btn-primary"
-                style={{ fontSize: 13, opacity: (!calendarMemo.trim() || saveEventMut.isPending) ? 0.5 : 1 }}
+                style={{ fontSize: 13, opacity: saveEventMut.isPending ? 0.5 : 1 }}
               >
-                저장
+                {saveEventMut.isPending
+                  ? "처리 중..."
+                  : calendarMemo.trim()
+                  ? "저장"
+                  : "삭제"}
               </button>
             </div>
           </div>

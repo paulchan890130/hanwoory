@@ -3,6 +3,14 @@ import { useState, useEffect } from "react";
 import type { ActiveTask } from "@/lib/api";
 import { safeInt, formatNumber } from "@/lib/utils";
 
+// ── sort order ────────────────────────────────────────────────────────────────
+const CATEGORY_ORDER = ["출입국", "전자민원", "공증", "여권", "초청", "기타"];
+
+function categoryRank(cat: string | undefined): number {
+  const i = CATEGORY_ORDER.indexOf(cat ?? "");
+  return i === -1 ? CATEGORY_ORDER.length : i;
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(iso: string): string { return iso ? iso.slice(5, 10).replace("-", "/") : ""; }
 function dPlusFromTs(ts: string): number {
@@ -37,7 +45,7 @@ export interface TaskCardViewProps {
   readonly?: boolean;
 }
 
-// ── compact card ─────────────────────────────────────────────────────────────
+// ── compact card (collapsed) — 2줄 압축형 ────────────────────────────────────
 function CompactCard({
   task, pendingReception, pendingProcessing, pendingStorage,
   markedComplete, markedDelete, onClick,
@@ -52,13 +60,10 @@ function CompactCard({
   const bColor = dpBorderColor(dp, !!pendingReception);
   const tColor = dpTextColor(dp, !!pendingReception);
 
-  const amounts = [
-    { k: "이체", v: safeInt(task.transfer) },
-    { k: "현금", v: safeInt(task.cash) },
-    { k: "카드", v: safeInt(task.card) },
-    { k: "인지", v: safeInt(task.stamp) },
-    { k: "미수", v: safeInt(task.receivable) },
-  ].filter(a => a.v > 0);
+  const totalAmt = (
+    safeInt(task.transfer) + safeInt(task.cash) + safeInt(task.card) +
+    safeInt(task.stamp) + safeInt(task.receivable)
+  );
 
   const cardBg = markedDelete
     ? "rgba(229,62,62,0.04)"
@@ -74,25 +79,54 @@ function CompactCard({
         border: "1px solid #E2E8F0",
         borderLeft: `4px solid ${bColor}`,
         borderRadius: 8,
-        padding: "10px 14px",
+        padding: "6px 12px",
         cursor: "pointer",
-        marginBottom: 6,
+        marginBottom: 4,
         transition: "box-shadow 0.15s",
         userSelect: "none",
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 6px rgba(0,0,0,0.08)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; }}
     >
-      {/* 상단: 분류 + D+ */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {/* 1줄: [분류] 이름  업무명 (말줄임)  |  D+n  금액  마커 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, overflow: "hidden" }}>
+        {/* 왼쪽: 배지 + 이름 + 업무 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, overflow: "hidden", minWidth: 0 }}>
           {task.category && (
             <span style={{
               fontSize: 10, fontWeight: 700, color: tColor,
               background: `${bColor}18`,
-              padding: "2px 7px", borderRadius: 10,
+              padding: "1px 6px", borderRadius: 8, flexShrink: 0,
             }}>
               {task.category}
+            </span>
+          )}
+          <span style={{
+            fontSize: 13, fontWeight: 700, color: "#1A202C",
+            flexShrink: 0, whiteSpace: "nowrap",
+            maxWidth: 88, overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {task.name || <span style={{ color: "#CBD5E0" }}>이름 없음</span>}
+          </span>
+          {task.work && (
+            <span style={{
+              fontSize: 12, color: "#4A5568",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {task.work}
+            </span>
+          )}
+        </div>
+        {/* 오른쪽: D+n + 금액 + 완료/삭제 마커 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, paddingLeft: 6 }}>
+          {latestTs && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: tColor, whiteSpace: "nowrap" }}>
+              D+{dp}
+            </span>
+          )}
+          {totalAmt > 0 && (
+            <span style={{ fontSize: 11, color: "#2D3748", whiteSpace: "nowrap" }}>
+              {formatNumber(totalAmt)}
             </span>
           )}
           {(markedComplete || markedDelete) && (
@@ -101,42 +135,32 @@ function CompactCard({
             </span>
           )}
         </div>
-        {latestTs && (
-          <span style={{ fontSize: 12, fontWeight: 700, color: tColor }}>
-            D+{dp}
-          </span>
-        )}
       </div>
 
-      {/* 중단: 이름 + 업무 */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: "#1A202C", marginBottom: 2, lineHeight: 1.3 }}>
-        {task.name || <span style={{ color: "#CBD5E0" }}>이름 없음</span>}
-      </div>
-      {task.work && (
-        <div style={{ fontSize: 13, color: "#4A5568", marginBottom: 4 }}>{task.work}</div>
-      )}
-      {task.details && (
-        <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {task.details}
+      {/* 2줄: 세부내용 · 날짜 (둘 다 없으면 숨김) */}
+      {(task.details || task.date) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, overflow: "hidden" }}>
+          {task.details && (
+            <span style={{
+              fontSize: 11, color: "#A0AEC0",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              flex: 1, minWidth: 0,
+            }}>
+              {task.details}
+            </span>
+          )}
+          {task.date && (
+            <span style={{ fontSize: 10, color: "#CBD5E0", flexShrink: 0 }}>
+              {task.date}
+            </span>
+          )}
         </div>
       )}
-
-      {/* 하단: 금액 + 날짜 */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8, fontSize: 12, color: "#2D3748" }}>
-          {amounts.map(a => (
-            <span key={a.k}>{a.k} {formatNumber(a.v)}</span>
-          ))}
-        </div>
-        {task.date && (
-          <span style={{ fontSize: 12, color: "#A0AEC0" }}>{task.date}</span>
-        )}
-      </div>
     </div>
   );
 }
 
-// ── expanded card (full edit) ─────────────────────────────────────────────────
+// ── expanded card (full edit) — 기존 UI 그대로 유지 ───────────────────────────
 function ExpandedCard({
   task, pendingReception, pendingProcessing, pendingStorage,
   onProgressToggle, onSave, markedComplete, markedDelete,
@@ -309,7 +333,7 @@ function ExpandedCard({
   );
 }
 
-// ── column ────────────────────────────────────────────────────────────────────
+// ── kanban column ─────────────────────────────────────────────────────────────
 function KanbanColumn({
   title, headerColor, tasks, expandedId, onExpand,
   progressPending, onProgressToggle, completedIds, deleteIds,
@@ -328,11 +352,11 @@ function KanbanColumn({
     <div style={{ display: "flex", flexDirection: "column" }}>
       {/* 컬럼 헤더 */}
       <div style={{
-        padding: "8px 12px 8px",
+        padding: "8px 12px",
         borderTop: `3px solid ${headerColor}`,
         background: `${headerColor}10`,
         borderRadius: "0 0 4px 4px",
-        marginBottom: 10,
+        marginBottom: 8,
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>{title}</span>
@@ -345,8 +369,10 @@ function KanbanColumn({
 
       {/* 카드 목록 */}
       {tasks.length === 0 ? (
-        <div style={{ padding: "16px 0", textAlign: "center", fontSize: 12, color: "#CBD5E0",
-          border: "1px dashed #E2E8F0", borderRadius: 8 }}>업무 없음</div>
+        <div style={{
+          padding: "12px 0", textAlign: "center", fontSize: 12, color: "#CBD5E0",
+          border: "1px dashed #E2E8F0", borderRadius: 8,
+        }}>업무 없음</div>
       ) : (
         tasks.map((task) => {
           const p = progressPending.get(task.id);
@@ -389,8 +415,15 @@ export default function TaskCardView({
 }: TaskCardViewProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // 업무구분 순서로 정렬 후 Kanban 컬럼 분배
+  const sorted = [...tasks].sort((a, b) => {
+    const ra = categoryRank(a.category), rb = categoryRank(b.category);
+    if (ra !== rb) return ra - rb;
+    return (a.date || "").localeCompare(b.date || "");
+  });
+
   const col1: ActiveTask[] = [], col2: ActiveTask[] = [], col3: ActiveTask[] = [];
-  for (const t of tasks) {
+  for (const t of sorted) {
     const p = progressPending.get(t.id);
     const storage    = p?.storage    || (t.storage    as string) || "";
     const processing = p?.processing || (t.processing as string) || "";
@@ -399,14 +432,22 @@ export default function TaskCardView({
     else col1.push(t);
   }
 
-  const colProps = { expandedId, onExpand: setExpandedId, progressPending, onProgressToggle,
-    completedIds, deleteIds, onSave, onToggleComplete, onToggleDelete, readonly };
+  const colProps = {
+    expandedId, onExpand: setExpandedId, progressPending, onProgressToggle,
+    completedIds, deleteIds, onSave, onToggleComplete, onToggleDelete, readonly,
+  };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, padding: "12px 0", alignItems: "start" }}>
-      <KanbanColumn title="접수 중"  headerColor="#2563EB" tasks={col1} {...colProps} />
-      <KanbanColumn title="처리 중"  headerColor="#D4A843" tasks={col2} {...colProps} />
-      <KanbanColumn title="보관 중"  headerColor="#9F7AEA" tasks={col3} {...colProps} />
+    <div>
+      {/* 정렬 안내 */}
+      <div style={{ fontSize: 10, color: "#A0AEC0", marginBottom: 8, padding: "0 2px" }}>
+        정렬: 출입국 → 전자민원 → 공증 → 여권 → 초청 → 기타
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
+        <KanbanColumn title="접수 중"  headerColor="#2563EB" tasks={col1} {...colProps} />
+        <KanbanColumn title="처리 중"  headerColor="#D4A843" tasks={col2} {...colProps} />
+        <KanbanColumn title="보관 중"  headerColor="#9F7AEA" tasks={col3} {...colProps} />
+      </div>
     </div>
   );
 }

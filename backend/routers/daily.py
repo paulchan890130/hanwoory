@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 
 from backend.auth import get_current_user
 from backend.models import DailyEntry, BalanceData
@@ -222,7 +222,9 @@ def add_entry(entry: DailyEntry, user: dict = Depends(get_current_user)):
     if not entry.id:
         entry.id = str(uuid.uuid4())
     rec = {k: ("" if v is None else str(v)) for k, v in entry.model_dump().items()}
-    upsert_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], DAILY_HEADER, [rec], id_field="id")
+    ok = upsert_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], DAILY_HEADER, [rec], id_field="id")
+    if not ok:
+        raise HTTPException(status_code=500, detail="일일결산 저장 실패 — 구글 시트에 기록되지 않았습니다.")
     # 일일결산 저장 후 진행업무에 반영 (현금출금 제외)
     try:
         _apply_daily_to_active(rec, user["tenant_id"])

@@ -15,7 +15,7 @@ _MEMO_SHEETS = {
     "mid":   "MEMO_MID_SHEET_NAME",
     "long":  "MEMO_LONG_SHEET_NAME",
 }
-_TTL_MEMO = 30.0  # seconds — short memo is the one shown on dashboard
+_TTL_MEMO = 60.0  # seconds — extended from 30; A1-only read; write path clears cache
 
 
 def _cache_key(memo_type: str) -> str:
@@ -35,13 +35,16 @@ def get_memo(
     memo_type: str = Path(..., pattern="^(short|mid|long)$"),
     user: dict = Depends(get_current_user),
 ):
+    import time as _time
     tenant_id = user["tenant_id"]
     ck = _cache_key(memo_type)
     cached = cache_get(tenant_id, ck)
     if cached is not None:
         return cached
+    t0 = _time.time()
     sheet_name = _get_sheet_name(memo_type)
-    content = read_memo(sheet_name, tenant_id)
+    content = read_memo(sheet_name, tenant_id)  # reads A1 only — single-cell API call
+    print(f"[memos/{memo_type}] tenant={tenant_id} total={_time.time()-t0:.2f}s")
     result = {"memo_type": memo_type, "content": content or ""}
     cache_set(tenant_id, ck, result, _TTL_MEMO)
     return result

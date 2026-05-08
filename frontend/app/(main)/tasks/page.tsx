@@ -17,7 +17,7 @@ function _dPlusFromTs(ts: string): number {
   const now = new Date(); now.setHours(0, 0, 0, 0);
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
 }
-import { Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { SubmitButton } from "@/components/SubmitButton";
 
 const newId = () => crypto.randomUUID();
@@ -233,6 +233,8 @@ export default function TasksPage() {
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [deletingPlannedId, setDeletingPlannedId] = useState<string | null>(null);
+  const [deletingCompletedId, setDeletingCompletedId] = useState<string | null>(null);
   // 뷰 모드 토글 (카드형 / 테이블형)
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   // 분류 필터
@@ -301,7 +303,8 @@ export default function TasksPage() {
   const updateActive = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ActiveTask> }) =>
       tasksApi.updateActive(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks", "active"] }),
+    onSuccess: () => { toast.success("저장됨"); qc.invalidateQueries({ queryKey: ["tasks", "active"] }); },
+    onError: () => toast.error("저장 실패"),
   });
   const batchProgressMut = useMutation({
     mutationFn: (updates: { id: string; reception: string; processing: string; storage: string }[]) =>
@@ -351,17 +354,17 @@ export default function TasksPage() {
   });
   const deletePlanned = useMutation({
     mutationFn: (ids: string[]) => tasksApi.deletePlanned(ids),
-    onSuccess: () => {
-      toast.success("삭제됨");
-      qc.invalidateQueries({ queryKey: ["tasks", "planned"] });
-    },
+    onMutate: (ids: string[]) => setDeletingPlannedId(ids[0] ?? null),
+    onSuccess: () => { toast.success("삭제됨"); qc.invalidateQueries({ queryKey: ["tasks", "planned"] }); },
+    onError: () => toast.error("삭제 실패"),
+    onSettled: () => setDeletingPlannedId(null),
   });
   const deleteCompleted = useMutation({
     mutationFn: (ids: string[]) => tasksApi.deleteCompleted(ids),
-    onSuccess: () => {
-      toast.success("삭제됨");
-      qc.invalidateQueries({ queryKey: ["tasks", "completed"] });
-    },
+    onMutate: (ids: string[]) => setDeletingCompletedId(ids[0] ?? null),
+    onSuccess: () => { toast.success("삭제됨"); qc.invalidateQueries({ queryKey: ["tasks", "completed"] }); },
+    onError: () => toast.error("삭제 실패"),
+    onSettled: () => setDeletingCompletedId(null),
   });
 
   const handleProgressToggle = (id: string, field: "reception" | "processing" | "storage") => {
@@ -679,11 +682,12 @@ export default function TasksPage() {
                     </td>
                     <td className="text-center">
                       <button
-                        onClick={() => deletePlanned.mutate([task.id])}
-                        style={{ color: "#FC8181" }}
+                        onClick={() => { if (!deletingPlannedId) deletePlanned.mutate([task.id]); }}
+                        disabled={deletingPlannedId === task.id}
+                        style={{ color: "#FC8181", opacity: deletingPlannedId === task.id ? 0.4 : 1 }}
                         className="hover:opacity-70 transition-opacity"
                       >
-                        <Trash2 size={13} />
+                        {deletingPlannedId === task.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
                     </td>
                   </tr>
@@ -775,11 +779,12 @@ export default function TasksPage() {
                       <td style={{ color: "#38A169" }}>{task.complete_date}</td>
                       <td className="text-center">
                         <button
-                          onClick={() => deleteCompleted.mutate([task.id])}
-                          style={{ color: "#FC8181" }}
+                          onClick={() => { if (!deletingCompletedId) deleteCompleted.mutate([task.id]); }}
+                          disabled={deletingCompletedId === task.id}
+                          style={{ color: "#FC8181", opacity: deletingCompletedId === task.id ? 0.4 : 1 }}
                           className="hover:opacity-70 transition-opacity"
                         >
-                          <Trash2 size={13} />
+                          {deletingCompletedId === task.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                         </button>
                       </td>
                     </tr>

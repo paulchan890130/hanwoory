@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { boardApi, type BoardPost } from "@/lib/api";
 import { getUser } from "@/lib/auth";
-import { Plus, Trash2, MessageSquare, ChevronLeft, Pin, RefreshCw, Pencil } from "lucide-react";
+import { Plus, Trash2, MessageSquare, ChevronLeft, Pin, RefreshCw, Pencil, Loader2 } from "lucide-react";
 
 export default function BoardPage() {
   const qc = useQueryClient();
@@ -16,6 +16,8 @@ export default function BoardPage() {
   const [form, setForm] = useState({ title: "", content: "", category: "", is_notice: false, popup_yn: false });
   const [editForm, setEditForm] = useState({ title: "", content: "", category: "", is_notice: false, popup_yn: false });
   const [comment, setComment] = useState("");
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
   const { data: posts = [] } = useQuery({
     queryKey: ["board"],
@@ -66,6 +68,7 @@ export default function BoardPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => boardApi.delete(id),
+    onMutate: (id: string) => setDeletingPostId(id),
     onSuccess: () => {
       toast.success("삭제됨");
       qc.invalidateQueries({ queryKey: ["board"] });
@@ -73,6 +76,7 @@ export default function BoardPage() {
       setSelectedPost(null);
     },
     onError: () => toast.error("삭제 실패"),
+    onSettled: () => setDeletingPostId(null),
   });
 
   const addCommentMut = useMutation({
@@ -88,9 +92,13 @@ export default function BoardPage() {
   const deleteCommentMut = useMutation({
     mutationFn: ({ postId, commentId }: { postId: string; commentId: string }) =>
       boardApi.deleteComment(postId, commentId),
+    onMutate: ({ commentId }: { postId: string; commentId: string }) => setDeletingCommentId(commentId),
     onSuccess: () => {
+      toast.success("댓글 삭제됨");
       qc.invalidateQueries({ queryKey: ["board", selectedPost?.id, "comments"] });
     },
+    onError: () => toast.error("댓글 삭제 실패"),
+    onSettled: () => setDeletingCommentId(null),
   });
 
   const checkManualMut = useMutation({
@@ -153,10 +161,11 @@ export default function BoardPage() {
       <td style={{ textAlign: "center" }}>
         {canDelete(post) && (
           <button
-            onClick={(e) => { e.stopPropagation(); deleteMut.mutate(post.id); }}
-            style={{ color: "#FC8181", background: "none", border: "none", cursor: "pointer", padding: 2 }}
+            onClick={(e) => { e.stopPropagation(); if (!deletingPostId) deleteMut.mutate(post.id); }}
+            disabled={deletingPostId === post.id}
+            style={{ color: "#FC8181", background: "none", border: "none", cursor: deletingPostId === post.id ? "not-allowed" : "pointer", padding: 2, opacity: deletingPostId === post.id ? 0.4 : 1 }}
           >
-            <Trash2 size={12} />
+            {deletingPostId === post.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
           </button>
         )}
       </td>
@@ -468,10 +477,11 @@ export default function BoardPage() {
                 )}
                 {canDelete(selectedPost) && (
                   <button
-                    onClick={() => deleteMut.mutate(selectedPost.id)}
-                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#FC8181", background: "none", border: "none", cursor: "pointer" }}
+                    onClick={() => { if (!deletingPostId) deleteMut.mutate(selectedPost.id); }}
+                    disabled={deletingPostId === selectedPost.id}
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#FC8181", background: "none", border: "none", cursor: deletingPostId === selectedPost.id ? "not-allowed" : "pointer", opacity: deletingPostId === selectedPost.id ? 0.4 : 1 }}
                   >
-                    <Trash2 size={12} /> 삭제
+                    {deletingPostId === selectedPost.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} 삭제
                   </button>
                 )}
               </div>
@@ -511,10 +521,11 @@ export default function BoardPage() {
                 </div>
                 {canDeleteComment(c) && (
                   <button
-                    onClick={() => deleteCommentMut.mutate({ postId: selectedPost.id, commentId: c.id })}
-                    style={{ color: "#FC8181", background: "none", border: "none", cursor: "pointer", padding: 2, flexShrink: 0 }}
+                    onClick={() => { if (!deletingCommentId) deleteCommentMut.mutate({ postId: selectedPost.id, commentId: c.id }); }}
+                    disabled={deletingCommentId === c.id}
+                    style={{ color: "#FC8181", background: "none", border: "none", cursor: deletingCommentId === c.id ? "not-allowed" : "pointer", padding: 2, flexShrink: 0, opacity: deletingCommentId === c.id ? 0.4 : 1 }}
                   >
-                    <Trash2 size={11} />
+                    {deletingCommentId === c.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                   </button>
                 )}
               </div>

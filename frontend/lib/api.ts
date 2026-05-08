@@ -225,11 +225,11 @@ export const memosApi = {
     api.post(`/api/memos/${type}`, { content }),
 };
 
-// 일정
+// 일정 — per-date API (전체 시트 덮어쓰기 금지)
 export const eventsApi = {
   get: () => api.get<Record<string, string[]>>("/api/events"),
-  save: (events: { date_str: string; event_text: string }[]) =>
-    api.post("/api/events", { events }),
+  save: (dateStr: string, lines: string[]) =>
+    api.post("/api/events", { date_str: dateStr, lines }),
   delete: (dateStr: string) => api.delete(`/api/events/${dateStr}`),
 };
 

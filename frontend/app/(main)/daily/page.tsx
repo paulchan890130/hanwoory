@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { dailyApi, customersApi, type DailyEntry, type BalanceData } from "@/lib/api";
 import { today, safeInt, formatNumber } from "@/lib/utils";
-import { Plus, Trash2, ChevronLeft, ChevronRight, BarChart2, Save, Pencil, X, UserPlus, ScanLine } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, BarChart2, Save, Pencil, X, UserPlus, ScanLine, Loader2 } from "lucide-react";
 
 // ── 기존 Streamlit 구분 옵션 (그대로 복원) ──
 const 구분_옵션 = ["출입국", "전자민원", "공증", "여권", "초청", "영주권", "기타"];
@@ -62,6 +62,7 @@ export default function DailyPage() {
   const [date, setDate] = useState(today());
   const [showMonthly, setShowMonthly] = useState(false);
   const [editId, setEditId] = useState<string | null>(null); // 수정 중인 행 id
+  const [deletingId, setDeletingId] = useState<string | null>(null); // 삭제 중인 행 id
   const [editValues, setEditValues] = useState<Partial<DailyEntry & { inc_type: string; e1_type: string; e2_type: string; user_memo: string }>>({});
 
   // 현재 날짜에서 연/월 추출
@@ -244,7 +245,10 @@ export default function DailyPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => dailyApi.deleteEntry(id),
+    onMutate: (id: string) => setDeletingId(id),
     onSuccess: () => { toast.success("삭제됨"); qc.invalidateQueries({ queryKey: ["daily", "entries"] }); },
+    onError: () => toast.error("삭제 실패"),
+    onSettled: () => setDeletingId(null),
   });
 
   const saveBalMut = useMutation({
@@ -512,8 +516,8 @@ export default function DailyPage() {
             <input type="time" title="시간 (비워두면 자동)" style={{ ...inputSm, width: "100%" }}
               value={newTime} onChange={(e) => setNewTime(e.target.value)} />
           </div>
-          {/* 구분 (70px) */}
-          <div style={{ width: 70, flexShrink: 0 }}>
+          {/* 구분 (85px) */}
+          <div style={{ width: 85, flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>구분</div>
             <select style={{ ...inputSm, width: "100%" }} value={newCategory} onChange={(e) => setNewCategory(e.target.value)}>
               <option value="">선택</option>
@@ -581,7 +585,7 @@ export default function DailyPage() {
             <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>세부내용</div>
             <div style={{ display: "flex", gap: 4 }}>
               <input style={{ ...inputSm, flex: 1 }} placeholder="세부내용" value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-              <input style={{ ...inputSm, width: 102, flexShrink: 0 }} placeholder="비고" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} />
+              <input style={{ ...inputSm, width: 127, flexShrink: 0 }} placeholder="비고" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} />
             </div>
           </div>
           {/* 수입 (90px) */}
@@ -633,8 +637,10 @@ export default function DailyPage() {
           {/* 추가 버튼 (64px) */}
           <div style={{ width: 64, flexShrink: 0, display: "flex", alignItems: "flex-end" }}>
             <button onClick={handleAdd} disabled={addMut.isPending} className="btn-primary"
-              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 10px", justifyContent: "center", width: "100%" }}>
-              <Plus size={12} /> 추가
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 10px", justifyContent: "center", width: "100%", opacity: addMut.isPending ? 0.7 : 1, cursor: addMut.isPending ? "not-allowed" : "pointer" }}>
+              {addMut.isPending
+                ? <><Loader2 size={12} className="animate-spin" /> 추가 중...</>
+                : <><Plus size={12} /> 추가</>}
             </button>
           </div>
         </div>
@@ -646,10 +652,10 @@ export default function DailyPage() {
           <table className="hw-table" style={{ minWidth: 820 }}>
             <thead>
               <tr>
-                <th style={{ width: 70, textAlign: "left" }}>구분</th>
+                <th style={{ width: 85, textAlign: "left" }}>구분</th>
                 <th style={{ width: 72, textAlign: "left" }}>성명</th>
                 <th style={{ textAlign: "left" }}>세부내용</th>
-                <th style={{ width: 80, textAlign: "left" }}>비고</th>
+                <th style={{ width: 105, textAlign: "left" }}>비고</th>
                 <th style={{ width: 90, textAlign: "right" }}>수입</th>
                 <th style={{ width: 90, textAlign: "right" }}>지출1</th>
                 <th style={{ width: 90, textAlign: "right" }}>지출2</th>
@@ -690,7 +696,7 @@ export default function DailyPage() {
                   return (
                     <tr key={entry.id} style={{ background: "#FFFBEA" }}>
                       <td>
-                        <select style={{ ...cellStyle, fontSize: 11, width: 72 }}
+                        <select style={{ ...cellStyle, fontSize: 11, width: 87 }}
                           value={ev.category || ""} onChange={(e) => setEditValues((p) => ({ ...p, category: e.target.value }))}>
                           <option value="">선택</option>
                           {CAT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -807,9 +813,11 @@ export default function DailyPage() {
                       </button>
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      <button onClick={() => deleteMut.mutate(entry.id)}
-                        style={{ color: "#FC8181", background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-                        <Trash2 size={11} />
+                      <button
+                        onClick={() => { if (!deletingId) deleteMut.mutate(entry.id); }}
+                        disabled={deletingId === entry.id}
+                        style={{ color: "#FC8181", background: "none", border: "none", cursor: deletingId === entry.id ? "not-allowed" : "pointer", padding: 2, opacity: deletingId === entry.id ? 0.4 : 1 }}>
+                        {deletingId === entry.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                       </button>
                     </td>
                   </tr>

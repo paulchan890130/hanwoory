@@ -121,6 +121,11 @@ class EventItem(BaseModel):
 class EventsSaveRequest(BaseModel):
     events: List[EventItem]
 
+class EventDateSaveRequest(BaseModel):
+    """단일 날짜의 일정 저장 요청 — 전체 시트 덮어쓰기 방지용 per-date API."""
+    date_str: str
+    lines: List[str]  # 해당 날짜의 일정 텍스트 목록 (빈 리스트 = 해당 날짜 삭제)
+
 
 # ── 게시판 ───────────────────────────────────────────────────────────────────
 class BoardPost(BaseModel):

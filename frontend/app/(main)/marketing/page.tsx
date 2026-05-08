@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
 
@@ -10,6 +11,8 @@ export default function MarketingPage() {
   const user = getUser();
   const [posts, setPosts] = useState<MarketingPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user?.is_admin) {
@@ -32,26 +35,32 @@ export default function MarketingPage() {
   };
 
   const handleToggle = async (id: string) => {
+    if (togglingIds.has(id)) return;
+    setTogglingIds((prev) => new Set(prev).add(id));
     try {
       const res = await marketingApi.togglePublish(id);
-      setPosts((prev) =>
-        prev.map((p) => (p.id === id ? res.data : p))
-      );
+      setPosts((prev) => prev.map((p) => (p.id === id ? res.data : p)));
       const published = res.data.is_published?.toUpperCase() === "TRUE";
       toast.success(published ? "게시 완료" : "게시 취소");
     } catch {
       toast.error("상태 변경에 실패했습니다.");
+    } finally {
+      setTogglingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (deletingIds.has(id)) return;
     if (!confirm("이 게시물을 삭제하시겠습니까?")) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
     try {
       await marketingApi.delete(id);
       setPosts((prev) => prev.filter((p) => p.id !== id));
       toast.success("삭제되었습니다.");
     } catch {
       toast.error("삭제에 실패했습니다.");
+    } finally {
+      setDeletingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
   };
 
@@ -64,6 +73,7 @@ export default function MarketingPage() {
 
   return (
     <div style={{ padding: "32px 24px", maxWidth: 900, margin: "0 auto" }}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A202C" }}>마케팅 · 홈페이지 게시물</h1>
@@ -133,13 +143,18 @@ export default function MarketingPage() {
                   <td style={{ padding: "12px" }}>
                     <button
                       onClick={() => handleToggle(post.id)}
+                      disabled={togglingIds.has(post.id)}
                       style={{
                         padding: "4px 12px", borderRadius: 20,
-                        fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+                        fontSize: 12, fontWeight: 600, border: "none",
+                        cursor: togglingIds.has(post.id) ? "not-allowed" : "pointer",
+                        opacity: togglingIds.has(post.id) ? 0.6 : 1,
                         background: published ? "#C6F6D5" : "#FED7D7",
                         color: published ? "#276749" : "#9B2C2C",
+                        display: "inline-flex", alignItems: "center", gap: 4,
                       }}
                     >
+                      {togglingIds.has(post.id) && <Loader2 size={11} style={{ animation: "spin 0.8s linear infinite" }} />}
                       {published ? "게시 중" : "미게시"}
                     </button>
                   </td>
@@ -160,12 +175,17 @@ export default function MarketingPage() {
                       </button>
                       <button
                         onClick={() => handleDelete(post.id)}
+                        disabled={deletingIds.has(post.id)}
                         style={{
                           padding: "4px 10px", borderRadius: 6, fontSize: 12,
                           border: "1px solid #FED7D7", background: "#fff",
-                          cursor: "pointer", color: "#E53E3E",
+                          cursor: deletingIds.has(post.id) ? "not-allowed" : "pointer",
+                          opacity: deletingIds.has(post.id) ? 0.6 : 1,
+                          color: "#E53E3E",
+                          display: "inline-flex", alignItems: "center", gap: 4,
                         }}
                       >
+                        {deletingIds.has(post.id) && <Loader2 size={11} style={{ animation: "spin 0.8s linear infinite" }} />}
                         삭제
                       </button>
                     </div>

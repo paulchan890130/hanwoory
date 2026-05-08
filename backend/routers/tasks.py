@@ -18,7 +18,7 @@ from backend.services.cache_service import cache_get, cache_set, cache_invalidat
 
 _CACHE_ACTIVE  = "tasks:active"
 _CACHE_PLANNED = "tasks:planned"
-_TTL = 30.0  # seconds
+_TTL = 60.0  # seconds — extended from 30
 
 router = APIRouter()
 
@@ -78,13 +78,16 @@ def _sort_key_active(t: dict):
 
 @router.get("/active", response_model=List[dict])
 def get_active_tasks(user: dict = Depends(get_current_user)):
+    import time as _time
     tenant_id = user["tenant_id"]
     cached = cache_get(tenant_id, _CACHE_ACTIVE)
     if cached is not None:
         return cached
+    t0 = _time.time()
     ACTIVE, *_ = _sheet_names()
     tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
     tasks.sort(key=_sort_key_active)
+    print(f"[tasks/active] tenant={tenant_id} rows={len(tasks)} total={_time.time()-t0:.2f}s")
     cache_set(tenant_id, _CACHE_ACTIVE, tasks, _TTL)
     return tasks
 
@@ -194,12 +197,15 @@ PLANNED_HEADER = ["id", "date", "period", "content", "note"]
 
 @router.get("/planned", response_model=List[dict])
 def get_planned_tasks(user: dict = Depends(get_current_user)):
+    import time as _time
     tenant_id = user["tenant_id"]
     cached = cache_get(tenant_id, _CACHE_PLANNED)
     if cached is not None:
         return cached
+    t0 = _time.time()
     _, PLANNED, _ = _sheet_names()
     result = read_sheet(PLANNED, tenant_id, default_if_empty=[]) or []
+    print(f"[tasks/planned] tenant={tenant_id} rows={len(result)} total={_time.time()-t0:.2f}s")
     cache_set(tenant_id, _CACHE_PLANNED, result, _TTL)
     return result
 

@@ -11,7 +11,7 @@ from backend.services.cache_service import cache_get, cache_set, cache_invalidat
 router = APIRouter()
 
 _CACHE_EXPIRY = "customers:expiry-alerts"
-_TTL_EXPIRY = 30.0  # seconds
+_TTL_EXPIRY = 120.0  # seconds — extended from 30; 고객 데이터 1,451 rows is the heaviest read
 
 # 기본 고객 컬럼 스키마 (신규 테넌트 또는 빈 시트일 때 사용)
 _DEFAULT_CUSTOMER_HEADERS = [
@@ -71,6 +71,7 @@ def _get_records(tenant_id: str) -> list:
 def get_expiry_alerts(user: dict = Depends(get_current_user)):
     """등록증/여권 만기 알림 — 등록증 4개월 이내, 여권 6개월 이내"""
     import datetime
+    import time as _time
     try:
         import pandas as pd
     except ImportError:
@@ -80,7 +81,9 @@ def get_expiry_alerts(user: dict = Depends(get_current_user)):
     cached = cache_get(tenant_id, _CACHE_EXPIRY)
     if cached is not None:
         return cached
+    t0 = _time.time()
     records = _get_records(tenant_id)
+    print(f"[expiry-alerts] tenant={tenant_id} rows={len(records)} read={_time.time()-t0:.2f}s")
     if not records:
         return {"card_alerts": [], "passport_alerts": []}
 
@@ -145,6 +148,7 @@ def get_expiry_alerts(user: dict = Depends(get_current_user)):
         "card_alerts": _build_rows(card_mask, card_dt, "등록증만기일"),
         "passport_alerts": _build_rows(pass_mask, pass_dt, "여권만기일"),
     }
+    print(f"[expiry-alerts] tenant={tenant_id} total={_time.time()-t0:.2f}s")
     cache_set(tenant_id, _CACHE_EXPIRY, result, _TTL_EXPIRY)
     return result
 
@@ -281,6 +285,7 @@ def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_cur
     ok = upsert_sheet(CUSTOMER_SHEET_NAME, tenant_id, header_list, [target], id_field="고객ID")
     if not ok:
         raise HTTPException(status_code=500, detail="위임내역 업데이트 실패")
+    cache_invalidate(tenant_id, _CACHE_EXPIRY)
     return {"ok": True, "위임내역": target["위임내역"]}
 
 

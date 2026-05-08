@@ -1,0 +1,37 @@
+
+[GET]
+www.hanwory.com/api/signature/temp-slots clientIP="59.14.93.213" requestID="98815ebc-8fc4-43ee" responseTimeMS=1423 responseBytes=278 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "GET /api/signature/temp-slots HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/signature/temp-slots clientIP="59.14.93.213" requestID="c6fceb4d-1ca5-47d4" responseTimeMS=1606 responseBytes=278 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "GET /api/signature/temp-slots HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/signature/temp-slots clientIP="59.14.93.213" requestID="04b9d3f8-dd75-4f85" responseTimeMS=1901 responseBytes=278 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "GET /api/signature/temp-slots HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/signature/temp-slots clientIP="59.14.93.213" requestID="298875f6-da63-4807" responseTimeMS=2097 responseBytes=278 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     162.158.138.249:0 - "POST /api/events HTTP/1.1" 200 OK
+[POST]
+www.hanwory.com/api/events clientIP="59.14.93.213" requestID="da7cb22b-928b-439a" responseTimeMS=2726 responseBytes=271 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.113:0 - "GET /api/events HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/events clientIP="59.14.93.213" requestID="e96cb70a-a698-412a" responseTimeMS=872 responseBytes=1747 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "POST /api/events HTTP/1.1" 200 OK
+[POST]
+www.hanwory.com/api/events clientIP="59.14.93.213" requestID="35367add-58e1-4e11" responseTimeMS=1654 responseBytes=271 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "GET /api/events HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/events clientIP="59.14.93.213" requestID="6c3951de-909a-4c72" responseTimeMS=11 responseBytes=1747 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "GET /api/signature/temp-slots HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/signature/temp-slots clientIP="59.14.93.213" requestID="dc74ba98-b72d-40af" responseTimeMS=1691 responseBytes=278 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.97:0 - "POST /api/events HTTP/1.1" 200 OK
+[POST]
+www.hanwory.com/api/events clientIP="59.14.93.213" requestID="20d7d47b-a444-4a25" responseTimeMS=1126 responseBytes=271 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+Menu
+[GET]
+www.hanwory.com/api/events clientIP="59.14.93.213" requestID="982723b3-957a-48a3" responseTimeMS=11 responseBytes=1747 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+INFO:     172.68.175.98:0 - "GET /api/events HTTP/1.1" 200 OK
+INFO:     162.158.138.249:0 - "GET /api/signature/temp-slots HTTP/1.1" 200 OK
+[GET]
+www.hanwory.com/api/signature/temp-slots clientIP="59.14.93.213" requestID="1f987601-9766-4580" responseTimeMS=1886 responseBytes=278 userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"

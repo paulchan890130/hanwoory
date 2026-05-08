@@ -540,6 +540,8 @@ function ManualReviewTab() {
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [totalOverride, setTotalOverride] = useState(0);
   const [inlineEdit, setInlineEdit] = useState<{ rowId: string; pf: string; pt: string } | null>(null);
+  const [applyingRowId, setApplyingRowId] = useState<string | null>(null);
+  const [skippingRowId, setSkippingRowId] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{
     manual: string;
     page: number;
@@ -569,18 +571,23 @@ function ManualReviewTab() {
   };
 
   const handleApply = async (row: RematchRow, pf: number, pt: number) => {
+    setApplyingRowId(row.row_id);
     try {
       await api.post(`/api/manual/update-review/${row.row_id}/apply`, { page_from: pf, page_to: pt });
       setRows(prev => prev.map(r => r.row_id === row.row_id ? { ...r, applied: true, reviewed: true, found_page: pf } : r));
       toast.success(`${row.row_id} 적용 완료 (p.${pf})`);
     } catch { toast.error("적용 실패"); }
+    finally { setApplyingRowId(null); }
   };
 
   const handleSkip = async (row_id: string) => {
+    setSkippingRowId(row_id);
     try {
       await api.post(`/api/manual/update-review/${row_id}/skip`);
       setRows(prev => prev.map(r => r.row_id === row_id ? { ...r, reviewed: true } : r));
+      toast.success("건너뜀 처리됨");
     } catch { toast.error("건너뜀 실패"); }
+    finally { setSkippingRowId(null); }
   };
 
   const filtered = rows.filter(r => {
@@ -703,9 +710,10 @@ function ManualReviewTab() {
                           <div className="flex gap-1.5 flex-wrap">
                             {/* 자동 적용 버튼 */}
                             <button onClick={() => handleApply(row, row.found_page, row.found_page)}
+                              disabled={applyingRowId === row.row_id}
                               className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                              style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11 }}>
-                              <CheckSquare size={11} /> 적용 (p.{row.found_page})
+                              style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11, opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
+                              {applyingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 적용 (p.{row.found_page})
                             </button>
                             {/* 직접 입력 */}
                             {inlineEdit?.rowId === row.row_id ? (
@@ -715,8 +723,9 @@ function ManualReviewTab() {
                                 <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
                                   className="hw-input w-12 text-xs" placeholder="to" />
                                 <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
-                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer" }}>
-                                  저장
+                                  disabled={applyingRowId === row.row_id}
+                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
+                                  {applyingRowId === row.row_id ? "저장 중..." : "저장"}
                                 </button>
                                 <button onClick={() => setInlineEdit(null)}
                                   style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
@@ -731,9 +740,10 @@ function ManualReviewTab() {
                               </button>
                             )}
                             <button onClick={() => handleSkip(row.row_id)}
+                              disabled={skippingRowId === row.row_id}
                               className="flex items-center gap-1 px-2 py-1 rounded"
-                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: "pointer" }}>
-                              <SkipForward size={11} /> 건너뜀
+                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
+                              {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 건너뜀
                             </button>
                           </div>
                         )}
@@ -746,8 +756,9 @@ function ManualReviewTab() {
                                 <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
                                   className="hw-input w-12 text-xs" placeholder="to" />
                                 <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
-                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer" }}>
-                                  저장
+                                  disabled={applyingRowId === row.row_id}
+                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
+                                  {applyingRowId === row.row_id ? "저장 중..." : "저장"}
                                 </button>
                                 <button onClick={() => setInlineEdit(null)}
                                   style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
@@ -762,9 +773,10 @@ function ManualReviewTab() {
                               </button>
                             )}
                             <button onClick={() => handleSkip(row.row_id)}
+                              disabled={skippingRowId === row.row_id}
                               className="flex items-center gap-1 px-2 py-1 rounded"
-                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: "pointer" }}>
-                              <SkipForward size={11} /> 건너뜀
+                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
+                              {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 건너뜀
                             </button>
                           </div>
                         )}
@@ -814,6 +826,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"accounts" | "manual-review">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [detailAcc, setDetailAcc] = useState<Record<string, string> | null>(null);
   const [wsDetail, setWsDetail] = useState<WsResult | null>(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<Record<string, string> | null>(null);
@@ -834,6 +847,7 @@ export default function AdminPage() {
       adminApi.updateAccount(loginId, data),
     onSuccess: () => { toast.success("계정 업데이트됨"); qc.invalidateQueries({ queryKey: ["admin"] }); },
     onError: () => toast.error("업데이트 실패"),
+    onSettled: () => setTogglingId(null),
   });
 
   const deleteMut = useMutation({
@@ -847,6 +861,8 @@ export default function AdminPage() {
   });
 
   const toggle = (loginId: string, field: "is_active" | "is_admin", current: string) => {
+    if (togglingId) return;
+    setTogglingId(loginId);
     const newVal = !(current.toLowerCase() === "true" || current === "1");
     updateMut.mutate({ loginId, data: { [field]: newVal } });
   };
@@ -978,25 +994,28 @@ export default function AdminPage() {
                           onClick={() => {
                             const newVal = !(acc.is_active?.toLowerCase() === "true" || acc.is_active === "1");
                             const hasWorkspace = !!(acc.folder_id && acc.customer_sheet_key && acc.work_sheet_key);
-                            // 비활성 계정을 활성화할 때 워크스페이스가 없으면 자동 생성 (생성 완료 시 is_active=TRUE 자동 설정됨)
                             if (newVal && !hasWorkspace) {
                               handleRowWorkspace(acc);
                             } else {
                               toggle(acc.login_id, "is_active", acc.is_active || "");
                             }
                           }}
+                          disabled={togglingId === acc.login_id}
                           className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
+                          style={{ opacity: togglingId === acc.login_id ? 0.5 : 1 }}
                         >
-                          {isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                          {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
                           {isActive ? "활성" : "비활성"}
                         </button>
                       </td>
                       <td>
                         <button
                           onClick={() => toggle(acc.login_id, "is_admin", acc.is_admin || "")}
+                          disabled={togglingId === acc.login_id}
                           className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isAdm ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}
+                          style={{ opacity: togglingId === acc.login_id ? 0.5 : 1 }}
                         >
-                          <Shield size={11} />
+                          {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : <Shield size={11} />}
                           {isAdm ? "관리자" : "일반"}
                         </button>
                       </td>
