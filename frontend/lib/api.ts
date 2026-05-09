@@ -194,6 +194,37 @@ export const customersApi = {
     api.post(`/api/customers/${id}/delegation-append`, { entry }),
 };
 
+// 숙소제공자 연결
+export interface AccommodationProvider {
+  target_customer_id: string;
+  provider_type: "customer_db" | "manual";
+  provider_customer_id: string;
+  provider_name: string;        // 한글 성명
+  provider_last_name: string;   // 영문 성
+  provider_first_name: string;  // 영문 이름
+  provider_nation: string;      // 국적
+  provider_reg_front: string;   // 등록번호 앞자리
+  provider_reg_back: string;    // 등록번호 뒷자리
+  provider_birth: string;       // 생년월일 보조
+  provider_phone: string;       // 연락처
+  provider_address: string;     // 숙소 소재지 / 참고 주소
+  provider_relation: string;    // 피제공자와의 관계
+  provide_start_date: string;   // 제공 시작일 YYYY-MM-DD
+  provide_end_date: string;     // 제공 종료일
+  housing_type: string;         // 자가/임대/개인주택/친척/기타
+  created_at: string;
+  updated_at: string;
+}
+
+export const accommodationApi = {
+  get: (customerId: string) =>
+    api.get<AccommodationProvider | null>(`/api/customers/${encodeURIComponent(customerId)}/accommodation-provider`),
+  save: (customerId: string, data: Partial<Omit<AccommodationProvider, "target_customer_id" | "updated_at">>) =>
+    api.post<{ ok: boolean; data: AccommodationProvider }>(`/api/customers/${encodeURIComponent(customerId)}/accommodation-provider`, data),
+  delete: (customerId: string) =>
+    api.delete(`/api/customers/${encodeURIComponent(customerId)}/accommodation-provider`),
+};
+
 export interface ExpiryAlert {
   한글이름: string;
   영문이름: string;
@@ -339,6 +370,8 @@ export interface FullDocGenRequest {
   sign_agent?: boolean;
   /** PDF 위젯 이름 → 값. generate-full 실행 후 편집 내용을 반영해 재생성할 때 사용. */
   direct_overrides?: Record<string, string>;
+  /** 숙소제공자연결 탭 전체 데이터 — 관계/날짜/체크박스 매핑에 사용 */
+  accommodation_provider?: AccommodationProvider | null;
 }
 
 export const quickDocApi = {

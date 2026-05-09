@@ -179,6 +179,30 @@ ROLE_SIGN_WIDGETS: dict = {
 
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
+def _split_phone(phone: str) -> tuple:
+    """전화번호 문자열 → (phone1, phone2, phone3). 구분자 무관."""
+    import re
+    phone = str(phone or "").strip()
+    cleaned = re.sub(r"[\s\-\.]", "", phone)
+    if len(cleaned) == 11 and cleaned.isdigit():
+        return cleaned[:3], cleaned[3:7], cleaned[7:]
+    if len(cleaned) == 10 and cleaned.isdigit():
+        return cleaned[:3], cleaned[3:6], cleaned[6:]
+    parts = re.split(r"[-\s\.]+", phone)
+    if len(parts) == 3:
+        return parts[0], parts[1], parts[2]
+    return cleaned, "", ""
+
+
+def _split_date(date_str: str) -> tuple:
+    """날짜 문자열 → (year, month, day). month/day는 앞 0 제거."""
+    import re
+    m = re.match(r"(\d{4})[-./](\d{1,2})[-./](\d{1,2})", str(date_str or "").strip())
+    if m:
+        return m.group(1), m.group(2).lstrip("0") or "0", m.group(3).lstrip("0") or "0"
+    return "", "", ""
+
+
 def normalize_field_name(name: str) -> str:
     if not name:
         return ""
@@ -250,6 +274,7 @@ def _parse_gender(id_no: str) -> tuple:
 def build_field_values(
     row: dict,
     prov: Optional[dict] = None,
+    accommodation_provider: Optional[dict] = None,
     guardian: Optional[dict] = None,
     guarantor: Optional[dict] = None,
     aggregator: Optional[dict] = None,
@@ -309,6 +334,8 @@ def build_field_values(
         field_values[f"rnumber{i}"] = digit
 
     if prov:
+        # hadress는 PDF 필드로 존재하지 않으므로 제거 (버그 수정)
+        # adress는 신청인 주소/숙소소재지 겸용 — 신청인 row["주소"]로 이미 설정됨
         field_values.update({
             "hsurname":     prov.get("성", ""),
             "hgiven names": prov.get("명", ""),
@@ -319,8 +346,55 @@ def build_field_values(
             "hphone3":      prov.get("처", ""),
             "hnation":      prov.get("국적", ""),
             "hkoreanname":  prov.get("한글", ""),
-            "hadress":      prov.get("주소", ""),
         })
+
+    # ── 숙소제공자연결 탭 데이터로 h* 필드 보완 + 관계/날짜/체크박스 매핑 ──────
+    if accommodation_provider:
+        ptype = accommodation_provider.get("provider_type", "")
+
+        # 수동 입력이거나 DB 고객이 조회 안 된 경우: 저장된 필드로 h* 직접 채움
+        if ptype == "manual" or not prov:
+            field_values.update({
+                "hkoreanname":  accommodation_provider.get("provider_name", ""),
+                "hsurname":     accommodation_provider.get("provider_last_name", ""),
+                "hgiven names": accommodation_provider.get("provider_first_name", ""),
+                "hfnumber":     accommodation_provider.get("provider_reg_front", ""),
+                "hrnumber":     accommodation_provider.get("provider_reg_back", ""),
+                "hnation":      accommodation_provider.get("provider_nation", ""),
+            })
+            ph1, ph2, ph3 = _split_phone(accommodation_provider.get("provider_phone", ""))
+            field_values.update({"hphone1": ph1, "hphone2": ph2, "hphone3": ph3})
+
+        # 관계 → PDF "관계" 필드
+        relation = accommodation_provider.get("provider_relation", "")
+        if relation:
+            field_values["관계"] = relation
+
+        # 제공 시작일 → PDF 제공년/제공월/제공일
+        start = accommodation_provider.get("provide_start_date", "")
+        if start:
+            syyyy, smm, sdd = _split_date(start)
+            field_values.update({"제공년": syyyy, "제공월": smm, "제공일": sdd})
+
+        # 작성년/월/일 → 오늘 날짜
+        today = datetime.date.today()
+        field_values.update({
+            "작성년": str(today.year),
+            "월":    str(today.month),
+            "일":    str(today.day),
+        })
+
+        # 숙소 유형 체크박스 (PDF에 확인된 필드명 기준)
+        _housing_checkbox = {
+            "자가":    "Check Box자가",
+            "임대":    "Check Box임대",
+            "개인주택": "Check Box개인주택",
+            "기타":    "Check Box기타",
+        }
+        ht = accommodation_provider.get("housing_type", "")
+        cb = _housing_checkbox.get(ht)
+        if cb:
+            field_values[cb] = "Yes"
 
     if guarantor:
         g = guarantor
@@ -624,6 +698,7 @@ class FullDocGenRequest(BaseModel):
     sign_aggregator: bool = False
     sign_agent: bool = False
     direct_overrides: Optional[dict] = None
+    accommodation_provider: Optional[dict] = None  # 숙소제공자연결 탭 전체 데이터
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
@@ -704,7 +779,13 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         # 직접 이름 입력: 한글 이름만 있는 최소 row 생성 (도장/이름 필드만 채움)
         applicant = {"한글": (req.applicant_name or "").strip()}
 
-    prov       = find_customer(req.accommodation_id)
+    prov = find_customer(req.accommodation_id)
+    # accommodation_provider가 있고 DB 타입이면 provider_customer_id로도 조회
+    if prov is None and req.accommodation_provider:
+        ap = req.accommodation_provider
+        if ap.get("provider_type") == "customer_db":
+            prov = find_customer(ap.get("provider_customer_id"))
+
     guarantor  = find_customer(req.guarantor_id)
     guardian   = find_customer(req.guardian_id)
     aggregator = find_customer(req.aggregator_id)
@@ -792,6 +873,7 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     field_values = build_field_values(
         row=applicant,
         prov=prov,
+        accommodation_provider=req.accommodation_provider,
         guardian=guardian,
         guarantor=guarantor,
         aggregator=aggregator,

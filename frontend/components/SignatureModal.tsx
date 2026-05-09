@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 interface Props {
   type: "agent" | "customer";
@@ -16,15 +17,13 @@ type ModalStatus = "requesting" | "waiting" | "done" | "expired" | "error";
 export default function SignatureModal({
   type, customerId, customerSheetKey, onSave, onClose,
 }: Props) {
-  const [status, setStatus]     = useState<ModalStatus>("requesting");
-  const [token, setToken]       = useState<string | null>(null);
-  const [url, setUrl]           = useState<string>("");
-  const [qrSrc, setQrSrc]       = useState<string>("");
-  const [signData, setSignData] = useState<string | null>(null);
-  const [copied, setCopied]     = useState(false);
+  const [status, setStatus]       = useState<ModalStatus>("requesting");
+  const [token, setToken]         = useState<string | null>(null);
+  const [url, setUrl]             = useState<string>("");
+  const [qrSrc, setQrSrc]         = useState<string>("");
+  const [signData, setSignData]   = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // preserved so retrySave can re-attempt the same token after a 500
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const doneTokenRef = useRef<string | null>(null);
 
   const stopPoll = () => {
@@ -46,8 +45,6 @@ export default function SignatureModal({
       const { token: tok, url: signUrl } = res.data;
       setToken(tok);
       setUrl(signUrl);
-
-      // QR 생성
       const QRCode = await import("qrcode");
       const qr = await QRCode.toDataURL(signUrl, { width: 220, margin: 1 });
       setQrSrc(qr);
@@ -57,7 +54,7 @@ export default function SignatureModal({
     }
   };
 
-  // 마운트 시 토큰 요청
+  // 마운트 시 토큰 요청 (한 번만)
   useEffect(() => {
     requestToken();
     return () => stopPoll();
@@ -73,7 +70,6 @@ export default function SignatureModal({
         const json = pollRes.data;
         if (json.status === "expired") { stopPoll(); setStatus("expired"); return; }
         if (json.status === "saved") {
-          // customer type: signature already in Sheets — confirm idempotently
           stopPoll();
           doneTokenRef.current = token;
           try {
@@ -83,7 +79,6 @@ export default function SignatureModal({
             setStatus("done");
             onSave(saved);
           } catch {
-            // save/{token} failed but signature IS already in Sheets — still show success
             setStatus("done");
             onSave("");
           }
@@ -91,7 +86,6 @@ export default function SignatureModal({
           return;
         }
         if (json.status === "done") {
-          // agent/temp type: trigger Sheets write here (old flow)
           stopPoll();
           doneTokenRef.current = token;
           try {
@@ -113,10 +107,10 @@ export default function SignatureModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, token]);
 
-  // Retry Sheets save without issuing a new QR — backend token still valid on 500
+  // 저장 재시도 (agent 타입 — Sheets 저장 실패 시)
   const retrySave = async () => {
     const tok = doneTokenRef.current;
-    if (!tok) { requestToken(); return; }
+    if (!tok) { handleRegenerate(); return; }
     setSaveError(null);
     setStatus("requesting");
     try {
@@ -127,15 +121,26 @@ export default function SignatureModal({
       onSave(saved);
       setTimeout(() => onClose(), 2000);
     } catch {
-      setSaveError("저장 재시도 실패. 처음부터 다시 시도하거나 사무소에 문의해주세요.");
+      setSaveError("저장 재시도 실패. 새 링크를 생성하거나 사무소에 문의해주세요.");
       setStatus("error");
+    }
+  };
+
+  // 새 링크 재생성 — 확인 필요
+  const handleRegenerate = () => {
+    const ok = window.confirm(
+      "기존에 복사한 링크는 더 이상 사용하지 않는 것으로 처리됩니다.\n새 링크를 생성할까요?"
+    );
+    if (ok) {
+      stopPoll();
+      requestToken();
+      toast.info("새 서명 링크가 생성되었습니다.");
     }
   };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      toast.success("서명 링크가 복사되었습니다.");
     });
   };
 
@@ -161,7 +166,7 @@ export default function SignatureModal({
           </button>
         </div>
 
-        {/* 완료 상태 */}
+        {/* 완료 */}
         {status === "done" && (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
@@ -172,19 +177,22 @@ export default function SignatureModal({
           </div>
         )}
 
-        {/* 만료 상태 */}
+        {/* 만료 */}
         {status === "expired" && (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
             <div style={{ fontSize: 30, marginBottom: 8 }}>⏰</div>
-            <div style={{ fontSize: 14, color: "#C53030", marginBottom: 16 }}>링크가 만료되었습니다.</div>
-            <button onClick={requestToken} style={{
+            <div style={{ fontSize: 14, color: "#C53030", marginBottom: 4 }}>링크가 만료되었습니다.</div>
+            <div style={{ fontSize: 12, color: "#718096", marginBottom: 16 }}>
+              복사한 링크가 있다면 새 링크를 생성하세요.
+            </div>
+            <button onClick={handleRegenerate} style={{
               padding: "10px 24px", borderRadius: 8, background: "#F5A623",
               color: "#fff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 14,
-            }}>다시 시도</button>
+            }}>새 링크 생성</button>
           </div>
         )}
 
-        {/* 에러 상태 */}
+        {/* 에러 */}
         {status === "error" && (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
             <div style={{ fontSize: 13, color: "#C53030", marginBottom: 16, lineHeight: 1.6 }}>
@@ -197,10 +205,10 @@ export default function SignatureModal({
                   color: "#fff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 13,
                 }}>저장 재시도</button>
               )}
-              <button onClick={requestToken} style={{
+              <button onClick={handleRegenerate} style={{
                 padding: "10px 18px", borderRadius: 8, background: "#fff",
                 color: "#4A5568", border: "1px solid #CBD5E0", fontWeight: 600, cursor: "pointer", fontSize: 13,
-              }}>처음부터 다시</button>
+              }}>새 링크 생성</button>
             </div>
           </div>
         )}
@@ -217,7 +225,6 @@ export default function SignatureModal({
               휴대폰으로 QR코드를 스캔하거나<br />링크를 직접 여세요
             </div>
 
-            {/* QR 코드 */}
             {qrSrc ? (
               <div style={{ textAlign: "center", marginBottom: 14 }}>
                 <img src={qrSrc} alt="QR" style={{ width: 220, height: 220, borderRadius: 8 }} />
@@ -228,26 +235,41 @@ export default function SignatureModal({
               </div>
             )}
 
-            {/* URL + 복사 버튼 */}
+            {/* URL + 복사 */}
             <div style={{
               display: "flex", alignItems: "center", gap: 6,
               background: "#F7FAFC", borderRadius: 8, padding: "8px 10px",
-              marginBottom: 16,
+              marginBottom: 8,
             }}>
               <span style={{ flex: 1, fontSize: 11, color: "#4A5568", wordBreak: "break-all" }}>{url}</span>
               <button onClick={handleCopy} style={{
                 flexShrink: 0, fontSize: 11, padding: "4px 10px",
                 border: "1px solid #E2E8F0", borderRadius: 6,
-                background: copied ? "#C6F6D5" : "#fff",
-                color: copied ? "#276749" : "#4A5568",
+                background: "#fff", color: "#4A5568",
                 cursor: "pointer", fontWeight: 600,
               }}>
-                {copied ? "복사됨" : "복사"}
+                복사
               </button>
             </div>
 
-            <div style={{ textAlign: "center", fontSize: 12, color: "#A0AEC0" }}>
-              ⏳ 서명 대기 중... 완료되면 자동 반영됩니다
+            {/* 고정 안내 */}
+            <div style={{ fontSize: 11, color: "#718096", textAlign: "center", marginBottom: 10 }}>
+              🔒 이 링크는 서명이 저장될 때까지 고정됩니다.
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 12, color: "#A0AEC0" }}>
+                ⏳ 서명 대기 중...
+              </div>
+              <button
+                onClick={handleRegenerate}
+                style={{
+                  fontSize: 11, color: "#A0AEC0", background: "none", border: "none",
+                  cursor: "pointer", padding: "2px 6px", textDecoration: "underline",
+                }}
+              >
+                새 링크 생성
+              </button>
             </div>
           </>
         )}

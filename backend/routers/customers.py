@@ -2,6 +2,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -9,6 +10,7 @@ from backend.auth import get_current_user
 from backend.services.cache_service import cache_get, cache_set, cache_invalidate
 
 router = APIRouter()
+_log = logging.getLogger("customers.accommodation")
 
 _CACHE_EXPIRY = "customers:expiry-alerts"
 _TTL_EXPIRY = 120.0  # seconds — extended from 30; 고객 데이터 1,451 rows is the heaviest read
@@ -300,3 +302,236 @@ def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="고객 삭제 실패")
     cache_invalidate(tenant_id, _CACHE_EXPIRY)
     return {"ok": True}
+
+
+# ── 숙소제공자 연결 ────────────────────────────────────────────────────────────
+
+_ACCOMMODATION_SHEET = "숙소제공자연결"
+_ACCOMMODATION_HEADERS = [
+    "target_customer_id",
+    "provider_type",
+    "provider_customer_id",
+    "provider_name",        # 한글 성명
+    "provider_last_name",   # 영문 성
+    "provider_first_name",  # 영문 이름
+    "provider_nation",      # 국적
+    "provider_reg_front",   # 등록번호 앞자리
+    "provider_reg_back",    # 등록번호 뒷자리
+    "provider_birth",       # 생년월일 (보조)
+    "provider_phone",       # 연락처 (단일 문자열)
+    "provider_address",     # 숙소 소재지 / 제공자 주소 (PDF adress 필드 없으므로 참고용)
+    "provider_relation",    # 피제공자와의 관계 → PDF "관계" 필드
+    "provide_start_date",   # 제공 시작일 YYYY-MM-DD → PDF 제공년/월/일
+    "provide_end_date",     # 제공 종료일 (선택)
+    "housing_type",         # 자가/임대/개인주택/친척/기타 → PDF 체크박스
+    "created_at",
+    "updated_at",
+]
+
+
+def _get_accommodation_ws(tenant_id: str):
+    """고객 워크북에서 숙소제공자연결 탭을 가져오거나 없으면 생성한다 (lazy migration).
+    컬럼이 추가된 경우 헤더를 자동 확장한다 (기존 데이터 보존).
+
+    Guard:
+    - CUSTOMER_DATA_TEMPLATE_ID로 resolved되면 항상 차단 (기준 데이터에 저장 금지)
+    - DEFAULT_TENANT_ID 외 테넌트가 SHEET_KEY로 resolved되면 차단
+    """
+    from config import (
+        SHEET_KEY as _ADMIN_KEY,
+        CUSTOMER_DATA_TEMPLATE_ID as _TMPL_ID,
+        DEFAULT_TENANT_ID as _DEFAULT_TID,
+    )
+    from backend.services.tenant_service import get_customer_sheet_key, _get_gspread_client, _col_letter
+
+    sheet_key = get_customer_sheet_key(tenant_id)  # ValueError if no CSK for non-default tenant
+
+    # ── 잘못된 저장 방지 guard ────────────────────────────────────────────────
+    if sheet_key == _TMPL_ID:
+        _log.error(
+            "[accommodation] tenant=%s → sheet_key가 CUSTOMER_DATA_TEMPLATE_ID — 저장 차단",
+            tenant_id,
+        )
+        raise ValueError(
+            f"tenant '{tenant_id}': customer_sheet_key가 기준 데이터 템플릿입니다. "
+            "워크스페이스를 다시 설정하세요."
+        )
+    if sheet_key == _ADMIN_KEY and tenant_id != _DEFAULT_TID:
+        _log.error(
+            "[accommodation] tenant=%s → sheet_key가 어드민 마스터 SHEET_KEY — "
+            "비한우리 테넌트 저장 차단",
+            tenant_id,
+        )
+        raise ValueError(
+            f"tenant '{tenant_id}': customer_sheet_key가 어드민 마스터 시트입니다. "
+            "워크스페이스를 설정하세요."
+        )
+
+    gc = _get_gspread_client()
+    sh = gc.open_by_key(sheet_key)
+    _log.debug("[accommodation] tenant=%s sheet_id=...%s title=%r", tenant_id, sheet_key[-6:], sh.title)
+
+    try:
+        ws = sh.worksheet(_ACCOMMODATION_SHEET)
+        existing_header = ws.row_values(1) if ws.row_count > 0 else []
+        if not existing_header:
+            ws.update("A1", [_ACCOMMODATION_HEADERS], value_input_option="RAW")
+            _log.info("[accommodation] tenant=%s 헤더 초기화 완료", tenant_id)
+        elif existing_header != _ACCOMMODATION_HEADERS:
+            ws.update(f"A1:{_col_letter(len(_ACCOMMODATION_HEADERS))}1",
+                      [_ACCOMMODATION_HEADERS], value_input_option="RAW")
+            _log.info("[accommodation] tenant=%s 헤더 확장 완료 (%d→%d컬럼)",
+                      tenant_id, len(existing_header), len(_ACCOMMODATION_HEADERS))
+    except Exception:
+        # 탭 없음 → 생성 (lazy migration)
+        ws = sh.add_worksheet(title=_ACCOMMODATION_SHEET, rows=500, cols=len(_ACCOMMODATION_HEADERS))
+        ws.update("A1", [_ACCOMMODATION_HEADERS], value_input_option="RAW")
+        _log.info("[accommodation] tenant=%s 새 탭 생성 완료 (sheet_id=...%s)",
+                  tenant_id, sheet_key[-6:])
+    return ws
+
+
+def _read_accommodation_record(ws, customer_id: str) -> dict | None:
+    values = ws.get_all_values()
+    if len(values) < 2:
+        return None
+    header = values[0]
+    for row in values[1:]:
+        if row and row[0].strip() == customer_id.strip():
+            return dict(zip(header, row))
+    return None
+
+
+def _upsert_accommodation_record(ws, record: dict) -> None:
+    from backend.services.tenant_service import _col_letter
+    values = ws.get_all_values()
+    if not values:
+        ws.update("A1", [_ACCOMMODATION_HEADERS], value_input_option="RAW")
+        ws.append_row([str(record.get(h, "")) for h in _ACCOMMODATION_HEADERS], value_input_option="RAW")
+        return
+
+    header = values[0]
+    if header != _ACCOMMODATION_HEADERS:
+        ws.update(f"A1:{_col_letter(len(_ACCOMMODATION_HEADERS))}1",
+                  [_ACCOMMODATION_HEADERS], value_input_option="RAW")
+        header = _ACCOMMODATION_HEADERS
+
+    customer_id = str(record.get("target_customer_id", "")).strip()
+    for i, row in enumerate(values[1:], start=2):
+        if row and row[0].strip() == customer_id:
+            # 기존 created_at 보존
+            existing = dict(zip(values[0], row))
+            if not record.get("created_at") and existing.get("created_at"):
+                record["created_at"] = existing["created_at"]
+            row_data = [str(record.get(h, "")) for h in header]
+            ws.update(f"A{i}:{_col_letter(len(header))}{i}",
+                      [row_data], value_input_option="RAW")
+            return
+    ws.append_row([str(record.get(h, "")) for h in header], value_input_option="RAW")
+
+
+@router.get("/{customer_id}/accommodation-provider")
+def get_accommodation_provider(customer_id: str, user: dict = Depends(get_current_user)):
+    """고객의 숙소제공자 연결 정보 조회."""
+    tenant_id = user["tenant_id"]
+    try:
+        ws = _get_accommodation_ws(tenant_id)
+        record = _read_accommodation_record(ws, customer_id)
+        return record  # None이면 null 반환
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"숙소제공자 조회 실패: {e}")
+
+
+@router.post("/{customer_id}/accommodation-provider")
+def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
+    """고객의 숙소제공자 연결 저장 (upsert).
+    provider_type=customer_db이면 고객 DB에서 빈 필드를 자동 보완한다."""
+    import datetime
+    tenant_id = user["tenant_id"]
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    record = {
+        "target_customer_id": customer_id,
+        "provider_type":       str(data.get("provider_type", "manual")),
+        "provider_customer_id": str(data.get("provider_customer_id", "")),
+        "provider_name":       str(data.get("provider_name", "")),
+        "provider_last_name":  str(data.get("provider_last_name", "")),
+        "provider_first_name": str(data.get("provider_first_name", "")),
+        "provider_nation":     str(data.get("provider_nation", "")),
+        "provider_reg_front":  str(data.get("provider_reg_front", "")),
+        "provider_reg_back":   str(data.get("provider_reg_back", "")),
+        "provider_birth":      str(data.get("provider_birth", "")),
+        "provider_phone":      str(data.get("provider_phone", "")),
+        "provider_address":    str(data.get("provider_address", "")),
+        "provider_relation":   str(data.get("provider_relation", "")),
+        "provide_start_date":  str(data.get("provide_start_date", "")),
+        "provide_end_date":    str(data.get("provide_end_date", "")),
+        "housing_type":        str(data.get("housing_type", "")),
+        "created_at":          now,
+        "updated_at":          now,
+    }
+
+    # DB 고객 선택 시 빈 필드 자동 보완
+    if record["provider_type"] == "customer_db" and record["provider_customer_id"]:
+        try:
+            from backend.services.tenant_service import read_sheet
+            customers = read_sheet("고객 데이터", tenant_id) or []
+            pid = record["provider_customer_id"]
+            for c in customers:
+                if str(c.get("고객ID", "")).strip() == pid:
+                    def _fill(field: str, src: str) -> None:
+                        if not record[field]:
+                            record[field] = str(c.get(src, ""))
+                    _fill("provider_name",       "한글")
+                    _fill("provider_last_name",  "성")
+                    _fill("provider_first_name", "명")
+                    _fill("provider_nation",     "국적")
+                    _fill("provider_reg_front",  "등록증")
+                    _fill("provider_reg_back",   "번호")
+                    _fill("provider_address",    "주소")
+                    if not record["provider_phone"]:
+                        p = "-".join(x for x in [
+                            str(c.get("연","")).strip(),
+                            str(c.get("락","")).strip(),
+                            str(c.get("처","")).strip(),
+                        ] if x)
+                        record["provider_phone"] = p
+                    break
+        except Exception as e:
+            print(f"[accommodation] 고객 자동채움 실패: {e}")
+
+    try:
+        _log.info(
+            "[accommodation.save] tenant=%s target_customer_id=%s provider_type=%s provider_name=%s",
+            tenant_id, customer_id,
+            record.get("provider_type", ""),
+            record.get("provider_name", ""),
+        )
+        ws = _get_accommodation_ws(tenant_id)
+        _upsert_accommodation_record(ws, record)
+        _log.info("[accommodation.save] tenant=%s 저장 완료", tenant_id)
+        return {"ok": True, "data": record}
+    except ValueError as e:
+        _log.error("[accommodation.save] tenant=%s guard 차단: %s", tenant_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        _log.error("[accommodation.save] tenant=%s 저장 실패: %s", tenant_id, e)
+        raise HTTPException(status_code=500, detail=f"숙소제공자 저장 실패: {e}")
+
+
+@router.delete("/{customer_id}/accommodation-provider")
+def delete_accommodation_provider(customer_id: str, user: dict = Depends(get_current_user)):
+    """고객의 숙소제공자 연결 해제 (해당 행 삭제)."""
+    tenant_id = user["tenant_id"]
+    try:
+        ws = _get_accommodation_ws(tenant_id)
+        values = ws.get_all_values()
+        if len(values) < 2:
+            return {"ok": True}
+        for i, row in enumerate(values[1:], start=2):
+            if row and row[0].strip() == customer_id.strip():
+                ws.delete_rows(i)
+                return {"ok": True}
+        return {"ok": True}  # 없어도 성공
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"숙소제공자 연결 해제 실패: {e}")

@@ -244,8 +244,8 @@ function ExpandedCard({
         </div>
       </div>
 
-      {/* 필드 그리드 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+      {/* 필드 그리드 — 좁은 화면에서 1열로 축소 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 10, color: "#A0AEC0", marginBottom: 3 }}>분류</div>
           {readonly
@@ -300,7 +300,7 @@ function ExpandedCard({
       </div>
 
       {/* 접수/처리/보관 + 완료/삭제 */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #F7FAFC", paddingTop: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, borderTop: "1px solid #F7FAFC", paddingTop: 8 }}>
         <div style={{ display: "flex", gap: 10 }}>
           {([
             { field: "reception" as const, label: "접수", color: "#3182CE", ts: pendingReception },
@@ -443,7 +443,8 @@ export default function TaskCardView({
       <div style={{ fontSize: 10, color: "#A0AEC0", marginBottom: 8, padding: "0 2px" }}>
         정렬: 출입국 → 전자민원 → 공증 → 여권 → 초청 → 기타
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
+      {/* repeat(auto-fit) — 240px 이상이면 3열, 좁으면 자동 축소 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, alignItems: "start" }}>
         <KanbanColumn title="접수 중"  headerColor="#2563EB" tasks={col1} {...colProps} />
         <KanbanColumn title="처리 중"  headerColor="#D4A843" tasks={col2} {...colProps} />
         <KanbanColumn title="보관 중"  headerColor="#9F7AEA" tasks={col3} {...colProps} />

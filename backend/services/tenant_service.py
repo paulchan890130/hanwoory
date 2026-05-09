@@ -55,6 +55,7 @@ _CUSTOMER_WORKBOOK_SHEETS = {
     MEMO_LONG_SHEET_NAME,
     MEMO_MID_SHEET_NAME,
     MEMO_SHORT_SHEET_NAME,
+    "숙소제공자연결",  # 고객별 숙소제공자 연결 정보
 }
 
 # 업무정리 워크북에 속하는 시트 이름 집합

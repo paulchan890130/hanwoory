@@ -1,12 +1,13 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { customersApi } from "@/lib/api";
-import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink } from "lucide-react";
+import { customersApi, accommodationApi, quickDocApi, type AccommodationProvider, type CustomerSearchResult } from "@/lib/api";
+import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
 import SignatureModal from "@/components/SignatureModal";
+import QuickDocPanel from "@/components/QuickDocPanel";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -139,9 +140,219 @@ function emptyCustomer(): Record<string, string> {
   return rec;
 }
 
+// ── 숙소제공자 설정 모달 ───────────────────────────────────────────────────────
+function AccommodationProviderModal({
+  customerId, customerName, current, onClose, onSaved,
+}: {
+  customerId: string;
+  customerName: string;
+  current: AccommodationProvider | null;
+  onClose: () => void;
+  onSaved: (p: AccommodationProvider | null) => void;
+}) {
+  const isDB = current?.provider_type === "customer_db";
+  const [tab, setTab] = useState<"search" | "manual">(isDB ? "search" : "manual");
+
+  // DB 검색 state
+  const [searchQ, setSearchQ] = useState(isDB ? (current?.provider_name || "") : "");
+  const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
+  const [selectedDB, setSelectedDB] = useState<CustomerSearchResult | null>(
+    isDB && current
+      ? { id: current.provider_customer_id, name: current.provider_name, label: current.provider_name, reg_no: current.provider_reg_front }
+      : null
+  );
+
+  // 수동 입력 state (한글성명/영문성/영문명/국적/등록번호앞뒤/연락처)
+  const m = (key: keyof AccommodationProvider) =>
+    current?.provider_type === "manual" ? (current[key] as string || "") : "";
+  const [mName,      setMName]      = useState(m("provider_name"));
+  const [mLastName,  setMLastName]  = useState(m("provider_last_name"));
+  const [mFirstName, setMFirstName] = useState(m("provider_first_name"));
+  const [mNation,    setMNation]    = useState(m("provider_nation"));
+  const [mRegFront,  setMRegFront]  = useState(m("provider_reg_front"));
+  const [mRegBack,   setMRegBack]   = useState(m("provider_reg_back"));
+  const [mPhone,     setMPhone]     = useState(m("provider_phone"));
+
+  const [saving,   setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const BORDER = "#E2E8F0";
+  const GOLD   = "#D4A843";
+  const inp: React.CSSProperties = {
+    width:"100%", padding:"6px 9px", border:`1px solid ${BORDER}`,
+    borderRadius:6, fontSize:12, boxSizing:"border-box",
+  };
+
+  // 검색 디바운스
+  useEffect(() => {
+    if (tab !== "search" || searchQ.length < 1) { setSearchResults([]); return; }
+    const t = setTimeout(() => {
+      quickDocApi.searchCustomers(searchQ).then(r => setSearchResults(r.data)).catch(() => {});
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQ, tab]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      let payload: Partial<AccommodationProvider>;
+      if (tab === "search") {
+        if (!selectedDB) { toast.error("고객을 선택하세요."); setSaving(false); return; }
+        payload = {
+          provider_type:         "customer_db",
+          provider_customer_id:  selectedDB.id,
+          provider_name:         selectedDB.name,
+          provider_reg_front:    selectedDB.reg_no || "",
+        };
+      } else {
+        if (!mName.trim()) { toast.error("성명을 입력하세요."); setSaving(false); return; }
+        payload = {
+          provider_type:        "manual",
+          provider_customer_id: "",
+          provider_name:        mName.trim(),
+          provider_last_name:   mLastName.trim(),
+          provider_first_name:  mFirstName.trim(),
+          provider_nation:      mNation.trim(),
+          provider_reg_front:   mRegFront.trim(),
+          provider_reg_back:    mRegBack.trim(),
+          provider_phone:       mPhone.trim(),
+        };
+      }
+      const res = await accommodationApi.save(customerId, payload);
+      toast.success("숙소제공자가 고정되었습니다.");
+      onSaved(res.data.data);
+      onClose();
+    } catch { toast.error("저장 실패"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("숙소제공자 연결을 해제하시겠습니까?")) return;
+    setDeleting(true);
+    try {
+      await accommodationApi.delete(customerId);
+      toast.success("숙소제공자 연결이 해제되었습니다.");
+      onSaved(null); onClose();
+    } catch { toast.error("해제 실패"); }
+    finally { setDeleting(false); }
+  };
+
+  return (
+    <>
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:300 }} onClick={onClose} />
+      <div style={{
+        position:"fixed", top:"50%", left:"50%",
+        transform:"translate(-50%,-50%)",
+        zIndex:301, width:"min(400px, 96vw)",
+        background:"#fff", borderRadius:14,
+        boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
+        display:"flex", flexDirection:"column",
+        maxHeight:"90vh",
+      }}>
+        {/* 헤더 */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"13px 18px", borderBottom:`1px solid ${BORDER}`, background:"#F7FAFC", flexShrink:0 }}>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>숙소제공자 설정</div>
+            <div style={{ fontSize:11, color:"#718096" }}>대상: {customerName}</div>
+          </div>
+          <button onClick={onClose} style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}><X size={16} /></button>
+        </div>
+
+        <div style={{ overflowY:"auto", flex:1, padding:"14px 18px" }}>
+          {/* 현재 설정 표시 */}
+          {current && (
+            <div style={{ marginBottom:12, padding:"9px 12px", background:"#EBF8FF", borderRadius:8, border:"1px solid #BEE3F8", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:"#2B6CB0" }}>현재: {current.provider_name}</div>
+                {current.provider_type === "customer_db" && <div style={{ fontSize:10, color:"#718096" }}>고객 DB 연결</div>}
+              </div>
+              <button onClick={handleDelete} disabled={deleting}
+                style={{ fontSize:11, padding:"4px 10px", borderRadius:5, border:"1px solid #FC8181", background:"#FFF5F5", color:"#C53030", cursor:"pointer", flexShrink:0 }}>
+                {deleting ? "해제 중..." : "연결 해제"}
+              </button>
+            </div>
+          )}
+
+          {/* 탭 */}
+          <div style={{ display:"flex", gap:4, marginBottom:12, background:"#F7FAFC", borderRadius:8, padding:4 }}>
+            {(["search", "manual"] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                flex:1, padding:"6px 0", borderRadius:6, fontSize:12, fontWeight:600,
+                border:"none", cursor:"pointer",
+                background: tab === t ? "#fff" : "transparent",
+                color: tab === t ? GOLD : "#718096",
+                boxShadow: tab === t ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+              }}>
+                {t === "search" ? "고객 DB 검색" : "직접 입력"}
+              </button>
+            ))}
+          </div>
+
+          {/* DB 검색 탭 */}
+          {tab === "search" && (
+            <div>
+              <div style={{ position:"relative", marginBottom:8 }}>
+                <Search size={12} style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:"#A0AEC0" }} />
+                <input autoFocus value={searchQ}
+                  onChange={e => { setSearchQ(e.target.value); if (selectedDB && e.target.value !== selectedDB.name) setSelectedDB(null); }}
+                  placeholder="이름 / 전화번호 / 고객ID 검색"
+                  style={{ ...inp, paddingLeft:28 }} />
+              </div>
+              {searchResults.length > 0 && (
+                <div style={{ border:`1px solid ${BORDER}`, borderRadius:8, maxHeight:160, overflowY:"auto", marginBottom:8 }}>
+                  {searchResults.map(c => (
+                    <button key={c.id} onClick={() => { setSelectedDB(c); setSearchQ(c.name); setSearchResults([]); }}
+                      style={{ display:"block", width:"100%", textAlign:"left", padding:"7px 12px", border:"none", borderBottom:`1px solid ${BORDER}`, background: selectedDB?.id === c.id ? "#FFF9E6" : "#fff", cursor:"pointer", fontSize:12, color:"#2D3748" }}>
+                      {c.name}
+                      {c.name_en && <span style={{ fontSize:10, color:"#A0AEC0", marginLeft:4 }}>({c.name_en})</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedDB && (
+                <div style={{ padding:"7px 10px", background:"#F0FFF4", borderRadius:7, fontSize:12, color:"#276749" }}>
+                  ✅ {selectedDB.name} 선택됨
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 수동 입력 탭 — 핵심 인적사항만 */}
+          {tab === "manual" && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+              {([
+                { label:"한글 성명*",  val:mName,      set:setMName,      wide:true  },
+                { label:"영문 성",     val:mLastName,  set:setMLastName,  wide:false },
+                { label:"영문 이름",   val:mFirstName, set:setMFirstName, wide:false },
+                { label:"국적",        val:mNation,    set:setMNation,    wide:false },
+                { label:"등록번호 앞", val:mRegFront,  set:setMRegFront,  wide:false },
+                { label:"등록번호 뒤", val:mRegBack,   set:setMRegBack,   wide:false },
+                { label:"연락처",      val:mPhone,     set:setMPhone,     wide:true  },
+              ] as { label:string; val:string; set:(v:string)=>void; wide:boolean }[]).map(({ label, val, set, wide }) => (
+                <div key={label} style={wide ? { gridColumn:"1/-1" } : {}}>
+                  <label style={{ display:"block", fontSize:10, color:"#718096", marginBottom:2 }}>{label}</label>
+                  <input value={val} onChange={e => set(e.target.value)} style={inp} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 저장 버튼 */}
+        <div style={{ padding:"12px 18px", borderTop:`1px solid ${BORDER}`, flexShrink:0 }}>
+          <button onClick={handleSave} disabled={saving}
+            style={{ width:"100%", padding:"11px 0", borderRadius:8, fontSize:13, fontWeight:700, background: saving ? "#E2E8F0" : GOLD, color:"#fff", border:"none", cursor: saving ? "default" : "pointer" }}>
+            {saving ? "저장 중..." : "숙소제공자 고정"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── 우측 드로어 ────────────────────────────────────────────────────────────────
 function CustomerDrawer({
-  customer, isNew, onClose, onSave, onDelete, isSaving,
+  customer, isNew, onClose, onSave, onDelete, isSaving, onOpenDocOverlay,
 }: {
   customer: Record<string, string> | null;
   isNew: boolean;
@@ -149,6 +360,7 @@ function CustomerDrawer({
   onSave: (d: Record<string, string>) => void;
   onDelete?: (id: string) => void;
   isSaving: boolean;
+  onOpenDocOverlay?: () => void;
 }) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
@@ -163,6 +375,10 @@ function CustomerDrawer({
   const [tempSlots, setTempSlots] = useState<{ slot: number; has_data: boolean; 비고: string }[]>([]);
   const [showTempSlots, setShowTempSlots] = useState(false);
   const { submit: submitSlotMap, isSubmitting: slotMapping } = useSubmit();
+
+  // ── 숙소제공자 ──
+  const [providerData, setProviderData] = useState<AccommodationProvider | null>(null);
+  const [showProviderModal, setShowProviderModal] = useState(false);
 
   useEffect(() => {
     if (customer) {
@@ -196,6 +412,15 @@ function CustomerDrawer({
       .then((r) => r.json())
       .then((j) => setHasSignature(j.exists ?? false))
       .catch(() => setHasSignature(false));
+  }, [customer, isNew]);
+
+  // 드로어 열릴 때 숙소제공자 조회 (신규 고객 제외)
+  useEffect(() => {
+    const id = customer?.["고객ID"];
+    if (!id || isNew) { setProviderData(null); return; }
+    accommodationApi.get(id)
+      .then(r => setProviderData(r.data || null))
+      .catch(() => setProviderData(null));
   }, [customer, isNew]);
 
   if (!customer) return null;
@@ -294,6 +519,38 @@ function CustomerDrawer({
                   );
                 })}
               </div>
+              {/* 기본정보 섹션 아래 — 액션 버튼들 */}
+              {grp.title === "기본정보" && !isNew && (
+                <div style={{ marginTop:8, display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {onOpenDocOverlay && (
+                    <button
+                      onClick={onOpenDocOverlay}
+                      style={{
+                        display:"flex", alignItems:"center", gap:5,
+                        fontSize:11, padding:"5px 12px", borderRadius:6,
+                        border:"1px solid #D4A843", color:"#6B5314",
+                        background:"#FFF9E6", cursor:"pointer", fontWeight:600,
+                      }}
+                    >
+                      <FileText size={11} /> 문서자동작성
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowProviderModal(true)}
+                    style={{
+                      display:"flex", alignItems:"center", gap:5,
+                      fontSize:11, padding:"5px 12px", borderRadius:6,
+                      border: providerData ? "1px solid #BEE3F8" : "1px solid #CBD5E0",
+                      color: providerData ? "#2B6CB0" : "#4A5568",
+                      background: providerData ? "#EBF8FF" : "#F7FAFC",
+                      cursor:"pointer", fontWeight:600,
+                    }}
+                  >
+                    <Home size={11} />
+                    {providerData ? `숙소: ${providerData.provider_name}` : "숙소제공자"}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 
@@ -447,6 +704,17 @@ function CustomerDrawer({
           onClose={() => setShowSignModal(false)}
         />
       )}
+
+      {/* 숙소제공자 설정 모달 */}
+      {showProviderModal && (
+        <AccommodationProviderModal
+          customerId={id}
+          customerName={name}
+          current={providerData}
+          onClose={() => setShowProviderModal(false)}
+          onSaved={(p) => setProviderData(p)}
+        />
+      )}
     </>
   );
 }
@@ -466,6 +734,9 @@ export default function CustomersPage() {
   // 신규 등록 후 서명 프롬프트
   const [signPrompt, setSignPrompt] = useState<{ name: string; customerId: string } | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
+
+  // 문서자동작성 오버레이
+  const [docOverlayOpen, setDocOverlayOpen] = useState(false);
 
   // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
@@ -550,7 +821,7 @@ export default function CustomersPage() {
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:14, position:"relative" }}>
       {/* 툴바 — flex row, 각 아이템에 명시적 shrink/grow 지정 */}
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <h1 className="hw-page-title" style={{ flexShrink:0 }}>고객관리</h1>
@@ -682,11 +953,63 @@ export default function CustomersPage() {
       {selectedCustomer && (
         <CustomerDrawer
           customer={selectedCustomer} isNew={isNewMode}
-          onClose={() => { setSelectedCustomer(null); setIsNewMode(false); }}
+          onClose={() => { setSelectedCustomer(null); setIsNewMode(false); setDocOverlayOpen(false); }}
           onSave={handleSave}
           onDelete={!isNewMode ? (id) => deleteMut.mutate(id) : undefined}
           isSaving={updateMut.isPending || addMut.isPending}
+          onOpenDocOverlay={!isNewMode ? () => setDocOverlayOpen(true) : undefined}
         />
+      )}
+
+      {/* 문서자동작성 오버레이 — 우측 고객카드(480px)를 제외한 영역만 덮음 */}
+      {docOverlayOpen && selectedCustomer && !isNewMode && (
+        <div style={{
+          position:"absolute",
+          top:0, bottom:0, left:0,
+          right:"min(480px, 100vw)",  // 고객카드 폭만큼 비워 겹침 방지
+          zIndex:45,
+          background:"#fff", borderRadius:8,
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.14)",
+          overflow:"hidden",
+        }}>
+          {/* 헤더 */}
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"11px 18px", borderBottom:"1px solid #E2E8F0",
+            flexShrink:0, background:"#FFF9E6",
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <FileText size={15} style={{ color:"#D4A843" }} />
+              <span style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>문서 자동작성</span>
+              <span style={{ fontSize:12, color:"#718096" }}>
+                — {selectedCustomer["한글"] || [selectedCustomer["성"], selectedCustomer["명"]].filter(Boolean).join(" ") || "고객"}
+              </span>
+            </div>
+            <button
+              onClick={() => setDocOverlayOpen(false)}
+              style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          {/* 컨텐츠 */}
+          <div style={{ flex:1, overflowY:"auto", padding:"20px 20px" }}>
+            <Suspense>
+              <QuickDocPanel
+                initialCustomer={{
+                  id:      selectedCustomer["고객ID"] || "",
+                  name:    selectedCustomer["한글"] || "",
+                  name_en: [selectedCustomer["성"], selectedCustomer["명"]].filter(Boolean).join(" ") || undefined,
+                  label:   selectedCustomer["한글"] || selectedCustomer["고객ID"] || "",
+                  reg_no:  [selectedCustomer["등록증"], selectedCustomer["번호"]].filter(Boolean).join("-"),
+                }}
+                embedded
+                onClose={() => setDocOverlayOpen(false)}
+              />
+            </Suspense>
+          </div>
+        </div>
       )}
 
       {/* 신규 고객 등록 직후 서명 프롬프트 */}
