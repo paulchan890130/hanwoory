@@ -94,9 +94,10 @@ export default function SignPage() {
         throw new Error(j.detail || "저장 실패");
       }
       setStatus("submitted");
-    } catch (e: unknown) {
-      setStatus("error");
-      setMsg(e instanceof Error ? e.message : "저장 실패. 다시 시도해 주세요.");
+    } catch {
+      // Reset to ready so customer can retry; show clear contact message
+      setStatus("ready");
+      setMsg("서명 저장에 실패했습니다. 창을 닫지 말고 사무소에 연락해주세요.");
     }
   };
 

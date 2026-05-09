@@ -16,13 +16,16 @@ type ModalStatus = "requesting" | "waiting" | "done" | "expired" | "error";
 export default function SignatureModal({
   type, customerId, customerSheetKey, onSave, onClose,
 }: Props) {
-  const [status, setStatus]   = useState<ModalStatus>("requesting");
-  const [token, setToken]     = useState<string | null>(null);
-  const [url, setUrl]         = useState<string>("");
-  const [qrSrc, setQrSrc]     = useState<string>("");
+  const [status, setStatus]     = useState<ModalStatus>("requesting");
+  const [token, setToken]       = useState<string | null>(null);
+  const [url, setUrl]           = useState<string>("");
+  const [qrSrc, setQrSrc]       = useState<string>("");
   const [signData, setSignData] = useState<string | null>(null);
-  const [copied, setCopied]   = useState(false);
+  const [copied, setCopied]     = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // preserved so retrySave can re-attempt the same token after a 500
+  const doneTokenRef = useRef<string | null>(null);
 
   const stopPoll = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -31,6 +34,7 @@ export default function SignatureModal({
   const requestToken = async () => {
     setStatus("requesting");
     setSignData(null);
+    setSaveError(null);
     setToken(null);
     setQrSrc("");
     try {
@@ -68,20 +72,65 @@ export default function SignatureModal({
         const pollRes = await api.get<{ status: string; data?: string }>(`/api/signature/poll/${token}`);
         const json = pollRes.data;
         if (json.status === "expired") { stopPoll(); setStatus("expired"); return; }
-        if (json.status === "done") {
+        if (json.status === "saved") {
+          // customer type: signature already in Sheets — confirm idempotently
           stopPoll();
-          const saveRes = await api.post<{ status: string; data: string }>(`/api/signature/save/${token}`);
-          const saved = saveRes.data.data;
-          setSignData(saved);
-          setStatus("done");
-          onSave(saved);
+          doneTokenRef.current = token;
+          try {
+            const saveRes = await api.post<{ status: string; data: string | null }>(`/api/signature/save/${token}`);
+            const saved = saveRes.data.data ?? "";
+            setSignData(saved || null);
+            setStatus("done");
+            onSave(saved);
+          } catch {
+            // save/{token} failed but signature IS already in Sheets — still show success
+            setStatus("done");
+            onSave("");
+          }
           setTimeout(() => onClose(), 2000);
+          return;
         }
-      } catch { /* 폴링 일시 실패는 무시 */ }
+        if (json.status === "done") {
+          // agent/temp type: trigger Sheets write here (old flow)
+          stopPoll();
+          doneTokenRef.current = token;
+          try {
+            const saveRes = await api.post<{ status: string; data: string }>(`/api/signature/save/${token}`);
+            const saved = saveRes.data.data;
+            setSignData(saved);
+            setStatus("done");
+            onSave(saved);
+            setTimeout(() => onClose(), 2000);
+          } catch {
+            setSaveError("서명 저장에 실패했습니다. 저장 재시도를 누르거나 사무소에 문의해주세요.");
+            setStatus("error");
+          }
+          return;
+        }
+      } catch { /* 폴링 통신 오류는 무시 (일시적 네트워크 끊김) */ }
     }, 2000);
     return () => stopPoll();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, token]);
+
+  // Retry Sheets save without issuing a new QR — backend token still valid on 500
+  const retrySave = async () => {
+    const tok = doneTokenRef.current;
+    if (!tok) { requestToken(); return; }
+    setSaveError(null);
+    setStatus("requesting");
+    try {
+      const saveRes = await api.post<{ status: string; data: string }>(`/api/signature/save/${tok}`);
+      const saved = saveRes.data.data;
+      setSignData(saved);
+      setStatus("done");
+      onSave(saved);
+      setTimeout(() => onClose(), 2000);
+    } catch {
+      setSaveError("저장 재시도 실패. 처음부터 다시 시도하거나 사무소에 문의해주세요.");
+      setStatus("error");
+    }
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(url).then(() => {
@@ -138,11 +187,21 @@ export default function SignatureModal({
         {/* 에러 상태 */}
         {status === "error" && (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <div style={{ fontSize: 14, color: "#C53030", marginBottom: 16 }}>요청에 실패했습니다.</div>
-            <button onClick={requestToken} style={{
-              padding: "10px 24px", borderRadius: 8, background: "#F5A623",
-              color: "#fff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 14,
-            }}>다시 시도</button>
+            <div style={{ fontSize: 13, color: "#C53030", marginBottom: 16, lineHeight: 1.6 }}>
+              {saveError || "요청에 실패했습니다."}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              {doneTokenRef.current && (
+                <button onClick={retrySave} style={{
+                  padding: "10px 18px", borderRadius: 8, background: "#F5A623",
+                  color: "#fff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 13,
+                }}>저장 재시도</button>
+              )}
+              <button onClick={requestToken} style={{
+                padding: "10px 18px", borderRadius: 8, background: "#fff",
+                color: "#4A5568", border: "1px solid #CBD5E0", fontWeight: 600, cursor: "pointer", fontSize: 13,
+              }}>처음부터 다시</button>
+            </div>
           </div>
         )}
 
