@@ -70,10 +70,11 @@ interface RoleState {
   seal: boolean;
   sign: boolean;
   hasSignature: boolean;
+  signatureLookupError?: boolean;
 }
 
 function emptyRole(sealDefault = true): RoleState {
-  return { customer: null, directName: "", seal: sealDefault, sign: false, hasSignature: false };
+  return { customer: null, directName: "", seal: sealDefault, sign: false, hasSignature: false, signatureLookupError: false };
 }
 
 function roleDisplayName(r: RoleState): string {
@@ -175,6 +176,9 @@ function RoleSelector({
               </label>
             );
           })}
+          {role.signatureLookupError && (
+            <span style={{ fontSize: 10, color: "#E53E3E", marginLeft: 2 }}>서명 조회 실패</span>
+          )}
         </div>
       </div>
 
@@ -297,75 +301,84 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // initialCustomer → 신청인 자동 설정 + 숙소제공자 preload
+  // initialCustomer → 신청인 자동 설정 + 숙소제공자/신원보증인 preload
   const initId = initialCustomer?.id;
   useEffect(() => {
     if (!initId || !initialCustomer) return;
     let cancelled = false;
     const authHeader = { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` };
 
+    // Per-effect signature lookup deduplication.
+    // When accommodation provider and guarantor share the same customer_id (e.g. 2026051104),
+    // only one GET /api/signature/customer/{id}/exists request is sent; both roles await the same Promise.
+    type SignatureStatus = { hasSignature: boolean; signatureLookupError: boolean };
+    const signatureStatusCache = new Map<string, Promise<SignatureStatus>>();
+    const checkSignatureOnce = (customerId: string): Promise<SignatureStatus> => {
+      const key = String(customerId || "").trim();
+      if (!key) return Promise.resolve({ hasSignature: false, signatureLookupError: false });
+      const cached = signatureStatusCache.get(key);
+      if (cached) return cached;
+      const promise = fetch(`/api/signature/customer/${encodeURIComponent(key)}/exists`, { headers: authHeader })
+        .then(async (sr) => {
+          if (!sr.ok) return { hasSignature: false, signatureLookupError: true };
+          const sj = await sr.json();
+          return { hasSignature: !!sj.exists, signatureLookupError: false };
+        })
+        .catch((err: unknown) => {
+          console.warn("[QuickDoc] 서명 조회 실패:", key, err);
+          return { hasSignature: false, signatureLookupError: true };
+        });
+      signatureStatusCache.set(key, promise);
+      return promise;
+    };
+
     // 1) 신청인 서명 확인
-    fetch(`/api/signature/customer/${encodeURIComponent(initId)}/exists`, { headers: authHeader })
-      .then((r) => r.json())
-      .then((j) => {
+    checkSignatureOnce(initId)
+      .then((s) => {
         if (cancelled) return;
-        const hasSign = j.exists ?? false;
-        setApplicant({ customer: initialCustomer, directName: "", hasSignature: hasSign, sign: hasSign, seal: !hasSign });
-      })
-      .catch(() => {
-        if (!cancelled) setApplicant({ customer: initialCustomer, directName: "", hasSignature: false, sign: false, seal: true });
+        setApplicant({ customer: initialCustomer, directName: "", hasSignature: s.hasSignature, sign: s.hasSignature, seal: !s.hasSignature, signatureLookupError: s.signatureLookupError });
       });
 
-    // 2) 숙소제공자 preload → 상태 저장 + accommodation role 자동 설정
+    // 2) 숙소제공자 preload → 관계 API + 서명 확인 후 단일 setAccommodation
     fetch(`/api/customers/${encodeURIComponent(initId)}/accommodation-provider`, { headers: authHeader })
-      .then((r) => r.json())
-      .then((p) => {
+      .then(async (r) => {
+        const p = await r.json();
         if (cancelled || !p) return;
         setAccommodationProvider(p as AccommodationProvider);
         if (p.provider_type === "customer_db" && p.provider_customer_id) {
-          setAccommodation({
-            customer: {
-              id: p.provider_customer_id,
-              name: p.provider_name || "",
-              label: p.provider_name || "",
-              reg_no: p.provider_reg_front || "",
-            },
-            directName: "",
-            seal: true, sign: false, hasSignature: false,
-          });
+          const linkedId = String(p.provider_customer_id);
+          const customerObj: CustomerSearchResult = {
+            id: linkedId, name: p.provider_name || "",
+            label: p.provider_name || "", reg_no: p.provider_reg_front || "",
+          };
+          const sig = await checkSignatureOnce(linkedId);
+          if (cancelled) return;
+          setAccommodation({ customer: customerObj, directName: "", seal: !sig.hasSignature, sign: sig.hasSignature, hasSignature: sig.hasSignature, signatureLookupError: sig.signatureLookupError });
         } else if (p.provider_name) {
-          setAccommodation({
-            customer: null,
-            directName: p.provider_name,
-            seal: true, sign: false, hasSignature: false,
-          });
+          if (cancelled) return;
+          setAccommodation({ customer: null, directName: p.provider_name, seal: true, sign: false, hasSignature: false, signatureLookupError: false });
         }
       })
       .catch(() => {});
 
-    // 3) 신원보증인 preload → 상태 저장 + guarantor role 자동 설정
+    // 3) 신원보증인 preload → 관계 API + 서명 확인 후 단일 setGuarantor
     fetch(`/api/customers/${encodeURIComponent(initId)}/guarantor`, { headers: authHeader })
-      .then((r) => r.json())
-      .then((g) => {
+      .then(async (r) => {
+        const g = await r.json();
         if (cancelled || !g) return;
         setGuarantorConnection(g);
         if (g.guarantor_type === "customer_db" && g.guarantor_customer_id) {
-          setGuarantor({
-            customer: {
-              id: g.guarantor_customer_id,
-              name: g.guarantor_name || "",
-              label: g.guarantor_name || "",
-              reg_no: g.guarantor_reg_front || "",
-            },
-            directName: "",
-            seal: true, sign: false, hasSignature: false,
-          });
+          const linkedId = String(g.guarantor_customer_id);
+          const customerObj: CustomerSearchResult = {
+            id: linkedId, name: g.guarantor_name || "",
+            label: g.guarantor_name || "", reg_no: g.guarantor_reg_front || "",
+          };
+          const sig = await checkSignatureOnce(linkedId);
+          if (cancelled) return;
+          setGuarantor({ customer: customerObj, directName: "", seal: !sig.hasSignature, sign: sig.hasSignature, hasSignature: sig.hasSignature, signatureLookupError: sig.signatureLookupError });
         } else if (g.guarantor_name) {
-          setGuarantor({
-            customer: null,
-            directName: g.guarantor_name,
-            seal: true, sign: false, hasSignature: false,
-          });
+          if (cancelled) return;
+          setGuarantor({ customer: null, directName: g.guarantor_name, seal: true, sign: false, hasSignature: false, signatureLookupError: false });
         }
       })
       .catch(() => {});
