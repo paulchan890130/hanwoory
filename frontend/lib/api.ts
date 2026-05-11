@@ -182,6 +182,14 @@ export const tasksApi = {
     api.patch("/api/tasks/active/batch-progress", { updates }),
 };
 
+export interface WorkSummary {
+  groups: Record<string, number>;
+  total: number;
+  legacy_groups: Record<string, number>;
+  legacy_total: number;
+  has_name_duplicate: boolean;
+}
+
 // 고객
 export const customersApi = {
   list: (search?: string, page?: number, pageSize?: number, signal?: AbortSignal) =>
@@ -192,6 +200,13 @@ export const customersApi = {
   expiryAlerts: () => api.get<{ card_alerts: ExpiryAlert[]; passport_alerts: ExpiryAlert[] }>("/api/customers/expiry-alerts"),
   appendDelegation: (id: string, entry: string) =>
     api.post(`/api/customers/${id}/delegation-append`, { entry }),
+  workSummary: (id: string, name?: string) =>
+    api.get<WorkSummary>(`/api/customers/${encodeURIComponent(id)}/work-summary`, { params: { name } }),
+  completedTasks: (id: string, name?: string, includeLegacy = false) =>
+    api.get<{ tasks: Record<string, string>[]; legacy_tasks: Record<string, string>[] }>(
+      `/api/customers/${encodeURIComponent(id)}/completed-tasks`,
+      { params: { name, include_legacy: includeLegacy } }
+    ),
 };
 
 // 숙소제공자 연결
@@ -452,7 +467,8 @@ export type OneClickOutput =
   | "건강보험(세대합가)"
   | "건강보험(피부양자)"
   | "하이코리아"
-  | "소시넷";
+  | "소시넷(등록증)"
+  | "소시넷(여권)";
 
 export interface QuickPoaRequest {
   kor_name: string;
@@ -466,8 +482,13 @@ export interface QuickPoaRequest {
   phone2?: string;
   phone3?: string;
   passport?: string;
+  customer_id?: string;
+  site_id?: string;
+  old_passport?: string;
   apply_applicant_seal?: boolean;
   apply_agent_seal?: boolean;
+  apply_applicant_sign?: boolean;
+  apply_agent_sign?: boolean;
   dpi?: number;
   ck_extension?: boolean;
   ck_registration?: boolean;

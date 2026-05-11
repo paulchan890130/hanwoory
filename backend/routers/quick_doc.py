@@ -118,7 +118,8 @@ DOC_TEMPLATES: dict = {
     "위임장":                 "templates/위임장.pdf",
     "위임장1":                "templates/위임장1.pdf",
     "하이코리아":             "templates/하이코리아.pdf",
-    "소시넷":                 "templates/소시넷.pdf",
+    "소시넷(등록증)":         "templates/소시넷(등록증).pdf",
+    "소시넷(여권)":           "templates/소시넷(여권).pdf",
     "대행업무수행확인서":      "templates/대행업무수행확인서.pdf",
     "대행업무수행확인서1":     "templates/대행업무수행확인서1.pdf",
     # ── 비자별 통합신청서 (F계열) ─────────────────────────────────────────
@@ -178,6 +179,26 @@ ROLE_SIGN_WIDGETS: dict = {
 }
 
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
+
+def _load_account(tenant_id: str) -> Optional[dict]:
+    """Accounts 시트에서 tenant_id로 계정 조회. get_all_values() 직접 파싱으로 안정성 확보."""
+    try:
+        from backend.services.accounts_service import _get_ws_readonly
+        ws = _get_ws_readonly()
+        values = ws.get_all_values()
+        if not values or len(values) < 2:
+            return None
+        header = values[0]
+        for row in values[1:]:
+            if not any(c.strip() for c in row):
+                continue
+            r = dict(zip(header, row))
+            if r.get("tenant_id", "").strip() == tenant_id:
+                return r
+        return None
+    except Exception:
+        return None
+
 
 def _split_phone(phone: str) -> tuple:
     """전화번호 문자열 → (phone1, phone2, phone3). 구분자 무관."""
@@ -791,17 +812,7 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     aggregator = find_customer(req.aggregator_id)
 
     # ── 행정사(account) 정보 조회 ──
-    account: Optional[dict] = None
-    try:
-        from config import ACCOUNTS_SHEET_NAME
-        from core.google_sheets import read_data_from_sheet
-        records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
-        for r in records:
-            if str(r.get("tenant_id", "")).strip() == tenant_id:
-                account = r
-                break
-    except Exception:
-        pass
+    account = _load_account(tenant_id)
 
     # ── 미성년 판별 ──
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
@@ -1017,10 +1028,10 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
 # ── 원클릭 작성 ────────────────────────────────────────────────────────────────
 # Output types the one-click generator knows about.
 # Add to IMPLEMENTED_OUTPUTS when a new type has a working backend path.
-_ALL_OUTPUTS = {"위임장", "건강보험(세대합가)", "건강보험(피부양자)", "하이코리아", "소시넷"}
-_IMPLEMENTED_OUTPUTS = {"위임장", "하이코리아", "소시넷"}
+_ALL_OUTPUTS = {"위임장", "건강보험(세대합가)", "건강보험(피부양자)", "하이코리아", "소시넷(등록증)", "소시넷(여권)"}
+_IMPLEMENTED_OUTPUTS = {"위임장", "하이코리아", "소시넷(등록증)", "소시넷(여권)"}
 # 출력 순서 (다중 선택 시 페이지 순서)
-_OUTPUT_ORDER = ["위임장", "하이코리아", "소시넷"]
+_OUTPUT_ORDER = ["위임장", "하이코리아", "소시넷(등록증)", "소시넷(여권)"]
 
 
 class QuickPoaRequest(BaseModel):
@@ -1036,6 +1047,9 @@ class QuickPoaRequest(BaseModel):
     phone2: str = ""
     phone3: str = ""
     passport: str = ""
+    customer_id: Optional[str] = None  # 고객 DB ID (서명 조회용)
+    site_id: Optional[str] = ""        # 하이코리아/소시넷 사이트 ID → PDF 필드 `ID`
+    old_passport: Optional[str] = ""   # 소시넷(여권) 구여권번호 → PDF 필드 `opassport`
     # 도장 옵션
     apply_applicant_seal: bool = True
     apply_agent_seal: bool = True
@@ -1111,17 +1125,7 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
 
     # 행정사 계정 정보 조회
     tenant_id = user.get("tenant_id") or user.get("sub", "")
-    account: Optional[dict] = None
-    try:
-        from config import ACCOUNTS_SHEET_NAME
-        from core.google_sheets import read_data_from_sheet
-        records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
-        for r in records:
-            if str(r.get("tenant_id", "")).strip() == tenant_id:
-                account = r
-                break
-    except Exception:
-        pass
+    account = _load_account(tenant_id)
 
     row = {
         "한글": req.kor_name.strip(),
@@ -1163,12 +1167,54 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
         "granting":    "V" if req.ck_granting     else "",
         "ant":         "V" if req.ck_ant          else "",
         "card":        "0" if req.ck_card         else "",
+        # 하이코리아/소시넷 공통 사이트 ID → PDF 필드 `ID`
+        "ID":          str(req.site_id or "").strip(),
+        # 소시넷(여권) 구여권 → PDF 필드 `opassport`
+        "opassport":   str(req.old_passport or "").strip(),
+        # agent_tel 명시적 보장: _load_account 실패 시에도 항상 field_values에 포함
+        "agent_tel":   str((account or {}).get("contact_tel", "") or "").strip(),
     })
 
+    # ── 도장/서명 상호 배타 정규화 (서명 우선) ─────────────────────────────────
+    # 규칙: 둘 다 true → 서명 우선 / 둘 다 false → 서명 존재 여부로 결정
+
+    # 신청인
+    if req.apply_applicant_sign and req.apply_applicant_seal:
+        req.apply_applicant_seal = False
+    elif not req.apply_applicant_sign and not req.apply_applicant_seal:
+        _has_cust_sign = False
+        if req.customer_id:
+            try:
+                from backend.services.signature_service import has_customer_signature
+                from backend.services.tenant_service import get_customer_sheet_key as _gcsk
+                _has_cust_sign = has_customer_signature(_gcsk(tenant_id), req.customer_id)
+            except Exception:
+                _has_cust_sign = False
+        if _has_cust_sign:
+            req.apply_applicant_sign = True
+        else:
+            req.apply_applicant_seal = True
+
+    # 행정사
+    if req.apply_agent_sign and req.apply_agent_seal:
+        req.apply_agent_seal = False
+    elif not req.apply_agent_sign and not req.apply_agent_seal:
+        _has_agent_sign = False
+        try:
+            from backend.services.signature_service import get_agent_signature as _gas_check
+            _has_agent_sign = bool(_gas_check(tenant_id))
+        except Exception:
+            _has_agent_sign = False
+        if _has_agent_sign:
+            req.apply_agent_sign = True
+        else:
+            req.apply_agent_seal = True
+
     agent_name = (account.get("contact_name", "") if account else "").strip()
+    applicant_seal_name = row.get("한글", "")
     seal_bytes_by_role = {
-        "applicant":     make_seal_bytes(row["한글"]) if req.apply_applicant_seal else None,
-        "agent":         make_seal_bytes(agent_name)  if (req.apply_agent_seal and agent_name) else None,
+        "applicant":     make_seal_bytes(applicant_seal_name) if req.apply_applicant_seal else None,
+        "agent":         make_seal_bytes(agent_name)          if (req.apply_agent_seal and agent_name) else None,
         "accommodation": None,
         "guarantor":     None,
         "guardian":      None,
@@ -1178,17 +1224,40 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
     # quick-poa 서명 합성
     _poa_sign_bytes: dict = {"accommodation": None, "guarantor": None, "guardian": None, "aggregator": None}
     try:
-        from backend.services.signature_service import get_agent_signature as _gas
+        from backend.services.signature_service import (
+            get_agent_signature as _gas,
+            get_customer_signature as _get_cust_sign,
+        )
         import base64 as _b64poa
         def _b64tobytes(b64: Optional[str]) -> Optional[bytes]:
             if not b64: return None
             raw = b64.split(",", 1)[1] if b64.startswith("data:") else b64
             return _b64poa.b64decode(raw)
-        _poa_sign_bytes["applicant"] = None  # direct name input — no customer_id
+        # 고객 서명: customer_id가 있으면 DB에서 조회
+        if req.apply_applicant_sign and req.customer_id:
+            try:
+                from backend.services.tenant_service import get_customer_sheet_key
+                csk = get_customer_sheet_key(tenant_id)
+                _poa_sign_bytes["applicant"] = _b64tobytes(_get_cust_sign(csk, req.customer_id))
+            except Exception:
+                _poa_sign_bytes["applicant"] = None
+        else:
+            _poa_sign_bytes["applicant"] = None
         _poa_sign_bytes["agent"] = _b64tobytes(_gas(tenant_id)) if req.apply_agent_sign else None
     except Exception:
         _poa_sign_bytes["applicant"] = None
         _poa_sign_bytes["agent"] = None
+
+    # ── 최종 방어: 서명 데이터 없는데 서명 선택 → 도장 fallback ─────────────
+    for role, seal_name in (("applicant", applicant_seal_name), ("agent", agent_name)):
+        if _poa_sign_bytes.get(role) is None and not seal_bytes_by_role.get(role):
+            # 서명도 없고 도장도 없으면 도장 생성 (이름이 있는 경우)
+            if seal_name:
+                seal_bytes_by_role[role] = make_seal_bytes(seal_name)
+    # 같은 역할에 도장+서명 동시 존재 → 서명 우선, 도장 제거
+    for role in ("applicant", "agent"):
+        if seal_bytes_by_role.get(role) and _poa_sign_bytes.get(role):
+            seal_bytes_by_role[role] = None
 
     try:
         import fitz

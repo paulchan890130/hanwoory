@@ -3,11 +3,12 @@ import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { customersApi, accommodationApi, quickDocApi, type AccommodationProvider, type CustomerSearchResult } from "@/lib/api";
-import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home } from "lucide-react";
+import { customersApi, accommodationApi, quickDocApi, type AccommodationProvider, type CustomerSearchResult, type WorkSummary } from "@/lib/api";
+import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
 import SignatureModal from "@/components/SignatureModal";
 import QuickDocPanel from "@/components/QuickDocPanel";
+import QuickPoaPanel from "@/components/QuickPoaPanel";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -114,7 +115,6 @@ const DRAWER_GROUPS = [
   {
     title: "업무정보",
     fields: [
-      { key: "위임내역", label: "위임내역", wide: true },
       { key: "비고",     label: "비고",     wide: true },
       { key: "폴더",     label: "폴더 ID/URL", wide: true },
     ],
@@ -138,6 +138,164 @@ function emptyCustomer(): Record<string, string> {
   const rec: Record<string, string> = { 고객ID: "" };
   ALL_FIELDS.forEach((f) => (rec[f] = ""));
   return rec;
+}
+
+// ── 완료업무 팝업 ─────────────────────────────────────────────────────────────
+const CAT_GROUPS = [
+  { key: "전체",     cats: null },
+  { key: "출입국",   cats: ["출입국", "영주권"] },
+  { key: "전자민원", cats: ["전자민원"] },
+  { key: "공증",     cats: ["공증"] },
+  { key: "여권·초청", cats: ["여권", "초청"] },
+  { key: "기타",     cats: null, isEtc: true },
+] as const;
+
+function CompletedTasksModal({
+  customerId, customerName, hasNameDuplicate, onClose,
+}: {
+  customerId: string;
+  customerName: string;
+  hasNameDuplicate: boolean;
+  onClose: () => void;
+}) {
+  const [tasks, setTasks] = useState<Record<string, string>[]>([]);
+  const [legacyTasks, setLegacyTasks] = useState<Record<string, string>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [catFilter, setCatFilter] = useState("전체");
+  const [showLegacy, setShowLegacy] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    customersApi.completedTasks(customerId, customerName, true)
+      .then(r => { setTasks(r.data.tasks || []); setLegacyTasks(r.data.legacy_tasks || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [customerId, customerName]);
+
+  const filterTask = (t: Record<string, string>) => {
+    if (catFilter === "전체") return true;
+    const g = CAT_GROUPS.find(g => g.key === catFilter);
+    if (!g) return true;
+    if (g.cats === null && (g as { isEtc?: boolean }).isEtc) {
+      const knownCats = ["출입국","영주권","전자민원","공증","여권","초청"];
+      return !knownCats.includes(t.category || "");
+    }
+    return (g.cats as readonly string[]).includes(t.category || "");
+  };
+
+  const filtered = tasks.filter(filterTask);
+
+  const BORDER = "#E2E8F0";
+  const statusDot = (val: string) => val ? "✅" : "○";
+
+  const TaskTable = ({ rows, isLegacy }: { rows: Record<string, string>[]; isLegacy?: boolean }) => (
+    <div style={{ overflowX:"auto" }}>
+      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+        <thead>
+          <tr style={{ background:"#F7FAFC", borderBottom:`2px solid ${BORDER}` }}>
+            {["접수일","구분","업무명","세부내용","완료일","접수","처리","보관"].map(h => (
+              <th key={h} style={{ padding:"6px 8px", textAlign:"left", fontWeight:600, fontSize:11, color:"#718096", whiteSpace:"nowrap" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr><td colSpan={8} style={{ padding:"20px", textAlign:"center", color:"#A0AEC0", fontSize:12 }}>
+              {isLegacy ? "이름 기준 과거 업무 없음" : "완료업무 없음"}
+            </td></tr>
+          ) : rows.map((t, i) => (
+            <tr key={t.id || i} style={{ borderBottom:`1px solid ${BORDER}`, background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+              <td style={{ padding:"6px 8px", whiteSpace:"nowrap", color:"#4A5568" }}>{t.date || ""}</td>
+              <td style={{ padding:"6px 8px", whiteSpace:"nowrap" }}>
+                <span style={{ background:"#EDF2F7", borderRadius:4, padding:"1px 6px", fontSize:10, fontWeight:600, color:"#4A5568" }}>{t.category || ""}</span>
+              </td>
+              <td style={{ padding:"6px 8px", maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.work || ""}</td>
+              <td style={{ padding:"6px 8px", maxWidth:150, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:"#718096" }}>{t.details || ""}</td>
+              <td style={{ padding:"6px 8px", whiteSpace:"nowrap", color:"#4A5568" }}>{t.complete_date || ""}</td>
+              <td style={{ padding:"6px 8px", textAlign:"center", fontSize:11 }}>{statusDot(t.reception)}</td>
+              <td style={{ padding:"6px 8px", textAlign:"center", fontSize:11 }}>{statusDot(t.processing)}</td>
+              <td style={{ padding:"6px 8px", textAlign:"center", fontSize:11 }}>{statusDot(t.storage)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <>
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:400 }} onClick={onClose} />
+      <div style={{
+        position:"fixed", top:"50%", left:"50%",
+        transform:"translate(-50%,-50%)",
+        zIndex:401, width:"min(820px, 96vw)", maxHeight:"85vh",
+        background:"#fff", borderRadius:14,
+        boxShadow:"0 8px 40px rgba(0,0,0,0.2)",
+        display:"flex", flexDirection:"column",
+      }}>
+        {/* 헤더 */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:`1px solid ${BORDER}`, flexShrink:0 }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:700, color:"#1A202C" }}>{customerName} — 완료업무 내역</div>
+            <div style={{ fontSize:11, color:"#A0AEC0", marginTop:2 }}>
+              customer_id 기준 {tasks.length}건{legacyTasks.length > 0 ? ` + 이름 기준 참고 ${legacyTasks.length}건` : ""}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ padding:6, color:"#718096", background:"none", border:"none", cursor:"pointer" }}><X size={18} /></button>
+        </div>
+
+        {/* 카테고리 필터 */}
+        <div style={{ display:"flex", gap:6, padding:"10px 20px", borderBottom:`1px solid ${BORDER}`, flexWrap:"wrap", flexShrink:0 }}>
+          {CAT_GROUPS.map(g => (
+            <button key={g.key} onClick={() => setCatFilter(g.key)}
+              style={{
+                padding:"4px 12px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer",
+                border: catFilter === g.key ? "1px solid #D4A843" : "1px solid #E2E8F0",
+                background: catFilter === g.key ? "#FFF9E6" : "#F7FAFC",
+                color: catFilter === g.key ? "#7A5C10" : "#718096",
+              }}>
+              {g.key}
+            </button>
+          ))}
+        </div>
+
+        {/* 목록 */}
+        <div style={{ flex:1, overflowY:"auto", padding:"0 0 12px" }}>
+          {loading ? (
+            <div style={{ padding:"32px", textAlign:"center", color:"#A0AEC0", fontSize:13 }}>불러오는 중...</div>
+          ) : (
+            <>
+              <TaskTable rows={filtered} />
+              {/* Legacy 섹션 */}
+              {legacyTasks.length > 0 && (
+                <div style={{ margin:"12px 20px 0" }}>
+                  <button onClick={() => setShowLegacy(v => !v)}
+                    style={{ fontSize:11, color:"#A0AEC0", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>
+                    {showLegacy ? "▾" : "▸"} 이름 기준 과거 업무 ({legacyTasks.length}건, 참고자료)
+                  </button>
+                  {hasNameDuplicate && (
+                    <span style={{ marginLeft:8, fontSize:10, color:"#E53E3E", fontWeight:600 }}>
+                      ⚠️ 동명이인 가능성 — 정확하지 않을 수 있습니다.
+                    </span>
+                  )}
+                  {!hasNameDuplicate && (
+                    <span style={{ marginLeft:8, fontSize:10, color:"#A0AEC0" }}>
+                      customer_id가 없는 과거 업무는 이름 기준 참고자료입니다.
+                    </span>
+                  )}
+                  {showLegacy && (
+                    <div style={{ marginTop:8, border:`1px solid ${BORDER}`, borderRadius:8, overflow:"hidden" }}>
+                      <TaskTable rows={legacyTasks.filter(filterTask)} isLegacy />
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
 }
 
 // ── 숙소제공자 설정 모달 ───────────────────────────────────────────────────────
@@ -352,7 +510,7 @@ function AccommodationProviderModal({
 
 // ── 우측 드로어 ────────────────────────────────────────────────────────────────
 function CustomerDrawer({
-  customer, isNew, onClose, onSave, onDelete, isSaving, onOpenDocOverlay,
+  customer, isNew, onClose, onSave, onDelete, isSaving, onOpenDocOverlay, onOpenQuickPoaOverlay,
 }: {
   customer: Record<string, string> | null;
   isNew: boolean;
@@ -361,6 +519,7 @@ function CustomerDrawer({
   onDelete?: (id: string) => void;
   isSaving: boolean;
   onOpenDocOverlay?: () => void;
+  onOpenQuickPoaOverlay?: () => void;
 }) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
@@ -380,6 +539,15 @@ function CustomerDrawer({
   const [providerData, setProviderData] = useState<AccommodationProvider | null>(null);
   const [showProviderModal, setShowProviderModal] = useState(false);
 
+  // ── 업무 현황 ──
+  const [workSummary, setWorkSummary] = useState<WorkSummary | null>(null);
+  const [showCompletedPopup, setShowCompletedPopup] = useState(false);
+  const [showLegacyDelegation, setShowLegacyDelegation] = useState(false);
+
+  // ── 하이코리아 만료일(동포) 보조 패널 ──
+  const [showHikoreaPanel, setShowHikoreaPanel] = useState(false);
+  const [hikoreaExpiry, setHikoreaExpiry] = useState("");
+
   useEffect(() => {
     if (customer) {
       setForm({ ...customer });
@@ -388,6 +556,8 @@ function CustomerDrawer({
       setSignatureData(null);
       setShowSignatureFull(false);
       setShowTempSlots(false);
+      setShowHikoreaPanel(false);
+      setHikoreaExpiry("");
     }
   }, [customer]);
 
@@ -421,6 +591,16 @@ function CustomerDrawer({
     accommodationApi.get(id)
       .then(r => setProviderData(r.data || null))
       .catch(() => setProviderData(null));
+  }, [customer, isNew]);
+
+  // 드로어 열릴 때 업무 현황 로드 (신규 고객 제외)
+  useEffect(() => {
+    const cid = customer?.["고객ID"];
+    const cname = customer?.["한글"] || "";
+    if (!cid || isNew) { setWorkSummary(null); return; }
+    customersApi.workSummary(cid, cname || undefined)
+      .then(r => setWorkSummary(r.data))
+      .catch(() => setWorkSummary(null));
   }, [customer, isNew]);
 
   if (!customer) return null;
@@ -498,6 +678,67 @@ function CustomerDrawer({
 
         {/* 필드 그룹 */}
         <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px", minHeight:0, boxSizing:"border-box" }}>
+          {/* 업무 현황 섹션 — 기본정보 다음에 삽입 */}
+          {!isNew && workSummary !== null && (() => {
+            const CAT_GROUPS = [
+              { key: "출입국",   label: "출입국" },
+              { key: "전자민원", label: "전자민원" },
+              { key: "공증",     label: "공증" },
+              { key: "여권·초청", label: "여권·초청" },
+              { key: "기타",     label: "기타" },
+            ];
+            const total = workSummary.total;
+            const legacyTotal = workSummary.legacy_total;
+            return (
+              <div style={{ marginBottom:18 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"#D4A843", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>업무 현황</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
+                  {CAT_GROUPS.map(({ key, label }) => {
+                    const cnt = workSummary.groups[key] ?? 0;
+                    return (
+                      <span key={key} style={{
+                        display:"inline-flex", alignItems:"center", gap:4,
+                        padding:"3px 8px", borderRadius:6, fontSize:11, fontWeight:600,
+                        background: cnt > 0 ? "#EBF8FF" : "#F7FAFC",
+                        color: cnt > 0 ? "#2B6CB0" : "#A0AEC0",
+                        border: cnt > 0 ? "1px solid #BEE3F8" : "1px solid #E2E8F0",
+                      }}>
+                        {label} <strong>{cnt}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+                {total > 0 && (
+                  <button
+                    onClick={() => setShowCompletedPopup(true)}
+                    style={{
+                      fontSize:11, padding:"4px 12px", borderRadius:6,
+                      border:"1px solid #BEE3F8", background:"#EBF8FF",
+                      color:"#2B6CB0", cursor:"pointer", fontWeight:600,
+                    }}
+                  >
+                    완료업무 보기 ({total}건)
+                  </button>
+                )}
+                {total === 0 && legacyTotal > 0 && (
+                  <button
+                    onClick={() => setShowCompletedPopup(true)}
+                    style={{
+                      fontSize:11, padding:"4px 12px", borderRadius:6,
+                      border:"1px solid #E2E8F0", background:"#F7FAFC",
+                      color:"#718096", cursor:"pointer", fontWeight:600,
+                    }}
+                  >
+                    이름 기준 과거 업무 보기 ({legacyTotal}건)
+                  </button>
+                )}
+                {total === 0 && legacyTotal === 0 && (
+                  <span style={{ fontSize:11, color:"#A0AEC0" }}>완료업무 없음</span>
+                )}
+              </div>
+            );
+          })()}
+
           {DRAWER_GROUPS.map((grp) => (
             <div key={grp.title} style={{ marginBottom:18 }}>
               <div style={{ fontSize:11, fontWeight:700, color:"#D4A843", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>{grp.title}</div>
@@ -521,6 +762,7 @@ function CustomerDrawer({
               </div>
               {/* 기본정보 섹션 아래 — 액션 버튼들 */}
               {grp.title === "기본정보" && !isNew && (
+                <>
                 <div style={{ marginTop:8, display:"flex", gap:6, flexWrap:"wrap" }}>
                   {onOpenDocOverlay && (
                     <button
@@ -549,10 +791,180 @@ function CustomerDrawer({
                     <Home size={11} />
                     {providerData ? `숙소: ${providerData.provider_name}` : "숙소제공자"}
                   </button>
+                  {onOpenQuickPoaOverlay && (
+                    <button
+                      onClick={onOpenQuickPoaOverlay}
+                      title="원클릭 작성"
+                      style={{
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        width:28, height:28, borderRadius:6,
+                        border:"1px solid #BEE3F8",
+                        background:"#EBF8FF", color:"#2B6CB0",
+                        cursor:"pointer", flexShrink:0,
+                      }}
+                    >
+                      <Zap size={12} />
+                    </button>
+                  )}
+                  {!isNew && (
+                    <button
+                      onClick={() => setShowHikoreaPanel(v => !v)}
+                      title="체류만료조회(동포)"
+                      style={{
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        width:28, height:28, borderRadius:6,
+                        border: showHikoreaPanel ? "1px solid #9AE6B4" : "1px solid #C6F6D5",
+                        background: showHikoreaPanel ? "#C6F6D5" : "#F0FFF4",
+                        color:"#276749",
+                        cursor:"pointer", flexShrink:0,
+                      }}
+                    >
+                      <Globe size={12} />
+                    </button>
+                  )}
                 </div>
+                {/* ── 하이코리아 만료일 보조 패널: 버튼 바로 아래 렌더 ── */}
+                {showHikoreaPanel && (() => {
+                  const passport  = (form["여권"] || "").trim();
+                  const reg6      = (form["등록증"] || "").trim();
+                  const birthdate = reg6 ? "19" + reg6 : "";
+                  const NATION    = "한국계 중국인";
+                  const allText   = `여권번호: ${passport}\n국적: ${NATION}\n생년월일: ${birthdate}`;
+                  const copyVal = (text: string, label: string) => {
+                    navigator.clipboard.writeText(text).catch(() => {});
+                    toast.success(`${label} 복사됨`);
+                  };
+                  return (
+                    <div style={{
+                      marginTop:10, padding:"11px 13px", borderRadius:8,
+                      border:"1px solid #9AE6B4", background:"#F0FFF4",
+                      fontSize:12,
+                    }}>
+                      {/* 헤더 */}
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:"#276749" }}>
+                          체류만료조회 보조
+                        </span>
+                        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                          <button
+                            onClick={() => window.open(
+                              "https://www.hikorea.go.kr/info/CheckExprYmdByPassNoR.pt",
+                              "hikorea-expiry-check",
+                              "width=760,height=700,left=20,top=40,resizable=yes"
+                            )}
+                            style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#C6F6D5", color:"#276749", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
+                          >
+                            하이코리아 열기
+                          </button>
+                          <button
+                            onClick={() => setShowHikoreaPanel(false)}
+                            style={{ padding:2, background:"none", border:"none", cursor:"pointer", color:"#A0AEC0", lineHeight:1 }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {/* 복사 항목 */}
+                      {[
+                        { label: "여권번호",       value: passport,  warn: !passport ? "여권번호 없음" : "" },
+                        { label: "국적",           value: NATION,    warn: "" },
+                        { label: "생년월일",       value: birthdate, warn: !reg6 ? "등록번호 없음" : "" },
+                      ].map(({ label, value, warn }) => (
+                        <div key={label} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                          <span style={{ fontSize:10, color:"#4A5568", width:52, flexShrink:0 }}>{label}</span>
+                          {warn
+                            ? <span style={{ fontSize:10, color:"#E53E3E" }}>⚠️ {warn}</span>
+                            : <>
+                                <span style={{ fontSize:11, fontWeight:600, color:"#1A202C", flex:1, fontFamily:"monospace" }}>{value}</span>
+                                <button onClick={() => copyVal(value, label)}
+                                  style={{ fontSize:10, padding:"1px 7px", borderRadius:4, border:"1px solid #9AE6B4", background:"#fff", color:"#276749", cursor:"pointer", flexShrink:0 }}>
+                                  복사
+                                </button>
+                              </>
+                          }
+                        </div>
+                      ))}
+                      {/* 전체 복사 */}
+                      <button onClick={() => { navigator.clipboard.writeText(allText).catch(() => {}); toast.success("전체 복사됨"); }}
+                        style={{ marginTop:4, fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#fff", color:"#276749", cursor:"pointer", fontWeight:600 }}>
+                        전체 복사
+                      </button>
+                      {/* 입력확인 안내 */}
+                      <div style={{ marginTop:7, padding:"5px 8px", borderRadius:5, background:"#FFFBEB", border:"1px solid #F6E05E", fontSize:10, color:"#744210" }}>
+                        입력확인란(보안숫자)은 화면의 숫자를 직접 입력해야 합니다.
+                      </div>
+                      {/* 체류만료일 반영 */}
+                      <div style={{ marginTop:9, borderTop:"1px solid #C6F6D5", paddingTop:9 }}>
+                        <div style={{ fontSize:10, color:"#276749", fontWeight:600, marginBottom:5 }}>
+                          조회 결과 반영
+                        </div>
+                        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                          <input
+                            type="text"
+                            placeholder="YYYY-MM-DD"
+                            value={hikoreaExpiry}
+                            onChange={(e) => setHikoreaExpiry(e.target.value)}
+                            style={{
+                              flex:1, padding:"4px 7px", border:"1px solid #9AE6B4",
+                              borderRadius:5, fontSize:11, background:"#fff",
+                              outline:"none", boxSizing:"border-box",
+                            }}
+                          />
+                          <button
+                            disabled={!hikoreaExpiry.trim()}
+                            onClick={() => {
+                              if (!hikoreaExpiry.trim()) return;
+                              change("만기일", hikoreaExpiry.trim());
+                              toast.success("등록만기일에 반영되었습니다. 저장 버튼을 눌러 저장하세요.");
+                            }}
+                            style={{
+                              fontSize:10, padding:"4px 9px", borderRadius:5, whiteSpace:"nowrap",
+                              border:"1px solid #9AE6B4", background: hikoreaExpiry.trim() ? "#C6F6D5" : "#E2E8F0",
+                              color: hikoreaExpiry.trim() ? "#276749" : "#A0AEC0",
+                              cursor: hikoreaExpiry.trim() ? "pointer" : "not-allowed", fontWeight:600,
+                            }}
+                          >
+                            등록만기일에 반영
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                </>
               )}
             </div>
           ))}
+
+          {/* 위임내역 — 읽기전용 접힘 섹션 */}
+          {!isNew && form["위임내역"] && (
+            <div style={{ marginBottom:18 }}>
+              <button
+                onClick={() => setShowLegacyDelegation(v => !v)}
+                style={{
+                  display:"flex", alignItems:"center", gap:6,
+                  fontSize:11, fontWeight:700, color:"#A0AEC0",
+                  background:"none", border:"none", cursor:"pointer", padding:0,
+                  textTransform:"uppercase", letterSpacing:"0.06em",
+                }}
+              >
+                {showLegacyDelegation ? "▾" : "▸"} 기존 위임내역 (참고용)
+              </button>
+              {showLegacyDelegation && (
+                <textarea
+                  readOnly
+                  value={form["위임내역"] ?? ""}
+                  style={{
+                    marginTop:6, width:"100%", height:120, resize:"vertical",
+                    border:"1px solid #E2E8F0", borderRadius:6,
+                    padding:"7px 10px", fontSize:11, color:"#718096",
+                    background:"#F7FAFC", boxSizing:"border-box",
+                    fontFamily:"inherit", lineHeight:1.6,
+                  }}
+                />
+              )}
+            </div>
+          )}
 
           {/* 서명 섹션 (신규 등록 제외) */}
           {!isNew && (
@@ -715,6 +1127,16 @@ function CustomerDrawer({
           onSaved={(p) => setProviderData(p)}
         />
       )}
+
+      {/* 완료업무 팝업 */}
+      {showCompletedPopup && (
+        <CompletedTasksModal
+          customerId={id}
+          customerName={form["한글"] || name}
+          hasNameDuplicate={workSummary?.has_name_duplicate ?? false}
+          onClose={() => setShowCompletedPopup(false)}
+        />
+      )}
     </>
   );
 }
@@ -737,6 +1159,8 @@ export default function CustomersPage() {
 
   // 문서자동작성 오버레이
   const [docOverlayOpen, setDocOverlayOpen] = useState(false);
+  // 원클릭 작성 오버레이
+  const [quickPoaOverlayOpen, setQuickPoaOverlayOpen] = useState(false);
 
   // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
@@ -821,7 +1245,7 @@ export default function CustomersPage() {
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14, position:"relative" }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:14, position:"relative", minHeight:"100%" }}>
       {/* 툴바 — flex row, 각 아이템에 명시적 shrink/grow 지정 */}
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <h1 className="hw-page-title" style={{ flexShrink:0 }}>고객관리</h1>
@@ -953,11 +1377,12 @@ export default function CustomersPage() {
       {selectedCustomer && (
         <CustomerDrawer
           customer={selectedCustomer} isNew={isNewMode}
-          onClose={() => { setSelectedCustomer(null); setIsNewMode(false); setDocOverlayOpen(false); }}
+          onClose={() => { setSelectedCustomer(null); setIsNewMode(false); setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); }}
           onSave={handleSave}
           onDelete={!isNewMode ? (id) => deleteMut.mutate(id) : undefined}
           isSaving={updateMut.isPending || addMut.isPending}
-          onOpenDocOverlay={!isNewMode ? () => setDocOverlayOpen(true) : undefined}
+          onOpenDocOverlay={!isNewMode ? () => { setQuickPoaOverlayOpen(false); setDocOverlayOpen(true); } : undefined}
+          onOpenQuickPoaOverlay={!isNewMode ? () => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(true); } : undefined}
         />
       )}
 
@@ -1008,6 +1433,62 @@ export default function CustomersPage() {
                 onClose={() => setDocOverlayOpen(false)}
               />
             </Suspense>
+          </div>
+        </div>
+      )}
+
+      {/* 원클릭 작성 오버레이 — 우측 고객카드(480px)를 제외한 영역만 덮음 */}
+      {quickPoaOverlayOpen && selectedCustomer && !isNewMode && (
+        <div style={{
+          position:"absolute",
+          top:0, bottom:0, left:0,
+          right:"min(480px, 100vw)",
+          zIndex:45,
+          background:"#fff", borderRadius:8,
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.14)",
+          overflow:"hidden",
+        }}>
+          {/* 헤더 */}
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"11px 18px", borderBottom:"1px solid #E2E8F0",
+            flexShrink:0, background:"#EBF8FF",
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <Zap size={15} style={{ color:"#2B6CB0" }} />
+              <span style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>원클릭 작성</span>
+              <span style={{ fontSize:12, color:"#718096" }}>
+                — {selectedCustomer["한글"] || [selectedCustomer["성"], selectedCustomer["명"]].filter(Boolean).join(" ") || "고객"}
+              </span>
+            </div>
+            <button
+              onClick={() => setQuickPoaOverlayOpen(false)}
+              style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          {/* 컨텐츠 */}
+          <div style={{ flex:1, overflowY:"auto", padding:"16px 20px" }}>
+            <QuickPoaPanel
+              initialCustomer={{
+                customer_id: selectedCustomer["고객ID"]  || undefined,
+                kor_name:    selectedCustomer["한글"]    || "",
+                surname:     selectedCustomer["성"]      || "",
+                given:       selectedCustomer["명"]      || "",
+                stay_status: selectedCustomer["V"]       || "",
+                reg6:        selectedCustomer["등록증"]   || "",
+                no7:         selectedCustomer["번호"]    || "",
+                addr:        selectedCustomer["주소"]    || "",
+                phone1:      selectedCustomer["연"]      || "010",
+                phone2:      selectedCustomer["락"]      || "",
+                phone3:      selectedCustomer["처"]      || "",
+                passport:    selectedCustomer["여권"]    || "",
+              }}
+              embedded
+              onClose={() => setQuickPoaOverlayOpen(false)}
+            />
           </div>
         </div>
       )}

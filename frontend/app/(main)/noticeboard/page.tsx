@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { boardApi, type BoardPost } from "@/lib/api";
@@ -22,7 +22,42 @@ export default function BoardPage() {
   const { data: posts = [] } = useQuery({
     queryKey: ["board"],
     queryFn: () => boardApi.list().then((r) => r.data),
+    staleTime: 30_000,
   });
+
+  // localStorage에 마지막으로 본 comment_count 기록 { [postId]: number }
+  const [seenCounts, setSeenCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("board_cc");
+      if (raw) setSeenCounts(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  // 게시글 열 때 해당 포스트의 count를 "읽음"으로 기록
+  const markSeen = (postId: string, count: number) => {
+    setSeenCounts(prev => {
+      const next = { ...prev, [postId]: count };
+      try { localStorage.setItem("board_cc", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // 첫 로드: localStorage가 비어있으면 현재 count를 기준으로 초기화 (첫 방문엔 new 표시 안 함)
+  useEffect(() => {
+    if ((posts as BoardPost[]).length === 0) return;
+    try {
+      if (!localStorage.getItem("board_cc")) {
+        const init: Record<string, number> = {};
+        (posts as BoardPost[]).forEach(p => { init[p.id] = Number(p.comment_count ?? 0); });
+        localStorage.setItem("board_cc", JSON.stringify(init));
+        setSeenCounts(init);
+      }
+    } catch { /* ignore */ }
+  }, [posts]);
+
+  const hasNew = (post: BoardPost) =>
+    Number(post.comment_count ?? 0) > (seenCounts[post.id] ?? 0);
 
   const { data: comments = [] } = useQuery({
     queryKey: ["board", selectedPost?.id, "comments"],
@@ -85,6 +120,7 @@ export default function BoardPage() {
       toast.success("댓글 등록됨");
       setComment("");
       qc.invalidateQueries({ queryKey: ["board", selectedPost?.id, "comments"] });
+      qc.invalidateQueries({ queryKey: ["board"] });
     },
     onError: () => toast.error("댓글 등록 실패"),
   });
@@ -96,6 +132,7 @@ export default function BoardPage() {
     onSuccess: () => {
       toast.success("댓글 삭제됨");
       qc.invalidateQueries({ queryKey: ["board", selectedPost?.id, "comments"] });
+      qc.invalidateQueries({ queryKey: ["board"] });
     },
     onError: () => toast.error("댓글 삭제 실패"),
     onSettled: () => setDeletingCommentId(null),
@@ -136,7 +173,11 @@ export default function BoardPage() {
 
   const PostRow = ({ post, isNotice }: { post: BoardPost; isNotice?: boolean }) => (
     <tr key={post.id}>
-      <td style={{ cursor: "pointer" }} onClick={() => { setSelectedPost(post); setView("detail"); }}>
+      <td style={{ cursor: "pointer" }} onClick={() => {
+        setSelectedPost(post);
+        setView("detail");
+        markSeen(post.id, Number(post.comment_count ?? 0));
+      }}>
         {isNotice && (
           <span style={{ marginRight: 6, fontSize: 11, color: "#D4A017", fontWeight: 700 }}>
             [공지]
@@ -154,6 +195,12 @@ export default function BoardPage() {
           <span style={{ marginLeft: 6, fontSize: 10, color: "#4299E1", fontWeight: 600 }}>
             [{post.comment_count}]
           </span>
+        )}
+        {hasNew(post) && (
+          <span style={{
+            marginLeft: 5, fontSize: 9, fontWeight: 700, color: "#fff",
+            background: "#E53E3E", borderRadius: 3, padding: "1px 4px", verticalAlign: "middle",
+          }}>N</span>
         )}
       </td>
       <td style={{ color: "#718096", fontSize: 12 }}>{displayAuthor(post)}</td>

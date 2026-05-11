@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { oneClickApi, type QuickPoaRequest, type OneClickOutput } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Download, Loader2 } from "lucide-react";
@@ -46,8 +46,9 @@ const OUTPUT_TYPES: OutputTypeSpec[] = [
   { id: "위임장",             label: "위임장",             implemented: true  },
   { id: "건강보험(세대합가)", label: "건강보험 (세대합가)", implemented: false },
   { id: "건강보험(피부양자)", label: "건강보험 (피부양자)", implemented: false },
-  { id: "하이코리아",         label: "하이코리아(비번)",    implemented: true  },
-  { id: "소시넷",             label: "소시넷(비번)",        implemented: true  },
+  { id: "하이코리아",         label: "하이코리아",          implemented: true  },
+  { id: "소시넷(등록증)",     label: "소시넷(등록증)",      implemented: true  },
+  { id: "소시넷(여권)",       label: "소시넷(여권)",        implemented: true  },
 ];
 
 export default function QuickPoaPage() {
@@ -56,6 +57,22 @@ export default function QuickPoaPage() {
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState("위임장");
+  const [hasAgentSign, setHasAgentSign] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token") || "";
+    fetch("/api/signature/agent/exists", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(j => setHasAgentSign(j.exists ?? false)).catch(() => setHasAgentSign(false));
+  }, []);
+
+  // 행정사 서명 확인 후 기본값 자동 설정
+  useEffect(() => {
+    if (hasAgentSign === null) return;
+    setForm(prev => hasAgentSign
+      ? { ...prev, apply_agent_sign: true,  apply_agent_seal: false }
+      : { ...prev, apply_agent_sign: false, apply_agent_seal: true  }
+    );
+  }, [hasAgentSign]);
 
   // Selected output types (only implemented ones can be checked)
   const [selectedOutputs, setSelectedOutputs] = useState<Set<OneClickOutput>>(
@@ -85,7 +102,11 @@ export default function QuickPoaPage() {
     phone3: "",
     passport: "",
     apply_applicant_seal: true,
-    apply_agent_seal: true,
+    apply_agent_seal:     true,
+    apply_applicant_sign: false,
+    apply_agent_sign:     false,
+    site_id:      "",
+    old_passport: "",
     dpi: 200,
     ck_extension: false,
     ck_registration: false,
@@ -241,7 +262,11 @@ export default function QuickPoaPage() {
             { key: "no7"      as const,    label: "등록증 뒤 7자리",   placeholder: "1234567",    always: true  },
             { key: "addr"     as const,    label: "한국 내 주소",       placeholder: "서울시...",  always: true  },
             { key: "passport" as const,    label: "여권번호",           placeholder: "AB1234567", always: false },
-          ].filter(({ always }) => always || selectedOutputs.has("위임장"))
+          ].filter(({ always, key }) =>
+            always ||
+            selectedOutputs.has("위임장") ||
+            (key === "passport" && selectedOutputs.has("소시넷(여권)"))
+          )
            .map(({ key, label, placeholder }) => (
             <div key={key}>
               <label style={labelStyle}>{label}</label>
@@ -253,57 +278,95 @@ export default function QuickPoaPage() {
               />
             </div>
           ))}
-          <div style={{ display: "flex", gap: 8 }}>
-            {(["phone1", "phone2", "phone3"] as const).map((k, i) => (
-              <div key={k} style={{ flex: 1 }}>
-                <label style={labelStyle}>{["연", "락", "처"][i]}</label>
-                <input
-                  style={inputStyle}
-                  value={(form[k] as string) ?? ""}
-                  onChange={(e) => set(k, e.target.value)}
-                  placeholder={["010", "", ""][i]}
-                />
-              </div>
-            ))}
+          {selectedOutputs.has("위임장") && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {(["phone1", "phone2", "phone3"] as const).map((k, i) => (
+                <div key={k} style={{ flex: 1 }}>
+                  <label style={labelStyle}>{["연", "락", "처"][i]}</label>
+                  <input
+                    style={inputStyle}
+                    value={(form[k] as string) ?? ""}
+                    onChange={(e) => set(k, e.target.value)}
+                    placeholder={["010", "", ""][i]}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {/* ID — 하이코리아/소시넷 공통 */}
+          <div>
+            <label style={labelStyle}>ID (하이코리아 · 소시넷 로그인 ID)</label>
+            <input
+              style={inputStyle}
+              value={(form.site_id as string) ?? ""}
+              onChange={(e) => set("site_id", e.target.value)}
+              placeholder="사이트 ID"
+            />
           </div>
+          {/* 구여권 — 소시넷(여권) 선택 시만 표시 */}
+          {selectedOutputs.has("소시넷(여권)") && (
+            <div>
+              <label style={labelStyle}>구여권 번호</label>
+              <input
+                style={inputStyle}
+                value={(form.old_passport as string) ?? ""}
+                onChange={(e) => set("old_passport", e.target.value)}
+                placeholder="이전 여권번호"
+              />
+            </div>
+          )}
         </div>
 
         {/* 오른쪽: 옵션 + 위임업무 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-          {/* 옵션 */}
-          <div
-            style={{
-              background: "#fff", borderRadius: 10, border: "1px solid #E2E8F0",
-              padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10,
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>옵션</div>
-            <label style={checkboxRowStyle}>
-              <input
-                type="checkbox"
-                checked={form.apply_applicant_seal}
-                onChange={(e) => set("apply_applicant_seal", e.target.checked)}
-              />
-              신청인 도장(yin)
-            </label>
-            <label style={checkboxRowStyle}>
-              <input
-                type="checkbox"
-                checked={form.apply_agent_seal}
-                onChange={(e) => set("apply_agent_seal", e.target.checked)}
-              />
-              행정사 도장(ayin)
-            </label>
+          {/* 도장 / 서명 옵션 */}
+          <div style={{
+            background: "#fff", borderRadius: 10, border: "1px solid #E2E8F0",
+            padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>도장 / 서명</div>
+            {/* 신청인 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#4A5568" }}>
+              <span style={{ width: 40, fontWeight: 600 }}>신청인</span>
+              <label style={checkboxRowStyle}>
+                <input type="checkbox" checked={form.apply_applicant_seal}
+                  onChange={(e) => set("apply_applicant_seal", e.target.checked)} />
+                도장
+              </label>
+              <span style={{ fontSize: 11, color: "#A0AEC0" }}>(서명은 고객카드에서)</span>
+            </div>
+            {/* 행정사 — 도장/서명 상호 배타 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#4A5568" }}>
+              <span style={{ width: 40, fontWeight: 600 }}>행정사</span>
+              <label style={checkboxRowStyle}>
+                <input type="checkbox" checked={form.apply_agent_seal}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    set("apply_agent_seal", v);
+                    if (v) set("apply_agent_sign", false);
+                  }} />
+                도장
+              </label>
+              <label style={{
+                ...checkboxRowStyle,
+                color: hasAgentSign === true ? "#2D3748" : "#A0AEC0",
+                cursor: hasAgentSign === true ? "pointer" : "not-allowed",
+              }} title={hasAgentSign === null ? "확인 중..." : hasAgentSign ? undefined : "서명 없음 — 설정에서 등록 필요"}>
+                <input type="checkbox" disabled={hasAgentSign !== true}
+                  checked={form.apply_agent_sign}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    set("apply_agent_sign", v);
+                    if (v) set("apply_agent_seal", false);
+                  }} />
+                {hasAgentSign === null ? "서명 확인중" : hasAgentSign ? "서명" : "서명 없음"}
+              </label>
+            </div>
             <div>
               <label style={labelStyle}>JPG 해상도 (DPI)</label>
-              <select
-                style={{ ...inputStyle, width: "auto" }}
-                value={form.dpi}
-                onChange={(e) => set("dpi", Number(e.target.value))}
-              >
-                {[150, 200, 250, 300].map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
+              <select style={{ ...inputStyle, width: "auto" }} value={form.dpi}
+                onChange={(e) => set("dpi", Number(e.target.value))}>
+                {[150, 200, 250, 300].map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
           </div>

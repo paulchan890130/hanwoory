@@ -190,7 +190,10 @@ def poll_signature(token: str, user: dict = Depends(get_current_user)):
     entry = _pending.get(token)
     if entry is None or _is_expired(entry):
         return {"status": "expired"}
-    if entry["data"] is None:
+    if entry.get("data") is None:
+        # agent 즉시 저장 완료 → "done" 반환 (data는 save/{token}에서 Sheets에서 읽음)
+        if entry.get("type") == "agent" and entry.get("status") == "saved":
+            return {"status": "done"}
         return {"status": "waiting"}
     return {"status": "done", "data": entry["data"]}
 
@@ -229,8 +232,34 @@ def submit_signature(token: str, body: SignatureSubmitBody):
     entry = _pending.get(token)
     if entry is None or _is_expired(entry):
         raise HTTPException(status_code=404, detail="링크가 만료되었거나 유효하지 않습니다.")
-    _pending[token]["data"] = compressed
-    return {"status": "ok"}
+
+    t_hint = token[:8] + "…"
+
+    if entry.get("type") == "agent":
+        # agent 서명: _pending 의존 없이 즉시 Sheets 영구 저장 (서버 재시작 내성)
+        tid = entry.get("tenant_id", "")
+        _log.info("[submit] token=%s type=agent tenant=%s step=saving_immediately", t_hint, tid)
+        from backend.services.signature_service import save_agent_signature
+        try:
+            save_agent_signature(tid, compressed)
+            _log.info("[submit] token=%s type=agent step=saved_to_sheets", t_hint)
+        except Exception as e:
+            _log.error("[submit] token=%s type=agent step=save_failed exc=%s msg=%s",
+                       t_hint, type(e).__name__, e)
+            raise HTTPException(status_code=500, detail=f"행정사 서명 저장 실패: {e}")
+        # _pending에는 Sheets 저장 완료 메타데이터만 유지 (poll / save 응답용)
+        _pending[token] = {
+            "type":       "agent",
+            "tenant_id":  tid,
+            "office_name": entry.get("office_name", ""),
+            "status":     "saved",        # data는 Sheets에 있으므로 여기 보관 불필요
+            "created_at": entry["created_at"],
+        }
+        return {"status": "ok"}
+    else:
+        # temp: 기존 동작 유지 — /temp-slots/{slot}/save/{token}에서 Sheets 저장
+        _pending[token]["data"] = compressed
+        return {"status": "ok"}
 
 
 @router.post("/save/{token}")
@@ -259,32 +288,41 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
             detail="아직 저장된 서명이 없습니다. 고객에게 서명 제출을 요청하세요.",
         )
 
-    # ── agent: _pending fallback ──────────────────────────────────────────────
+    # ── agent: submit에서 이미 Sheets 즉시 저장됨 — 조회/확인만 (idempotent) ───
+    # _pending이 살아있으면 tenant_id 확인 후 정리. 서버 재시작으로 없어도 user로 조회.
+    tenant_id_for_lookup = user.get("tenant_id") or user.get("sub", "")
     entry = _pending.get(token)
-    if entry is None or _is_expired(entry):
-        _log.info("[save] token=%s status=token_not_found", token_hint)
-        raise HTTPException(status_code=404, detail="토큰이 만료되었거나 이미 저장되었습니다.")
-    if entry["data"] is None:
-        raise HTTPException(status_code=400, detail="아직 서명이 제출되지 않았습니다.")
+    if entry is not None and not _is_expired(entry):
+        tenant_id_for_lookup = entry.get("tenant_id", tenant_id_for_lookup)
+        _log.info("[save] token=%s type=agent tenant=%s step=confirming_from_sheets",
+                  token_hint, tenant_id_for_lookup)
+        try:
+            del _pending[token]
+        except KeyError:
+            pass
+    else:
+        _log.info("[save] token=%s status=pending_gone tenant=%s step=checking_sheets",
+                  token_hint, tenant_id_for_lookup)
 
-    sig_type = entry.get("type", "")
-    _log.info("[save] token=%s type=%s step=writing_to_sheets", token_hint, sig_type)
-    from backend.services.signature_service import save_agent_signature
-    try:
-        save_agent_signature(entry["tenant_id"], entry["data"])
-        _log.info("[save] token=%s step=sheets_write_ok", token_hint)
-    except Exception as e:
-        _log.error("[save] token=%s step=sheets_write_failed exc=%s msg=%s",
-                   token_hint, type(e).__name__, e)
-        raise HTTPException(status_code=500, detail=f"저장 실패: {e}")
+    from backend.services.signature_service import get_agent_signature
+    sig_data = get_agent_signature(tenant_id_for_lookup)
+    if sig_data:
+        _log.info("[save] token=%s tenant=%s step=confirmed_from_sheets", token_hint, tenant_id_for_lookup)
+        return {"status": "ok", "data": sig_data}
+    _log.warning("[save] token=%s tenant=%s step=not_found_in_sheets", token_hint, tenant_id_for_lookup)
+    raise HTTPException(
+        status_code=404,
+        detail="행정사 서명 데이터가 만료되었습니다. 다시 등록해 주세요.",
+    )
 
-    saved_data = entry["data"]
-    try:
-        del _pending[token]
-    except KeyError:
-        pass
-    _log.info("[save] token=%s step=done", token_hint)
-    return {"status": "ok", "data": saved_data}
+
+@router.get("/agent/exists")
+def check_agent_signature_exists(user: dict = Depends(get_current_user)):
+    """행정사 서명 존재 여부 확인."""
+    from backend.services.signature_service import get_agent_signature as _get
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    data = _get(tenant_id)
+    return {"exists": bool(data)}
 
 
 @router.get("/agent")

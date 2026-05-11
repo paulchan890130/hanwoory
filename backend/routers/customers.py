@@ -304,6 +304,95 @@ def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
+# ── 고객별 업무 현황 ──────────────────────────────────────────────────────────
+
+_CAT_GROUP_MAP: dict = {
+    "출입국":  "출입국",
+    "영주권":  "출입국",
+    "전자민원": "전자민원",
+    "공증":    "공증",
+    "여권":    "여권·초청",
+    "초청":    "여권·초청",
+    "기타":    "기타",
+}
+
+def _cat_group(cat: str) -> str:
+    return _CAT_GROUP_MAP.get(cat.strip(), "기타")
+
+_EMPTY_GROUPS = {"출입국": 0, "전자민원": 0, "공증": 0, "여권·초청": 0, "기타": 0}
+
+
+@router.get("/{customer_id}/work-summary")
+def get_work_summary(
+    customer_id: str,
+    name: Optional[str] = Query(None),
+    user: dict = Depends(get_current_user),
+):
+    """고객별 완료업무 구분 요약. customer_id 기준 집계 + legacy name 기준 분리 반환."""
+    from backend.services.tenant_service import read_sheet
+    from config import COMPLETED_TASKS_SHEET_NAME, CUSTOMER_SHEET_NAME
+
+    tenant_id = user["tenant_id"]
+    completed = read_sheet(COMPLETED_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+
+    groups: dict = {k: 0 for k in _EMPTY_GROUPS}
+    legacy_groups: dict = {k: 0 for k in _EMPTY_GROUPS}
+
+    for r in completed:
+        if str(r.get("customer_id", "")).strip() == customer_id:
+            g = _cat_group(str(r.get("category", "")))
+            groups[g] = groups.get(g, 0) + 1
+
+    has_name_duplicate = False
+    if name:
+        all_customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+        same_name = sum(1 for c in all_customers if str(c.get("한글", "")).strip() == name.strip())
+        has_name_duplicate = same_name >= 2
+        for r in completed:
+            if str(r.get("customer_id", "")).strip():
+                continue
+            if str(r.get("name", "")).strip() == name.strip():
+                g = _cat_group(str(r.get("category", "")))
+                legacy_groups[g] = legacy_groups.get(g, 0) + 1
+
+    return {
+        "groups":            groups,
+        "total":             sum(groups.values()),
+        "legacy_groups":     legacy_groups,
+        "legacy_total":      sum(legacy_groups.values()),
+        "has_name_duplicate": has_name_duplicate,
+    }
+
+
+@router.get("/{customer_id}/completed-tasks")
+def get_customer_completed_tasks(
+    customer_id: str,
+    name: Optional[str] = Query(None),
+    include_legacy: bool = Query(False),
+    user: dict = Depends(get_current_user),
+):
+    """고객별 완료업무 목록. customer_id 기준 우선, 옵션으로 legacy name 기준 포함."""
+    from backend.services.tenant_service import read_sheet
+    from config import COMPLETED_TASKS_SHEET_NAME
+
+    tenant_id = user["tenant_id"]
+    completed = read_sheet(COMPLETED_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+
+    by_id = [r for r in completed if str(r.get("customer_id", "")).strip() == customer_id]
+    by_id.sort(key=lambda x: x.get("complete_date", "") or x.get("date", ""), reverse=True)
+
+    legacy: list = []
+    if include_legacy and name:
+        legacy = [
+            r for r in completed
+            if not str(r.get("customer_id", "")).strip()
+            and str(r.get("name", "")).strip() == name.strip()
+        ]
+        legacy.sort(key=lambda x: x.get("complete_date", "") or x.get("date", ""), reverse=True)
+
+    return {"tasks": by_id, "legacy_tasks": legacy}
+
+
 # ── 숙소제공자 연결 ────────────────────────────────────────────────────────────
 
 _ACCOMMODATION_SHEET = "숙소제공자연결"

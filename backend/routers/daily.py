@@ -15,6 +15,7 @@ router = APIRouter()
 DAILY_HEADER = [
     "id", "date", "time", "category", "name", "task",
     "income_cash", "income_etc", "exp_cash", "cash_out", "exp_etc", "memo",
+    "customer_id",
 ]
 BALANCE_HEADER = ["key", "value"]
 
@@ -42,7 +43,7 @@ _ACTIVE_HEADER = [
     "id", "category", "date", "name", "work", "details",
     "transfer", "cash", "card", "stamp", "receivable",
     "planned_expense", "processed", "processed_timestamp",
-    "reception", "processing", "storage",
+    "reception", "processing", "storage", "customer_id",
 ]
 
 
@@ -114,13 +115,14 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     import re as _re
     from config import ACTIVE_TASKS_SHEET_NAME
 
-    category = str(rec.get("category", "")).strip()
+    category    = str(rec.get("category",    "")).strip()
     if category == "현금출금":
         return
 
-    name = str(rec.get("name", "")).strip()
-    work = str(rec.get("task", "")).strip()   # daily.task == active.work
-    date = str(rec.get("date", "")).strip()
+    name        = str(rec.get("name",        "")).strip()
+    work        = str(rec.get("task",        "")).strip()   # daily.task == active.work
+    date        = str(rec.get("date",        "")).strip()
+    customer_id = str(rec.get("customer_id", "")).strip()
 
     # 메모에서 income/expense 유형 파싱: [KID]inc=X;e1=Y;e2=Z[/KID]
     memo = str(rec.get("memo", "")) or ""
@@ -186,6 +188,9 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
         for field, dv in delta.items():
             if dv:
                 matched[field] = str(_safe_int(matched.get(field, 0)) + dv)
+        # customer_id가 새로 들어오면 기존 행에도 반영 (빈값인 경우만 덮어쓰기)
+        if customer_id and not str(matched.get("customer_id", "")).strip():
+            matched["customer_id"] = customer_id
         upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [matched], id_field="id")
     else:
         # 매칭 업무 없으면 신규 진행업무 생성
@@ -207,6 +212,7 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
             "reception":           "",
             "processing":          "",
             "storage":             "",
+            "customer_id":         customer_id,
         }
         upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [new_task], id_field="id")
 

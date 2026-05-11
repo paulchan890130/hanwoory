@@ -18,7 +18,7 @@ POST_HEADER = [
     "id", "tenant_id", "author_login", "office_name",
     "is_notice", "category", "title", "content",
     "created_at", "updated_at",
-    "popup_yn", "link_url",
+    "popup_yn", "link_url", "comment_count",
 ]
 
 HIKOREA_MANUAL_URL = (
@@ -134,19 +134,33 @@ def check_manual_update(user: dict = Depends(get_current_user)):
 
 @router.get("")
 def get_posts(user: dict = Depends(get_current_user)):
-    """게시판 목록 - 공지 상단, 나머지 최신순 (댓글 수 포함)"""
+    """게시판 목록 - 공지 상단, 나머지 최신순. comment_count 컬럼에서 직접 읽음."""
     read = _read()
     BOARD, COMMENT = _sheet()
     posts = read(BOARD, default_if_empty=[]) or []
-    # 시스템 내부 행 제거
     posts = [p for p in posts if p.get("category", "") not in (_MANUAL_CHECK_CATEGORY,)]
-    comments = read(COMMENT, default_if_empty=[]) or []
-    # 게시글별 댓글 수 집계
-    from collections import Counter
-    comment_counts = Counter(c.get("post_id") for c in comments if c.get("post_id"))
+
+    # comment_count가 없는 레거시 행이 있으면 댓글 시트에서 일괄 보정 (최초 1회)
+    legacy_ids = [p.get("id") for p in posts if str(p.get("comment_count", "")).strip() == "" and p.get("id")]
+    if legacy_ids:
+        upsert, _ = _write()
+        from collections import Counter
+        comments_all = read(COMMENT, default_if_empty=[]) or []
+        counts = Counter(c.get("post_id") for c in comments_all if c.get("post_id"))
+        to_update = []
+        for p in posts:
+            if str(p.get("comment_count", "")).strip() == "" and p.get("id"):
+                p["comment_count"] = str(counts.get(p["id"], 0))
+                to_update.append({k: str(p.get(k, "")) for k in POST_HEADER})
+        if to_update:
+            upsert(BOARD, header_list=POST_HEADER, records=to_update, id_field="id")
+
     for p in posts:
-        p["comment_count"] = comment_counts.get(p.get("id", ""), 0)
-    # 공지 먼저, 나머지는 최신순
+        try:
+            p["comment_count"] = int(p.get("comment_count") or 0)
+        except (ValueError, TypeError):
+            p["comment_count"] = 0
+
     notices = [p for p in posts if str(p.get("is_notice", "")).strip().upper() == "Y"]
     normal  = [p for p in posts if str(p.get("is_notice", "")).strip().upper() != "Y"]
     notices.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -172,6 +186,7 @@ def create_post(post: BoardPost, user: dict = Depends(get_current_user)):
         post.is_notice = ""
         post.popup_yn = ""
     rec = {k: ("" if v is None else str(v)) for k, v in post.model_dump().items()}
+    rec["comment_count"] = "0"
     try:
         result = upsert(BOARD, header_list=POST_HEADER, records=[rec], id_field="id")
         if not result:
@@ -249,7 +264,8 @@ def get_comments(post_id: str, user: dict = Depends(get_current_user)):
 @router.post("/{post_id}/comments", response_model=dict)
 def add_comment(post_id: str, comment: BoardComment, user: dict = Depends(get_current_user)):
     upsert, _ = _write()
-    _, COMMENT = _sheet()
+    read = _read()
+    BOARD, COMMENT = _sheet()
     now = datetime.datetime.now().isoformat()
     comment.id          = str(uuid.uuid4())
     comment.post_id     = post_id
@@ -261,16 +277,24 @@ def add_comment(post_id: str, comment: BoardComment, user: dict = Depends(get_cu
     comment.updated_at  = now
     rec = {k: ("" if v is None else str(v)) for k, v in comment.model_dump().items()}
     upsert(COMMENT, header_list=COMMENT_HEADER, records=[rec], id_field="id")
+    # comment_count 증가
+    posts = read(BOARD, default_if_empty=[]) or []
+    post = next((p for p in posts if p.get("id") == post_id), None)
+    if post:
+        new_count = str(int(post.get("comment_count") or 0) + 1)
+        post_rec = {k: str(post.get(k, "")) for k in POST_HEADER}
+        post_rec["comment_count"] = new_count
+        upsert(BOARD, header_list=POST_HEADER, records=[post_rec], id_field="id")
     return rec
 
 
 @router.delete("/{post_id}/comments/{comment_id}")
 def delete_comment(post_id: str, comment_id: str, user: dict = Depends(get_current_user)):
-    _, delete = _write()
-    _, COMMENT = _sheet()
-    # 작성자 또는 관리자만
+    upsert, delete = _write()
     read = _read()
-    comments = read(_sheet()[1], default_if_empty=[]) or []
+    BOARD, COMMENT = _sheet()
+    # 작성자 또는 관리자만
+    comments = read(COMMENT, default_if_empty=[]) or []
     existing = next((c for c in comments if c.get("id") == comment_id), None)
     if existing:
         is_own = existing.get("author_login") == user.get("login_id")
@@ -278,4 +302,12 @@ def delete_comment(post_id: str, comment_id: str, user: dict = Depends(get_curre
         if not (is_own or is_admin):
             raise HTTPException(status_code=403, detail="삭제 권한 없음")
     delete(COMMENT, [comment_id], id_field="id")
+    # comment_count 감소
+    posts = read(BOARD, default_if_empty=[]) or []
+    post = next((p for p in posts if p.get("id") == post_id), None)
+    if post:
+        new_count = str(max(0, int(post.get("comment_count") or 0) - 1))
+        post_rec = {k: str(post.get(k, "")) for k in POST_HEADER}
+        post_rec["comment_count"] = new_count
+        upsert(BOARD, header_list=POST_HEADER, records=[post_rec], id_field="id")
     return {"ok": True}

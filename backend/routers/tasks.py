@@ -34,7 +34,7 @@ ACTIVE_HEADER = [
     "id", "category", "date", "name", "work", "details",
     "transfer", "cash", "card", "stamp", "receivable",
     "planned_expense", "processed", "processed_timestamp",
-    "reception", "processing", "storage",
+    "reception", "processing", "storage", "customer_id",
 ]
 
 
@@ -168,7 +168,7 @@ def complete_tasks(req: CompleteTasksRequest, user: dict = Depends(get_current_u
 
     today = datetime.date.today().isoformat()
     completed_header = ["id", "category", "date", "name", "work", "details", "complete_date",
-                        "reception", "processing", "storage"]
+                        "reception", "processing", "storage", "customer_id"]
     completed_records = []
 
     for tid in req.task_ids:
@@ -180,6 +180,8 @@ def complete_tasks(req: CompleteTasksRequest, user: dict = Depends(get_current_u
             # carry over status timestamps
             for ts_field in ("reception", "processing", "storage"):
                 cr[ts_field] = str(t.get(ts_field, ""))
+            # customer_id 보존
+            cr["customer_id"] = str(t.get("customer_id", ""))
             completed_records.append(cr)
 
     if completed_records:
