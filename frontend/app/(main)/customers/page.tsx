@@ -548,6 +548,9 @@ function CustomerDrawer({
   const [showHikoreaPanel, setShowHikoreaPanel] = useState(false);
   const [hikoreaExpiry, setHikoreaExpiry] = useState("");
 
+  // ── 하이코리아 ID찾기 보조 패널 ──
+  const [showIdFindPanel, setShowIdFindPanel] = useState(false);
+
   useEffect(() => {
     if (customer) {
       setForm({ ...customer });
@@ -558,6 +561,7 @@ function CustomerDrawer({
       setShowTempSlots(false);
       setShowHikoreaPanel(false);
       setHikoreaExpiry("");
+      setShowIdFindPanel(false);
     }
   }, [customer]);
 
@@ -808,7 +812,7 @@ function CustomerDrawer({
                   )}
                   {!isNew && (
                     <button
-                      onClick={() => setShowHikoreaPanel(v => !v)}
+                      onClick={() => { setShowHikoreaPanel(v => !v); setShowIdFindPanel(false); }}
                       title="체류만료조회(동포)"
                       style={{
                         display:"flex", alignItems:"center", justifyContent:"center",
@@ -820,6 +824,22 @@ function CustomerDrawer({
                       }}
                     >
                       <Globe size={12} />
+                    </button>
+                  )}
+                  {!isNew && (
+                    <button
+                      onClick={() => { setShowIdFindPanel(v => !v); setShowHikoreaPanel(false); }}
+                      title="하이코리아 ID찾기"
+                      style={{
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        width:28, height:28, borderRadius:6,
+                        border: showIdFindPanel ? "1px solid #B794F4" : "1px solid #D6BCFA",
+                        background: showIdFindPanel ? "#D6BCFA" : "#FAF5FF",
+                        color:"#553C9A",
+                        cursor:"pointer", flexShrink:0, fontWeight:700, fontSize:9,
+                      }}
+                    >
+                      ID
                     </button>
                   )}
                 </div>
@@ -928,6 +948,84 @@ function CustomerDrawer({
                           </button>
                         </div>
                       </div>
+                    </div>
+                  );
+                })()}
+                {/* ── 하이코리아 ID찾기 보조 패널: 버튼 바로 아래 렌더 ── */}
+                {showIdFindPanel && (() => {
+                  const surname  = (form["성"] || "").trim().toUpperCase();
+                  const given    = (form["명"] || "").trim().toUpperCase();
+                  const engName  = [surname, given].filter(Boolean).join(" ");
+                  const reg6     = (form["등록증"] || "").trim();
+                  const reg7     = (form["번호"]   || "").trim();
+                  const birthdate = reg6 ? "19" + reg6 : "";
+                  const regNoRaw = reg6 + reg7;                        // 복사용 (하이픈 없음)
+                  const regNoDisplay = reg6 && reg7 ? `${reg6}-${reg7}` : (reg6 || reg7 || "");
+                  const allText = [
+                    `영문이름: ${engName || "없음"}`,
+                    `생년월일: ${birthdate || "없음"}`,
+                    `외국인등록번호: ${regNoRaw || "없음"}`,
+                  ].join("\n");
+                  const copyVal = (text: string, label: string) => {
+                    if (!text) { toast.error(`${label} 값이 없습니다.`); return; }
+                    navigator.clipboard.writeText(text).catch(() => {});
+                    toast.success(`${label} 복사됨`);
+                  };
+                  return (
+                    <div style={{
+                      marginTop:10, padding:"11px 13px", borderRadius:8,
+                      border:"1px solid #B794F4", background:"#FAF5FF",
+                      fontSize:12,
+                    }}>
+                      {/* 헤더 */}
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:"#553C9A" }}>
+                          하이코리아 ID찾기 보조
+                        </span>
+                        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                          <button
+                            onClick={() => window.open(
+                              "https://www.hikorea.go.kr/memb/membIdFindRM.pt",
+                              "hikorea-id-find",
+                              "width=900,height=760,left=20,top=40,resizable=yes"
+                            )}
+                            style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #B794F4", background:"#D6BCFA", color:"#553C9A", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
+                          >
+                            ID찾기 열기
+                          </button>
+                          <button
+                            onClick={() => setShowIdFindPanel(false)}
+                            style={{ padding:2, background:"none", border:"none", cursor:"pointer", color:"#A0AEC0", lineHeight:1 }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {/* 복사 항목 */}
+                      {[
+                        { label: "영문이름",        value: engName,     warn: !engName  ? "영문 성/이름 없음" : "",        copyVal: engName     },
+                        { label: "생년월일",        value: birthdate,   warn: !reg6     ? "등록번호 앞자리 없음" : "",     copyVal: birthdate   },
+                        { label: "외국인등록번호",  value: regNoDisplay, warn: !reg6 || !reg7 ? (!reg6 ? "등록번호 앞자리 없음" : "등록번호 뒷자리 없음") : "", copyVal: regNoRaw },
+                      ].map(({ label, value, warn, copyVal: cv }) => (
+                        <div key={label} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                          <span style={{ fontSize:10, color:"#4A5568", width:74, flexShrink:0 }}>{label}</span>
+                          {warn
+                            ? <span style={{ fontSize:10, color:"#E53E3E" }}>⚠️ {warn}</span>
+                            : <>
+                                <span style={{ fontSize:11, fontWeight:600, color:"#1A202C", flex:1, fontFamily:"monospace" }}>{value}</span>
+                                <button onClick={() => copyVal(cv, label)}
+                                  style={{ fontSize:10, padding:"1px 7px", borderRadius:4, border:"1px solid #B794F4", background:"#fff", color:"#553C9A", cursor:"pointer", flexShrink:0 }}>
+                                  복사
+                                </button>
+                              </>
+                          }
+                        </div>
+                      ))}
+                      {/* 전체 복사 */}
+                      <button onClick={() => { navigator.clipboard.writeText(allText).catch(() => {}); toast.success("전체 복사됨"); }}
+                        style={{ marginTop:4, fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #B794F4", background:"#fff", color:"#553C9A", cursor:"pointer", fontWeight:600 }}>
+                        전체 복사
+                      </button>
                     </div>
                   );
                 })()}
