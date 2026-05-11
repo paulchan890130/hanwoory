@@ -240,6 +240,36 @@ export const accommodationApi = {
     api.delete(`/api/customers/${encodeURIComponent(customerId)}/accommodation-provider`),
 };
 
+// 신원보증인 연결
+export interface GuarantorConnection {
+  target_customer_id: string;
+  guarantor_type: "customer_db" | "manual";
+  guarantor_customer_id: string;
+  guarantor_name: string;
+  guarantor_last_name: string;
+  guarantor_first_name: string;
+  guarantor_nation: string;
+  guarantor_reg_front: string;
+  guarantor_reg_back: string;
+  guarantor_birth: string;
+  guarantor_phone: string;
+  guarantor_address: string;
+  guarantor_relation: string;
+  guarantor_workplace: string;
+  guarantor_extra: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const guarantorApi = {
+  get: (customerId: string) =>
+    api.get<GuarantorConnection | null>(`/api/customers/${encodeURIComponent(customerId)}/guarantor`),
+  save: (customerId: string, data: Partial<Omit<GuarantorConnection, "target_customer_id" | "updated_at">>) =>
+    api.post<{ ok: boolean; data: GuarantorConnection }>(`/api/customers/${encodeURIComponent(customerId)}/guarantor`, data),
+  delete: (customerId: string) =>
+    api.delete(`/api/customers/${encodeURIComponent(customerId)}/guarantor`),
+};
+
 export interface ExpiryAlert {
   한글이름: string;
   영문이름: string;
@@ -387,6 +417,8 @@ export interface FullDocGenRequest {
   direct_overrides?: Record<string, string>;
   /** 숙소제공자연결 탭 전체 데이터 — 관계/날짜/체크박스 매핑에 사용 */
   accommodation_provider?: AccommodationProvider | null;
+  /** 신원보증인연결 탭 전체 데이터 — 보증인 b* 필드 자동 매핑에 사용 */
+  guarantor_connection?: GuarantorConnection | null;
 }
 
 export const quickDocApi = {

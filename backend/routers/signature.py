@@ -180,12 +180,17 @@ def poll_signature(token: str, user: dict = Depends(get_current_user)):
     # stateless customer token: poll via Sheets A-column exists check
     payload = _decode_customer_token(token)
     if payload is not None:
-        from backend.services.signature_service import has_customer_signature
+        from backend.services.signature_service import has_customer_signature, SignatureLookupError
         csk = payload.get("csk", "")
         cid = payload.get("cid", "")
-        if csk and cid and has_customer_signature(csk, cid):
-            return {"status": "saved"}
-        return {"status": "pending"}
+        if not csk or not cid:
+            return {"status": "pending"}
+        try:
+            saved = has_customer_signature(csk, cid)
+        except SignatureLookupError:
+            # Sheets 조회 실패 — 저장 여부 불확실, pending으로 유지
+            return {"status": "pending"}
+        return {"status": "saved"} if saved else {"status": "pending"}
     # agent/temp: _pending fallback
     entry = _pending.get(token)
     if entry is None or _is_expired(entry):
@@ -274,8 +279,15 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
     if payload is not None:
         csk = payload.get("csk", "")
         cid = payload.get("cid", "")
-        from backend.services.signature_service import has_customer_signature, get_customer_signature
-        if csk and cid and has_customer_signature(csk, cid):
+        from backend.services.signature_service import (
+            has_customer_signature, get_customer_signature, SignatureLookupError,
+        )
+        try:
+            saved = bool(csk and cid and has_customer_signature(csk, cid))
+        except SignatureLookupError as e:
+            _log.error("[save] token=%s cid=%s sheets_lookup_failed: %s", token_hint, cid, e)
+            raise HTTPException(status_code=503, detail="고객서명 조회 실패. 잠시 후 다시 시도해 주세요.") from e
+        if saved:
             _log.info("[save] token=%s customer_id=%s status=confirmed_from_sheets", token_hint, cid)
             try:
                 sig_data = get_customer_signature(csk, cid)
@@ -481,12 +493,21 @@ def check_customer_signature_exists(
     customer_sheet_key: Optional[str] = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    """고객 서명 존재 여부 확인."""
-    from backend.services.signature_service import has_customer_signature
+    """고객 서명 존재 여부 확인.
+    - exists:true/false → 조회 성공 (있음/없음)
+    - HTTP 503 → Sheets 조회 실패 (frontend가 error로 처리해야 함, false 해석 금지)
+    """
+    from backend.services.signature_service import has_customer_signature, SignatureLookupError
     tenant_id = user.get("tenant_id") or user.get("sub", "")
     try:
         csk = _resolve_customer_sheet_key(tenant_id, customer_sheet_key)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    exists = has_customer_signature(csk, customer_id)
+    try:
+        exists = has_customer_signature(csk, customer_id)
+    except SignatureLookupError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="고객서명 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        ) from e
     return {"exists": exists}

@@ -172,21 +172,33 @@ def save_customer_signature(customer_sheet_key: str, customer_id: str, b64: str)
     _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
 
 
+class SignatureLookupError(Exception):
+    """Google Sheets 조회 실패 — 서명 없음과 구별되는 오류."""
+
+
 def has_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
-    """A열만 읽어 존재 여부 확인. B열(base64) 비접촉."""
+    """A열만 읽어 존재 여부 확인. B열(base64) 비접촉.
+
+    Returns:
+        True  — 서명 row가 실제로 존재
+        False — 서명 row가 실제로 없음
+    Raises:
+        SignatureLookupError — Sheets 조회 자체가 실패한 경우 (캐시 저장 안 함)
+    """
     cache_key = (customer_sheet_key, customer_id)
     cached = _sig_exists_cache.get(cache_key)
     if cached:
         result, ts = cached
         if _time.monotonic() - ts < _SIG_EXISTS_CACHE_TTL:
             return result
+    # 조회 성공 시에만 캐시 저장 — 예외는 캐시하지 않음
     try:
         sh = _tenant_customer_sh(customer_sheet_key)
         ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
         row = _find_cust_row(ws, customer_sheet_key, customer_id)
         result = row is not None
-    except Exception:
-        result = False
+    except Exception as e:
+        raise SignatureLookupError(f"고객서명 조회 실패: {e}") from e
     _sig_exists_cache[cache_key] = (result, _time.monotonic())
     return result
 

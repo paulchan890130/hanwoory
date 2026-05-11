@@ -266,6 +266,7 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
   const [regenLoading, setRegenLoading]       = useState(false);
   const [agentInfo, setAgentInfo] = useState<{ office_name: string; contact_name: string } | null>(null);
   const [accommodationProvider, setAccommodationProvider] = useState<AccommodationProvider | null>(null);
+  const [guarantorConnection, setGuarantorConnection]   = useState<import("@/lib/api").GuarantorConnection | null>(null);
 
   // 행정사 정보 + 서명 확인
   useEffect(() => {
@@ -336,6 +337,33 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
           setAccommodation({
             customer: null,
             directName: p.provider_name,
+            seal: true, sign: false, hasSignature: false,
+          });
+        }
+      })
+      .catch(() => {});
+
+    // 3) 신원보증인 preload → 상태 저장 + guarantor role 자동 설정
+    fetch(`/api/customers/${encodeURIComponent(initId)}/guarantor`, { headers: authHeader })
+      .then((r) => r.json())
+      .then((g) => {
+        if (cancelled || !g) return;
+        setGuarantorConnection(g);
+        if (g.guarantor_type === "customer_db" && g.guarantor_customer_id) {
+          setGuarantor({
+            customer: {
+              id: g.guarantor_customer_id,
+              name: g.guarantor_name || "",
+              label: g.guarantor_name || "",
+              reg_no: g.guarantor_reg_front || "",
+            },
+            directName: "",
+            seal: true, sign: false, hasSignature: false,
+          });
+        } else if (g.guarantor_name) {
+          setGuarantor({
+            customer: null,
+            directName: g.guarantor_name,
             seal: true, sign: false, hasSignature: false,
           });
         }
@@ -459,6 +487,7 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
       accommodation_id:       accommodation.customer?.id,
       accommodation_name:     !accommodation.customer ? accommodation.directName.trim() || undefined : undefined,
       accommodation_provider: accommodationProvider || undefined,
+      guarantor_connection:   guarantorConnection || undefined,
       guarantor_id:  guarantor.customer?.id,
       guarantor_name: !guarantor.customer ? guarantor.directName.trim() || undefined : undefined,
       guardian_id:   guardian.customer?.id,

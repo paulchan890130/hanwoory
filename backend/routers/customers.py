@@ -12,6 +12,20 @@ from backend.services.cache_service import cache_get, cache_set, cache_invalidat
 router = APIRouter()
 _log = logging.getLogger("customers.accommodation")
 
+# ── process-level worksheet header validation cache ───────────────────────────
+# key: (sheet_key, worksheet_name) — 서버 재시작 시 초기화 허용
+_VALIDATED_CUSTOMER_WORKSHEETS: set = set()
+
+
+def _raise_if_quota(e: Exception) -> None:
+    """gspread APIError에서 429/Quota를 감지하면 HTTP 503으로 변환."""
+    s = str(e)
+    if "429" in s or "Quota exceeded" in s or "quota" in s.lower():
+        raise HTTPException(
+            status_code=503,
+            detail="Google Sheets 읽기 한도 초과입니다. 잠시 후 다시 시도해 주세요.",
+        ) from e
+
 _CACHE_EXPIRY = "customers:expiry-alerts"
 _TTL_EXPIRY = 120.0  # seconds — extended from 30; 고객 데이터 1,451 rows is the heaviest read
 
@@ -460,9 +474,28 @@ def _get_accommodation_ws(tenant_id: str):
     sh = gc.open_by_key(sheet_key)
     _log.debug("[accommodation] tenant=%s sheet_id=...%s title=%r", tenant_id, sheet_key[-6:], sh.title)
 
+    import gspread
+    cache_key = (sheet_key, _ACCOMMODATION_SHEET)
     try:
         ws = sh.worksheet(_ACCOMMODATION_SHEET)
-        existing_header = ws.row_values(1) if ws.row_count > 0 else []
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sh.add_worksheet(title=_ACCOMMODATION_SHEET, rows=500, cols=len(_ACCOMMODATION_HEADERS))
+        ws.update("A1", [_ACCOMMODATION_HEADERS], value_input_option="RAW")
+        _VALIDATED_CUSTOMER_WORKSHEETS.add(cache_key)
+        _log.info("[accommodation] tenant=%s 새 탭 생성 완료 (sheet_id=...%s)",
+                  tenant_id, sheet_key[-6:])
+        return ws
+    except Exception as e:
+        _raise_if_quota(e)
+        raise
+
+    # 헤더 검증 — process-level cache로 반복 row_values 생략
+    if cache_key not in _VALIDATED_CUSTOMER_WORKSHEETS:
+        try:
+            existing_header = ws.row_values(1) if ws.row_count > 0 else []
+        except Exception as e:
+            _raise_if_quota(e)
+            raise
         if not existing_header:
             ws.update("A1", [_ACCOMMODATION_HEADERS], value_input_option="RAW")
             _log.info("[accommodation] tenant=%s 헤더 초기화 완료", tenant_id)
@@ -471,12 +504,7 @@ def _get_accommodation_ws(tenant_id: str):
                       [_ACCOMMODATION_HEADERS], value_input_option="RAW")
             _log.info("[accommodation] tenant=%s 헤더 확장 완료 (%d→%d컬럼)",
                       tenant_id, len(existing_header), len(_ACCOMMODATION_HEADERS))
-    except Exception:
-        # 탭 없음 → 생성 (lazy migration)
-        ws = sh.add_worksheet(title=_ACCOMMODATION_SHEET, rows=500, cols=len(_ACCOMMODATION_HEADERS))
-        ws.update("A1", [_ACCOMMODATION_HEADERS], value_input_option="RAW")
-        _log.info("[accommodation] tenant=%s 새 탭 생성 완료 (sheet_id=...%s)",
-                  tenant_id, sheet_key[-6:])
+        _VALIDATED_CUSTOMER_WORKSHEETS.add(cache_key)
     return ws
 
 
@@ -526,8 +554,11 @@ def get_accommodation_provider(customer_id: str, user: dict = Depends(get_curren
     try:
         ws = _get_accommodation_ws(tenant_id)
         record = _read_accommodation_record(ws, customer_id)
-        return record  # None이면 null 반환
+        return record
+    except HTTPException:
+        raise
     except Exception as e:
+        _raise_if_quota(e)
         raise HTTPException(status_code=500, detail=f"숙소제공자 조회 실패: {e}")
 
 
@@ -605,6 +636,7 @@ def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depen
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         _log.error("[accommodation.save] tenant=%s 저장 실패: %s", tenant_id, e)
+        _raise_if_quota(e)
         raise HTTPException(status_code=500, detail=f"숙소제공자 저장 실패: {e}")
 
 
@@ -621,6 +653,230 @@ def delete_accommodation_provider(customer_id: str, user: dict = Depends(get_cur
             if row and row[0].strip() == customer_id.strip():
                 ws.delete_rows(i)
                 return {"ok": True}
-        return {"ok": True}  # 없어도 성공
+        return {"ok": True}
+    except HTTPException:
+        raise
     except Exception as e:
+        _raise_if_quota(e)
         raise HTTPException(status_code=500, detail=f"숙소제공자 연결 해제 실패: {e}")
+
+
+# ── 신원보증인 연결 ────────────────────────────────────────────────────────────
+
+_GUARANTOR_SHEET = "신원보증인연결"
+_GUARANTOR_HEADERS = [
+    "target_customer_id",
+    "guarantor_type",          # customer_db / manual
+    "guarantor_customer_id",   # DB 고객 선택 시 고객ID
+    "guarantor_name",          # 한글 성명 → bkoreanname
+    "guarantor_last_name",     # 영문 성 → bsurname
+    "guarantor_first_name",    # 영문 이름 → bgiven names
+    "guarantor_nation",        # 국적 → bnation
+    "guarantor_reg_front",     # 등록번호 앞자리 → bfnumber / byyyy계산
+    "guarantor_reg_back",      # 등록번호 뒷자리 → brnumber
+    "guarantor_birth",         # 생년월일 보조
+    "guarantor_phone",         # 연락처 → bphone1/2/3
+    "guarantor_address",       # 주소 → badress
+    "guarantor_relation",      # 관계
+    "guarantor_workplace",     # 직장/근무처
+    "guarantor_extra",         # 비고
+    "created_at",
+    "updated_at",
+]
+
+
+def _get_guarantor_ws(tenant_id: str):
+    """고객 워크북에서 신원보증인연결 탭을 가져오거나 없으면 생성한다 (lazy migration).
+    숙소제공자연결과 동일한 guard 적용."""
+    from config import (
+        SHEET_KEY as _ADMIN_KEY,
+        CUSTOMER_DATA_TEMPLATE_ID as _TMPL_ID,
+        DEFAULT_TENANT_ID as _DEFAULT_TID,
+    )
+    from backend.services.tenant_service import get_customer_sheet_key, _get_gspread_client, _col_letter
+
+    sheet_key = get_customer_sheet_key(tenant_id)
+
+    if sheet_key == _TMPL_ID:
+        _log.error("[guarantor] tenant=%s → sheet_key가 CUSTOMER_DATA_TEMPLATE_ID — 저장 차단", tenant_id)
+        raise ValueError(f"tenant '{tenant_id}': customer_sheet_key가 기준 데이터 템플릿입니다.")
+    if sheet_key == _ADMIN_KEY and tenant_id != _DEFAULT_TID:
+        _log.error("[guarantor] tenant=%s → sheet_key가 어드민 마스터 SHEET_KEY — 비한우리 테넌트 저장 차단", tenant_id)
+        raise ValueError(f"tenant '{tenant_id}': customer_sheet_key가 어드민 마스터 시트입니다.")
+
+    gc = _get_gspread_client()
+    sh = gc.open_by_key(sheet_key)
+    _log.debug("[guarantor] tenant=%s sheet_id=...%s title=%r", tenant_id, sheet_key[-6:], sh.title)
+
+    import gspread
+    cache_key = (sheet_key, _GUARANTOR_SHEET)
+    try:
+        ws = sh.worksheet(_GUARANTOR_SHEET)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sh.add_worksheet(title=_GUARANTOR_SHEET, rows=500, cols=len(_GUARANTOR_HEADERS))
+        ws.update("A1", [_GUARANTOR_HEADERS], value_input_option="RAW")
+        _VALIDATED_CUSTOMER_WORKSHEETS.add(cache_key)
+        _log.info("[guarantor] tenant=%s 새 탭 생성 완료", tenant_id)
+        return ws
+    except Exception as e:
+        _raise_if_quota(e)
+        raise
+
+    # 헤더 검증 — process-level cache로 반복 row_values 생략
+    if cache_key not in _VALIDATED_CUSTOMER_WORKSHEETS:
+        try:
+            existing_header = ws.row_values(1) if ws.row_count > 0 else []
+        except Exception as e:
+            _raise_if_quota(e)
+            raise
+        if not existing_header:
+            ws.update("A1", [_GUARANTOR_HEADERS], value_input_option="RAW")
+        elif existing_header != _GUARANTOR_HEADERS:
+            ws.update(f"A1:{_col_letter(len(_GUARANTOR_HEADERS))}1",
+                      [_GUARANTOR_HEADERS], value_input_option="RAW")
+            _log.info("[guarantor] tenant=%s 헤더 확장 완료", tenant_id)
+        _VALIDATED_CUSTOMER_WORKSHEETS.add(cache_key)
+    return ws
+
+
+def _read_guarantor_record(ws, customer_id: str) -> "dict | None":
+    values = ws.get_all_values()
+    if len(values) < 2:
+        return None
+    header = values[0]
+    for row in values[1:]:
+        if row and row[0].strip() == customer_id.strip():
+            return dict(zip(header, row))
+    return None
+
+
+def _upsert_guarantor_record(ws, record: dict) -> None:
+    from backend.services.tenant_service import _col_letter
+    values = ws.get_all_values()
+    if not values:
+        ws.update("A1", [_GUARANTOR_HEADERS], value_input_option="RAW")
+        ws.append_row([str(record.get(h, "")) for h in _GUARANTOR_HEADERS], value_input_option="RAW")
+        return
+    header = values[0]
+    if header != _GUARANTOR_HEADERS:
+        ws.update(f"A1:{_col_letter(len(_GUARANTOR_HEADERS))}1",
+                  [_GUARANTOR_HEADERS], value_input_option="RAW")
+        header = _GUARANTOR_HEADERS
+    customer_id = str(record.get("target_customer_id", "")).strip()
+    for i, row in enumerate(values[1:], start=2):
+        if row and row[0].strip() == customer_id:
+            existing = dict(zip(values[0], row))
+            if not record.get("created_at") and existing.get("created_at"):
+                record["created_at"] = existing["created_at"]
+            ws.update(f"A{i}:{_col_letter(len(header))}{i}",
+                      [[str(record.get(h, "")) for h in header]], value_input_option="RAW")
+            return
+    ws.append_row([str(record.get(h, "")) for h in header], value_input_option="RAW")
+
+
+@router.get("/{customer_id}/guarantor")
+def get_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
+    """고객의 신원보증인 연결 정보 조회."""
+    tenant_id = user["tenant_id"]
+    try:
+        ws = _get_guarantor_ws(tenant_id)
+        record = _read_guarantor_record(ws, customer_id)
+        return record
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_if_quota(e)
+        raise HTTPException(status_code=500, detail=f"신원보증인 조회 실패: {e}")
+
+
+@router.post("/{customer_id}/guarantor")
+def save_guarantor(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
+    """고객의 신원보증인 연결 저장 (upsert).
+    guarantor_type=customer_db이면 고객 DB에서 빈 필드를 자동 보완한다."""
+    import datetime
+    tenant_id = user["tenant_id"]
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    record = {
+        "target_customer_id":   customer_id,
+        "guarantor_type":       str(data.get("guarantor_type", "manual")),
+        "guarantor_customer_id": str(data.get("guarantor_customer_id", "")),
+        "guarantor_name":       str(data.get("guarantor_name", "")),
+        "guarantor_last_name":  str(data.get("guarantor_last_name", "")),
+        "guarantor_first_name": str(data.get("guarantor_first_name", "")),
+        "guarantor_nation":     str(data.get("guarantor_nation", "")),
+        "guarantor_reg_front":  str(data.get("guarantor_reg_front", "")),
+        "guarantor_reg_back":   str(data.get("guarantor_reg_back", "")),
+        "guarantor_birth":      str(data.get("guarantor_birth", "")),
+        "guarantor_phone":      str(data.get("guarantor_phone", "")),
+        "guarantor_address":    str(data.get("guarantor_address", "")),
+        "guarantor_relation":   str(data.get("guarantor_relation", "")),
+        "guarantor_workplace":  str(data.get("guarantor_workplace", "")),
+        "guarantor_extra":      str(data.get("guarantor_extra", "")),
+        "created_at":           now,
+        "updated_at":           now,
+    }
+
+    # DB 고객 선택 시 빈 필드 자동 보완
+    if record["guarantor_type"] == "customer_db" and record["guarantor_customer_id"]:
+        try:
+            from backend.services.tenant_service import read_sheet
+            customers = read_sheet("고객 데이터", tenant_id) or []
+            pid = record["guarantor_customer_id"]
+            for c in customers:
+                if str(c.get("고객ID", "")).strip() == pid:
+                    def _fill(field: str, src: str) -> None:
+                        if not record[field]:
+                            record[field] = str(c.get(src, ""))
+                    _fill("guarantor_name",       "한글")
+                    _fill("guarantor_last_name",  "성")
+                    _fill("guarantor_first_name", "명")
+                    _fill("guarantor_nation",     "국적")
+                    _fill("guarantor_reg_front",  "등록증")
+                    _fill("guarantor_reg_back",   "번호")
+                    _fill("guarantor_address",    "주소")
+                    if not record["guarantor_phone"]:
+                        p = "-".join(x for x in [
+                            str(c.get("연", "")).strip(),
+                            str(c.get("락", "")).strip(),
+                            str(c.get("처", "")).strip(),
+                        ] if x)
+                        record["guarantor_phone"] = p
+                    break
+        except Exception as e:
+            print(f"[guarantor] 고객 자동채움 실패: {e}")
+
+    try:
+        _log.info("[guarantor.save] tenant=%s target=%s type=%s name=%s",
+                  tenant_id, customer_id, record.get("guarantor_type", ""), record.get("guarantor_name", ""))
+        ws = _get_guarantor_ws(tenant_id)
+        _upsert_guarantor_record(ws, record)
+        return {"ok": True, "data": record}
+    except ValueError as e:
+        _log.error("[guarantor.save] tenant=%s guard 차단: %s", tenant_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        _log.error("[guarantor.save] tenant=%s 저장 실패: %s", tenant_id, e)
+        _raise_if_quota(e)
+        raise HTTPException(status_code=500, detail=f"신원보증인 저장 실패: {e}")
+
+
+@router.delete("/{customer_id}/guarantor")
+def delete_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
+    """고객의 신원보증인 연결 해제."""
+    tenant_id = user["tenant_id"]
+    try:
+        ws = _get_guarantor_ws(tenant_id)
+        values = ws.get_all_values()
+        if len(values) < 2:
+            return {"ok": True}
+        for i, row in enumerate(values[1:], start=2):
+            if row and row[0].strip() == customer_id.strip():
+                ws.delete_rows(i)
+                return {"ok": True}
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_if_quota(e)
+        raise HTTPException(status_code=500, detail=f"신원보증인 연결 해제 실패: {e}")

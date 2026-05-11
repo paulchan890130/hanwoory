@@ -128,19 +128,26 @@ export default function QuickPoaPanel({ initialCustomer }: QuickPoaPanelProps) {
   useEffect(() => {
     const token = localStorage.getItem("access_token") || "";
     const hdrs = { Authorization: `Bearer ${token}` };
+    // 행정사 서명: 오류 시 null 유지 (false 설정 금지 — 도장 강제 전환 방지)
     fetch("/api/signature/agent/exists", { headers: hdrs })
-      .then(r => r.json()).then(j => setHasAgentSign(j.exists ?? false)).catch(() => setHasAgentSign(false));
+      .then(r => { if (!r.ok) return; return r.json(); })
+      .then(j => { if (j) setHasAgentSign(j.exists ?? false); })
+      .catch(() => { /* 네트워크 오류 — null 유지, false 설정 금지 */ });
+    // 고객 서명: 오류 시 null 유지 (false 설정 금지 — 서명 있는 고객이 도장으로 전환되는 버그 방지)
     if (customerId) {
       fetch(`/api/signature/customer/${encodeURIComponent(customerId)}/exists`, { headers: hdrs })
-        .then(r => r.json()).then(j => setHasCustSign(j.exists ?? false)).catch(() => setHasCustSign(false));
+        .then(r => { if (!r.ok) return; return r.json(); })
+        .then(j => { if (j) setHasCustSign(j.exists ?? false); })
+        .catch(() => { /* 네트워크 오류 — null 유지, false 설정 금지 */ });
     } else {
-      setHasCustSign(false);
+      setHasCustSign(false);  // customer_id 자체가 없으면 서명 불가 → false 정상
     }
   }, [customerId]);
 
-  // 서명 존재 확인 후 기본값 자동 설정 (서명 있으면 서명, 없으면 도장)
+  // 서명 존재 확인 후 기본값 자동 설정
+  // null = 조회 중 또는 조회 실패 → 기존 선택 유지 (도장으로 강제 전환 금지)
   useEffect(() => {
-    if (hasCustSign === null) return;
+    if (hasCustSign === null) return;  // 조회 실패/대기 → 현재 선택 유지
     setForm(prev => hasCustSign
       ? { ...prev, apply_applicant_sign: true,  apply_applicant_seal: false }
       : { ...prev, apply_applicant_sign: false, apply_applicant_seal: true  }
@@ -148,7 +155,7 @@ export default function QuickPoaPanel({ initialCustomer }: QuickPoaPanelProps) {
   }, [hasCustSign]);
 
   useEffect(() => {
-    if (hasAgentSign === null) return;
+    if (hasAgentSign === null) return;  // 조회 실패/대기 → 현재 선택 유지
     setForm(prev => hasAgentSign
       ? { ...prev, apply_agent_sign: true,  apply_agent_seal: false }
       : { ...prev, apply_agent_sign: false, apply_agent_seal: true  }

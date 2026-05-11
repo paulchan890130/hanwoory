@@ -720,6 +720,7 @@ class FullDocGenRequest(BaseModel):
     sign_agent: bool = False
     direct_overrides: Optional[dict] = None
     accommodation_provider: Optional[dict] = None  # 숙소제공자연결 탭 전체 데이터
+    guarantor_connection: Optional[dict] = None    # 신원보증인연결 탭 전체 데이터
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
@@ -808,6 +809,34 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
             prov = find_customer(ap.get("provider_customer_id"))
 
     guarantor  = find_customer(req.guarantor_id)
+    if req.guarantor_connection:
+        gc_data = req.guarantor_connection
+        if guarantor is None:
+            # guarantor_id 없거나 DB 조회 실패 → guarantor_connection 전체 사용
+            if gc_data.get("guarantor_type") == "customer_db" and gc_data.get("guarantor_customer_id"):
+                guarantor = find_customer(gc_data["guarantor_customer_id"])
+            if guarantor is None and gc_data.get("guarantor_name"):
+                # manual 또는 DB 조회 실패 → 저장된 필드로 보증인 dict 구성
+                ph1, ph2, ph3 = _split_phone(gc_data.get("guarantor_phone", ""))
+                guarantor = {
+                    "성":    gc_data.get("guarantor_last_name", ""),
+                    "명":    gc_data.get("guarantor_first_name", ""),
+                    "한글":  gc_data.get("guarantor_name", ""),
+                    "등록증": gc_data.get("guarantor_reg_front", ""),
+                    "번호":  gc_data.get("guarantor_reg_back", ""),
+                    "주소":  gc_data.get("guarantor_address", ""),
+                    "국적":  gc_data.get("guarantor_nation", ""),
+                    "연":    ph1,
+                    "락":    ph2,
+                    "처":    ph3,
+                }
+        else:
+            # DB 고객을 찾았지만 주소가 비어 있으면 연결 탭 저장값으로 보완
+            # (보증인 DB 고객 주소가 없는 경우 → badress 빈값 방지)
+            if not str(guarantor.get("주소", "") or "").strip():
+                addr = str(gc_data.get("guarantor_address", "") or "").strip()
+                if addr:
+                    guarantor["주소"] = addr
     guardian   = find_customer(req.guardian_id)
     aggregator = find_customer(req.aggregator_id)
 
@@ -895,6 +924,14 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         kind=kind,
         detail=detail,
     )
+
+    # ── 신원보증인 관계 → PDF 필드 rela 매핑 ──────────────────────────────────
+    # build_field_values는 guarantor dict(고객 row 구조)만 받으므로 관계(rela)는 별도 처리
+    # guarantor_connection에서 사용자가 입력한 관계 사용
+    if req.guarantor_connection:
+        rel = str(req.guarantor_connection.get("guarantor_relation", "") or "").strip()
+        if rel:
+            field_values["rela"] = rel
 
     # ── 편집 후 재생성: direct_overrides를 build_field_values 결과에 최종 적용 ──
     if req.direct_overrides:
