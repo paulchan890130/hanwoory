@@ -860,43 +860,13 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     aggregator_seal_name = aggregator.get("한글", "") if aggregator else (req.aggregator_name or "")
 
     # ── 보증인/숙소제공자 도장/서명 정규화 ─────────────────────────────────
-    # 규칙: 둘 다 true → 서명 우선, 둘 다 false → 연결 고객 서명 존재 여부로 결정
-    # 반드시 연결된 고객의 고객ID만 사용 (신청인 ID 사용 금지)
-    _hn_hcs = None
-    _norm_csk = None
-    try:
-        from backend.services.signature_service import has_customer_signature as _hn_hcs
-        from backend.services.tenant_service import get_customer_sheet_key as _hn_gcsk
-        _norm_csk = _hn_gcsk(tenant_id)
-    except Exception:
-        pass
-
-    def _linked_has_sign(customer_obj: Optional[dict]) -> bool:
-        if not customer_obj or not _norm_csk or not _hn_hcs:
-            return False
-        cid = str(customer_obj.get("고객ID", "")).strip()
-        if not cid:
-            return False
-        try:
-            return bool(_hn_hcs(_norm_csk, cid))
-        except Exception:
-            return False
-
+    # 규칙: 둘 다 true → 서명 우선 (상호 배타 보정)
+    # 둘 다 false = 프론트엔드에서 사용자가 명시적으로 "없음"을 선택한 것 → 그대로 유지
     if req.sign_accommodation and req.seal_accommodation:
         req.seal_accommodation = False
-    elif not req.sign_accommodation and not req.seal_accommodation:
-        if _linked_has_sign(prov):
-            req.sign_accommodation = True
-        elif accommodation_seal_name:
-            req.seal_accommodation = True
 
     if req.sign_guarantor and req.seal_guarantor:
         req.seal_guarantor = False
-    elif not req.sign_guarantor and not req.seal_guarantor:
-        if _linked_has_sign(guarantor):
-            req.sign_guarantor = True
-        elif guarantor_seal_name:
-            req.seal_guarantor = True
 
     seal_bytes_by_role = {
         "applicant":     make_seal_bytes(applicant_seal_name)     if req.seal_applicant     else None,

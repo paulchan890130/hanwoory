@@ -111,13 +111,19 @@ Tabs that always route to admin `SHEET_KEY` (shared): `"게시판"`, `"게시판
 `build_field_values()` constructs a flat dict of PDF field names → values, then `fill_and_append_pdf()` writes them via PyMuPDF. Key field name prefixes:
 - `b*` = 신원보증인 (e.g. `bkoreanname`, `bsurname`, `badress`, `bphone1/2/3`, `byin`, `bysign`)
 - `h*` = 숙소제공자 (e.g. `hkoreanname`, `hsurname`)
+- `g*` = 법정대리인 (e.g. `gyin`, `gysign`) — only when `is_minor=True`
+- `p*` = 합산자 — 체류변경 F5 only (`need_aggregator()` returns True only for (체류, 변경, F, 5))
 - `a*` = 행정사 (e.g. `ayin`, `aysign`, `agent_tel`)
 - `yin`/`ysign` = 신청인 도장/서명
 - `rela` = 신원보증인 관계
 
-`FullDocGenRequest` supports `accommodation_provider` (dict from 숙소제공자연결 tab) and `guarantor_connection` (dict from 신원보증인연결 tab) — these are passed in addition to `*_id` fields and override empty DB values.
+`FullDocGenRequest` supports:
+- `accommodation_provider` (dict from 숙소제공자연결 tab) and `guarantor_connection` (dict from 신원보증인연결 tab) — passed in addition to `*_id` fields and override empty DB values.
+- `direct_overrides: dict` — applied last over `build_field_values()` output; used by the "편집 후 재다운로드" panel to patch individual PDF widget values without re-fetching Sheets data.
 
-**원클릭 작성** (`/quick-poa`): `_ALL_OUTPUTS` / `_IMPLEMENTED_OUTPUTS` / `_OUTPUT_ORDER` constants control which one-click types are available (위임장, 하이코리아, 소시넷(등록증), 소시넷(여권)).
+**Sign/seal normalization in `generate_full()`:** When both `sign_*` and `seal_*` flags are False for accommodation or guarantor, the backend auto-detects: if the linked customer has a `고객서명` entry → use signature; else if name exists → use seal. This fires only when the frontend sends both as False (never intended behavior). Guardian and aggregator do NOT have auto-detection — they rely entirely on frontend flags.
+
+**원클릭 작성** (`/quick-poa`): `_ALL_OUTPUTS` / `_IMPLEMENTED_OUTPUTS` / `_OUTPUT_ORDER` constants control which one-click types are available. Currently implemented: 위임장, 하이코리아, 소시넷(등록증), 소시넷(여권). `건강보험(세대합가)` and `건강보험(피부양자)` are in `_ALL_OUTPUTS` but **not** `_IMPLEMENTED_OUTPUTS` — PDF templates are missing.
 
 ### Signature system (`backend/routers/signature.py`, `backend/services/signature_service.py`)
 
@@ -126,11 +132,27 @@ Three separate Sheets tabs:
 - `"고객서명"` in `customer_sheet_key` — customer signature, key: `고객ID`. Also saved immediately on submit.
 - `"서명임시저장"` in `SHEET_KEY` — temp slots 1–3, key: `(slot, tenant_id)`.
 
+**Token architecture differs by type:**
+- **Customer** tokens are **stateless HMAC** (`_encode_customer_token()`): payload `{t:"c", cid, csk, exp}` encoded as base64url + 16-char SHA256 HMAC. No server memory needed. `/submit` writes directly to `고객서명`; `/poll` queries Sheets; `/save` is idempotent confirm.
+- **Agent** tokens use an **in-memory `_pending` dict** keyed by token. `/submit` saves directly to `행정사서명`; `/poll` checks `_pending`; `/save` confirms from Sheets or returns 404.
+
 `has_customer_signature()` raises `SignatureLookupError` on Sheets API failure (not silent False). The exists endpoint returns HTTP 503 on lookup failure — frontend must not interpret 503 as "no signature".
+
+### Sheets read cache (`backend/services/tenant_service.py`)
+
+`read_sheet()` uses a two-level locking strategy to prevent thundering-herd 429s when the dashboard triggers 5–6 concurrent cold-cache reads:
+1. **Global lock** for fast cache-hit path (avoids per-key overhead on hits).
+2. **Per-`(tenant_id, sheet_name)` lock** for slow path — serialises concurrent API calls to the same sheet with double-checked locking (second requester hits cache after waiting).
+
+`_READ_CACHE_TTL = 120` seconds (raised from 30). Writes (`upsert`, `delete`) invalidate the relevant key immediately via `_INVALIDATION_TOKENS` so a concurrent read doesn't re-store stale data after the write completes.
 
 ### Frontend key patterns
 
 **Auth:** `frontend/lib/auth.ts` — `getUser`, `setUser`, `clearUser`, `isLoggedIn`. Stores `user_info` (JSON) and `access_token` (bare token) as separate localStorage keys. `api.ts` reads `access_token` for `Authorization` header.
+
+**401 handling:** `api.ts` response interceptor clears localStorage + the `kid_auth` cookie, then redirects to `/login`. Sets `sessionStorage["auth_expired"] = "1"` so the login page can show "장시간 미이용으로 로그아웃" — distinguishable from manual logout (which never sets this flag). Use `X-Skip-Auth-Redirect: 1` header on requests that must NOT trigger auto-redirect on 401.
+
+**QuickDocPanel preload dedup:** The `[initId]` preload effect creates a per-run `signatureStatusCache: Map<string, Promise<SignatureStatus>>` and `checkSignatureOnce(id)` helper. Multiple roles that share the same linked `customer_id` (e.g. accommodation provider and guarantor are the same person) share one `GET /api/signature/customer/{id}/exists` request. Each role sets its state in a single `setAccommodation` / `setGuarantor` call after `await`-ing both the relationship API response and the signature check — no two-step functional update.
 
 **Customer card useEffect deps:** All Google Sheets API calls in `CustomerDrawer` use `customerId` string (not the full `customer` object) as their dependency. This prevents unnecessary re-fetches when the object reference changes after save.
 
