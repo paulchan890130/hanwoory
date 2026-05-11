@@ -1484,19 +1484,21 @@ export default function CustomersPage() {
         />
       )}
 
-      {/* 문서자동작성 오버레이 — 우측 고객카드(480px)를 제외한 영역만 덮음 */}
+      {/* 문서자동작성 오버레이 — position:fixed, 사이드바·상단바 미침범 */}
       {docOverlayOpen && selectedCustomer && !isNewMode && (
         <div style={{
-          position:"absolute",
-          top:0, bottom:0, left:0,
-          right:"min(480px, 100vw)",  // 고객카드 폭만큼 비워 겹침 방지
+          position:"fixed",
+          top:56,                            // 상단바(56px) 아래
+          bottom:0,
+          left:"var(--hw-main-left, 0px)",   // 사이드바 오른쪽부터
+          right:"min(480px, 100vw)",         // 고객카드 480px 제외
           zIndex:45,
-          background:"#fff", borderRadius:8,
+          background:"#fff",
           display:"flex", flexDirection:"column",
           boxShadow:"0 4px 20px rgba(0,0,0,0.14)",
           overflow:"hidden",
         }}>
-          {/* 헤더 */}
+          {/* 헤더 — flex 고정 */}
           <div style={{
             display:"flex", alignItems:"center", justifyContent:"space-between",
             padding:"11px 18px", borderBottom:"1px solid #E2E8F0",
@@ -1516,8 +1518,8 @@ export default function CustomersPage() {
               <X size={18} />
             </button>
           </div>
-          {/* 컨텐츠 */}
-          <div style={{ flex:1, overflowY:"auto", padding:"20px 20px" }}>
+          {/* 컨텐츠 — flex:1로 남은 높이 전부 사용, 내부 스크롤 */}
+          <div style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"20px" }}>
             <Suspense>
               <QuickDocPanel
                 initialCustomer={{
@@ -1535,14 +1537,16 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* 원클릭 작성 오버레이 — 우측 고객카드(480px)를 제외한 영역만 덮음 */}
+      {/* 원클릭 작성 오버레이 — position:fixed, 사이드바·상단바 미침범 */}
       {quickPoaOverlayOpen && selectedCustomer && !isNewMode && (
         <div style={{
-          position:"absolute",
-          top:0, bottom:0, left:0,
+          position:"fixed",
+          top:56,
+          bottom:0,
+          left:"var(--hw-main-left, 0px)",
           right:"min(480px, 100vw)",
           zIndex:45,
-          background:"#fff", borderRadius:8,
+          background:"#fff",
           display:"flex", flexDirection:"column",
           boxShadow:"0 4px 20px rgba(0,0,0,0.14)",
           overflow:"hidden",
@@ -1567,8 +1571,8 @@ export default function CustomersPage() {
               <X size={18} />
             </button>
           </div>
-          {/* 컨텐츠 */}
-          <div style={{ flex:1, overflowY:"auto", padding:"16px 20px" }}>
+          {/* 컨텐츠 — flex:1로 남은 높이 전부 사용, 내부 스크롤 */}
+          <div style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"16px 20px" }}>
             <QuickPoaPanel
               initialCustomer={{
                 customer_id: selectedCustomer["고객ID"]  || undefined,

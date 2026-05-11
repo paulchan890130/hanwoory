@@ -196,7 +196,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       <div
         className="flex flex-col flex-1 min-w-0"
-        style={{ marginLeft: mainMarginLeft, transition: "margin-left 0.2s" }}
+        style={{
+          marginLeft: mainMarginLeft,
+          transition: "margin-left 0.2s",
+          // overlay가 사이드바 오른쪽부터 시작하도록 CSS 변수 제공
+          ...({ "--hw-main-left": `${mainMarginLeft}px` } as React.CSSProperties),
+        }}
       >
         <Topbar
           leftOffset={mainMarginLeft}
