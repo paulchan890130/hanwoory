@@ -1131,11 +1131,15 @@ function CustomerDrawer({
                         </span>
                         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
                           <button
-                            onClick={() => window.open(
+                            onClick={() => {
+                              const pw = Math.min(940, Math.max(760, window.screen.availWidth  - 120));
+                              const ph = Math.min(820, Math.max(650, window.screen.availHeight -  80));
+                              window.open(
                               "https://www.hikorea.go.kr/info/CheckExprYmdByPassNoR.pt",
                               "hikorea-expiry-check",
-                              "width=760,height=700,left=20,top=40,resizable=yes"
-                            )}
+                              `width=${pw},height=${ph},left=20,top=20,resizable=yes,scrollbars=yes`
+                              );
+                            }}
                             style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#C6F6D5", color:"#276749", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
                           >
                             하이코리아 열기
