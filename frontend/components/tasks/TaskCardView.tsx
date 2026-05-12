@@ -32,6 +32,63 @@ function dpTextColor(dp: number, hasReception: boolean): string {
   return "#16A34A";
 }
 
+interface CardDDay {
+  dp: number;
+  baseDateStr: string;
+  baseDateLabel: string;
+  missing: boolean;
+}
+
+function computeCardDDay(
+  task: ActiveTask,
+  pendingReception: string,
+  pendingProcessing: string,
+  pendingStorage: string,
+): CardDDay {
+  let baseTs = "";
+  let baseDateLabel = "";
+
+  // Priority: storage > processing > reception > task.date
+  if (pendingStorage) {
+    baseTs = pendingStorage;
+    baseDateLabel = "보관";
+  } else if (pendingProcessing) {
+    baseTs = pendingProcessing;
+    baseDateLabel = "처리";
+  } else if (pendingReception) {
+    baseTs = pendingReception;
+    baseDateLabel = "접수";
+  } else if (task.date) {
+    baseTs = task.date;
+    baseDateLabel = "업무일";
+  }
+
+  if (!baseTs) return { dp: 0, baseDateStr: "", baseDateLabel: "", missing: true };
+
+  const baseDateStr = baseTs.slice(0, 10);
+  const start = new Date(baseDateStr);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const dp = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
+  return { dp, baseDateStr, baseDateLabel, missing: false };
+}
+
+// ── money draft type (shared with dashboard) ─────────────────────────────────
+export type MoneyDraft = {
+  transfer?: number;
+  cash?: number;
+  card?: number;
+  stamp?: number;
+  receivable?: number;
+  planned_expense?: number;
+};
+const MONEY_FIELDS: Array<{ label: string; field: keyof MoneyDraft }> = [
+  { label: "이체", field: "transfer" },
+  { label: "현금", field: "cash" },
+  { label: "카드", field: "card" },
+  { label: "인지", field: "stamp" },
+  { label: "미수", field: "receivable" },
+];
+
 // ── props ─────────────────────────────────────────────────────────────────────
 export interface TaskCardViewProps {
   tasks: ActiveTask[];
@@ -43,20 +100,24 @@ export interface TaskCardViewProps {
   onToggleComplete: (id: string) => void;
   onToggleDelete: (id: string) => void;
   readonly?: boolean;
+  moneyDrafts?: Record<string, MoneyDraft>;
+  moneyDirtyIds?: Set<string>;
+  onMoneyDraftChange?: (id: string, field: keyof MoneyDraft, value: number) => void;
 }
 
 // ── compact card (collapsed) — 2줄 압축형 ────────────────────────────────────
 function CompactCard({
   task, pendingReception, pendingProcessing, pendingStorage,
-  markedComplete, markedDelete, onClick,
+  markedComplete, markedDelete, moneyDirty, onClick,
 }: {
   task: ActiveTask;
   pendingReception: string; pendingProcessing: string; pendingStorage: string;
   markedComplete: boolean; markedDelete: boolean;
+  moneyDirty: boolean;
   onClick: () => void;
 }) {
-  const latestTs = [pendingStorage, pendingProcessing, pendingReception].filter(Boolean).sort().reverse()[0] ?? "";
-  const dp = dPlusFromTs(latestTs);
+  const cardDDay = computeCardDDay(task, pendingReception, pendingProcessing, pendingStorage);
+  const dp = cardDDay.dp;
   const bColor = dpBorderColor(dp, !!pendingReception);
   const tColor = dpTextColor(dp, !!pendingReception);
 
@@ -119,7 +180,7 @@ function CompactCard({
         </div>
         {/* 오른쪽: D+n + 금액 + 완료/삭제 마커 */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, paddingLeft: 6 }}>
-          {latestTs && (
+          {!cardDDay.missing && (
             <span style={{ fontSize: 11, fontWeight: 700, color: tColor, whiteSpace: "nowrap" }}>
               D+{dp}
             </span>
@@ -127,6 +188,11 @@ function CompactCard({
           {totalAmt > 0 && (
             <span style={{ fontSize: 11, color: "#2D3748", whiteSpace: "nowrap" }}>
               {formatNumber(totalAmt)}
+            </span>
+          )}
+          {moneyDirty && (
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", whiteSpace: "nowrap" }}>
+              저장 대기
             </span>
           )}
           {(markedComplete || markedDelete) && (
@@ -137,25 +203,25 @@ function CompactCard({
         </div>
       </div>
 
-      {/* 2줄: 세부내용 · 날짜 (둘 다 없으면 숨김) */}
-      {(task.details || task.date) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, overflow: "hidden" }}>
-          {task.details && (
-            <span style={{
-              fontSize: 11, color: "#A0AEC0",
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              flex: 1, minWidth: 0,
-            }}>
-              {task.details}
-            </span>
-          )}
-          {task.date && (
-            <span style={{ fontSize: 10, color: "#CBD5E0", flexShrink: 0 }}>
-              {task.date}
-            </span>
-          )}
-        </div>
-      )}
+      {/* 2줄: 세부내용 · D+ 기준일 (labeled) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, overflow: "hidden" }}>
+        {task.details && (
+          <span style={{
+            fontSize: 11, color: "#A0AEC0",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            flex: 1, minWidth: 0,
+          }}>
+            {task.details}
+          </span>
+        )}
+        {cardDDay.missing ? (
+          <span style={{ fontSize: 10, color: "#E2E8F0", flexShrink: 0 }}>기준일 없음</span>
+        ) : (
+          <span style={{ fontSize: 10, color: "#CBD5E0", flexShrink: 0 }}>
+            {cardDDay.baseDateLabel} {cardDDay.baseDateStr}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -165,6 +231,7 @@ function ExpandedCard({
   task, pendingReception, pendingProcessing, pendingStorage,
   onProgressToggle, onSave, markedComplete, markedDelete,
   onToggleComplete, onToggleDelete, onCollapse, readonly,
+  moneyDraft, moneyDirty, onMoneyDraftChange,
 }: {
   task: ActiveTask;
   pendingReception: string; pendingProcessing: string; pendingStorage: string;
@@ -175,39 +242,31 @@ function ExpandedCard({
   onToggleDelete: (id: string) => void;
   onCollapse: () => void;
   readonly?: boolean;
+  moneyDraft: MoneyDraft;
+  moneyDirty: boolean;
+  onMoneyDraftChange?: (field: keyof MoneyDraft, value: number) => void;
 }) {
   const [category, setCategory] = useState(task.category ?? "");
   const [date, setDate] = useState(task.date ?? "");
   const [name, setName] = useState(task.name ?? "");
   const [work, setWork] = useState(task.work ?? "");
   const [details, setDetails] = useState(task.details ?? "");
-  const [transfer, setTransfer] = useState(String(safeInt(task.transfer) || ""));
-  const [cash, setCash] = useState(String(safeInt(task.cash) || ""));
-  const [card, setCard] = useState(String(safeInt(task.card) || ""));
-  const [stamp, setStamp] = useState(String(safeInt(task.stamp) || ""));
-  const [receivable, setReceivable] = useState(String(safeInt(task.receivable) || ""));
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     setCategory(task.category ?? ""); setDate(task.date ?? ""); setName(task.name ?? "");
-    setWork(task.work ?? ""); setDetails(task.details ?? "");
-    setTransfer(String(safeInt(task.transfer) || "")); setCash(String(safeInt(task.cash) || ""));
-    setCard(String(safeInt(task.card) || "")); setStamp(String(safeInt(task.stamp) || ""));
-    setReceivable(String(safeInt(task.receivable) || "")); setDirty(false);
+    setWork(task.work ?? ""); setDetails(task.details ?? ""); setDirty(false);
   }, [task.id]);
 
   const mark = () => setDirty(true);
+  // Money fields are NOT saved per-card — they go through 선택처리 batch-money.
   const handleSave = () => {
-    onSave(task.id, { category, date, name, work, details,
-      transfer: String(safeInt(transfer) || 0), cash: String(safeInt(cash) || 0),
-      card: String(safeInt(card) || 0), stamp: String(safeInt(stamp) || 0),
-      receivable: String(safeInt(receivable) || 0),
-    });
+    onSave(task.id, { category, date, name, work, details });
     setDirty(false);
   };
 
-  const latestTs = [pendingStorage, pendingProcessing, pendingReception].filter(Boolean).sort().reverse()[0] ?? "";
-  const dp = dPlusFromTs(latestTs);
+  const cardDDay = computeCardDDay(task, pendingReception, pendingProcessing, pendingStorage);
+  const dp = cardDDay.dp;
   const bColor = dpBorderColor(dp, !!pendingReception);
 
   const inp: React.CSSProperties = {
@@ -228,7 +287,10 @@ function ExpandedCard({
     }}>
       {/* 헤더 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#718096" }}>편집 중 {latestTs && `· D+${dp}`}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#718096" }}>
+          편집 중 {cardDDay.missing ? "· 기준일 없음" : `· D+${dp} (${cardDDay.baseDateLabel} ${cardDDay.baseDateStr})`}
+          {moneyDirty && <span style={{ marginLeft: 6, fontSize: 10, color: "#F59E0B", fontWeight: 700 }}>금액 저장 대기</span>}
+        </span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && !readonly && (
             <button onClick={handleSave} style={{
@@ -278,25 +340,37 @@ function ExpandedCard({
           : <input style={inp} value={details} onChange={e => { setDetails(e.target.value); mark(); }} />}
       </div>
 
-      {/* 금액 */}
+      {/* 금액 — draft 기반; 선택처리에서 일괄 저장 */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        {([
-          { label: "이체", val: transfer, set: setTransfer },
-          { label: "현금", val: cash, set: setCash },
-          { label: "카드", val: card, set: setCard },
-          { label: "인지", val: stamp, set: setStamp },
-          { label: "미수", val: receivable, set: setReceivable },
-        ] as const).map(({ label, val, set }) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 11, color: "#A0AEC0" }}>{label}</span>
-            {readonly
-              ? <span style={{ fontSize: 13 }}>{safeInt(val) > 0 ? formatNumber(safeInt(val)) : "—"}</span>
-              : <input type="text" inputMode="numeric"
-                  style={{ ...inp, width: 80, textAlign: "right", padding: "3px 6px" }}
-                  value={val} placeholder="0"
-                  onChange={e => { (set as (v: string) => void)(e.target.value); mark(); }} />}
-          </div>
-        ))}
+        {MONEY_FIELDS.map(({ label, field }) => {
+          const draftVal = moneyDraft[field];
+          const displayVal = draftVal !== undefined ? String(draftVal) : String(safeInt((task as unknown as Record<string, unknown>)[field] as string) || "");
+          return (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 11, color: "#A0AEC0" }}>{label}</span>
+              {readonly
+                ? <span style={{ fontSize: 13 }}>{safeInt(displayVal) > 0 ? formatNumber(safeInt(displayVal)) : "—"}</span>
+                : <>
+                    <input type="text" inputMode="numeric"
+                      style={{ ...inp, width: 76, textAlign: "right", padding: "3px 6px" }}
+                      value={displayVal} placeholder="0"
+                      onChange={e => onMoneyDraftChange?.(field, safeInt(e.target.value) || 0)} />
+                    <button
+                      type="button"
+                      title={`${label} 0으로 변경 (저장은 선택처리)`}
+                      onClick={() => onMoneyDraftChange?.(field, 0)}
+                      style={{
+                        fontSize: 10, padding: "2px 5px", borderRadius: 4,
+                        border: "1px solid #E2E8F0", background: "#F7FAFC",
+                        color: "#A0AEC0", cursor: "pointer", flexShrink: 0, lineHeight: 1,
+                      }}>
+                      0
+                    </button>
+                  </>
+              }
+            </div>
+          );
+        })}
       </div>
 
       {/* 접수/처리/보관 + 완료/삭제 */}
@@ -338,6 +412,7 @@ function KanbanColumn({
   title, headerColor, tasks, expandedId, onExpand,
   progressPending, onProgressToggle, completedIds, deleteIds,
   onSave, onToggleComplete, onToggleDelete, readonly,
+  moneyDrafts, moneyDirtyIds, onMoneyDraftChange,
 }: {
   title: string; headerColor: string; tasks: ActiveTask[];
   expandedId: string | null; onExpand: (id: string | null) => void;
@@ -347,6 +422,9 @@ function KanbanColumn({
   onSave: (id: string, data: Partial<ActiveTask>) => void;
   onToggleComplete: (id: string) => void; onToggleDelete: (id: string) => void;
   readonly?: boolean;
+  moneyDrafts: Record<string, MoneyDraft>;
+  moneyDirtyIds: Set<string>;
+  onMoneyDraftChange?: (id: string, field: keyof MoneyDraft, value: number) => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -381,6 +459,7 @@ function KanbanColumn({
           const pS = p?.storage ?? (task.storage as string) ?? "";
           const isExpanded = expandedId === task.id;
 
+          const moneyDirty = moneyDirtyIds.has(task.id);
           if (isExpanded) {
             return (
               <ExpandedCard
@@ -391,6 +470,9 @@ function KanbanColumn({
                 onToggleComplete={onToggleComplete} onToggleDelete={onToggleDelete}
                 onCollapse={() => onExpand(null)}
                 readonly={readonly}
+                moneyDraft={moneyDrafts[task.id] ?? {}}
+                moneyDirty={moneyDirty}
+                onMoneyDraftChange={onMoneyDraftChange ? (field, value) => onMoneyDraftChange(task.id, field, value) : undefined}
               />
             );
           }
@@ -399,6 +481,7 @@ function KanbanColumn({
               key={task.id} task={task}
               pendingReception={pR} pendingProcessing={pP} pendingStorage={pS}
               markedComplete={completedIds.has(task.id)} markedDelete={deleteIds.has(task.id)}
+              moneyDirty={moneyDirty}
               onClick={() => onExpand(task.id)}
             />
           );
@@ -412,6 +495,7 @@ function KanbanColumn({
 export default function TaskCardView({
   tasks, progressPending, onProgressToggle,
   completedIds, deleteIds, onSave, onToggleComplete, onToggleDelete, readonly,
+  moneyDrafts = {}, moneyDirtyIds = new Set(), onMoneyDraftChange,
 }: TaskCardViewProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -435,6 +519,7 @@ export default function TaskCardView({
   const colProps = {
     expandedId, onExpand: setExpandedId, progressPending, onProgressToggle,
     completedIds, deleteIds, onSave, onToggleComplete, onToggleDelete, readonly,
+    moneyDrafts, moneyDirtyIds, onMoneyDraftChange,
   };
 
   return (

@@ -86,6 +86,23 @@ class BatchProgressRequest(BaseModel):
     updates: List[ProgressUpdate]
 
 
+class BatchMoneyItemChanges(BaseModel):
+    """금액 필드 부분 업데이트 — 지정된 필드만 변경, 나머지는 보존."""
+    transfer:        Optional[str] = None
+    cash:            Optional[str] = None
+    card:            Optional[str] = None
+    stamp:           Optional[str] = None
+    receivable:      Optional[str] = None
+    planned_expense: Optional[str] = None
+
+class BatchMoneyItem(BaseModel):
+    id:      str
+    changes: BatchMoneyItemChanges
+
+class BatchMoneyRequest(BaseModel):
+    updates: List[BatchMoneyItem]
+
+
 # ── 결산 ─────────────────────────────────────────────────────────────────────
 class DailyEntry(BaseModel):
     id: Optional[str] = None

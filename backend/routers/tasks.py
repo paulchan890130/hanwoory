@@ -11,7 +11,7 @@ from backend.auth import get_current_user
 from backend.models import (
     ActiveTask, PlannedTask, CompletedTask,
     CompleteTasksRequest, DeleteTasksRequest,
-    BatchProgressRequest,
+    BatchProgressRequest, BatchMoneyRequest,
 )
 from backend.services.tenant_service import read_sheet, upsert_sheet, delete_from_sheet
 from backend.services.cache_service import cache_get, cache_set, cache_invalidate
@@ -147,6 +147,59 @@ def batch_update_active_progress(req: BatchProgressRequest, user: dict = Depends
         cache_invalidate(tenant_id, _CACHE_ACTIVE)
 
     return {"updated": len(changed)}
+
+
+@router.patch("/active/batch-money")
+def batch_update_active_money(req: BatchMoneyRequest, user: dict = Depends(get_current_user)):
+    """진행업무 금액 필드 일괄 부분 업데이트 (1 read + batch write).
+    전체 시트 덮어쓰기 금지 — 지정된 row의 지정된 필드만 변경.
+    중복 id 감지 시 해당 항목은 업데이트하지 않고 오류 반환."""
+    ACTIVE, *_ = _sheet_names()
+    tenant_id = user["tenant_id"]
+    ALLOWED = {"transfer", "cash", "card", "stamp", "receivable", "planned_expense"}
+
+    all_tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
+
+    # index: id → list of row-indices (to detect duplicates)
+    id_to_indices: dict = {}
+    for idx, row in enumerate(all_tasks):
+        rid = str(row.get("id", "")).strip()
+        if rid:
+            id_to_indices.setdefault(rid, []).append(idx)
+
+    results: dict = {"updated": [], "not_found": [], "duplicate_id": []}
+    changed: list = []
+
+    # --- Pass 1: validate all ids before touching any row ---
+    for upd in req.updates:
+        rid = upd.id.strip()
+        indices = id_to_indices.get(rid, [])
+        if len(indices) == 0:
+            results["not_found"].append(rid)
+        elif len(indices) > 1:
+            results["duplicate_id"].append(rid)
+
+    # Fail-fast: reject the whole batch if any id is unsafe to update.
+    # HTTP 409 so Axios/React Query treats it as an error (not 2xx success).
+    if results["duplicate_id"] or results["not_found"]:
+        raise HTTPException(status_code=409, detail=results)
+
+    # --- Pass 2: apply changes — all ids are confirmed unique and present ---
+    for upd in req.updates:
+        rid = upd.id.strip()
+        row = all_tasks[id_to_indices[rid][0]]
+        field_changes = upd.changes.model_dump(exclude_none=True)
+        for field, val in field_changes.items():
+            if field in ALLOWED:
+                row[field] = str(val)
+        changed.append(row)
+        results["updated"].append(rid)
+
+    if changed:
+        upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, changed, id_field="id")
+        cache_invalidate(tenant_id, _CACHE_ACTIVE)
+
+    return {"updated": len(results["updated"])}
 
 
 @router.delete("/active")

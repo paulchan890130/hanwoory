@@ -180,6 +180,8 @@ export const tasksApi = {
 
   batchProgress: (updates: { id: string; reception: string; processing: string; storage: string }[]) =>
     api.patch("/api/tasks/active/batch-progress", { updates }),
+  batchMoney: (updates: Array<{ id: string; changes: Partial<Record<"transfer"|"cash"|"card"|"stamp"|"receivable"|"planned_expense", string>> }>) =>
+    api.patch("/api/tasks/active/batch-money", { updates }),
 };
 
 export interface WorkSummary {
@@ -419,6 +421,10 @@ export interface FullDocGenRequest {
   accommodation_provider?: AccommodationProvider | null;
   /** 신원보증인연결 탭 전체 데이터 — 보증인 b* 필드 자동 매핑에 사용 */
   guarantor_connection?: GuarantorConnection | null;
+  /** 작성년/월/일 삽입 여부 (기본 true) */
+  include_date?: boolean;
+  /** 직접 지정 날짜 YYYY-MM-DD; 미지정 시 오늘 날짜 자동 삽입 */
+  custom_date?: string;
 }
 
 export const quickDocApi = {

@@ -11,7 +11,7 @@ import { getUser } from "@/lib/auth";
 import { safeInt, formatNumber } from "@/lib/utils";
 import TaskSummaryCards from "@/components/tasks/TaskSummaryCards";
 import TaskCategoryFilter from "@/components/tasks/TaskCategoryFilter";
-import TaskCardView from "@/components/tasks/TaskCardView";
+import TaskCardView, { type MoneyDraft } from "@/components/tasks/TaskCardView";
 import TaskTableView from "@/components/tasks/TaskTableView";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -515,6 +515,8 @@ export default function DashboardPage() {
   const [dashCategory, setDashCategory] = useState<string | "all">("all");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
+  const [moneyDrafts, setMoneyDrafts]     = useState<Record<string, MoneyDraft>>({});
+  const [moneyDirtyIds, setMoneyDirtyIds] = useState<Set<string>>(new Set());
   // Map of task.id → {reception, processing, storage} — mirrors server state, updated on toggle
   const [progressPending, setProgressPending] = useState<Map<string, { reception: string; processing: string; storage: string }>>(() => new Map());
   const [calendarDate, setCalendarDate] = useState<string | null>(null);
@@ -588,6 +590,32 @@ export default function DashboardPage() {
     },
     onError: () => toast.error("진행상태 저장 실패"),
   });
+
+  const batchMoneyMut = useMutation({
+    mutationFn: (updates: Array<{ id: string; changes: Partial<Record<"transfer"|"cash"|"card"|"stamp"|"receivable"|"planned_expense", string>> }>) =>
+      tasksApi.batchMoney(updates),
+    onSuccess: (_, updates) => {
+      const savedIds = new Set(updates.map(u => u.id));
+      setMoneyDrafts(prev => {
+        const next = { ...prev };
+        savedIds.forEach(id => { delete next[id]; });
+        return next;
+      });
+      setMoneyDirtyIds(prev => {
+        const n = new Set(prev);
+        savedIds.forEach(id => n.delete(id));
+        return n;
+      });
+      toast.success(`${savedIds.size}건 금액 저장됨`);
+      qc.invalidateQueries({ queryKey: ["tasks", "active"] });
+    },
+    onError: () => toast.error("금액 저장 실패 — 수정 내용이 보존됩니다."),
+  });
+
+  const handleMoneyDraftChange = (id: string, field: keyof MoneyDraft, value: number) => {
+    setMoneyDrafts(prev => ({ ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } }));
+    setMoneyDirtyIds(prev => { const n = new Set(prev); n.add(id); return n; });
+  };
 
   const deleteTasksMut = useMutation({
     mutationFn: (ids: string[]) => tasksApi.deleteActive(ids),
@@ -668,7 +696,19 @@ export default function DashboardPage() {
       if (changed) progressArr.push({ id: t.id, data: pending });
     }
 
-    if (!completeArr.length && !deleteArr.length && !progressArr.length) {
+    // Collect money drafts for dirty ids only
+    const moneyUpdates: Array<{ id: string; changes: Partial<Record<"transfer"|"cash"|"card"|"stamp"|"receivable"|"planned_expense", string>> }> = [];
+    Array.from(moneyDirtyIds).forEach(id => {
+      const draft = moneyDrafts[id];
+      if (!draft) return;
+      const changes: Partial<Record<"transfer"|"cash"|"card"|"stamp"|"receivable"|"planned_expense", string>> = {};
+      (Object.entries(draft) as Array<[keyof MoneyDraft, number | undefined]>).forEach(([field, val]) => {
+        if (val !== undefined) changes[field] = String(val);
+      });
+      if (Object.keys(changes).length > 0) moneyUpdates.push({ id, changes });
+    });
+
+    if (!completeArr.length && !deleteArr.length && !progressArr.length && !moneyUpdates.length) {
       toast.info("선택된 항목이 없습니다.");
       return;
     }
@@ -681,6 +721,7 @@ export default function DashboardPage() {
     if (progressArr.length) {
       batchProgressMut.mutate(progressArr.map(({ id, data }) => ({ id, ...data })));
     }
+    if (moneyUpdates.length) batchMoneyMut.mutate(moneyUpdates);
   };
 
   const calEvents = useMemo(
@@ -1006,12 +1047,16 @@ export default function DashboardPage() {
           const d = Math.max(0, Math.floor((new Date().setHours(0,0,0,0), (Date.now() - new Date(ts.slice(0,10)).getTime()) / 86400000)));
           return d >= 20;
         }).length;
+        const isBatchPending = completeTasksMut.isPending || deleteTasksMut.isPending || batchProgressMut.isPending || batchMoneyMut.isPending;
         const dashCommonProps = {
           progressPending, completedIds, deleteIds,
           onProgressToggle: handleProgressToggle,
           onSave: handleActiveTaskSave,
           onToggleComplete: (id: string) => setCompletedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }),
           onToggleDelete: (id: string) => setDeleteIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }),
+          moneyDrafts,
+          moneyDirtyIds,
+          onMoneyDraftChange: handleMoneyDraftChange,
         };
         return (
           <>
@@ -1020,10 +1065,10 @@ export default function DashboardPage() {
               <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 11, color: "#A0AEC0" }}>완료/삭제 체크 후 →</span>
-                <button onClick={handleBatchSave} disabled={completeTasksMut.isPending || deleteTasksMut.isPending}
+                <button onClick={handleBatchSave} disabled={isBatchPending}
                   className="btn-primary"
-                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: (completeTasksMut.isPending || deleteTasksMut.isPending) ? 0.5 : 1 }}>
-                  <CheckCircle size={12} /> 선택 처리
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: isBatchPending ? 0.5 : 1 }}>
+                  <CheckCircle size={12} /> {isBatchPending ? "처리 중..." : "선택 처리"}
                 </button>
               </div>
             </div>
