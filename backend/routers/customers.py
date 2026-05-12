@@ -3,6 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import logging
+import threading
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -15,6 +16,22 @@ _log = logging.getLogger("customers.accommodation")
 # ── process-level worksheet header validation cache ───────────────────────────
 # key: (sheet_key, worksheet_name) — 서버 재시작 시 초기화 허용
 _VALIDATED_CUSTOMER_WORKSHEETS: set = set()
+
+# ── relationship sheet read cache (accommodation / guarantor) ─────────────────
+# Prevents thundering-herd 429 when CustomerDrawer + QuickDocPanel fire
+# concurrent get_all_values() calls for the same worksheet.
+# Pattern mirrors tenant_service.read_sheet(): TTL cache + per-key lock.
+_RELATIONSHIP_READ_TTL = 60.0  # seconds
+_RELATIONSHIP_READ_LOCKS: dict = {}
+_RELATIONSHIP_READ_LOCKS_MUTEX = threading.Lock()
+
+
+def _get_relationship_lock(lock_key: str) -> threading.Lock:
+    """Return (creating if necessary) a per-key lock for relationship reads."""
+    with _RELATIONSHIP_READ_LOCKS_MUTEX:
+        if lock_key not in _RELATIONSHIP_READ_LOCKS:
+            _RELATIONSHIP_READ_LOCKS[lock_key] = threading.Lock()
+        return _RELATIONSHIP_READ_LOCKS[lock_key]
 
 
 def _raise_if_quota(e: Exception) -> None:
@@ -508,8 +525,22 @@ def _get_accommodation_ws(tenant_id: str):
     return ws
 
 
-def _read_accommodation_record(ws, customer_id: str) -> dict | None:
-    values = ws.get_all_values()
+_ACCOMM_CACHE_NAME = "rel:accommodation"
+
+
+def _read_accommodation_record(ws, customer_id: str, tenant_id: str) -> dict | None:
+    """Read accommodation record, using per-tenant TTL cache + in-flight lock."""
+    # Fast path: cache hit
+    values = cache_get(tenant_id, _ACCOMM_CACHE_NAME)
+    if values is None:
+        # Slow path: serialize concurrent cold-cache reads to one API call
+        lock = _get_relationship_lock(f"{tenant_id}::{_ACCOMM_CACHE_NAME}")
+        with lock:
+            values = cache_get(tenant_id, _ACCOMM_CACHE_NAME)  # double-check
+            if values is None:
+                values = ws.get_all_values()
+                cache_set(tenant_id, _ACCOMM_CACHE_NAME, values, _RELATIONSHIP_READ_TTL)
+                _log.debug("[accommodation.cache] tenant=%s refreshed (%d rows)", tenant_id, len(values))
     if len(values) < 2:
         return None
     header = values[0]
@@ -553,7 +584,7 @@ def get_accommodation_provider(customer_id: str, user: dict = Depends(get_curren
     tenant_id = user["tenant_id"]
     try:
         ws = _get_accommodation_ws(tenant_id)
-        record = _read_accommodation_record(ws, customer_id)
+        record = _read_accommodation_record(ws, customer_id, tenant_id)
         return record
     except HTTPException:
         raise
@@ -629,6 +660,7 @@ def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depen
         )
         ws = _get_accommodation_ws(tenant_id)
         _upsert_accommodation_record(ws, record)
+        cache_invalidate(tenant_id, _ACCOMM_CACHE_NAME)
         _log.info("[accommodation.save] tenant=%s 저장 완료", tenant_id)
         return {"ok": True, "data": record}
     except ValueError as e:
@@ -652,6 +684,7 @@ def delete_accommodation_provider(customer_id: str, user: dict = Depends(get_cur
         for i, row in enumerate(values[1:], start=2):
             if row and row[0].strip() == customer_id.strip():
                 ws.delete_rows(i)
+                cache_invalidate(tenant_id, _ACCOMM_CACHE_NAME)
                 return {"ok": True}
         return {"ok": True}
     except HTTPException:
@@ -739,8 +772,20 @@ def _get_guarantor_ws(tenant_id: str):
     return ws
 
 
-def _read_guarantor_record(ws, customer_id: str) -> "dict | None":
-    values = ws.get_all_values()
+_GUARANTOR_CACHE_NAME = "rel:guarantor"
+
+
+def _read_guarantor_record(ws, customer_id: str, tenant_id: str) -> "dict | None":
+    """Read guarantor record, using per-tenant TTL cache + in-flight lock."""
+    values = cache_get(tenant_id, _GUARANTOR_CACHE_NAME)
+    if values is None:
+        lock = _get_relationship_lock(f"{tenant_id}::{_GUARANTOR_CACHE_NAME}")
+        with lock:
+            values = cache_get(tenant_id, _GUARANTOR_CACHE_NAME)
+            if values is None:
+                values = ws.get_all_values()
+                cache_set(tenant_id, _GUARANTOR_CACHE_NAME, values, _RELATIONSHIP_READ_TTL)
+                _log.debug("[guarantor.cache] tenant=%s refreshed (%d rows)", tenant_id, len(values))
     if len(values) < 2:
         return None
     header = values[0]
@@ -780,7 +825,7 @@ def get_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
     tenant_id = user["tenant_id"]
     try:
         ws = _get_guarantor_ws(tenant_id)
-        record = _read_guarantor_record(ws, customer_id)
+        record = _read_guarantor_record(ws, customer_id, tenant_id)
         return record
     except HTTPException:
         raise
@@ -851,6 +896,7 @@ def save_guarantor(customer_id: str, data: dict, user: dict = Depends(get_curren
                   tenant_id, customer_id, record.get("guarantor_type", ""), record.get("guarantor_name", ""))
         ws = _get_guarantor_ws(tenant_id)
         _upsert_guarantor_record(ws, record)
+        cache_invalidate(tenant_id, _GUARANTOR_CACHE_NAME)
         return {"ok": True, "data": record}
     except ValueError as e:
         _log.error("[guarantor.save] tenant=%s guard 차단: %s", tenant_id, e)
@@ -873,6 +919,7 @@ def delete_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
         for i, row in enumerate(values[1:], start=2):
             if row and row[0].strip() == customer_id.strip():
                 ws.delete_rows(i)
+                cache_invalidate(tenant_id, _GUARANTOR_CACHE_NAME)
                 return {"ok": True}
         return {"ok": True}
     except HTTPException:
