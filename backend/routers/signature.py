@@ -339,11 +339,21 @@ def check_agent_signature_exists(user: dict = Depends(get_current_user)):
 
 @router.get("/agent")
 def get_agent_signature(user: dict = Depends(get_current_user)):
-    """현재 로그인 테넌트의 행정사 서명 조회."""
+    """현재 로그인 테넌트의 행정사 서명 조회.
+    서명 없음: HTTP 200 {"data": null}
+    서명 존재: HTTP 200 {"data": "base64..."}
+    Sheets/API 오류: HTTP 503 (프론트엔드가 error 상태로 표시)"""
     from backend.services.signature_service import get_agent_signature as _get
     tenant_id = user.get("tenant_id") or user.get("sub", "")
-    data = _get(tenant_id)
-    return {"data": data}
+    try:
+        data = _get(tenant_id)
+        return {"data": data}
+    except Exception as e:
+        print(f"[signature] /agent 조회 오류: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="행정사 서명 조회에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        )
 
 
 @router.get("/customer/{customer_id}")

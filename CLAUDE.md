@@ -60,6 +60,7 @@ docker compose up -d
 - `/`, `/board/*`, `/documents`, `/siheung-immigration-agent`, `/jeongwang-immigration-agent` = **public** (no auth)
 - `/login` = login page
 - `/(main)/*` = **authenticated internal app**
+- `/customer-popup`, `/customer-copy-popup`, `/sign/*`, `/sign-test` = **standalone popup routes** (no sidebar/topbar)
 
 `frontend/middleware.ts` (Edge) enforces auth via `kid_auth` cookie. **Adding a new public page:** add its pathname to the `if` block in `middleware()` AND to `sitemap.ts` static entries.
 
@@ -120,49 +121,102 @@ Tabs that always route to admin `SHEET_KEY` (shared): `"게시판"`, `"게시판
 `FullDocGenRequest` supports:
 - `accommodation_provider` (dict from 숙소제공자연결 tab) and `guarantor_connection` (dict from 신원보증인연결 tab) — passed in addition to `*_id` fields and override empty DB values.
 - `direct_overrides: dict` — applied last over `build_field_values()` output; used by the "편집 후 재다운로드" panel to patch individual PDF widget values without re-fetching Sheets data.
+- `document_date: str | None` — if empty string `""`, date fields are blank; if `None` (old callers), backend falls back to today; if non-empty string, parses and uses.
 
-**Sign/seal normalization in `generate_full()`:** Only one rule: if both `sign_*` and `seal_*` are True for the same role, `seal_*` is forced False (sign wins). **Both False is intentional** — it means the user explicitly selected "없음" (no signature, no seal). The backend never auto-enables a signature or seal when both are False. Guardian and aggregator have no normalization; they rely entirely on frontend flags.
+**Sign/seal normalization in `generate_full()`:** Only one rule: if both `sign_*` and `seal_*` are True for the same role, `seal_*` is forced False (sign wins). **Both False is intentional** — it means the user explicitly selected "없음". The backend never auto-enables a signature or seal when both are False. Guardian and aggregator have no normalization.
 
 **원클릭 작성** (`/quick-poa`): `_ALL_OUTPUTS` / `_IMPLEMENTED_OUTPUTS` / `_OUTPUT_ORDER` constants control which one-click types are available. Currently implemented: 위임장, 하이코리아, 소시넷(등록증), 소시넷(여권). `건강보험(세대합가)` and `건강보험(피부양자)` are in `_ALL_OUTPUTS` but **not** `_IMPLEMENTED_OUTPUTS` — PDF templates are missing.
 
 ### Signature system (`backend/routers/signature.py`, `backend/services/signature_service.py`)
 
 Three separate Sheets tabs:
-- `"행정사서명"` in `SHEET_KEY` — agent signature, key: `tenant_id`. **Saved immediately on submit** (not waiting for `/save/{token}`).
-- `"고객서명"` in `customer_sheet_key` — customer signature, key: `고객ID`. Also saved immediately on submit.
+- `"행정사서명"` in `SHEET_KEY` — agent signature, key: `tenant_id`. **Saved immediately on submit**.
+- `"고객서명"` in `customer_sheet_key` — customer signature, key: `고객ID`. Also saved immediately.
 - `"서명임시저장"` in `SHEET_KEY` — temp slots 1–3, key: `(slot, tenant_id)`.
 
-**Token architecture differs by type:**
-- **Customer** tokens are **stateless HMAC** (`_encode_customer_token()`): payload `{t:"c", cid, csk, exp}` encoded as base64url + 16-char SHA256 HMAC. No server memory needed. `/submit` writes directly to `고객서명`; `/poll` queries Sheets; `/save` is idempotent confirm.
-- **Agent** tokens use an **in-memory `_pending` dict** keyed by token. `/submit` saves directly to `행정사서명`; `/poll` checks `_pending`; `/save` confirms from Sheets or returns 404.
+**Token architecture:** Customer tokens are stateless HMAC; agent tokens use an in-memory `_pending` dict.
 
 `has_customer_signature()` raises `SignatureLookupError` on Sheets API failure (not silent False). The exists endpoint returns HTTP 503 on lookup failure — frontend must not interpret 503 as "no signature".
 
+**Agent signature cache:** `signature_service.py` has a 60-second TTL cache (`_agent_sig_cache`) for `get_agent_signature()`. Cache is invalidated by `save_agent_signature()`. The `/api/signature/agent` route returns HTTP 503 (not `{"data": null}`) on Sheets failure so the frontend can distinguish real absence from errors.
+
 ### Sheets read cache (`backend/services/tenant_service.py`)
 
-`read_sheet()` uses a two-level locking strategy to prevent thundering-herd 429s when the dashboard triggers 5–6 concurrent cold-cache reads:
-1. **Global lock** for fast cache-hit path (avoids per-key overhead on hits).
-2. **Per-`(tenant_id, sheet_name)` lock** for slow path — serialises concurrent API calls to the same sheet with double-checked locking (second requester hits cache after waiting).
+`read_sheet()` uses a two-level locking strategy to prevent thundering-herd 429s:
+1. **Global lock** for fast cache-hit path.
+2. **Per-`(tenant_id, sheet_name)` lock** for slow path — double-checked locking.
 
-`_READ_CACHE_TTL = 120` seconds (raised from 30). Writes (`upsert`, `delete`) invalidate the relevant key immediately via `_INVALIDATION_TOKENS` so a concurrent read doesn't re-store stale data after the write completes.
+`_READ_CACHE_TTL = 120` seconds. Writes invalidate the relevant key immediately via `_INVALIDATION_TOKENS`.
+
+**Relationship sheet read cache** (`backend/routers/customers.py`): `숙소제공자연결` and `신원보증인연결` worksheets have their own 60-second TTL cache (`_RELATIONSHIP_READ_TTL`) in `_read_accommodation_record()` / `_read_guarantor_record()`. Cache is invalidated on save/delete. Uses a per-key lock (`_get_relationship_lock()`) to prevent thundering-herd 429s on concurrent reads.
+
+### 일일결산 → 진행업무 dedup (`backend/routers/daily.py`)
+
+`_apply_daily_to_active()` creates an active task when a 일일결산 entry is saved. To prevent duplicate rows from gspread retry races:
+- Each active task stores `source_daily_id = rec["id"]` (the daily entry's UUID).
+- Active task `id` is **deterministic**: `"daily-" + source_daily_id` (not random UUID). This ensures upsert on retry updates rather than appends.
+- After upsert, `_dedupe_active_rows_by_source()` reads the sheet and deletes extras by **row index** (safe even when duplicate IDs share the same UUID).
+- `_DedupeResult.matched_count == 0` after a non-quota upsert exception → re-raise the error (write genuinely failed).
+
+### 진행업무 money draft pattern (frontend)
+
+Money fields (`transfer`, `cash`, `card`, `stamp`, `receivable`, `planned_expense`) on active task cards are **draft-only** — changes don't save immediately.
+
+- **State**: `moneyDrafts: Record<string, MoneyDraft>` and `moneyDirtyIds: Set<string>` live in `dashboard/page.tsx`, passed down to `TaskCardView`.
+- **Display**: `moneyDraft[field] ?? safeInt(task[field])` — draft takes priority over server value.
+- **0 button**: sets draft to 0, does NOT call backend. Card shows "저장 대기" badge.
+- **선택처리**: calls `PATCH /api/tasks/active/batch-money` with only changed fields for dirty rows. Payload: `[{id, changes: {field: "value"}}]`. Backend returns HTTP 409 if any ID has duplicates or is not found (fail-fast before any write).
+- `doGenerate` in `QuickDocPanel.tsx` must include `customDate` and `includeDate` in its `useCallback` dep array (they were previously missing and caused stale closures).
+
+### QuickDocPanel preload gating (`frontend/components/QuickDocPanel.tsx`)
+
+Uses explicit status types to prevent early generation with stale empty roles:
+
+```ts
+type LinkStatus = "unknown" | "loading" | "none" | "linked" | "error";
+type AgentSignatureStatus = "unknown" | "loading" | "exists" | "none" | "error";
+```
+
+**Readiness rules:**
+- `accommodationReady = status === "none" || status === "error" || (status === "linked" && roleIsSet(accommodation))`
+- `error` status does NOT permanently block generation — it passes `accommodationReady` and is handled by the existing `confirmMissing` dialog flow.
+- `unknown` / `loading` always block the PDF button.
+- Agent signature "서명" radio is disabled while `agentSignatureStatus === "unknown" || "loading"` — prevents falsely showing "없음" during initial load.
+
+### Dual popup (`frontend/app/(main)/customers/page.tsx`)
+
+Three helper panel buttons (체류만료조회 열기, 하이코리아 ID찾기 열기, 소시넷 ID찾기 열기) use `openDualPopup()` inside `CustomerDrawer` to open two windows simultaneously:
+
+- **Left**: external site (하이코리아/소시넷), larger (≈68% of screen width).
+- **Right**: `/customer-copy-popup?customerId=...&mode=...&nonce=...` (≈32% of screen width).
+
+Data passing uses a per-popup localStorage key: `customer_copy_popup_data_${id}_${mode}_${nonce}`. The popup validates `customerId`, `mode`, and timestamp (max 2 min) before displaying, then **immediately removes the key** from localStorage. A `useRef` guard prevents double-load in React Strict Mode. If either window fails to open, both are closed and the storage key is removed.
+
+Left window close → right auto-closes (500ms interval watcher). Right window close → left stays open.
 
 ### Frontend key patterns
 
 **Auth:** `frontend/lib/auth.ts` — `getUser`, `setUser`, `clearUser`, `isLoggedIn`. Stores `user_info` (JSON) and `access_token` (bare token) as separate localStorage keys. `api.ts` reads `access_token` for `Authorization` header.
 
-**401 handling:** `api.ts` response interceptor clears localStorage + the `kid_auth` cookie, then redirects to `/login`. Sets `sessionStorage["auth_expired"] = "1"` so the login page can show "장시간 미이용으로 로그아웃" — distinguishable from manual logout (which never sets this flag). Use `X-Skip-Auth-Redirect: 1` header on requests that must NOT trigger auto-redirect on 401.
+**401 handling:** `api.ts` response interceptor clears localStorage + the `kid_auth` cookie, then redirects to `/login`. Sets `sessionStorage["auth_expired"] = "1"` so the login page shows "장시간 미이용으로 로그아웃". Use `X-Skip-Auth-Redirect: 1` header on requests that must NOT trigger auto-redirect on 401.
 
-**QuickDocPanel preload dedup:** The `[initId]` preload effect creates a per-run `signatureStatusCache: Map<string, Promise<SignatureStatus>>` and `checkSignatureOnce(id)` helper. Multiple roles that share the same linked `customer_id` (e.g. accommodation provider and guarantor are the same person) share one `GET /api/signature/customer/{id}/exists` request. Each role sets its state in a single `setAccommodation` / `setGuarantor` call after `await`-ing both the relationship API response and the signature check — no two-step functional update.
+**Topbar** (`frontend/components/layout/topbar.tsx`): No integrated global search (removed). Shows direct shortcut buttons (하이코리아, 비자포털, 사회통합, 이민재단) that open `window.open(_blank)`. Order: 알람 → 임시서명 × 3 → shortcuts → 사무소명 → 로그아웃.
+
+**CustomerDrawer overlay layout:** `docOverlayOpen` / `quickPoaOverlayOpen` panels use `position: fixed; top: 120` (not 56) so the customer search toolbar (at ~80–116px) remains visible and clickable. The toolbar itself has `marginTop: -10` to reduce visual gap from the 24px main padding. The overlay's `onFocus` on the search input and row `onClick` both close open overlays.
+
+**QuickDocPanel preload dedup:** The `[initId]` preload effect uses a per-run `signatureStatusCache: Map<string, Promise<SignatureStatus>>` so multiple roles sharing the same `customer_id` send only one `/api/signature/customer/{id}/exists` request.
 
 **Customer card useEffect deps:** All Google Sheets API calls in `CustomerDrawer` use `customerId` string (not the full `customer` object) as their dependency. This prevents unnecessary re-fetches when the object reference changes after save.
 
-**Worksheet header cache:** `backend/routers/customers.py` maintains `_VALIDATED_CUSTOMER_WORKSHEETS: set` (process-level). Only validates headers on first access per `(sheet_key, worksheet_name)` pair. Catches only `gspread.exceptions.WorksheetNotFound` — not `Exception` — to prevent re-creating existing sheets.
+**Worksheet header cache:** `backend/routers/customers.py` maintains `_VALIDATED_CUSTOMER_WORKSHEETS: set` (process-level). Only validates headers on first access per `(sheet_key, worksheet_name)` pair.
 
-**429 handling:** `_raise_if_quota(e)` in `customers.py` converts `"429"` / `"Quota exceeded"` gspread errors to HTTP 503 with a user-readable message.
-
-**overlay layout:** `docOverlayOpen` / `quickPoaOverlayOpen` panels use `position: fixed; top: 56; left: var(--hw-main-left)` — the CSS variable is set by `(main)/layout.tsx` and tracks the sidebar width automatically.
+**429 handling:** `_raise_if_quota(e)` in `customers.py` converts `"429"` / `"Quota exceeded"` gspread errors to HTTP 503.
 
 **`FullCalendar` eventContent:** always wrap in `useCallback` to prevent React error #185 (max update depth).
+
+### TaskCardView D+ display (`frontend/components/tasks/TaskCardView.tsx`)
+
+`computeCardDDay()` determines the D+ badge base date by priority: `storage > processing > reception > task.date`. D+0 is explicitly rendered (not hidden). Missing base date shows "기준일 없음". The labeled base date (e.g. "보관 2026-04-28") replaces the unlabeled `task.date` display in the card's second row, eliminating the confusing mismatch between the displayed date and the D+ count.
 
 ---
 

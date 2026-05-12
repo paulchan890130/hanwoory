@@ -271,6 +271,8 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
   const [agentSeal, setAgentSeal]   = useState(true);
   const [agentSign, setAgentSign]   = useState(false);
   const [agentHasSign, setAgentHasSign] = useState(false);
+  type AgentSignatureStatus = "unknown" | "loading" | "exists" | "none" | "error";
+  const [agentSignatureStatus, setAgentSignatureStatus] = useState<AgentSignatureStatus>("unknown");
   const [pdfUrl, setPdfUrl]         = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [confirmMissing, setConfirmMissing] = useState<string[] | null>(null);
@@ -293,12 +295,21 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
   useEffect(() => {
     const raw = typeof window !== "undefined" ? localStorage.getItem("user_info") : null;
     if (raw) { try { setAgentInfo(JSON.parse(raw)); } catch { /* ignore */ } }
+    setAgentSignatureStatus("loading");
     api.get<{ data: string | null }>("/api/signature/agent")
       .then((r) => {
-        if (r.data.data) { setAgentHasSign(true); setAgentSign(true); setAgentSeal(false); }
-        else { setAgentHasSign(false); setAgentSign(false); setAgentSeal(true); }
+        if (r.data.data) {
+          setAgentHasSign(true); setAgentSign(true); setAgentSeal(false);
+          setAgentSignatureStatus("exists");
+        } else {
+          setAgentHasSign(false); setAgentSign(false); setAgentSeal(true);
+          setAgentSignatureStatus("none");
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Backend 503/network error — do NOT treat as confirmed "서명 없음"
+        setAgentSignatureStatus("error");
+      });
   }, []);
 
   // 딥링크 파라미터 처리 (독립 페이지 모드에서만)
@@ -446,17 +457,19 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
     (subtypeOptions.length === 0 || !!detail);
 
   // "none" → no fixed person, proceed freely.
-  // "linked"/"error" + roleIsSet → person found/or fallback and role is visible, proceed.
-  // "linked"/"error" without role → blocked.
+  // "none" → no fixed person, proceed freely.
+  // "error" → lookup failed; button is enabled, handleGenerate warns via confirmMissing.
+  // "linked" + roleIsSet → linked person visible, proceed.
+  // "linked" without role → blocked (should not happen, defensive).
   // "unknown"/"loading" → always blocked.
   const accommodationReady =
     accommodationStatus === "none" ||
-    (accommodationStatus === "linked" && roleIsSet(accommodation)) ||
-    (accommodationStatus === "error"  && roleIsSet(accommodation));
+    accommodationStatus === "error" ||
+    (accommodationStatus === "linked" && roleIsSet(accommodation));
   const guarantorReady =
     guarantorStatus === "none" ||
-    (guarantorStatus === "linked" && roleIsSet(guarantor)) ||
-    (guarantorStatus === "error"  && roleIsSet(guarantor));
+    guarantorStatus === "error" ||
+    (guarantorStatus === "linked" && roleIsSet(guarantor));
 
   const effectiveKind   = kind   || "";
   const effectiveDetail = detail || "";
@@ -783,12 +796,19 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
                 <Stamp size={13} style={{ color: GOLD }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#2D3748" }}>행정사</span>
                 <span style={{ fontSize: 12, color: "#718096" }}>{agentInfo?.contact_name || agentInfo?.office_name || "계정 정보 없음"} — 자동 채움</span>
+                {(agentSignatureStatus === "unknown" || agentSignatureStatus === "loading") && (
+                  <span style={{ fontSize: 11, color: "#A0AEC0" }}>서명 확인 중...</span>
+                )}
+                {agentSignatureStatus === "error" && (
+                  <span style={{ fontSize: 11, color: "#C05621" }}>서명 조회 실패</span>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "#718096" }}>
                 {(["sign", "seal", "none"] as const).map((opt) => {
                   const labels = { sign: "서명", seal: "도장", none: "없음" };
                   const isChecked = opt === "sign" ? agentSign : opt === "seal" ? (!agentSign && agentSeal) : (!agentSign && !agentSeal);
-                  const disabled = opt === "sign" && !agentHasSign;
+                  // Sign option disabled while loading/unknown (not yet confirmed) or confirmed no-sig
+                  const disabled = opt === "sign" && (agentSignatureStatus === "unknown" || agentSignatureStatus === "loading" || !agentHasSign);
                   return (
                     <label key={opt} style={{ display: "flex", alignItems: "center", gap: 3, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1 }}>
                       <input type="radio" name="agent-opt" checked={isChecked} disabled={disabled}
@@ -800,6 +820,11 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
                 })}
               </div>
             </div>
+            {agentSignatureStatus === "error" && (
+              <div style={{ fontSize: 11, color: "#C05621", marginTop: 5 }}>
+                행정사 서명 조회 실패 — 다시 시도하거나 도장/없음으로 진행해 주세요.
+              </div>
+            )}
           </div>
           {selectionComplete && (
             <div style={{ fontSize: 11, color: "#718096", marginBottom: 10, padding: "6px 10px", background: "#EBF8FF", borderRadius: 6, lineHeight: 1.6 }}>
@@ -848,13 +873,17 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
             <><FileText size={14} /> 🖨 PDF 생성</>
           </SubmitButton>
           {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) && !generating && (
-            <div style={{ fontSize: 11, color: (accommodationStatus === "error" && !roleIsSet(accommodation)) || (guarantorStatus === "error" && !roleIsSet(guarantor)) ? "#C53030" : "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
               {!selectionComplete ? "업무를 완전히 선택해 주세요"
                 : !roleIsSet(applicant) ? "신청인을 입력해 주세요"
                 : checkedDocs.size === 0 ? "서류를 하나 이상 선택해 주세요"
-                : (accommodationStatus === "error" && !roleIsSet(accommodation)) || (guarantorStatus === "error" && !roleIsSet(guarantor))
-                  ? "관계인 조회 실패 — 다시 시도하거나 직접 입력해 주세요"
-                  : "고정 관계인 확인 중..."}
+                : "고정 관계인 확인 중..."}
+            </div>
+          )}
+          {/* 관계인 조회 실패 비차단 경고 — 버튼을 막지 않고 사용자에게 알림 */}
+          {((accommodationStatus === "error" && !roleIsSet(accommodation)) || (guarantorStatus === "error" && !roleIsSet(guarantor))) && !generating && (
+            <div style={{ fontSize: 11, color: "#C05621", background: "#FFFBEB", border: "1px solid #F6E05E", borderRadius: 6, padding: "5px 10px", marginBottom: 8, textAlign: "center" }}>
+              관계인 조회 실패 — 필요 시 직접 입력하거나, 미입력 상태로 작성할 수 있습니다.
             </div>
           )}
         </div>

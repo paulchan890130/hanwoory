@@ -862,6 +862,56 @@ function CustomerDrawer({
 
   const id = customer["고객ID"] || "";
   const name = form["한글"] || `${form["성"] ?? ""} ${form["명"] ?? ""}`.trim() || "신규 고객";
+
+  // ── Dual popup helper: 외부 사이트(왼쪽) + 복붙용 고객카드(오른쪽) ─────────
+  const openDualPopup = (externalUrl: string, winName: string, mode: string) => {
+    const margin = 8, gap = 8;
+    const availW = window.screen.availWidth;
+    const availH = window.screen.availHeight;
+    const totalW = availW - margin * 2;
+    const totalH = availH - margin * 2;
+    const rightW = Math.max(420, Math.min(520, Math.floor(totalW * 0.32)));
+    const leftW  = Math.max(760, totalW - rightW - gap);
+    const featLeft  = `width=${leftW},height=${totalH},left=${margin},top=${margin},resizable=yes,scrollbars=yes`;
+    const featRight = `width=${rightW},height=${totalH},left=${margin + leftW + gap},top=${margin},resizable=yes,scrollbars=yes`;
+
+    // 팝업별 고유 nonce — 크로스-고객 데이터 오염 방지
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const storageKey = `customer_copy_popup_data_${id}_${mode}_${nonce}`;
+
+    // 고객 데이터 + 검증 메타데이터 저장 (nonce 키 → 로드 후 즉시 삭제됨)
+    localStorage.setItem(storageKey, JSON.stringify({
+      customerId: id,
+      mode,
+      savedAt: Date.now(),
+      data: form,
+    }));
+
+    // 두 팝업을 동일 이벤트 내에서 즉시 열어 팝업 차단 방지
+    const externalWin = window.open(externalUrl, winName, featLeft);
+    const cardWin     = window.open(
+      `/customer-copy-popup?customerId=${encodeURIComponent(id)}&mode=${encodeURIComponent(mode)}&nonce=${encodeURIComponent(nonce)}`,
+      `customer-copy-popup-${id}-${nonce.slice(0, 8)}`,
+      featRight,
+    );
+
+    if (!externalWin || !cardWin) {
+      // 하나라도 차단됐으면 이미 열린 창도 닫고 스토리지 정리
+      if (externalWin && !externalWin.closed) externalWin.close();
+      if (cardWin     && !cardWin.closed)     cardWin.close();
+      localStorage.removeItem(storageKey);
+      toast.error("팝업이 차단되었습니다. 브라우저에서 팝업 허용 후 다시 시도해 주세요.");
+      return;
+    }
+
+    // 왼쪽(외부 사이트) 닫힘 감시 → 오른쪽 고객카드 자동 닫기
+    const timer = window.setInterval(() => {
+      if (!externalWin || externalWin.closed) {
+        if (cardWin && !cardWin.closed) cardWin.close();
+        window.clearInterval(timer);
+      }
+    }, 500);
+  };
   const rawFolder = form["폴더"] || "";
   const folderId = rawFolder.includes("drive.google.com")
     ? rawFolder.split("/").pop()?.split("?")[0] || "" : rawFolder;
@@ -1131,15 +1181,11 @@ function CustomerDrawer({
                         </span>
                         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
                           <button
-                            onClick={() => {
-                              const pw = Math.min(940, Math.max(760, window.screen.availWidth  - 120));
-                              const ph = Math.min(820, Math.max(650, window.screen.availHeight -  80));
-                              window.open(
+                            onClick={() => openDualPopup(
                               "https://www.hikorea.go.kr/info/CheckExprYmdByPassNoR.pt",
                               "hikorea-expiry-check",
-                              `width=${pw},height=${ph},left=20,top=20,resizable=yes,scrollbars=yes`
-                              );
-                            }}
+                              "expiry",
+                            )}
                             style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#C6F6D5", color:"#276749", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
                           >
                             하이코리아 열기
@@ -1241,10 +1287,10 @@ function CustomerDrawer({
                         </span>
                         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
                           <button
-                            onClick={() => window.open(
+                            onClick={() => openDualPopup(
                               "https://www.hikorea.go.kr/memb/membIdFindRM.pt",
                               "hikorea-id-find",
-                              "width=900,height=760,left=20,top=40,resizable=yes"
+                              "hikorea-id",
                             )}
                             style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #B794F4", background:"#D6BCFA", color:"#553C9A", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
                           >
@@ -1307,10 +1353,10 @@ function CustomerDrawer({
                           소시넷 ID찾기 보조
                         </span>
                         <button
-                          onClick={() => window.open(
+                          onClick={() => openDualPopup(
                             "https://www.socinet.go.kr/sPopup/FindIdPwPopup.jsp",
                             "socinet-id-find",
-                            "width=900,height=760,left=20,top=40,resizable=yes"
+                            "socinet-id",
                           )}
                           style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#C6F6D5", color:"#276749", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
                         >

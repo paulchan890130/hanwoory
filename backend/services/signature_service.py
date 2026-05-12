@@ -29,6 +29,11 @@ _SIG_EXISTS_CACHE_TTL = 30.0     # seconds
 _cust_col_a_cache: dict = {}
 _CUST_COL_A_CACHE_TTL = 60.0
 
+# 행정사 서명 TTL cache — avoids cold-Sheets read on every QuickDocPanel open
+# key: tenant_id  value: (data_or_none, monotonic_timestamp)
+_agent_sig_cache: dict = {}
+_AGENT_SIG_CACHE_TTL = 60.0
+
 
 def _get_gspread_client():
     from backend.services.tenant_service import _get_gspread_client as _gc
@@ -106,20 +111,27 @@ def _find_cust_rows(ws, customer_sheet_key: str, customer_id: str) -> "list[int]
 # ── 행정사 서명 ───────────────────────────────────────────────────────────────
 
 def get_agent_signature(tenant_id: str) -> str | None:
-    try:
-        sh = _master_sh()
-        ws = _get_or_create_ws(sh, AGENT_SIGN_SHEET, _AGENT_HEADERS)
-        _, record = _find_row(ws, 0, tenant_id)
-        if record is None:
-            return None
-        data = record.get("서명데이터", "").strip()
-        return data if data else None
-    except Exception as e:
-        print(f"[signature_service.get_agent_signature] 오류: {e}")
-        return None
+    """행정사 서명 조회. 60초 TTL 캐시 적용.
+    서명 없음(정상): None 반환. 오류 시 예외를 그대로 전파 (None 반환 금지)."""
+    now = _time.monotonic()
+    cached = _agent_sig_cache.get(tenant_id)
+    if cached is not None and (now - cached[1]) < _AGENT_SIG_CACHE_TTL:
+        return cached[0]
+    # No cache hit — read from Sheets (exceptions propagate to caller)
+    sh = _master_sh()
+    ws = _get_or_create_ws(sh, AGENT_SIGN_SHEET, _AGENT_HEADERS)
+    _, record = _find_row(ws, 0, tenant_id)
+    data: "str | None" = None
+    if record is not None:
+        raw = record.get("서명데이터", "").strip()
+        data = raw if raw else None
+    _agent_sig_cache[tenant_id] = (data, now)
+    return data
 
 
 def save_agent_signature(tenant_id: str, b64: str) -> None:
+    # Invalidate cache so next read reflects the new signature immediately
+    _agent_sig_cache.pop(tenant_id, None)
     sh = _master_sh()
     ws = _get_or_create_ws(sh, AGENT_SIGN_SHEET, _AGENT_HEADERS)
     row_idx, _ = _find_row(ws, 0, tenant_id)
