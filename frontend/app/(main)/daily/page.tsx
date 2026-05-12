@@ -181,6 +181,8 @@ export default function DailyPage() {
   const [newE2Amt, setNewE2Amt] = useState("");
   const [newCashOut, setNewCashOut] = useState("");
   const [newMemo, setNewMemo] = useState("");
+  // 일일결산 저장 + 진행업무 반영 중 상태 (중복 클릭 방지 + 사용자 피드백)
+  const [isSavingDaily, setIsSavingDaily] = useState(false);
 
   // 이름 입력 시 고객 자동완성 검색
   useEffect(() => {
@@ -217,6 +219,7 @@ export default function DailyPage() {
     mutationFn: (entry: Partial<DailyEntry>) => dailyApi.addEntry(entry),
     onSuccess: () => {
       // 위임내역 append는 backend add_entry에서 처리 (daily.py _append_delegation_to_customer)
+      setIsSavingDaily(false);
       toast.success("추가됨");
       // 입력 초기화
       setNewCategory(""); setNewName(""); setNewTask(""); setNewTime("");
@@ -224,7 +227,10 @@ export default function DailyPage() {
       setNewIncAmt(""); setNewE1Amt(""); setNewE2Amt(""); setNewCashOut(""); setNewMemo("");
       setSelectedCustomerId(null); setCustomerSuggestions([]); setShowSuggestions(false);
     },
-    onError: () => toast.error("추가 실패"),
+    onError: () => {
+      setIsSavingDaily(false);
+      toast.error("추가 실패");
+    },
     onSettled: () => {
       // 성공/실패 무관하게 항상 갱신 (기존 고객의 경우 위임내역 업데이트로 응답이 느릴 수 있음)
       qc.invalidateQueries({ queryKey: ["daily", "entries"] });
@@ -278,6 +284,7 @@ export default function DailyPage() {
 
   // 새 항목 추가 핸들러
   const handleAdd = useCallback(() => {
+    if (isSavingDaily || addMut.isPending) return;  // 중복 클릭 방지
     if (!newCategory) { toast.error("구분을 선택하세요."); return; }
     const isCashOut = newCategory === "현금출금";
 
@@ -305,6 +312,7 @@ export default function DailyPage() {
 
     const memo = isCashOut ? newMemo : packMemo(newIncType, newE1Type, String(e1Amt), newE2Type, String(e2Amt), newMemo);
 
+    setIsSavingDaily(true);  // 진행업무 반영 포함 전체 처리 시작 — 완료까지 버튼 비활성화
     addMut.mutate({
       date,
       time: timeVal,
@@ -319,7 +327,7 @@ export default function DailyPage() {
       memo,
       customer_id: selectedCustomerId ?? "",
     });
-  }, [newCategory, newName, newTask, newTime, newIncType, newE1Type, newE2Type, newIncAmt, newE1Amt, newE2Amt, newCashOut, newMemo, date, addMut, selectedCustomerId]);
+  }, [isSavingDaily, newCategory, newName, newTask, newTime, newIncType, newE1Type, newE2Type, newIncAmt, newE1Amt, newE2Amt, newCashOut, newMemo, date, addMut, selectedCustomerId]);
 
   // 수정 시작
   const startEdit = useCallback((entry: DailyEntry) => {
@@ -636,10 +644,10 @@ export default function DailyPage() {
           </div>
           {/* 추가 버튼 (64px) */}
           <div style={{ width: 64, flexShrink: 0, display: "flex", alignItems: "flex-end" }}>
-            <button onClick={handleAdd} disabled={addMut.isPending} className="btn-primary"
-              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 10px", justifyContent: "center", width: "100%", opacity: addMut.isPending ? 0.7 : 1, cursor: addMut.isPending ? "not-allowed" : "pointer" }}>
-              {addMut.isPending
-                ? <><Loader2 size={12} className="animate-spin" /> 추가 중...</>
+            <button onClick={handleAdd} disabled={isSavingDaily || addMut.isPending} className="btn-primary"
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 10px", justifyContent: "center", width: "100%", opacity: (isSavingDaily || addMut.isPending) ? 0.7 : 1, cursor: (isSavingDaily || addMut.isPending) ? "not-allowed" : "pointer" }}>
+              {(isSavingDaily || addMut.isPending)
+                ? <><Loader2 size={12} className="animate-spin" /> 반영 중...</>
                 : <><Plus size={12} /> 추가</>}
             </button>
           </div>

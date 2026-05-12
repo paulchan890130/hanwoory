@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 
 from backend.auth import get_current_user
 from backend.models import DailyEntry, BalanceData
-from backend.services.tenant_service import read_sheet, upsert_sheet, delete_from_sheet, get_worksheet
+from backend.services.tenant_service import read_sheet, upsert_sheet, delete_from_sheet, get_worksheet, invalidate_read_cache
 
 router = APIRouter()
 
@@ -44,6 +44,7 @@ _ACTIVE_HEADER = [
     "transfer", "cash", "card", "stamp", "receivable",
     "planned_expense", "processed", "processed_timestamp",
     "reception", "processing", "storage", "customer_id",
+    "source_daily_id",
 ]
 
 
@@ -109,9 +110,68 @@ def _append_delegation_to_customer(rec: dict, tenant_id: str) -> None:
     upsert_sheet(CUSTOMER_SHEET_NAME, tenant_id, header_list, [target], id_field="고객ID")
 
 
+class _DedupeResult:
+    """Return value of _dedupe_active_rows_by_source."""
+    __slots__ = ("matched_count", "kept_row", "deleted_rows")
+    def __init__(self, matched_count: int = 0, kept_row: "int | None" = None, deleted_rows: "list[int] | None" = None):
+        self.matched_count = matched_count
+        self.kept_row      = kept_row
+        self.deleted_rows  = deleted_rows or []
+
+
+def _dedupe_active_rows_by_source(source_daily_id: str, task_id: str, tenant_id: str) -> _DedupeResult:
+    """진행업무 시트에서 source_daily_id 또는 task_id 가 일치하는 중복 행을 row index 기준으로 제거.
+    id 값이 공유되는 경우에도 안전하게 동작. reception 등 더 완전한 행을 우선 보존.
+    반환값: matched_count (0이면 해당 행이 시트에 없음 = upsert가 실제로 기록 안 됨)."""
+    from config import ACTIVE_TASKS_SHEET_NAME
+    if not source_daily_id and not task_id:
+        return _DedupeResult()
+    try:
+        ws = get_worksheet(ACTIVE_TASKS_SHEET_NAME, tenant_id)
+        values = ws.get_all_values()
+        if len(values) < 2:
+            return _DedupeResult()
+        header = values[0]
+        id_idx        = header.index("id")              if "id"              in header else None
+        sdid_idx      = header.index("source_daily_id") if "source_daily_id" in header else None
+        reception_idx = header.index("reception")       if "reception"       in header else None
+
+        dup_rows: list = []  # (sheet_row_index, reception_value)
+        for r_i, row in enumerate(values[1:], start=2):
+            row_id   = str(row[id_idx]).strip()   if id_idx   is not None and id_idx   < len(row) else ""
+            row_sdid = str(row[sdid_idx]).strip() if sdid_idx is not None and sdid_idx < len(row) else ""
+            if (source_daily_id and row_sdid == source_daily_id) or (task_id and row_id == task_id):
+                reception = str(row[reception_idx]).strip() if reception_idx is not None and reception_idx < len(row) else ""
+                dup_rows.append((r_i, reception))
+
+        matched_count = len(dup_rows)
+        if matched_count <= 1:
+            kept = dup_rows[0][0] if dup_rows else None
+            return _DedupeResult(matched_count=matched_count, kept_row=kept)
+
+        # Keep the most complete row: prefer a row that has a reception timestamp.
+        # Among ties, keep the last occurrence (most recently appended).
+        keep_pos = max(range(len(dup_rows)), key=lambda i: (bool(dup_rows[i][1]), i))
+        rows_to_delete = sorted(
+            [r_i for j, (r_i, _) in enumerate(dup_rows) if j != keep_pos],
+            reverse=True,  # highest index first so row numbers don't shift
+        )
+        for row_no in rows_to_delete:
+            ws.delete_rows(row_no)
+            print(f"[daily] dedupe: removed duplicate active-task row {row_no}")
+        invalidate_read_cache(tenant_id, ACTIVE_TASKS_SHEET_NAME)
+        kept_row = dup_rows[keep_pos][0]
+        print(f"[daily] dedupe: kept row {kept_row}, removed {len(rows_to_delete)} duplicate(s)")
+        return _DedupeResult(matched_count=matched_count, kept_row=kept_row, deleted_rows=rows_to_delete)
+    except Exception as e:
+        print(f"[daily] dedupe failed (non-fatal): {e}")
+        return _DedupeResult()  # unknown state — caller must decide
+
+
 def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     """page_daily.py apply_daily_to_active_tasks 와 동일한 로직.
-    현금출금 제외한 모든 일일결산 저장 시 호출."""
+    현금출금 제외한 모든 일일결산 저장 시 호출.
+    source_daily_id + 결정론적 id 로 gspread retry/propagation race 에 의한 중복 append 방지."""
     import re as _re
     from config import ACTIVE_TASKS_SHEET_NAME
 
@@ -123,6 +183,11 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     work        = str(rec.get("task",        "")).strip()   # daily.task == active.work
     date        = str(rec.get("date",        "")).strip()
     customer_id = str(rec.get("customer_id", "")).strip()
+    source_daily_id = str(rec.get("id", "")).strip()
+
+    # 결정론적 active task id — 동일 일일결산 row 에서 항상 동일한 id.
+    # gspread retry 시 upsert_sheet 가 append 대신 update 를 수행하도록 보장.
+    active_task_id = ("daily-" + source_daily_id) if source_daily_id else str(uuid.uuid4())
 
     # 메모에서 income/expense 유형 파싱: [KID]inc=X;e1=Y;e2=Z[/KID]
     memo = str(rec.get("memo", "")) or ""
@@ -173,16 +238,29 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
         if "현금" in (e1_type, e2_type) and exp_cash:
             delta["cash"] += exp_cash
 
-    # 매칭 진행업무 조회 (category + date + name + work)
+    # 매칭 진행업무 조회
     active_tasks = read_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or []
-    matched = next(
-        (t for t in active_tasks
-         if t.get("category") == category
-         and t.get("date") == date
-         and t.get("name") == name
-         and t.get("work") == work),
-        None
-    )
+
+    # 1차: source_daily_id 기반 매칭 — 가장 안전한 idempotency key
+    matched = None
+    if source_daily_id:
+        matched = next(
+            (t for t in active_tasks
+             if str(t.get("source_daily_id", "")).strip() == source_daily_id),
+            None
+        )
+
+    # 2차 fallback: source_daily_id 없는 레거시 행에 한해 content 매칭
+    if not matched:
+        matched = next(
+            (t for t in active_tasks
+             if not str(t.get("source_daily_id", "")).strip()
+             and t.get("category") == category
+             and t.get("date") == date
+             and t.get("name") == name
+             and t.get("work") == work),
+            None
+        )
 
     if matched:
         for field, dv in delta.items():
@@ -191,11 +269,14 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
         # customer_id가 새로 들어오면 기존 행에도 반영 (빈값인 경우만 덮어쓰기)
         if customer_id and not str(matched.get("customer_id", "")).strip():
             matched["customer_id"] = customer_id
+        # 레거시 행에 source_daily_id 마이그레이션
+        if source_daily_id and not str(matched.get("source_daily_id", "")).strip():
+            matched["source_daily_id"] = source_daily_id
         upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [matched], id_field="id")
     else:
-        # 매칭 업무 없으면 신규 진행업무 생성
         new_task = {
-            "id":                  str(uuid.uuid4()),
+            "id":                  active_task_id,
+            "source_daily_id":     source_daily_id,
             "category":            category,
             "date":                date,
             "name":                name,
@@ -214,10 +295,33 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
             "storage":             "",
             "customer_id":         customer_id,
         }
-        upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [new_task], id_field="id")
+        upsert_error: "Exception | None" = None
+        try:
+            upsert_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, _ACTIVE_HEADER, [new_task], id_field="id")
+        except Exception as upsert_err:
+            _raise_if_quota(upsert_err)
+            upsert_error = upsert_err
+            print(f"[daily] active task upsert exception — verifying via re-read: {upsert_err}")
 
-    # 백엔드 캐시 무효화 — tasks.py get_active_tasks가 30초 TTL 캐시를 사용하므로
-    # 여기서 직접 sheet에 쓴 뒤 캐시를 비워야 프론트 refetch 시 최신 데이터가 반환됨
+        # Read-back: verify the row exists and clean up any duplicates from retry/race.
+        dedupe_result = _dedupe_active_rows_by_source(source_daily_id, active_task_id, tenant_id)
+
+        if upsert_error is not None and dedupe_result.matched_count == 0:
+            # Exception raised AND row is confirmed absent: the write failed.
+            # Re-raise so the caller (add_entry) returns an error to the frontend.
+            raise upsert_error
+
+        if upsert_error is None and dedupe_result.matched_count == 0:
+            # Upsert appeared to succeed but the row is not in the sheet.
+            # This is a serious data inconsistency.
+            raise RuntimeError(
+                f"[daily] active task write inconsistency: upsert reported success "
+                f"but source_daily_id={source_daily_id!r} / id={active_task_id!r} "
+                f"not found on re-read. Daily entry was saved but 진행업무 was not."
+            )
+
+    # 백엔드 캐시 무효화 — tasks.py get_active_tasks 가 TTL 캐시를 사용하므로
+    # 여기서 직접 sheet 에 쓴 뒤 캐시를 비워야 프론트 refetch 시 최신 데이터가 반환됨
     from backend.services.cache_service import cache_invalidate
     cache_invalidate(tenant_id, "tasks:active")
 

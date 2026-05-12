@@ -35,6 +35,7 @@ ACTIVE_HEADER = [
     "transfer", "cash", "card", "stamp", "receivable",
     "planned_expense", "processed", "processed_timestamp",
     "reception", "processing", "storage", "customer_id",
+    "source_daily_id",
 ]
 
 
