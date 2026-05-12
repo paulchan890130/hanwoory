@@ -769,10 +769,12 @@ function CustomerDrawer({
 
   // ── 숙소제공자 ──
   const [providerData, setProviderData] = useState<AccommodationProvider | null>(null);
+  const [providerLoading, setProviderLoading] = useState(false);
   const [showProviderModal, setShowProviderModal] = useState(false);
 
   // ── 신원보증인 ──
   const [guarantorData, setGuarantorData] = useState<GuarantorConnection | null>(null);
+  const [guarantorLoading, setGuarantorLoading] = useState(false);
   const [showGuarantorModal, setShowGuarantorModal] = useState(false);
 
   // ── 업무 현황 ──
@@ -830,18 +832,22 @@ function CustomerDrawer({
 
   // 숙소제공자 조회 (신규 고객 제외)
   useEffect(() => {
-    if (!customerId || isNew) { setProviderData(null); return; }
+    setProviderData(null);
+    if (!customerId || isNew) { setProviderLoading(false); return; }
+    setProviderLoading(true);
     accommodationApi.get(customerId)
-      .then(r => setProviderData(r.data || null))
-      .catch(() => {});
+      .then(r => { setProviderData(r.data || null); setProviderLoading(false); })
+      .catch(() => { setProviderData(null); setProviderLoading(false); });
   }, [customerId, isNew]);
 
   // 신원보증인 조회 (신규 고객 제외)
   useEffect(() => {
-    if (!customerId || isNew) { setGuarantorData(null); return; }
+    setGuarantorData(null);
+    if (!customerId || isNew) { setGuarantorLoading(false); return; }
+    setGuarantorLoading(true);
     guarantorApi.get(customerId)
-      .then(r => setGuarantorData(r.data || null))
-      .catch(() => {});
+      .then(r => { setGuarantorData(r.data || null); setGuarantorLoading(false); })
+      .catch(() => { setGuarantorData(null); setGuarantorLoading(false); });
   }, [customerId, isNew]);
 
   // 업무 현황 로드 (신규 고객 제외)
@@ -1032,13 +1038,13 @@ function CustomerDrawer({
                       display:"flex", alignItems:"center", gap:5,
                       fontSize:11, padding:"5px 12px", borderRadius:6,
                       border: providerData ? "1px solid #BEE3F8" : "1px solid #CBD5E0",
-                      color: providerData ? "#2B6CB0" : "#4A5568",
+                      color: providerLoading ? "#A0AEC0" : providerData ? "#2B6CB0" : "#4A5568",
                       background: providerData ? "#EBF8FF" : "#F7FAFC",
                       cursor:"pointer", fontWeight:600,
                     }}
                   >
                     <Home size={11} />
-                    {providerData ? `숙소: ${providerData.provider_name}` : "숙소제공자"}
+                    {providerLoading ? "숙소 확인 중..." : providerData ? `숙소: ${providerData.provider_name}` : "숙소제공자"}
                   </button>
                   <button
                     onClick={() => setShowGuarantorModal(true)}
@@ -1046,13 +1052,13 @@ function CustomerDrawer({
                       display:"flex", alignItems:"center", gap:5,
                       fontSize:11, padding:"5px 12px", borderRadius:6,
                       border: guarantorData ? "1px solid #C6F6D5" : "1px solid #CBD5E0",
-                      color: guarantorData ? "#276749" : "#4A5568",
+                      color: guarantorLoading ? "#A0AEC0" : guarantorData ? "#276749" : "#4A5568",
                       background: guarantorData ? "#F0FFF4" : "#F7FAFC",
                       cursor:"pointer", fontWeight:600,
                     }}
                   >
                     <Shield size={11} />
-                    {guarantorData ? `보증인: ${guarantorData.guarantor_name}` : "신원보증인"}
+                    {guarantorLoading ? "보증인 확인 중..." : guarantorData ? `보증인: ${guarantorData.guarantor_name}` : "신원보증인"}
                   </button>
                   {onOpenQuickPoaOverlay && (
                     <button
@@ -1656,7 +1662,7 @@ export default function CustomersPage() {
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14, position:"relative", minHeight:"100%" }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:14, position:"relative", minHeight:"100%", marginTop:-10 }}>
       {/* 툴바 — flex row, 각 아이템에 명시적 shrink/grow 지정 */}
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <h1 className="hw-page-title" style={{ flexShrink:0 }}>고객관리</h1>
