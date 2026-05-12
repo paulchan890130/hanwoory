@@ -121,7 +121,7 @@ Tabs that always route to admin `SHEET_KEY` (shared): `"게시판"`, `"게시판
 - `accommodation_provider` (dict from 숙소제공자연결 tab) and `guarantor_connection` (dict from 신원보증인연결 tab) — passed in addition to `*_id` fields and override empty DB values.
 - `direct_overrides: dict` — applied last over `build_field_values()` output; used by the "편집 후 재다운로드" panel to patch individual PDF widget values without re-fetching Sheets data.
 
-**Sign/seal normalization in `generate_full()`:** When both `sign_*` and `seal_*` flags are False for accommodation or guarantor, the backend auto-detects: if the linked customer has a `고객서명` entry → use signature; else if name exists → use seal. This fires only when the frontend sends both as False (never intended behavior). Guardian and aggregator do NOT have auto-detection — they rely entirely on frontend flags.
+**Sign/seal normalization in `generate_full()`:** Only one rule: if both `sign_*` and `seal_*` are True for the same role, `seal_*` is forced False (sign wins). **Both False is intentional** — it means the user explicitly selected "없음" (no signature, no seal). The backend never auto-enables a signature or seal when both are False. Guardian and aggregator have no normalization; they rely entirely on frontend flags.
 
 **원클릭 작성** (`/quick-poa`): `_ALL_OUTPUTS` / `_IMPLEMENTED_OUTPUTS` / `_OUTPUT_ORDER` constants control which one-click types are available. Currently implemented: 위임장, 하이코리아, 소시넷(등록증), 소시넷(여권). `건강보험(세대합가)` and `건강보험(피부양자)` are in `_ALL_OUTPUTS` but **not** `_IMPLEMENTED_OUTPUTS` — PDF templates are missing.
 

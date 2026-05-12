@@ -397,14 +397,6 @@ def build_field_values(
             syyyy, smm, sdd = _split_date(start)
             field_values.update({"제공년": syyyy, "제공월": smm, "제공일": sdd})
 
-        # 작성년/월/일 → 오늘 날짜
-        today = datetime.date.today()
-        field_values.update({
-            "작성년": str(today.year),
-            "월":    str(today.month),
-            "일":    str(today.day),
-        })
-
         # 숙소 유형 체크박스 (PDF에 확인된 필드명 기준)
         _housing_checkbox = {
             "자가":    "Check Box자가",
@@ -721,6 +713,8 @@ class FullDocGenRequest(BaseModel):
     direct_overrides: Optional[dict] = None
     accommodation_provider: Optional[dict] = None  # 숙소제공자연결 탭 전체 데이터
     guarantor_connection: Optional[dict] = None    # 신원보증인연결 탭 전체 데이터
+    include_date: bool = True                      # 작성년/월/일 삽입 여부
+    custom_date: Optional[str] = None              # 직접 지정 날짜 (YYYY-MM-DD); None = 오늘
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
@@ -941,6 +935,25 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         rel = str(req.guarantor_connection.get("guarantor_relation", "") or "").strip()
         if rel:
             field_values["rela"] = rel
+
+    # ── 작성년/월/일 삽입 ──────────────────────────────────────────────────────
+    # include_date=False → 날짜 필드 미설정 (공란)
+    # custom_date is None  → 이전 호출자 호환: 오늘 날짜 사용
+    # custom_date == ""    → 프론트에서 명시적으로 비운 경우: 공란
+    # custom_date non-empty → 해당 날짜 사용; 파싱 실패 시 오늘 날짜 폴백
+    if req.include_date:
+        if req.custom_date is None:
+            _today = datetime.date.today()
+            field_values.update({"작성년": str(_today.year), "월": str(_today.month), "일": str(_today.day)})
+        elif req.custom_date == "":
+            field_values.update({"작성년": "", "월": "", "일": ""})
+        else:
+            _d_yyyy, _d_mm, _d_dd = _split_date(req.custom_date)
+            if _d_yyyy:
+                field_values.update({"작성년": _d_yyyy, "월": _d_mm, "일": _d_dd})
+            else:
+                _today = datetime.date.today()
+                field_values.update({"작성년": str(_today.year), "월": str(_today.month), "일": str(_today.day)})
 
     # ── 편집 후 재생성: direct_overrides를 build_field_values 결과에 최종 적용 ──
     if req.direct_overrides:

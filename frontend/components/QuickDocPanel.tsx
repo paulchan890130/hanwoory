@@ -38,6 +38,14 @@ const GOLD_LIGHT = "rgba(212,168,67,0.10)";
 const BORDER = "#E2E8F0";
 const GRAY_BG = "#F9FAFB";
 
+function getLocalDateString(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function needGuarantor(cat: string, min: string, kind: string, detail: string) {
   if (cat !== "체류" || kind !== "F") return false;
   if (["등록", "연장"].includes(min)) return ["1","2","3","6"].includes(detail);
@@ -72,6 +80,8 @@ interface RoleState {
   hasSignature: boolean;
   signatureLookupError?: boolean;
 }
+
+type LinkStatus = "unknown" | "loading" | "none" | "linked" | "error";
 
 function emptyRole(sealDefault = true): RoleState {
   return { customer: null, directName: "", seal: sealDefault, sign: false, hasSignature: false, signatureLookupError: false };
@@ -271,6 +281,13 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
   const [agentInfo, setAgentInfo] = useState<{ office_name: string; contact_name: string } | null>(null);
   const [accommodationProvider, setAccommodationProvider] = useState<AccommodationProvider | null>(null);
   const [guarantorConnection, setGuarantorConnection]   = useState<import("@/lib/api").GuarantorConnection | null>(null);
+  const [includeDate, setIncludeDate] = useState(true);
+  const [customDate, setCustomDate]   = useState(() => getLocalDateString());
+  // Explicit link-status for each related role.
+  // "unknown" = before effect fires; "loading" = fetch in-flight;
+  // "none" = no fixed person; "linked" = fixed person found and role applied; "error" = fetch/parse failure.
+  const [accommodationStatus, setAccommodationStatus] = useState<LinkStatus>("unknown");
+  const [guarantorStatus, setGuarantorStatus]         = useState<LinkStatus>("unknown");
 
   // 행정사 정보 + 서명 확인
   useEffect(() => {
@@ -304,8 +321,15 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
   // initialCustomer → 신청인 자동 설정 + 숙소제공자/신원보증인 preload
   const initId = initialCustomer?.id;
   useEffect(() => {
-    if (!initId || !initialCustomer) return;
+    if (!initId || !initialCustomer) {
+      // No customer — no linked roles to check. Both are "none" (not applicable).
+      setAccommodationStatus("none");
+      setGuarantorStatus("none");
+      return;
+    }
     let cancelled = false;
+    setAccommodationStatus("loading");
+    setGuarantorStatus("loading");
     const authHeader = { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` };
 
     // Per-effect signature lookup deduplication.
@@ -340,48 +364,69 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
       });
 
     // 2) 숙소제공자 preload → 관계 API + 서명 확인 후 단일 setAccommodation
+    // Status transitions: "loading" → "none" | "linked" | "error"
     fetch(`/api/customers/${encodeURIComponent(initId)}/accommodation-provider`, { headers: authHeader })
       .then(async (r) => {
-        const p = await r.json();
-        if (cancelled || !p) return;
-        setAccommodationProvider(p as AccommodationProvider);
-        if (p.provider_type === "customer_db" && p.provider_customer_id) {
-          const linkedId = String(p.provider_customer_id);
+        // 404 = no fixed provider linked (not an error, just "none")
+        if (!r.ok) { if (!cancelled) setAccommodationStatus("none"); return; }
+        let p: unknown;
+        try { p = await r.json(); } catch { if (!cancelled) setAccommodationStatus("error"); return; }
+        if (cancelled) return;
+        if (!p || typeof p !== "object") { setAccommodationStatus("error"); return; }
+        const pd = p as Record<string, unknown>;
+        setAccommodationProvider(pd as unknown as AccommodationProvider);
+        if (pd.provider_type === "customer_db" && pd.provider_customer_id) {
+          const linkedId = String(pd.provider_customer_id);
           const customerObj: CustomerSearchResult = {
-            id: linkedId, name: p.provider_name || "",
-            label: p.provider_name || "", reg_no: p.provider_reg_front || "",
+            id: linkedId, name: String(pd.provider_name || ""),
+            label: String(pd.provider_name || ""), reg_no: String(pd.provider_reg_front || ""),
           };
           const sig = await checkSignatureOnce(linkedId);
           if (cancelled) return;
+          // setAccommodation and setAccommodationStatus("linked") batched in same React 18 render.
           setAccommodation({ customer: customerObj, directName: "", seal: !sig.hasSignature, sign: sig.hasSignature, hasSignature: sig.hasSignature, signatureLookupError: sig.signatureLookupError });
-        } else if (p.provider_name) {
+          setAccommodationStatus("linked");
+        } else if (pd.provider_name) {
           if (cancelled) return;
-          setAccommodation({ customer: null, directName: p.provider_name, seal: true, sign: false, hasSignature: false, signatureLookupError: false });
+          setAccommodation({ customer: null, directName: String(pd.provider_name), seal: true, sign: false, hasSignature: false, signatureLookupError: false });
+          setAccommodationStatus("linked");
+        } else {
+          // Valid response but no linked provider data — treat as none.
+          if (!cancelled) setAccommodationStatus("none");
         }
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setAccommodationStatus("error"); });
 
     // 3) 신원보증인 preload → 관계 API + 서명 확인 후 단일 setGuarantor
+    // Status transitions: "loading" → "none" | "linked" | "error"
     fetch(`/api/customers/${encodeURIComponent(initId)}/guarantor`, { headers: authHeader })
       .then(async (r) => {
-        const g = await r.json();
-        if (cancelled || !g) return;
-        setGuarantorConnection(g);
-        if (g.guarantor_type === "customer_db" && g.guarantor_customer_id) {
-          const linkedId = String(g.guarantor_customer_id);
+        if (!r.ok) { if (!cancelled) setGuarantorStatus("none"); return; }
+        let g: unknown;
+        try { g = await r.json(); } catch { if (!cancelled) setGuarantorStatus("error"); return; }
+        if (cancelled) return;
+        if (!g || typeof g !== "object") { setGuarantorStatus("error"); return; }
+        const gd = g as Record<string, unknown>;
+        setGuarantorConnection(gd as unknown as import("@/lib/api").GuarantorConnection);
+        if (gd.guarantor_type === "customer_db" && gd.guarantor_customer_id) {
+          const linkedId = String(gd.guarantor_customer_id);
           const customerObj: CustomerSearchResult = {
-            id: linkedId, name: g.guarantor_name || "",
-            label: g.guarantor_name || "", reg_no: g.guarantor_reg_front || "",
+            id: linkedId, name: String(gd.guarantor_name || ""),
+            label: String(gd.guarantor_name || ""), reg_no: String(gd.guarantor_reg_front || ""),
           };
           const sig = await checkSignatureOnce(linkedId);
           if (cancelled) return;
           setGuarantor({ customer: customerObj, directName: "", seal: !sig.hasSignature, sign: sig.hasSignature, hasSignature: sig.hasSignature, signatureLookupError: sig.signatureLookupError });
-        } else if (g.guarantor_name) {
+          setGuarantorStatus("linked");
+        } else if (gd.guarantor_name) {
           if (cancelled) return;
-          setGuarantor({ customer: null, directName: g.guarantor_name, seal: true, sign: false, hasSignature: false, signatureLookupError: false });
+          setGuarantor({ customer: null, directName: String(gd.guarantor_name), seal: true, sign: false, hasSignature: false, signatureLookupError: false });
+          setGuarantorStatus("linked");
+        } else {
+          if (!cancelled) setGuarantorStatus("none");
         }
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setGuarantorStatus("error"); });
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -399,6 +444,19 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
     !!category && !!minwon &&
     (typeOptions.length === 0 || !!kind) &&
     (subtypeOptions.length === 0 || !!detail);
+
+  // "none" → no fixed person, proceed freely.
+  // "linked"/"error" + roleIsSet → person found/or fallback and role is visible, proceed.
+  // "linked"/"error" without role → blocked.
+  // "unknown"/"loading" → always blocked.
+  const accommodationReady =
+    accommodationStatus === "none" ||
+    (accommodationStatus === "linked" && roleIsSet(accommodation)) ||
+    (accommodationStatus === "error"  && roleIsSet(accommodation));
+  const guarantorReady =
+    guarantorStatus === "none" ||
+    (guarantorStatus === "linked" && roleIsSet(guarantor)) ||
+    (guarantorStatus === "error"  && roleIsSet(guarantor));
 
   const effectiveKind   = kind   || "";
   const effectiveDetail = detail || "";
@@ -449,6 +507,8 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
     setAggregator(emptyRole(true));
     setAgentSeal(!agentHasSign);
     setAgentSign(agentHasSign);
+    setIncludeDate(true);
+    setCustomDate(getLocalDateString());
     if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
     setConfirmMissing(null);
     setShowEditPanel(false);
@@ -514,10 +574,12 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
       sign_applicant: applicant.sign, sign_accommodation: accommodation.sign,
       sign_guarantor: guarantor.sign, sign_guardian: guardian.sign,
       sign_aggregator: aggregator.sign, sign_agent: agentSign,
+      include_date: includeDate,
+      custom_date:  customDate,
     };
     const blob = await _runGenerate(payload);
     if (blob) { setLastPayload(payload); setPdfUrl(URL.createObjectURL(blob)); toast.success("PDF 생성 완료"); }
-  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, _runGenerate]);
+  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, _runGenerate, customDate, includeDate, accommodationProvider, guarantorConnection]);
 
   const handleEditDownload = useCallback(async () => {
     if (!lastPayload) return;
@@ -757,18 +819,42 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
               </div>
             </div>
           )}
+          {/* 작성일 삽입 옵션 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", border: `1px solid ${BORDER}`, borderRadius: 8, background: GRAY_BG, marginBottom: 8, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" as const }}>
+              <input type="checkbox" checked={includeDate} onChange={(e) => setIncludeDate(e.target.checked)} style={{ accentColor: GOLD }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#2D3748" }}>작성일 삽입</span>
+            </label>
+            {includeDate && (
+              <>
+                <input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  style={{ fontSize: 12, border: `1px solid ${BORDER}`, borderRadius: 6, padding: "3px 8px", color: "#2D3748", background: "#fff" }}
+                />
+                <button onClick={() => setCustomDate(getLocalDateString())} style={{ fontSize: 11, color: "#718096", background: "none", border: "none", cursor: "pointer", padding: 0 }}>오늘로</button>
+                <button onClick={() => setCustomDate("")} style={{ fontSize: 11, color: "#A0AEC0", background: "none", border: "none", cursor: "pointer", padding: 0 }}>비우기</button>
+              </>
+            )}
+          </div>
           <SubmitButton
             isSubmitting={generating}
-            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0}
+            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady}
             onClick={handleGenerate}
             loadingText="PDF 생성 중..."
-            style={{ width: "100%", padding: "12px 0", background: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0) ? "#E2E8F0" : GOLD, color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 14, fontWeight: 700, transition: "all 0.15s", marginBottom: 12 }}
+            style={{ width: "100%", padding: "12px 0", background: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#E2E8F0" : GOLD, color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 14, fontWeight: 700, transition: "all 0.15s", marginBottom: 12 }}
           >
             <><FileText size={14} /> 🖨 PDF 생성</>
           </SubmitButton>
-          {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0) && !generating && (
-            <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
-              {!selectionComplete ? "업무를 완전히 선택해 주세요" : !roleIsSet(applicant) ? "신청인을 입력해 주세요" : "서류를 하나 이상 선택해 주세요"}
+          {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) && !generating && (
+            <div style={{ fontSize: 11, color: (accommodationStatus === "error" && !roleIsSet(accommodation)) || (guarantorStatus === "error" && !roleIsSet(guarantor)) ? "#C53030" : "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
+              {!selectionComplete ? "업무를 완전히 선택해 주세요"
+                : !roleIsSet(applicant) ? "신청인을 입력해 주세요"
+                : checkedDocs.size === 0 ? "서류를 하나 이상 선택해 주세요"
+                : (accommodationStatus === "error" && !roleIsSet(accommodation)) || (guarantorStatus === "error" && !roleIsSet(guarantor))
+                  ? "관계인 조회 실패 — 다시 시도하거나 직접 입력해 주세요"
+                  : "고정 관계인 확인 중..."}
             </div>
           )}
         </div>

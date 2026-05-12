@@ -839,6 +839,10 @@ export default function ScanPage() {
   const passportTfRef = useRef<WsTf>(DEFAULT_TF);
   const arcTfRef      = useRef<WsTf>(DEFAULT_TF);
 
+  // ARC 이미지 로드 여부 ref — applyPreset 비동기 클로저에서 최신값을 읽기 위해 ref 사용.
+  // arcFile state는 초기 렌더 클로저에서 null로 캡처되어 타이밍 레이스 발생 가능.
+  const arcFileLoadedRef = useRef(false);
+
   // [프리셋] 프리셋 state
   const [presets, setPresets]         = useState<(RoiPreset | null)[]>([null, null, null]);
   const [activeSlot, setActiveSlot]   = useState<1 | 2 | 3>(1);
@@ -930,7 +934,12 @@ export default function ScanPage() {
       if (preset.data.arc[k]) newArcBoxes[k] = preset.data.arc[k];
     });
     setArcBoxes(prev => ({ ...prev, ...newArcBoxes }));
-    const arcTf = transformToWsTf(preset.data.arc);
+    const rawArcTf = transformToWsTf(preset.data.arc);
+    // If an ARC image is already loaded, do not apply the preset's saved rotation —
+    // the user's current image orientation must be preserved.
+    // Use a ref (not arcFile state) so async .then() closures always read the
+    // latest value, avoiding the timing race where arcFile is stale null.
+    const arcTf = arcFileLoadedRef.current ? { ...rawArcTf, rot: 0 } : rawArcTf;
     setArcExternalTf(arcTf);
     setArcResetTrigger(v => v + 1);
 
@@ -1040,6 +1049,11 @@ export default function ScanPage() {
         toast.dismiss("pdf-convert");
         setArcFile(img);
         setArcPreview(URL.createObjectURL(img));
+        arcFileLoadedRef.current = true;
+        // Reset rotation to 0 on fresh upload — prevents stale preset rotation
+        // from overriding the freshly loaded image orientation.
+        setArcExternalTf(prev => prev ? { ...prev, rot: 0 } : { scale: 1, tx: 0, ty: 0, rot: 0 });
+        setArcResetTrigger(v => v + 1);
       } catch {
         toast.dismiss("pdf-convert");
         toast.error("PDF 변환 실패");
@@ -1048,6 +1062,11 @@ export default function ScanPage() {
     }
     setArcFile(f);
     setArcPreview(URL.createObjectURL(f));
+    arcFileLoadedRef.current = true;
+    // Reset rotation to 0 on fresh upload — prevents stale preset rotation
+    // from overriding the freshly loaded image orientation.
+    setArcExternalTf(prev => prev ? { ...prev, rot: 0 } : { scale: 1, tx: 0, ty: 0, rot: 0 });
+    setArcResetTrigger(v => v + 1);
   };
 
   // Selection complete callbacks
