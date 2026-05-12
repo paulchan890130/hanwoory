@@ -108,12 +108,14 @@ export interface TaskCardViewProps {
 // ── compact card (collapsed) — 2줄 압축형 ────────────────────────────────────
 function CompactCard({
   task, pendingReception, pendingProcessing, pendingStorage,
-  markedComplete, markedDelete, moneyDirty, onClick,
+  markedComplete, markedDelete, moneyDirty, moneyDraft, onMoneyDraftChange, onClick,
 }: {
   task: ActiveTask;
   pendingReception: string; pendingProcessing: string; pendingStorage: string;
   markedComplete: boolean; markedDelete: boolean;
   moneyDirty: boolean;
+  moneyDraft: MoneyDraft;
+  onMoneyDraftChange?: (field: keyof MoneyDraft, value: number) => void;
   onClick: () => void;
 }) {
   const cardDDay = computeCardDDay(task, pendingReception, pendingProcessing, pendingStorage);
@@ -121,10 +123,13 @@ function CompactCard({
   const bColor = dpBorderColor(dp, !!pendingReception);
   const tColor = dpTextColor(dp, !!pendingReception);
 
-  const totalAmt = (
-    safeInt(task.transfer) + safeInt(task.cash) + safeInt(task.card) +
-    safeInt(task.stamp) + safeInt(task.receivable)
-  );
+  // Draft-first effective values for each money field
+  const effectiveMoney = MONEY_FIELDS.map(({ label, field }) => {
+    const draftVal = moneyDraft[field];
+    const val = draftVal !== undefined ? draftVal : safeInt((task as unknown as Record<string, unknown>)[field] as string);
+    return { label, field, val };
+  });
+  const totalAmt = effectiveMoney.reduce((s, { val }) => s + val, 0);
 
   const cardBg = markedDelete
     ? "rgba(229,62,62,0.04)"
@@ -222,6 +227,42 @@ function CompactCard({
           </span>
         )}
       </div>
+
+      {/* 3줄: 금액별 0 버튼 (비어있지 않은 항목 + draft 편집된 항목, draft 우선) */}
+      {onMoneyDraftChange && effectiveMoney.some(({ val, field }) => val > 0 || moneyDraft[field] !== undefined) && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}
+          onClick={e => e.stopPropagation()}>
+          {effectiveMoney
+            // Show if non-zero OR if user explicitly edited this field (incl. draft=0)
+            .filter(({ val, field }) => val > 0 || moneyDraft[field] !== undefined)
+            .map(({ label, field, val }) => (
+              <span key={field} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={{ fontSize: 10, color: "#A0AEC0" }}>{label}</span>
+                <span style={{ fontSize: 10, color: moneyDraft[field] !== undefined ? "#F59E0B" : "#2D3748" }}>
+                  {formatNumber(val)}
+                </span>
+                {/* 0 버튼은 현재 값이 0보다 클 때만 표시 */}
+                {val > 0 && (
+                  <button
+                    type="button"
+                    title={`${label} 0으로 변경 (저장은 선택처리)`}
+                    onClick={e => { e.stopPropagation(); onMoneyDraftChange(field, 0); }}
+                    style={{
+                      fontSize: 9, padding: "1px 4px", borderRadius: 3,
+                      border: "1px solid #E2E8F0", background: "#F7FAFC",
+                      color: "#A0AEC0", cursor: "pointer", lineHeight: 1.2,
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#CBD5E0"; (e.currentTarget as HTMLButtonElement).style.color = "#718096"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#E2E8F0"; (e.currentTarget as HTMLButtonElement).style.color = "#A0AEC0"; }}
+                  >
+                    0
+                  </button>
+                )}
+              </span>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -482,6 +523,8 @@ function KanbanColumn({
               pendingReception={pR} pendingProcessing={pP} pendingStorage={pS}
               markedComplete={completedIds.has(task.id)} markedDelete={deleteIds.has(task.id)}
               moneyDirty={moneyDirty}
+              moneyDraft={moneyDrafts[task.id] ?? {}}
+              onMoneyDraftChange={onMoneyDraftChange ? (field, value) => onMoneyDraftChange(task.id, field, value) : undefined}
               onClick={() => onExpand(task.id)}
             />
           );
