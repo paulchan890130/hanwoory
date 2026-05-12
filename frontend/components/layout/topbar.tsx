@@ -1,7 +1,7 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, LogOut, X, Clock, User, ClipboardList, Calendar, FileText, BookOpen, BookMarked, Menu, PenLine } from "lucide-react";
+import { Bell, LogOut, Globe, Menu, PenLine } from "lucide-react";
 import { getUser, clearUser } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi, api } from "@/lib/api";
@@ -13,29 +13,21 @@ interface TopbarProps {
   onMobileMenuToggle?: () => void;
 }
 
-const RECENT_SEARCH_KEY = "hw_recent_searches";
-
-function getRecentSearches(): string[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || "[]"); }
-  catch { return []; }
-}
-
-function addRecentSearch(q: string) {
-  if (!q.trim()) return;
-  const prev = getRecentSearches().filter((s) => s !== q);
-  localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify([q, ...prev].slice(0, 8)));
-}
-
 interface SlotInfo { slot: number; has_data: boolean; 비고: string; }
+
+const SHORTCUTS = [
+  { label: "하이코리아",     url: "https://www.hikorea.go.kr/Main.pt" },
+  { label: "비자포털",       url: "https://www.visa.go.kr/openPage.do?MENU_ID=10301" },
+  { label: "사회통합정보망", url: "https://www.socinet.go.kr/soci/main/main.jsp?MENU_TYPE=S_TOP_SY" },
+  { label: "이민재단",       url: "https://www.kiiptest.org/index.html" },
+];
 
 export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: TopbarProps) {
   const router = useRouter();
   const qc = useQueryClient();
   const user = getUser();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [shortcutOpen, setShortcutOpen] = useState(false);
 
   // 임시저장 슬롯 상태
   const [slots, setSlots] = useState<SlotInfo[]>([
@@ -68,50 +60,11 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
     (expiryData?.card_alerts?.length ?? 0) +
     (expiryData?.passport_alerts?.length ?? 0);
 
-  // 검색 열기 단축키: / 또는 Ctrl+K
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-      if (e.key === "Escape") setSearchOpen(false);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  // 검색창 열릴 때 포커스
-  useEffect(() => {
-    if (searchOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } else {
-      setQuery("");
-    }
-  }, [searchOpen]);
-
-  const handleSearch = (q?: string) => {
-    const term = (q ?? query).trim();
-    if (!term) return;
-    addRecentSearch(term);
-    setSearchOpen(false);
-    router.push(`/search?q=${encodeURIComponent(term)}`);
-  };
-
   const handleLogout = () => {
-    qc.clear();   // wipe ALL cached queries before switching accounts
+    qc.clear();
     clearUser();
     router.replace("/login");
   };
-
-  const recentSearches = getRecentSearches();
-
-  const QUICK_LINKS = [
-    { label: "신규 고객",   href: "/customers?action=new",   icon: User },
-    { label: "진행업무 추가", href: "/tasks?tab=active&action=new", icon: ClipboardList },
-    { label: "OCR 스캔",   href: "/scan",                    icon: Search },
-    { label: "일정 추가",   href: "/dashboard?action=event", icon: Calendar },
-  ];
 
   return (
     <>
@@ -129,19 +82,43 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
             <Menu size={20} />
           </button>
         )}
-        {/* 데스크톱: 여백 스페이서 */}
-        {!isMobile && <div style={{ flexShrink: 0, minWidth: 0 }} />}
 
-        {/* 글로벌 검색창 - 반응형: 최소 160px, 최대 300px, 공간 부족 시 수축 */}
-        <div className="hw-search-bar" style={{ flex: "1 1 auto", minWidth: 160, maxWidth: 300, overflow: "hidden" }}>
-          <Search size={14} className="search-icon" />
-          <input
-            type="text"
-            placeholder="통합 검색... (Ctrl+K)"
-            readOnly
-            onClick={() => setSearchOpen(true)}
-            style={{ cursor: "pointer" }}
-          />
+        {/* 여백 스페이서 */}
+        <div style={{ flex: "1 1 auto" }} />
+
+        {/* 알람 벨 */}
+        <div style={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
+          <button
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: 6, borderRadius: 8,
+              background: "none", border: "none", cursor: "pointer",
+              color: alertCount > 0 ? "#E53E3E" : "#718096",
+              transition: "background 0.15s",
+            }}
+            onClick={() => router.push("/dashboard")}
+            title={alertCount > 0 ? `만기 알림 ${alertCount}건` : "알림 없음"}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#FFF5F5"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+          >
+            <Bell size={18} />
+          </button>
+          {alertCount > 0 && (
+            <span
+              style={{
+                background: "#E53E3E", color: "#fff",
+                fontSize: 10, fontWeight: 700,
+                minWidth: 16, height: 16, padding: "0 3px",
+                borderRadius: "50%",
+                position: "absolute", top: 2, right: 2,
+                pointerEvents: "none",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                lineHeight: 1,
+              }}
+            >
+              {alertCount > 99 ? "99+" : alertCount}
+            </span>
+          )}
         </div>
 
         {/* 서명 임시저장 슬롯 아이콘 */}
@@ -162,31 +139,28 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
           </div>
         ))}
 
-        {/* 알림 벨 */}
-        <div style={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
-          <button
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: "#718096", display: "flex", alignItems: "center", justifyContent: "center" }}
-            onClick={() => router.push("/dashboard")}
-            title={alertCount > 0 ? `만기 알림 ${alertCount}건` : "알림 없음"}
-          >
-            <Bell size={18} />
-          </button>
-          {alertCount > 0 && (
-            <span
-              className="text-[10px] font-bold text-white flex items-center justify-center rounded-full"
-              style={{
-                background: "#E53E3E",
-                minWidth: 16, height: 16, padding: "0 3px",
-                position: "absolute", top: 2, right: 2,
-                pointerEvents: "none",
-                lineHeight: 1,
-              }}
-            >
-              {alertCount > 99 ? "99+" : alertCount}
-            </span>
-          )}
-        </div>
+        {/* 바로가기 */}
+        <button
+          onClick={() => setShortcutOpen(true)}
+          title="바로가기"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 6, borderRadius: 8,
+            background: "none", border: "none", cursor: "pointer",
+            color: "#718096", flexShrink: 0,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "#EBF8FF";
+            (e.currentTarget as HTMLButtonElement).style.color = "#2B6CB0";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "none";
+            (e.currentTarget as HTMLButtonElement).style.color = "#718096";
+          }}
+        >
+          <Globe size={18} />
+        </button>
 
         {/* 사무소명 */}
         <span
@@ -215,127 +189,69 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
         </button>
       </header>
 
-      {/* 검색 허브 오버레이 */}
-      {searchOpen && (
-        <div className="hw-search-overlay" onClick={() => setSearchOpen(false)}>
+      {/* 바로가기 팝업 */}
+      {shortcutOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 300,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+          onClick={() => setShortcutOpen(false)}
+        >
           <div
-            className="hw-search-modal"
+            style={{
+              background: "#fff", borderRadius: 16,
+              padding: "32px 28px",
+              width: "min(480px, 92vw)",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.22)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 검색 입력 */}
-            <div className="hw-search-modal-input">
-              <Search size={18} style={{ color: "#A0AEC0", flexShrink: 0 }} />
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder="고객·업무·게시글·일정·메모·업무참고 검색..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearch();
-                  if (e.key === "Escape") setSearchOpen(false);
-                }}
-              />
-              {query && (
-                <button onClick={() => setQuery("")} style={{ color: "#A0AEC0" }}>
-                  <X size={16} />
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1A202C", marginBottom: 20, textAlign: "center" }}>
+              바로가기
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              {SHORTCUTS.map(({ label, url }) => (
+                <button
+                  key={label}
+                  onClick={() => { window.open(url, "_blank"); setShortcutOpen(false); }}
+                  style={{
+                    padding: "20px 16px", borderRadius: 12,
+                    border: "1.5px solid #E2E8F0", background: "#F7FAFC",
+                    cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#2D3748",
+                    transition: "all 0.15s", textAlign: "center",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#EBF8FF";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#90CDF4";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#2B6CB0";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#F7FAFC";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#E2E8F0";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#2D3748";
+                  }}
+                >
+                  {label}
                 </button>
-              )}
+              ))}
             </div>
-
-            <div style={{ maxHeight: 440, overflowY: "auto" }}>
-              {/* 최근 검색어 */}
-              {!query && recentSearches.length > 0 && (
-                <div className="hw-search-result-group">
-                  <div className="hw-search-result-header">최근 검색어</div>
-                  {recentSearches.map((s) => (
-                    <div
-                      key={s}
-                      className="hw-search-result-item"
-                      onClick={() => handleSearch(s)}
-                    >
-                      <Clock size={13} style={{ color: "#A0AEC0", flexShrink: 0 }} />
-                      <span>{s}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 빠른 이동 (검색어 없을 때) */}
-              {!query && (
-                <div className="hw-search-result-group">
-                  <div className="hw-search-result-header">빠른 이동</div>
-                  {QUICK_LINKS.map(({ label, href, icon: Icon }) => (
-                    <div
-                      key={href}
-                      className="hw-search-result-item"
-                      onClick={() => { setSearchOpen(false); router.push(href); }}
-                    >
-                      <Icon size={13} style={{ color: "#D4A843", flexShrink: 0 }} />
-                      <span>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 검색어 입력 시: 검색 실행 안내 */}
-              {query && (
-                <div className="hw-search-result-group">
-                  <div
-                    className="hw-search-result-item"
-                    onClick={() => handleSearch()}
-                    style={{ padding: "14px 20px" }}
-                  >
-                    <Search size={14} style={{ color: "#D4A843", flexShrink: 0 }} />
-                    <span>
-                      <strong>&quot;{query}&quot;</strong> 전체 검색
-                    </span>
-                    <span style={{ marginLeft: "auto", fontSize: 11, color: "#A0AEC0" }}>Enter</span>
-                  </div>
-
-                  {/* 카테고리별 빠른 검색 */}
-                  {[
-                    { label: "고객에서 검색", type: "customer", icon: User },
-                    { label: "업무에서 검색", type: "task", icon: ClipboardList },
-                    { label: "게시판에서 검색", type: "board", icon: BookOpen },
-                    { label: "업무참고에서 검색", type: "reference", icon: BookMarked },
-                    { label: "메모에서 검색", type: "memo", icon: FileText },
-                  ].map(({ label, type, icon: Icon }) => (
-                    <div
-                      key={type}
-                      className="hw-search-result-item"
-                      onClick={() => {
-                        addRecentSearch(query);
-                        setSearchOpen(false);
-                        router.push(`/search?q=${encodeURIComponent(query)}&type=${type}`);
-                      }}
-                    >
-                      <Icon size={13} style={{ color: "#A0AEC0", flexShrink: 0 }} />
-                      <span style={{ color: "#718096" }}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 하단 단축키 안내 */}
-            <div
+            <button
+              onClick={() => setShortcutOpen(false)}
               style={{
-                padding: "10px 20px",
-                borderTop: "1px solid #E2E8F0",
-                fontSize: 11,
-                color: "#A0AEC0",
-                display: "flex",
-                gap: 16,
+                marginTop: 20, width: "100%", padding: "10px",
+                borderRadius: 8, border: "1px solid #E2E8F0",
+                background: "#fff", color: "#718096",
+                fontSize: 13, cursor: "pointer", fontWeight: 600,
               }}
             >
-              <span><kbd style={{ background: "#F7FAFC", padding: "1px 5px", borderRadius: 4, border: "1px solid #E2E8F0" }}>↵</kbd> 검색</span>
-              <span><kbd style={{ background: "#F7FAFC", padding: "1px 5px", borderRadius: 4, border: "1px solid #E2E8F0" }}>Esc</kbd> 닫기</span>
-              <span><kbd style={{ background: "#F7FAFC", padding: "1px 5px", borderRadius: 4, border: "1px solid #E2E8F0" }}>Ctrl+K</kbd> 검색 열기</span>
-            </div>
+              닫기
+            </button>
           </div>
         </div>
       )}
+
       {/* 임시저장 슬롯 모달 */}
       {activeSlot && (
         <TempSlotModal

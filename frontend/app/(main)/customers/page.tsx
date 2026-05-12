@@ -1108,7 +1108,6 @@ function CustomerDrawer({
                   const reg6      = (form["등록증"] || "").trim();
                   const birthdate = reg6 ? "19" + reg6 : "";
                   const NATION    = "한국계 중국인";
-                  const allText   = `여권번호: ${passport}\n국적: ${NATION}\n생년월일: ${birthdate}`;
                   const copyVal = (text: string, label: string) => {
                     navigator.clipboard.writeText(text).catch(() => {});
                     toast.success(`${label} 복사됨`);
@@ -1163,11 +1162,6 @@ function CustomerDrawer({
                           }
                         </div>
                       ))}
-                      {/* 전체 복사 */}
-                      <button onClick={() => { navigator.clipboard.writeText(allText).catch(() => {}); toast.success("전체 복사됨"); }}
-                        style={{ marginTop:4, fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#fff", color:"#276749", cursor:"pointer", fontWeight:600 }}>
-                        전체 복사
-                      </button>
                       {/* 입력확인 안내 */}
                       <div style={{ marginTop:7, padding:"5px 8px", borderRadius:5, background:"#FFFBEB", border:"1px solid #F6E05E", fontSize:10, color:"#744210" }}>
                         입력확인란(보안숫자)은 화면의 숫자를 직접 입력해야 합니다.
@@ -1218,13 +1212,7 @@ function CustomerDrawer({
                   const reg6     = (form["등록증"] || "").trim();
                   const reg7     = (form["번호"]   || "").trim();
                   const birthdate = reg6 ? "19" + reg6 : "";
-                  const regNoRaw = reg6 + reg7;                        // 복사용 (하이픈 없음)
-                  const regNoDisplay = reg6 && reg7 ? `${reg6}-${reg7}` : (reg6 || reg7 || "");
-                  const allText = [
-                    `영문이름: ${engName || "없음"}`,
-                    `생년월일: ${birthdate || "없음"}`,
-                    `외국인등록번호: ${regNoRaw || "없음"}`,
-                  ].join("\n");
+                  const regNoRaw = reg6 + reg7;
                   const copyVal = (text: string, label: string) => {
                     if (!text) { toast.error(`${label} 값이 없습니다.`); return; }
                     navigator.clipboard.writeText(text).catch(() => {});
@@ -1264,7 +1252,7 @@ function CustomerDrawer({
                       {[
                         { label: "영문이름",        value: engName,     warn: !engName  ? "영문 성/이름 없음" : "",        copyVal: engName     },
                         { label: "생년월일",        value: birthdate,   warn: !reg6     ? "등록번호 앞자리 없음" : "",     copyVal: birthdate   },
-                        { label: "외국인등록번호",  value: regNoDisplay, warn: !reg6 || !reg7 ? (!reg6 ? "등록번호 앞자리 없음" : "등록번호 뒷자리 없음") : "", copyVal: regNoRaw },
+                        { label: "외국인등록번호",  value: regNoRaw,     warn: !reg6 || !reg7 ? (!reg6 ? "등록번호 앞자리 없음" : "등록번호 뒷자리 없음") : "", copyVal: regNoRaw },
                       ].map(({ label, value, warn, copyVal: cv }) => (
                         <div key={label} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
                           <span style={{ fontSize:10, color:"#4A5568", width:74, flexShrink:0 }}>{label}</span>
@@ -1280,11 +1268,66 @@ function CustomerDrawer({
                           }
                         </div>
                       ))}
-                      {/* 전체 복사 */}
-                      <button onClick={() => { navigator.clipboard.writeText(allText).catch(() => {}); toast.success("전체 복사됨"); }}
-                        style={{ marginTop:4, fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #B794F4", background:"#fff", color:"#553C9A", cursor:"pointer", fontWeight:600 }}>
-                        전체 복사
-                      </button>
+                    </div>
+                  );
+                })()}
+                {/* ── 소시넷 ID찾기 보조 패널: 하이코리아 ID찾기 패널 바로 아래 ── */}
+                {showIdFindPanel && (() => {
+                  const surname2  = (form["성"] || "").trim().toUpperCase();
+                  const given2    = (form["명"] || "").trim().toUpperCase();
+                  const engName2  = [surname2, given2].filter(Boolean).join(" ");
+                  const reg6s     = (form["등록증"] || "").trim();
+                  const reg7s     = (form["번호"]   || "").trim();
+                  const passport2 = (form["여권"]   || "").trim();
+                  const phone2    = [form["연"] || "", form["락"] || "", form["처"] || ""]
+                    .map(s => s.replace(/\D/g, "")).join("");
+                  const copyVal2 = (text: string, label: string) => {
+                    if (!text) { toast.error(`${label} 값이 없습니다.`); return; }
+                    navigator.clipboard.writeText(text).catch(() => {});
+                    toast.success(`${label} 복사됨`);
+                  };
+                  return (
+                    <div style={{
+                      marginTop:8, padding:"11px 13px", borderRadius:8,
+                      border:"1px solid #9AE6B4", background:"#F0FFF4",
+                      fontSize:12,
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:"#276749" }}>
+                          소시넷 ID찾기 보조
+                        </span>
+                        <button
+                          onClick={() => window.open(
+                            "https://www.socinet.go.kr/sPopup/FindIdPwPopup.jsp",
+                            "socinet-id-find",
+                            "width=900,height=760,left=20,top=40,resizable=yes"
+                          )}
+                          style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#C6F6D5", color:"#276749", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
+                        >
+                          ID찾기 열기
+                        </button>
+                      </div>
+                      {[
+                        { label: "영문이름",        value: engName2,  warn: !engName2  ? "영문 성/이름 없음" : ""        },
+                        { label: "등록증 앞 6자리", value: reg6s,     warn: !reg6s     ? "등록번호 앞자리 없음" : ""     },
+                        { label: "등록증 뒤 7자리", value: reg7s,     warn: !reg7s     ? "등록번호 뒷자리 없음" : ""     },
+                        { label: "여권번호",        value: passport2, warn: !passport2 ? "여권번호 없음" : ""           },
+                        { label: "휴대폰번호",      value: phone2,    warn: !phone2    ? "전화번호 없음" : ""            },
+                      ].map(({ label, value, warn }) => (
+                        <div key={label} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                          <span style={{ fontSize:10, color:"#4A5568", width:80, flexShrink:0 }}>{label}</span>
+                          {warn
+                            ? <span style={{ fontSize:10, color:"#E53E3E" }}>⚠️ {warn}</span>
+                            : <>
+                                <span style={{ fontSize:11, fontWeight:600, color:"#1A202C", flex:1, fontFamily:"monospace" }}>{value}</span>
+                                <button onClick={() => copyVal2(value, label)}
+                                  style={{ fontSize:10, padding:"1px 7px", borderRadius:4, border:"1px solid #9AE6B4", background:"#fff", color:"#276749", cursor:"pointer", flexShrink:0 }}>
+                                  복사
+                                </button>
+                              </>
+                          }
+                        </div>
+                      ))}
                     </div>
                   );
                 })()}
@@ -1625,6 +1668,7 @@ export default function CustomersPage() {
             placeholder="이름, 여권번호, 국적 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); }}
             style={{
               width:"100%", height:36, border:"1px solid #E2E8F0", borderRadius:20,
               padding:"0 16px 0 38px", fontSize:13, outline:"none", boxSizing:"border-box",
@@ -1681,7 +1725,7 @@ export default function CustomersPage() {
                   const tel = [c["연"] || "", c["락"] || "", c["처"] || ""].filter(Boolean).join("-");
                   const isSelected = selectedCustomer?.["고객ID"] === id;
                   return (
-                    <tr key={id} onClick={() => { setSelectedCustomer(c); setIsNewMode(false); }}
+                    <tr key={id} onClick={() => { setSelectedCustomer(c); setIsNewMode(false); setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); }}
                       style={{ ...rowHighlight(c), cursor:"pointer", borderBottom:"1px solid #EDF2F7",
                         ...(isSelected ? { background:"rgba(212,168,67,0.08)", outline:"2px solid rgba(212,168,67,0.3)" } : {}) }}>
                       {TABLE_COLS.map((col) => {
@@ -1758,7 +1802,7 @@ export default function CustomersPage() {
       {docOverlayOpen && selectedCustomer && !isNewMode && (
         <div style={{
           position:"fixed",
-          top:56,                            // 상단바(56px) 아래
+          top:120,                           // 상단바(56px) + 고객 툴바(~64px) 아래
           bottom:0,
           left:"var(--hw-main-left, 0px)",   // 사이드바 오른쪽부터
           right:"min(480px, 100vw)",         // 고객카드 480px 제외
@@ -1811,7 +1855,7 @@ export default function CustomersPage() {
       {quickPoaOverlayOpen && selectedCustomer && !isNewMode && (
         <div style={{
           position:"fixed",
-          top:56,
+          top:120,
           bottom:0,
           left:"var(--hw-main-left, 0px)",
           right:"min(480px, 100vw)",
