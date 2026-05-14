@@ -37,6 +37,7 @@ def _encode_customer_token(customer_id: str, customer_sheet_key: str,
         "csk": customer_sheet_key,
         "on": office_name,
         "exp": int(time.time()) + ttl,
+        "rid": secrets.token_urlsafe(16),   # unique request nonce — isolates each request
     }
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     data_b64 = base64.urlsafe_b64encode(data.encode()).rstrip(b"=").decode()
@@ -138,12 +139,26 @@ def request_signature(
         office_name = user.get("office_name", "") or "행정사사무소"
 
     if body.type == "customer":
-        # Stateless HMAC token — no server memory needed
         try:
             customer_sheet_key = _resolve_customer_sheet_key(tenant_id, body.customer_sheet_key)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
+        _cleanup()
         token = _encode_customer_token(body.customer_id, customer_sheet_key, office_name)
+        # Extract rid from token and register in _pending to track submission for this request.
+        # poll will only return "saved" when _pending[rid]["submitted"] is True.
+        _decoded = _decode_customer_token(token)
+        rid = _decoded.get("rid", "") if _decoded else ""
+        if rid:
+            _pending[rid] = {
+                "type": "customer_pending",
+                "customer_id": body.customer_id,
+                "customer_sheet_key": customer_sheet_key,
+                "submitted": False,
+                "created_at": _now(),
+            }
+            _log.info("[request] type=customer rid=%s customer_id=%s token=%s",
+                      rid, body.customer_id, token[:8] + "…")
     else:
         # agent: keep _pending-based token
         _cleanup()
@@ -157,7 +172,10 @@ def request_signature(
         }
 
     url = f"https://www.hanwory.com/sign/{token}"
-    return {"token": token, "url": url}
+    result: dict = {"token": token, "url": url}
+    if body.type == "customer" and rid:
+        result["request_id"] = rid
+    return result
 
 
 @router.get("/info/{token}")
@@ -177,18 +195,36 @@ def get_signature_info(token: str):
 @router.get("/poll/{token}")
 def poll_signature(token: str, user: dict = Depends(get_current_user)):
     """서명 완료 여부 폴링."""
-    # stateless customer token: poll via Sheets A-column exists check
+    # stateless customer token: poll via _pending[rid] to isolate each request.
+    # Never check Sheets directly — a pre-existing signature must NOT trigger "saved".
     payload = _decode_customer_token(token)
     if payload is not None:
-        from backend.services.signature_service import has_customer_signature, SignatureLookupError
-        csk = payload.get("csk", "")
+        rid = payload.get("rid", "")
         cid = payload.get("cid", "")
+        token_hint = token[:8] + "…"
+        if rid:
+            entry = _pending.get(rid)
+            if entry is not None:
+                if entry.get("submitted"):
+                    _log.info("[poll] token=%s rid=%s customer_id=%s status=saved (submitted)",
+                              token_hint, rid, cid)
+                    return {"status": "saved", "request_id": rid}
+                _log.info("[poll] token=%s rid=%s customer_id=%s status=pending (not yet submitted)",
+                          token_hint, rid, cid)
+                return {"status": "pending", "request_id": rid}
+            # Pending entry gone (server restart or already cleaned up after save).
+            # Do NOT fall back to Sheets — that would re-trigger the old signature bug.
+            _log.warning("[poll] token=%s rid=%s customer_id=%s pending_entry_missing — returning pending",
+                         token_hint, rid, cid)
+            return {"status": "pending"}
+        # Old token format without rid (pre-fix tokens, expires in <5 min) — keep old behavior
+        csk = payload.get("csk", "")
         if not csk or not cid:
             return {"status": "pending"}
+        from backend.services.signature_service import has_customer_signature, SignatureLookupError
         try:
             saved = has_customer_signature(csk, cid)
         except SignatureLookupError:
-            # Sheets 조회 실패 — 저장 여부 불확실, pending으로 유지
             return {"status": "pending"}
         return {"status": "saved"} if saved else {"status": "pending"}
     # agent/temp: _pending fallback
@@ -219,19 +255,34 @@ def submit_signature(token: str, body: SignatureSubmitBody):
     if payload is not None:
         customer_id = payload.get("cid", "")
         customer_sheet_key = payload.get("csk", "")
+        rid = payload.get("rid", "")
         if not customer_id or not customer_sheet_key:
             raise HTTPException(status_code=400, detail="고객 정보가 없습니다.")
         token_hint = token[:8] + "…"
-        _log.info("[submit] token=%s customer_id=%s step=saving_to_sheets", token_hint, customer_id)
+        _log.info("[submit] token=%s rid=%s customer_id=%s step=saving_to_sheets",
+                  token_hint, rid, customer_id)
         try:
             from backend.services.signature_service import save_customer_signature
             save_customer_signature(customer_sheet_key, customer_id, compressed)
         except Exception as e:
-            _log.error("[submit] token=%s customer_id=%s step=save_failed exc=%s msg=%s",
-                       token_hint, customer_id, type(e).__name__, e)
+            _log.error("[submit] token=%s rid=%s customer_id=%s step=save_failed exc=%s msg=%s",
+                       token_hint, rid, customer_id, type(e).__name__, e)
             raise HTTPException(status_code=500, detail=f"서명 저장 실패: {e}")
-        _log.info("[submit] token=%s customer_id=%s step=saved", token_hint, customer_id)
-        return {"status": "ok"}  # no _pending update
+        # Mark _pending[rid] as submitted so poll returns "saved" for this specific request.
+        if rid:
+            if rid in _pending:
+                _pending[rid]["submitted"] = True
+                _log.info("[submit] token=%s rid=%s customer_id=%s pending_marked_submitted",
+                          token_hint, rid, customer_id)
+            else:
+                _log.warning("[submit] token=%s rid=%s customer_id=%s pending_entry_missing "
+                             "(server restart?) — signature saved to Sheets but poll cannot notify",
+                             token_hint, rid, customer_id)
+        else:
+            _log.warning("[submit] token=%s customer_id=%s no_rid_in_token (pre-fix token)",
+                         token_hint, customer_id)
+        _log.info("[submit] token=%s rid=%s customer_id=%s step=done", token_hint, rid, customer_id)
+        return {"status": "ok"}
 
     # ── agent/temp: _pending fallback ─────────────────────────────────────────
     entry = _pending.get(token)
@@ -279,6 +330,50 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
     if payload is not None:
         csk = payload.get("csk", "")
         cid = payload.get("cid", "")
+        rid = payload.get("rid", "")
+
+        if rid:
+            # New token format: gate on _pending[rid]["submitted"].
+            # A pre-existing signature in Sheets must never be auto-saved here.
+            entry = _pending.get(rid)
+            has_pending = entry is not None and bool(entry.get("submitted"))
+            _log.info("[save] token=%s rid=%s customer_id=%s has_pending_submission=%s",
+                      token_hint, rid, cid, has_pending)
+            if not has_pending:
+                _log.warning("[save] token=%s rid=%s customer_id=%s "
+                             "rejected — no pending submission (source=rejected_no_pending)",
+                             token_hint, rid, cid)
+                raise HTTPException(
+                    status_code=409,
+                    detail="이 서명 요청에 제출된 서명이 없습니다. 고객이 아직 서명하지 않았거나 세션이 만료되었습니다.",
+                )
+            # Confirmed: this specific request was submitted. Fetch from Sheets.
+            from backend.services.signature_service import (
+                has_customer_signature, get_customer_signature, SignatureLookupError,
+            )
+            try:
+                saved = bool(csk and cid and has_customer_signature(csk, cid))
+            except SignatureLookupError as e:
+                _log.error("[save] token=%s rid=%s cid=%s sheets_lookup_failed: %s",
+                           token_hint, rid, cid, e)
+                raise HTTPException(status_code=503, detail="고객서명 조회 실패. 잠시 후 다시 시도해 주세요.") from e
+            if saved:
+                _log.info("[save] token=%s rid=%s customer_id=%s status=ok "
+                          "source=pending_current_request", token_hint, rid, cid)
+                try:
+                    sig_data = get_customer_signature(csk, cid)
+                except Exception:
+                    sig_data = None
+                try:
+                    del _pending[rid]
+                except KeyError:
+                    pass
+                return {"status": "ok", "data": sig_data}
+            _log.warning("[save] token=%s rid=%s customer_id=%s status=not_in_sheets_yet",
+                         token_hint, rid, cid)
+            raise HTTPException(status_code=404, detail="아직 저장된 서명이 없습니다. 잠시 후 다시 시도해 주세요.")
+
+        # Old token format without rid (pre-fix, expires in <5 min) — keep old behavior.
         from backend.services.signature_service import (
             has_customer_signature, get_customer_signature, SignatureLookupError,
         )
@@ -288,7 +383,8 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
             _log.error("[save] token=%s cid=%s sheets_lookup_failed: %s", token_hint, cid, e)
             raise HTTPException(status_code=503, detail="고객서명 조회 실패. 잠시 후 다시 시도해 주세요.") from e
         if saved:
-            _log.info("[save] token=%s customer_id=%s status=confirmed_from_sheets", token_hint, cid)
+            _log.info("[save] token=%s customer_id=%s status=confirmed_from_sheets (old_token_no_rid)",
+                      token_hint, cid)
             try:
                 sig_data = get_customer_signature(csk, cid)
             except Exception:

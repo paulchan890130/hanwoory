@@ -19,6 +19,7 @@ export default function SignatureModal({
 }: Props) {
   const [status, setStatus]       = useState<ModalStatus>("requesting");
   const [token, setToken]         = useState<string | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
   const [url, setUrl]             = useState<string>("");
   const [qrSrc, setQrSrc]         = useState<string>("");
   const [signData, setSignData]   = useState<string | null>(null);
@@ -35,16 +36,18 @@ export default function SignatureModal({
     setSignData(null);
     setSaveError(null);
     setToken(null);
+    setRequestId(null);
     setQrSrc("");
     try {
-      const res = await api.post<{ token: string; url: string }>("/api/signature/request", {
+      const res = await api.post<{ token: string; url: string; request_id?: string }>("/api/signature/request", {
         type,
         customer_id: customerId ?? null,
         customer_sheet_key: customerSheetKey ?? null,
       });
-      const { token: tok, url: signUrl } = res.data;
+      const { token: tok, url: signUrl, request_id: rid } = res.data;
       setToken(tok);
       setUrl(signUrl);
+      setRequestId(rid ?? null);
       const QRCode = await import("qrcode");
       const qr = await QRCode.toDataURL(signUrl, { width: 220, margin: 1 });
       setQrSrc(qr);
@@ -66,10 +69,12 @@ export default function SignatureModal({
     if (status !== "waiting" || !token) { stopPoll(); return; }
     pollRef.current = setInterval(async () => {
       try {
-        const pollRes = await api.get<{ status: string; data?: string }>(`/api/signature/poll/${token}`);
+        const pollRes = await api.get<{ status: string; data?: string; request_id?: string }>(`/api/signature/poll/${token}`);
         const json = pollRes.data;
         if (json.status === "expired") { stopPoll(); setStatus("expired"); return; }
         if (json.status === "saved") {
+          // Guard: if server returned a request_id and it doesn't match ours, ignore — stale response.
+          if (requestId && json.request_id && json.request_id !== requestId) return;
           stopPoll();
           doneTokenRef.current = token;
           try {
@@ -86,6 +91,7 @@ export default function SignatureModal({
           return;
         }
         if (json.status === "done") {
+          if (requestId && json.request_id && json.request_id !== requestId) return;
           stopPoll();
           doneTokenRef.current = token;
           try {
@@ -105,7 +111,7 @@ export default function SignatureModal({
     }, 2000);
     return () => stopPoll();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, token]);
+  }, [status, token, requestId]);
 
   // 저장 재시도 (agent 타입 — Sheets 저장 실패 시)
   const retrySave = async () => {
