@@ -164,7 +164,7 @@ export default function DailyPage() {
   const updateDropdownPos = () => {
     if (nameInputRef.current) {
       const r = nameInputRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 240) });
+      setDropdownPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 280) });
     }
   };
 
@@ -574,7 +574,9 @@ export default function DailyPage() {
                     onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                   >
                     <span style={{ fontWeight: 600 }}>{c["한글"] || `${c["성"]} ${c["명"]}`.trim()}</span>
-                    <span style={{ marginLeft: 6, fontSize: 10, color: "#A0AEC0" }}>{c["국적"]} {c["V"]}</span>
+                    <span style={{ marginLeft: 6, fontSize: 10, color: "#718096" }}>
+                      (등록증 앞자리 {c["등록증"] || "미기재"})
+                    </span>
                   </div>
                 ))}
                 <div
