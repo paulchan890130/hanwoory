@@ -6,7 +6,7 @@ import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, BookOpen, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
-  ExternalLink, X, Library, Globe, User,
+  ExternalLink, X, Library, Globe, User, Award,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -17,8 +17,9 @@ const NAV_ITEMS = [
   { href: "/monthly",    label: "월간결산",       icon: BarChart2 },
   { href: "/quick-doc",  label: "문서자동작성",   icon: FileEdit },
   { href: "/scan",       label: "OCR 스캔",       icon: ScanLine },
-  { href: "/reference",   label: "업무참고",       icon: BookOpen },
-  { href: "/guidelines",  label: "실무지침",       icon: Library },
+  { href: "/reference",               label: "업무참고",    icon: BookOpen },
+  { href: "/certification-services",  label: "각종공인증",  icon: Award },
+  { href: "/guidelines",              label: "실무지침",    icon: Library },
   { href: "/search",     label: "통합검색",       icon: Search },
   { href: "/memos",      label: "메모",           icon: FileText },
   { href: "/noticeboard", label: "게시판",         icon: MessageSquare },
@@ -79,42 +80,65 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
         className={`hw-sidebar ${showExpanded ? "expanded" : "collapsed"}`}
         style={sidebarStyle}
       >
-        {/* 로고 + 브랜드 */}
+        {/* 브랜드 헤더 */}
         <div
-          className="flex items-center gap-3 px-4 py-4 border-b shrink-0"
-          style={{ borderColor: "rgba(255,255,255,0.08)", minHeight: 56 }}
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: showExpanded ? "14px 16px" : "12px 0",
+            justifyContent: showExpanded ? "flex-start" : "center",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
+            minHeight: 72,
+          }}
         >
-          <img
-            src="/hanwoori-logo.jpeg"
-            alt="한우리 로고"
-            style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
-          />
+          <div style={{
+            width: showExpanded ? 44 : 38,
+            height: showExpanded ? 44 : 38,
+            borderRadius: 10,
+            background: "#FFFFFF",
+            padding: 4,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            flexShrink: 0,
+            overflow: "hidden",
+          }}>
+            <img
+              src="/logo.jpg"
+              alt="한우리 로고"
+              style={{
+                width: "100%",
+                height: "100%",
+                borderRadius: 6,
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
           {showExpanded && (
-            <div className="overflow-hidden flex-1">
-              <div className="font-bold text-white text-sm leading-tight">한우리</div>
-              <div className="text-[11px] text-[#A0AEC0] leading-tight truncate">출입국업무관리</div>
+            <div style={{ overflow: "hidden", flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 14, fontWeight: 800, color: "#FFFFFF",
+                lineHeight: 1.2, letterSpacing: "-0.01em",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
+                한우리행정사사무소
+              </div>
+              <div style={{ fontSize: 10, color: "#718096", lineHeight: 1.4, marginTop: 3 }}>
+                출입국 업무관리
+              </div>
             </div>
           )}
-          {/* 모바일: 닫기 버튼 */}
           {isMobile && (
             <button
               onClick={onMobileClose}
-              style={{ color: "#718096", background: "none", border: "none", cursor: "pointer", padding: 4, flexShrink: 0 }}
+              style={{ marginLeft: "auto", color: "#718096", background: "none", border: "none", cursor: "pointer", padding: 4, flexShrink: 0 }}
             >
               <X size={18} />
             </button>
           )}
         </div>
-
-        {/* 사무소명 */}
-        {showExpanded && user?.office_name && (
-          <div
-            className="px-4 py-2.5 text-[11px] border-b"
-            style={{ color: "#718096", borderColor: "rgba(255,255,255,0.06)" }}
-          >
-            <span className="block font-medium text-[#A0AEC0] truncate">{user.office_name}</span>
-          </div>
-        )}
 
         {/* 네비게이션 */}
         <nav className="flex-1 py-2 overflow-y-auto overflow-x-hidden">

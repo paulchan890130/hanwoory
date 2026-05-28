@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { customersApi, accommodationApi, guarantorApi, quickDocApi, type AccommodationProvider, type GuarantorConnection, type CustomerSearchResult, type WorkSummary } from "@/lib/api";
-import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield } from "lucide-react";
+import { Search, UserPlus, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield, Loader2 } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
 import SignatureModal from "@/components/SignatureModal";
 import QuickDocPanel from "@/components/QuickDocPanel";
@@ -1623,6 +1623,7 @@ export default function CustomersPage() {
   // 신규 등록 후 서명 프롬프트
   const [signPrompt, setSignPrompt] = useState<{ name: string; customerId: string } | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
+  const [awaitingRefresh, setAwaitingRefresh] = useState(false);
 
   // 문서자동작성 오버레이
   const [docOverlayOpen, setDocOverlayOpen] = useState(false);
@@ -1638,7 +1639,7 @@ export default function CustomersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: pageData, isLoading, error } = useQuery({
+  const { data: pageData, isLoading, isFetching, error } = useQuery({
     queryKey: ["customers", debouncedSearch, page],
     queryFn: ({ signal }) =>
       customersApi.list(debouncedSearch || undefined, page, PAGE_SIZE, signal).then((r) => r.data as {
@@ -1668,6 +1669,10 @@ export default function CustomersPage() {
   }, [pageData, page, debouncedSearch, qc]);
 
   useEffect(() => {
+    if (awaitingRefresh && !isFetching) setAwaitingRefresh(false);
+  }, [isFetching, awaitingRefresh]);
+
+  useEffect(() => {
     if (searchParams.get("action") === "new") {
       setSelectedCustomer(emptyCustomer()); setIsNewMode(true);
       router.replace("/customers");
@@ -1690,6 +1695,7 @@ export default function CustomersPage() {
       const newId = (res.data as { 고객ID?: string })?.["고객ID"] ?? "";
       const name = (variables["한글"] || `${variables["성"] ?? ""} ${variables["명"] ?? ""}`.trim()) || "신규 고객";
       toast.success("신규 고객 등록됨");
+      setAwaitingRefresh(true);
       qc.invalidateQueries({ queryKey: ["customers"] });
       setSelectedCustomer(null);
       setIsNewMode(false);
@@ -1747,6 +1753,17 @@ export default function CustomersPage() {
       </div>
 
       {/* 테이블 */}
+      {(addMut.isPending || awaitingRefresh) && (
+        <div style={{
+          display:"flex", alignItems:"center", gap:10,
+          padding:"10px 16px", borderRadius:8,
+          background:"#EBF8FF", border:"1px solid #BEE3F8",
+          fontSize:13, color:"#2B6CB0", fontWeight:600,
+        }}>
+          <Loader2 size={16} style={{ animation:"spin 1s linear infinite", flexShrink:0 }} />
+          {addMut.isPending ? "고객 정보를 저장하는 중입니다..." : "고객 목록을 업데이트하는 중입니다..."}
+        </div>
+      )}
       {isLoading ? (
         <div className="hw-card" style={{ color:"#A0AEC0", fontSize:13 }}>불러오는 중...</div>
       ) : error ? (

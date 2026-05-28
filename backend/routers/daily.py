@@ -3,6 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import uuid
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 
@@ -290,7 +291,7 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
             "planned_expense":     "",
             "processed":           "",
             "processed_timestamp": "",
-            "reception":           "",
+            "reception":           datetime.utcnow().isoformat() + "Z",
             "processing":          "",
             "storage":             "",
             "customer_id":         customer_id,

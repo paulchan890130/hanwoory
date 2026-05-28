@@ -122,6 +122,8 @@ DOC_TEMPLATES: dict = {
     "소시넷(여권)":           "templates/소시넷(여권).pdf",
     "대행업무수행확인서":      "templates/대행업무수행확인서.pdf",
     "대행업무수행확인서1":     "templates/대행업무수행확인서1.pdf",
+    "심사보고서":             "templates/심사보고서.pdf",
+    "신청자 기본정보":         "templates/신청자 기본정보.pdf",
     # ── 비자별 통합신청서 (F계열) ─────────────────────────────────────────
     "F1_등록":               "templates/F1_등록.pdf",
     "F1_연장":               "templates/F1_연장.pdf",
@@ -153,8 +155,6 @@ DOC_TEMPLATES: dict = {
     "결혼배경진술서":          None,   # templates/결혼배경진술서.pdf 필요
     "초청장":                 None,   # templates/초청장.pdf 필요
     "직업 및 연간 소득금액 신고서": None,  # templates/직업및연간소득금액신고서.pdf 필요
-    "신청자 기본정보":         None,   # templates/신청자기본정보.pdf 필요
-    "심사보고서":             None,   # templates/심사보고서.pdf 필요
     "준비중":                 None,   # 해당 민원 유형 미구현 (템플릿 없음)
 }
 

@@ -79,6 +79,7 @@ from backend.routers import (
     guidelines,
     marketing,
     signature,
+    certification,
 )
 
 app = FastAPI(
@@ -120,7 +121,8 @@ app.include_router(quick_doc.router, prefix="/api/quick-doc", tags=["문서자�
 app.include_router(manual.router,    prefix="/api/manual",     tags=["메뉴얼검색"])
 app.include_router(guidelines.router, prefix="/api/guidelines", tags=["실무지침"])
 app.include_router(marketing.router,  prefix="/api/marketing",  tags=["마케팅"])
-app.include_router(signature.router,  prefix="/api/signature",  tags=["서명"])
+app.include_router(signature.router,      prefix="/api/signature",               tags=["서명"])
+app.include_router(certification.router,  prefix="/api/certification-services",  tags=["각종공인증"])
 
 
 @app.get("/health")

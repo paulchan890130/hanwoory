@@ -710,3 +710,65 @@ export const guidelinesApi = {
   getTbCountries: () =>
     api.get<{ total: number; countries: string[] }>("/api/guidelines/tb/high-risk-countries"),
 };
+
+// ── 각종공인증 ──────────────────────────────────────────────────────────────────
+
+export interface CertVendor {
+  id: string; name: string; contact: string; memo: string;
+  active: string; created_at: string; updated_at: string;
+}
+export interface CertDirection {
+  id: string; name: string; sort_order: string;
+  active: string; created_at: string; updated_at: string;
+}
+export interface CertGroup {
+  id: string; group_name: string; aliases: string; default_direction: string;
+  applicable_directions: string;
+  sort_order: string; active: string; created_at: string; updated_at: string;
+}
+export interface CertRegion {
+  id: string; name: string;
+  applicable_directions: string; applicable_group_ids: string;
+  sort_order: string; active: string; created_at: string; updated_at: string;
+}
+export interface CertPrice {
+  id: string; vendor_id: string; group_id: string;
+  direction: string; region: string; condition: string;
+  price: string; possible: string; documents: string;
+  lead_time: string; strength: string; risk: string;
+  source: string; last_checked: string;
+  created_at: string; updated_at: string;
+}
+export interface CertBootstrap {
+  vendors: CertVendor[];
+  directions: CertDirection[];
+  groups: CertGroup[];
+  regions: CertRegion[];
+  prices: CertPrice[];
+}
+
+const CERT_BASE = "/api/certification-services";
+
+export const certApi = {
+  bootstrap: () => api.get<CertBootstrap>(`${CERT_BASE}/bootstrap`),
+
+  createVendor: (data: Partial<CertVendor>) => api.post<CertVendor>(`${CERT_BASE}/vendors`, data),
+  updateVendor: (id: string, data: Partial<CertVendor>) => api.put<CertVendor>(`${CERT_BASE}/vendors/${id}`, data),
+  deleteVendor: (id: string) => api.delete<{ action: string; ref_count: number }>(`${CERT_BASE}/vendors/${id}`),
+
+  createDirection: (data: Partial<CertDirection>) => api.post<CertDirection>(`${CERT_BASE}/directions`, data),
+  updateDirection: (id: string, data: Partial<CertDirection>) => api.put<CertDirection>(`${CERT_BASE}/directions/${id}`, data),
+  deleteDirection: (id: string) => api.delete(`${CERT_BASE}/directions/${id}`),
+
+  createGroup: (data: Partial<CertGroup>) => api.post<CertGroup>(`${CERT_BASE}/groups`, data),
+  updateGroup: (id: string, data: Partial<CertGroup>) => api.put<CertGroup>(`${CERT_BASE}/groups/${id}`, data),
+  deleteGroup: (id: string) => api.delete(`${CERT_BASE}/groups/${id}`),
+
+  createRegion: (data: Partial<CertRegion>) => api.post<CertRegion>(`${CERT_BASE}/regions`, data),
+  updateRegion: (id: string, data: Partial<CertRegion>) => api.put<CertRegion>(`${CERT_BASE}/regions/${id}`, data),
+  deleteRegion: (id: string) => api.delete(`${CERT_BASE}/regions/${id}`),
+
+  createPrice: (data: Partial<CertPrice>) => api.post<CertPrice>(`${CERT_BASE}/prices`, data),
+  updatePrice: (id: string, data: Partial<CertPrice>) => api.put<CertPrice>(`${CERT_BASE}/prices/${id}`, data),
+  deletePrice: (id: string) => api.delete(`${CERT_BASE}/prices/${id}`),
+};

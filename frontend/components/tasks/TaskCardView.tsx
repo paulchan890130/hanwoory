@@ -4,11 +4,35 @@ import type { ActiveTask } from "@/lib/api";
 import { safeInt, formatNumber } from "@/lib/utils";
 
 // ── sort order ────────────────────────────────────────────────────────────────
-const CATEGORY_ORDER = ["출입국", "전자민원", "공증", "여권", "초청", "기타"];
+const CATEGORY_ORDER = ["출입국", "전자민원", "공증", "영주", "영주권", "여권", "초청", "기타"];
 
 function categoryRank(cat: string | undefined): number {
   const i = CATEGORY_ORDER.indexOf(cat ?? "");
   return i === -1 ? CATEGORY_ORDER.length : i;
+}
+
+// ── category colors ───────────────────────────────────────────────────────────
+const CATEGORY_COLORS: Record<string, string> = {
+  "출입국":  "#2563EB",
+  "전자민원": "#0D9488",
+  "공증":    "#EA580C",
+  "영주":    "#7C3AED",
+  "영주권":  "#7C3AED",
+  "여권":    "#16A34A",
+  "초청":    "#0284C7",
+  "기타":    "#64748B",
+};
+function getCategoryColor(cat: string | undefined): string {
+  return CATEGORY_COLORS[cat ?? ""] ?? "#64748B";
+}
+
+// D+ age color — purely by elapsed days, no category/reception dependency
+function dpAgeColor(dp: number): string {
+  if (dp >= 50) return "#991B1B"; // dark red
+  if (dp >= 30) return "#DC2626"; // red
+  if (dp >= 15) return "#D97706"; // orange
+  if (dp >= 8)  return "#2563EB"; // blue
+  return "#4A5568";               // calm/normal
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -18,18 +42,6 @@ function dPlusFromTs(ts: string): number {
   const start = new Date(ts.slice(0, 10));
   const now = new Date(); now.setHours(0, 0, 0, 0);
   return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86_400_000));
-}
-function dpBorderColor(dp: number, hasReception: boolean): string {
-  if (!hasReception) return "#2563EB";
-  if (dp >= 20) return "#DC2626";
-  if (dp >= 10) return "#F59E0B";
-  return "#16A34A";
-}
-function dpTextColor(dp: number, hasReception: boolean): string {
-  if (!hasReception) return "#2563EB";
-  if (dp >= 20) return "#DC2626";
-  if (dp >= 10) return "#D97706";
-  return "#16A34A";
 }
 
 interface CardDDay {
@@ -120,8 +132,8 @@ function CompactCard({
 }) {
   const cardDDay = computeCardDDay(task, pendingReception, pendingProcessing, pendingStorage);
   const dp = cardDDay.dp;
-  const bColor = dpBorderColor(dp, !!pendingReception);
-  const tColor = dpTextColor(dp, !!pendingReception);
+  const catColor = getCategoryColor(task.category); // left bar + pill
+  const dColor = dpAgeColor(dp);                    // D+N number only
 
   // Draft-first effective values for each money field
   const effectiveMoney = MONEY_FIELDS.map(({ label, field }) => {
@@ -143,7 +155,7 @@ function CompactCard({
       style={{
         background: cardBg,
         border: "1px solid #E2E8F0",
-        borderLeft: `4px solid ${bColor}`,
+        borderLeft: `4px solid ${catColor}`,
         borderRadius: 8,
         padding: "6px 12px",
         cursor: "pointer",
@@ -160,8 +172,9 @@ function CompactCard({
         <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, overflow: "hidden", minWidth: 0 }}>
           {task.category && (
             <span style={{
-              fontSize: 10, fontWeight: 700, color: tColor,
-              background: `${bColor}18`,
+              fontSize: 10, fontWeight: 700, color: catColor,
+              background: `${catColor}15`,
+              border: `1px solid ${catColor}35`,
               padding: "1px 6px", borderRadius: 8, flexShrink: 0,
             }}>
               {task.category}
@@ -183,18 +196,8 @@ function CompactCard({
             </span>
           )}
         </div>
-        {/* 오른쪽: D+n + 금액 + 완료/삭제 마커 */}
+        {/* 오른쪽: 저장대기 · 마커 · 금액 · D+n (D+가 항상 맨 오른쪽) */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, paddingLeft: 6 }}>
-          {!cardDDay.missing && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: tColor, whiteSpace: "nowrap" }}>
-              D+{dp}
-            </span>
-          )}
-          {totalAmt > 0 && (
-            <span style={{ fontSize: 11, color: "#2D3748", whiteSpace: "nowrap" }}>
-              {formatNumber(totalAmt)}
-            </span>
-          )}
           {moneyDirty && (
             <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", whiteSpace: "nowrap" }}>
               저장 대기
@@ -205,24 +208,38 @@ function CompactCard({
               {markedComplete ? "✅" : "❌"}
             </span>
           )}
+          {totalAmt > 0 && (
+            <span style={{ fontSize: 11, color: "#2D3748", whiteSpace: "nowrap" }}>
+              {formatNumber(totalAmt)}
+            </span>
+          )}
+          {!cardDDay.missing && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: dColor, whiteSpace: "nowrap" }}>
+              D+{dp}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* 2줄: 세부내용 · D+ 기준일 (labeled) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, overflow: "hidden" }}>
-        {task.details && (
+      {/* 2줄: 세부내용 */}
+      {task.details && (
+        <div style={{ marginTop: 2, overflow: "hidden" }}>
           <span style={{
             fontSize: 11, color: "#A0AEC0",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            flex: 1, minWidth: 0,
+            display: "block",
           }}>
             {task.details}
           </span>
-        )}
+        </div>
+      )}
+
+      {/* 3줄: D+ 기준일 (단계별 — 접수/처리/보관/업무일) */}
+      <div style={{ marginTop: 2 }}>
         {cardDDay.missing ? (
-          <span style={{ fontSize: 10, color: "#E2E8F0", flexShrink: 0 }}>기준일 없음</span>
+          <span style={{ fontSize: 10, color: "#CBD5E0" }}>기준일 없음</span>
         ) : (
-          <span style={{ fontSize: 10, color: "#CBD5E0", flexShrink: 0 }}>
+          <span style={{ fontSize: 10, color: "#94A3B8" }}>
             {cardDDay.baseDateLabel} {cardDDay.baseDateStr}
           </span>
         )}
@@ -308,7 +325,7 @@ function ExpandedCard({
 
   const cardDDay = computeCardDDay(task, pendingReception, pendingProcessing, pendingStorage);
   const dp = cardDDay.dp;
-  const bColor = dpBorderColor(dp, !!pendingReception);
+  const catColor = getCategoryColor(task.category);
 
   const inp: React.CSSProperties = {
     width: "100%", padding: "4px 8px", fontSize: 13,
@@ -320,7 +337,7 @@ function ExpandedCard({
     <div style={{
       background: "#fff",
       border: "1px solid #E2E8F0",
-      borderLeft: `4px solid ${bColor}`,
+      borderLeft: `4px solid ${catColor}`,
       borderRadius: 8,
       padding: "12px 14px",
       marginBottom: 6,
@@ -569,7 +586,7 @@ export default function TaskCardView({
     <div>
       {/* 정렬 안내 */}
       <div style={{ fontSize: 10, color: "#A0AEC0", marginBottom: 8, padding: "0 2px" }}>
-        정렬: 출입국 → 전자민원 → 공증 → 여권 → 초청 → 기타
+        정렬: 출입국 → 전자민원 → 공증 → 영주 → 여권 → 초청 → 기타
       </div>
       {/* repeat(auto-fit) — 240px 이상이면 3열, 좁으면 자동 축소 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, alignItems: "start" }}>
