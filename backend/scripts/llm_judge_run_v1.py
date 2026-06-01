@@ -17,9 +17,9 @@ CLI:
                               [--rate-per-sec FLOAT]   # default 1.0
 
 Tier model defaults (per spec):
-  WARN  → claude-haiku-4-5-20251001 (cheap, sample noisy WARN tier)
-  FAIL  → claude-sonnet-4-6        (better accuracy on broken rows)
-  ALL   → use --model or default to sonnet
+  WARN  → claude-opus-4-8 (migrated from claude-haiku-4-5-20251001)
+  FAIL  → claude-opus-4-8 (migrated from claude-sonnet-4-6)
+  ALL   → use --model or default to the FAIL model
 
 The prompt's system block is cached (ephemeral) — identical across every row,
 so subsequent rows pay ~0.1× input cost on the cached prefix.
@@ -47,8 +47,8 @@ try:
 except ImportError:
     pass
 
-MODEL_HAIKU  = "claude-haiku-4-5-20251001"
-MODEL_SONNET = "claude-sonnet-4-6"
+MODEL_HAIKU  = "claude-opus-4-8"
+MODEL_SONNET = "claude-opus-4-8"
 
 SYSTEM_PROMPT = (
     "너는 출입국 매뉴얼 페이지 판정관이다.\n"

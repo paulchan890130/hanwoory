@@ -38,7 +38,7 @@ try:
 except ImportError:
     pass
 
-MODEL_SONNET = "claude-sonnet-4-6"
+MODEL_SONNET = "claude-opus-4-8"
 
 VERIFIER_SYSTEM = (
     "너는 반박 검토자다.\n"
