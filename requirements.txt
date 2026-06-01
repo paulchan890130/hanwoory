@@ -19,3 +19,9 @@ uvicorn[standard]
 python-multipart
 python-jose[cryptography]
 apscheduler>=3.10.0
+
+# ===== PostgreSQL foundation (Phase 1 — no business tables yet) =====
+SQLAlchemy>=2.0,<2.1
+psycopg[binary]>=3.1
+alembic>=1.13
+pydantic-settings>=2.0
