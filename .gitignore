@@ -1,29 +1,42 @@
 # ===== Python =====
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-.env
-venv/
+.pytest_cache/
 .venv/
+venv/
+
+# ===== Node / Next.js =====
+node_modules/
+.next/
+dist/
+build/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+frontend/dev-trace.log
+
+# ===== Environment / secrets (NEVER commit) =====
+.env
+.env.*
+frontend/.env.local
+frontend/.env.*.local
+secrets/
+hanwoory-*.json
+client_secret*.json
+service_account*.json
+token.json
+*.pem
+*.key
 
 # ===== IDE / editor =====
 .vscode/
 .idea/
+.claude/
 
-# ===== Google credentials & OAuth tokens (NEVER commit) =====
-hanwoory-*.json
-client_secret*.json
-token.json
-service_account*.json
-secrets/
-
-# ===== Local data / cache =====
-*.xlsx
-*.xls
-*.csv
-*.zip
-
-# ===== Streamlit (legacy) =====
+# ===== Streamlit legacy =====
 .streamlit/
 
 # ===== Windows junk =====
@@ -32,64 +45,44 @@ desktop.ini
 Thumbs.db
 **/Thumbs.db
 
-# ===== Node / Next.js =====
-node_modules/
-frontend/node_modules/
-frontend/.next/
-.next/
-dist/
-build/
-frontend/tsconfig.tsbuildinfo
-
-# ===== Drive upload temp =====
-.tmp.driveupload/
-
-# ===== Google Drive shortcut files =====
+# ===== Local data / backups / generated files =====
+*.xlsx
+*.xls
+*.csv
+*.zip
+*.bak
 *.gsheet
+backups/
+uploads/
+local_data/
+backend/data/backups/
 
-# ===== Local tenant workspace copies (Drive-synced folders) =====
+# ===== Google Drive temp files =====
+.tmp.driveupload/
+.tmp.drivedownload/
+
+# ===== Local tenant workspace copies =====
 offices/
 
-# ===== Test/temporary uploads =====
+# ===== Test / temporary uploads =====
 frontend/public/upload_*.jpeg
 frontend/public/upload_*.jpg
 frontend/public/upload_*.png
-# frontend dependencies/build/cache
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/dist/
-frontend/tsconfig.tsbuildinfo
-frontend/dev-trace.log
-
-# frontend env
-frontend/.env.local
-frontend/.env.*.loca
-
-l# frontend dependencies/build/cache
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/dist/
-frontend/tsconfig.tsbuildinfo
-frontend/dev-trace.log
-
-# frontend env
-frontend/.env.local
-frontend/.env.*.local
 
 # ===== Known junk files accidentally placed in source dirs =====
 core/customer_service.txt
 core/google_sheets.txt
 core/화면 캡처 2026-01-25 132643.jpg
 pages/page_scan 기존.txt
+frontend/app/**/page - 복사본.txt
 
-# ===== Local run scripts =====
+# ===== Local run scripts / one-off files =====
 *.bat
 *.py.bak
 K.ID 실행.py
 K.ID 실행_개선.py
 *원클릭*.bat
+ocr_win_patched3.py
 
 # ===== Personal notes & planning docs =====
 0. 클로드 명령.txt
@@ -99,53 +92,15 @@ K.ID 실행_개선.py
 어드민 실행.txt
 추진사항.txt
 텐엔트 해결.txt
-ocr_win_patched3.py
 page_scan을 손보고싶어*
-frontend/app/**/page\ -\ 복사본.txt
 
-# ===== Nested git repos not part of this project =====
-hanwoory/
-
-# ===== Claude Code local settings =====
-.claude/
-
-# ===== Sensitive / secret files =====
-analysis/.txt
-analysis/*.txt
-analysis/클로드/
-
-# ===== Large binary / generated files =====
+# ===== Large manuals / binary source data =====
 backend/data/manuals/*.hwp
 backend/data/manuals/*.pdf
-backend/data/backups/
 
-# local samples / test files
+# ===== Local samples / analysis =====
 샘플/
 analysis/
 
-# temp drive upload/download
-.tmp.driveupload/
-.tmp.drivedownload/
-
-# python env/cache
-.venv/
-venv/
-__pycache__/
-*.pyc
-
-# secrets
-secrets/
-.env
-.env.*
-token.json
-client_secret*.json
-hanwoory-*.json
-*.pem
-*.key
-
-# local data / backups
-backups/
-uploads/
-local_data/
-*.bak
-*.zip
+# ===== Nested git repos not part of this project =====
+hanwoory/
