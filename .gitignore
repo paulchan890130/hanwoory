@@ -95,3 +95,34 @@ analysis/클로드/
 backend/data/manuals/*.hwp
 backend/data/manuals/*.pdf
 backend/data/backups/
+
+# local samples / test files
+샘플/
+analysis/
+
+# temp drive upload/download
+.tmp.driveupload/
+.tmp.drivedownload/
+
+# python env/cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# secrets
+secrets/
+.env
+.env.*
+token.json
+client_secret*.json
+hanwoory-*.json
+*.pem
+*.key
+
+# local data / backups
+backups/
+uploads/
+local_data/
+*.bak
+*.zip
