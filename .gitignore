@@ -54,6 +54,29 @@ offices/
 frontend/public/upload_*.jpeg
 frontend/public/upload_*.jpg
 frontend/public/upload_*.png
+# frontend dependencies/build/cache
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+frontend/dev-trace.log
+
+# frontend env
+frontend/.env.local
+frontend/.env.*.loca
+
+l# frontend dependencies/build/cache
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+frontend/dev-trace.log
+
+# frontend env
+frontend/.env.local
+frontend/.env.*.local
 
 # ===== Known junk files accidentally placed in source dirs =====
 core/customer_service.txt
