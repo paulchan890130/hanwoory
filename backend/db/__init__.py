@@ -20,6 +20,11 @@ from backend.db.session import (
 )
 from backend.db.base import Base
 
+# Import the models package so every model registers itself on
+# ``Base.metadata``. Alembic's autogenerate and ``upgrade head`` rely on
+# this being complete before they read ``target_metadata`` in env.py.
+from backend.db import models  # noqa: F401, E402
+
 __all__ = [
     "Base",
     "get_engine",

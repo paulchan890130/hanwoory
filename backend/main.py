@@ -126,6 +126,18 @@ app.include_router(signature.router,      prefix="/api/signature",              
 app.include_router(certification.router,  prefix="/api/certification-services",  tags=["각종공인증"])
 app.include_router(health_router.router,  prefix="/health",                       tags=["헬스체크"])
 
+# ── Local-beta only: PostgreSQL dev endpoints ─────────────────────────────────
+# These endpoints exist behind feature flags and are only mounted when
+# HANWOORY_ENV=local. On the production server (HANWOORY_ENV=server) the
+# router is never imported, so no surface area is exposed.
+try:
+    from config import RUN_ENV as _RUN_ENV
+except Exception:
+    _RUN_ENV = "server"
+if _RUN_ENV == "local":
+    from backend.routers import dev_pg as _dev_pg
+    app.include_router(_dev_pg.router, prefix="/api/dev/pg", tags=["로컬베타-PG"])
+
 
 @app.get("/health")
 def health():
