@@ -887,6 +887,26 @@ export default function CertificationServicesPage() {
         </button>
       </div>
 
+      {/* 예시(샘플) 데이터 안내 — 샘플 항목이 있을 때만 표시 */}
+      {(() => {
+        const named = [
+          ...(data?.vendors ?? []).map(v => v.name),
+          ...(data?.directions ?? []).map(d => d.name),
+          ...(data?.groups ?? []).map(g => g.group_name),
+          ...(data?.regions ?? []).map(r => r.name),
+        ];
+        const hasSample = named.some(n => (n ?? "").includes("[예시]")) ||
+          (data?.prices ?? []).some(p => p.source === "new_tenant_sample_v1");
+        return hasSample ? (
+          <div style={{
+            background: "#EBF8FF", border: "1px solid #BEE3F8", borderRadius: 6,
+            padding: "8px 16px", fontSize: 12, color: "#2B6CB0", marginBottom: 12,
+          }}>
+            현재 표시된 일부 항목은 예시 데이터입니다. 실제 업무 기준에 맞게 수정하거나 삭제하세요.
+          </div>
+        ) : null;
+      })()}
+
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #E2E8F0", marginBottom: 16 }}>
         {TABS.map(t => (

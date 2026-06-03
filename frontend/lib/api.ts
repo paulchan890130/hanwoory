@@ -187,6 +187,8 @@ export const tasksApi = {
 export interface WorkSummary {
   groups: Record<string, number>;
   total: number;
+  /** 진행 중인 업무 (customer_id 일치) 개수 — 일일결산 추가/삭제 시 즉시 변동 */
+  active_total?: number;
   legacy_groups: Record<string, number>;
   legacy_total: number;
   has_name_duplicate: boolean;
@@ -384,6 +386,10 @@ export interface CustomerSearchResult {
   label: string;
   name: string;
   name_en?: string;
+  /** 생년월일 (YYYY-MM-DD), 등록증 앞 6자리에서 추정 — 동명이인 구분용 */
+  birth?: string;
+  /** 전화번호 — 동명이인 구분용 */
+  phone?: string;
   reg_no: string;
 }
 

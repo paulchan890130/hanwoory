@@ -108,11 +108,35 @@ def _find_cust_rows(ws, customer_sheet_key: str, customer_id: str) -> "list[int]
     return [i for i, val in enumerate(col_a[1:], start=2) if val.strip() == cid]
 
 
+# ── PG dispatch helpers ──────────────────────────────────────────────────────
+
+def _csk_to_tenant_id(customer_sheet_key: str) -> "str | None":
+    """In PG mode, map customer_sheet_key → tenant_id via tenants table."""
+    try:
+        from sqlalchemy import select
+        from backend.db.models.tenant import Tenant
+        from backend.db.session import get_sessionmaker
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            row = session.scalar(
+                select(Tenant).where(Tenant.customer_sheet_key == customer_sheet_key)
+            )
+            return row.tenant_id if row else None
+    except Exception as e:
+        print(f"[signature_service._csk_to_tenant_id] {e}")
+        return None
+
+
 # ── 행정사 서명 ───────────────────────────────────────────────────────────────
 
 def get_agent_signature(tenant_id: str) -> str | None:
     """행정사 서명 조회. 60초 TTL 캐시 적용.
     서명 없음(정상): None 반환. 오류 시 예외를 그대로 전파 (None 반환 금지)."""
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        from backend.services.signature_pg_service import get_agent_signature as _pg
+        return _pg(tenant_id)
+
     now = _time.monotonic()
     cached = _agent_sig_cache.get(tenant_id)
     if cached is not None and (now - cached[1]) < _AGENT_SIG_CACHE_TTL:
@@ -130,6 +154,13 @@ def get_agent_signature(tenant_id: str) -> str | None:
 
 
 def save_agent_signature(tenant_id: str, b64: str) -> None:
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        from backend.services.signature_pg_service import save_agent_signature as _pg
+        _pg(tenant_id, b64)
+        _agent_sig_cache.pop(tenant_id, None)
+        return
+
     # Invalidate cache so next read reflects the new signature immediately
     _agent_sig_cache.pop(tenant_id, None)
     sh = _master_sh()
@@ -147,6 +178,11 @@ def save_agent_signature(tenant_id: str, b64: str) -> None:
 
 def get_customer_signature(customer_sheet_key: str, customer_id: str) -> str | None:
     """A열로 행 찾기 → B셀 하나만 읽기. get_all_values() 호출 없음."""
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
+        from backend.services.signature_pg_service import get_customer_signature as _pg
+        return _pg(tid, customer_id)
     try:
         sh = _tenant_customer_sh(customer_sheet_key)
         ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
@@ -161,6 +197,13 @@ def get_customer_signature(customer_sheet_key: str, customer_id: str) -> str | N
 
 
 def save_customer_signature(customer_sheet_key: str, customer_id: str, b64: str) -> None:
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
+        from backend.services.signature_pg_service import save_customer_signature as _pg
+        _pg(tid, customer_id, b64)
+        _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
+        return
     """A열로 모든 matching 행 찾기 → B:C 전체 업데이트 또는 신규 행 추가.
     중복 행이 있으면 모두 최신 서명으로 덮어쓴다. get_all_values() 없음."""
     sh = _tenant_customer_sh(customer_sheet_key)
@@ -197,6 +240,12 @@ def has_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
     Raises:
         SignatureLookupError — Sheets 조회 자체가 실패한 경우 (캐시 저장 안 함)
     """
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
+        from backend.services.signature_pg_service import has_customer_signature as _pg
+        return _pg(tid, customer_id)
+
     cache_key = (customer_sheet_key, customer_id)
     cached = _sig_exists_cache.get(cache_key)
     if cached:
@@ -231,6 +280,19 @@ def _find_temp_row(ws, tenant_id: str, slot: int):
 
 def get_temp_slots(tenant_id: str) -> list:
     """테넌트의 임시저장 슬롯 1~3 상태 반환. 서명데이터는 제외."""
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        from backend.services.signature_pg_service import get_temp_slots as _pg
+        slots = {s["slot"]: s for s in _pg(tenant_id)}
+        return [
+            {
+                "slot": s,
+                "has_data": s in slots,
+                "비고": slots.get(s, {}).get("note", ""),
+            }
+            for s in (1, 2, 3)
+        ]
+
     cached = _temp_slots_cache.get(tenant_id)
     if cached:
         result, ts = cached
@@ -272,6 +334,13 @@ def get_temp_slots(tenant_id: str) -> list:
 
 
 def save_temp_slot(tenant_id: str, slot: int, b64: str, memo: str) -> None:
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        from backend.services.signature_pg_service import save_temp_slot as _pg
+        _pg(tenant_id, slot, b64, memo)
+        _temp_slots_cache.pop(tenant_id, None)
+        return
+
     sh = _master_sh()
     ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -285,6 +354,14 @@ def save_temp_slot(tenant_id: str, slot: int, b64: str, memo: str) -> None:
 
 
 def get_temp_slot_data(tenant_id: str, slot: int) -> str | None:
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        from backend.services.signature_pg_service import get_temp_slots as _pg
+        for s in _pg(tenant_id):
+            if s["slot"] == slot:
+                return s["signature_data"]
+        return None
+
     try:
         sh = _master_sh()
         ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
@@ -299,6 +376,13 @@ def get_temp_slot_data(tenant_id: str, slot: int) -> str | None:
 
 
 def clear_temp_slot(tenant_id: str, slot: int) -> None:
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        from backend.services.signature_pg_service import delete_temp_slot as _pg
+        _pg(tenant_id, slot)
+        _temp_slots_cache.pop(tenant_id, None)
+        return
+
     sh = _master_sh()
     ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
     row_idx, record = _find_temp_row(ws, tenant_id, slot)

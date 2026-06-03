@@ -232,9 +232,16 @@ export default function DailyPage() {
       toast.error("추가 실패");
     },
     onSettled: () => {
-      // 성공/실패 무관하게 항상 갱신 (기존 고객의 경우 위임내역 업데이트로 응답이 느릴 수 있음)
-      qc.invalidateQueries({ queryKey: ["daily", "entries"] });
-      qc.invalidateQueries({ queryKey: ["tasks", "active"] });
+      // Add/Edit/Delete 어느 쪽이든 일일결산 한 줄의 변경은 다음 화면에 모두 전파되어야 한다:
+      //   - 월간 요약 (["daily","summary",y,m]) / 월간 분석 (["monthly-analysis",y,m])
+      //   - 대시보드 진행업무 / 업무관리 진행업무 (["tasks","active"])
+      //   - 고객 카드 업무현황 (["customer","work-summary"])
+      // queryKey 가 ["daily"] / ["tasks"] / ["monthly-analysis"] 로 시작하는 모든 쿼리를
+      // 광범위 무효화 한다. 일부만 무효화하면 화면 사이에 stale data 가 남는다.
+      qc.invalidateQueries({ queryKey: ["daily"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["monthly-analysis"] });
+      qc.invalidateQueries({ queryKey: ["customer", "work-summary"] });
     },
   });
 
@@ -243,18 +250,29 @@ export default function DailyPage() {
       dailyApi.updateEntry(id, data),
     onSuccess: () => {
       toast.success("수정됨");
-      qc.invalidateQueries({ queryKey: ["daily", "entries"] });
       setEditId(null);
     },
     onError: () => toast.error("수정 실패"),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["daily"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["monthly-analysis"] });
+      qc.invalidateQueries({ queryKey: ["customer", "work-summary"] });
+    },
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => dailyApi.deleteEntry(id),
     onMutate: (id: string) => setDeletingId(id),
-    onSuccess: () => { toast.success("삭제됨"); qc.invalidateQueries({ queryKey: ["daily", "entries"] }); },
+    onSuccess: () => { toast.success("삭제됨"); },
     onError: () => toast.error("삭제 실패"),
-    onSettled: () => setDeletingId(null),
+    onSettled: () => {
+      setDeletingId(null);
+      qc.invalidateQueries({ queryKey: ["daily"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["monthly-analysis"] });
+      qc.invalidateQueries({ queryKey: ["customer", "work-summary"] });
+    },
   });
 
   const saveBalMut = useMutation({

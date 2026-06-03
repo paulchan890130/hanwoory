@@ -1032,31 +1032,140 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         raise HTTPException(status_code=500, detail=f"PDF 생성 실패: {e}")
 
 
+def _birth_from_reg_front(reg_front: str) -> str:
+    """등록증 앞 6자리 (YYMMDD) → ``YYYY-MM-DD``.
+
+    Heuristic: ``yy >= 50`` → 19xx, otherwise 20xx. Empty / short input
+    returns ``""``. Used purely for disambiguating same-name results.
+    """
+    s = "".join(ch for ch in (reg_front or "") if ch.isdigit())
+    if len(s) < 6:
+        return ""
+    yy, mm, dd = s[:2], s[2:4], s[4:6]
+    century = "19" if int(yy) >= 50 else "20"
+    return f"{century}{yy}-{mm}-{dd}"
+
+
+_HANGUL_RE = None  # lazy compile
+
+
+def _classify_query(q: str) -> tuple[int, int, int]:
+    """Return ``(korean_count, english_count, digit_count)`` for the query.
+
+    Counts only the characters that drive each search dimension. Whitespace
+    and other punctuation are ignored — they don't unlock a dimension.
+    """
+    import re as _re
+    global _HANGUL_RE
+    if _HANGUL_RE is None:
+        _HANGUL_RE = _re.compile(r"[가-힯]")
+    kor = len(_HANGUL_RE.findall(q))
+    eng = sum(1 for ch in q if ch.isascii() and ch.isalpha())
+    digits = sum(1 for ch in q if ch.isdigit())
+    return kor, eng, digits
+
+
+def _query_passes_minlen(q: str) -> tuple[bool, str]:
+    """Return ``(allowed, reason)`` for whether ``q`` reaches the search floor.
+
+    Floors:
+      - Korean: 2 characters
+      - English: 2 characters
+      - Digits: 3 characters
+
+    A query passes if *any* dimension reaches its floor (mixed queries are
+    accepted as long as one component qualifies).
+    """
+    q_trimmed = q.strip()
+    if not q_trimmed:
+        return False, "검색어가 비어 있습니다."
+    kor, eng, digits = _classify_query(q_trimmed)
+    if kor >= 2 or eng >= 2 or digits >= 3:
+        return True, ""
+    if kor == 1:
+        return False, "한글은 2글자 이상 입력하세요."
+    if eng == 1:
+        return False, "영문은 2글자 이상 입력하세요."
+    if digits and digits < 3:
+        return False, "숫자는 3자리 이상 입력하세요."
+    return False, "검색어를 입력하세요."
+
+
 @router.get("/customers/search")
 def search_customers(q: str = "", user: dict = Depends(get_current_user)):
-    """고객 이름 검색 (역할 선택 UI용)"""
-    tenant_id = user.get("tenant_id") or user.get("sub", "")
-    CUSTOMER_SHEET_NAME = "고객 데이터"
-    try:
-        from backend.services.tenant_service import read_sheet
-        customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id) or []
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"고객 데이터 조회 실패: {e}")
+    """고객 이름 검색 (역할 선택 UI용).
 
-    q = q.strip()
-    if q:
-        q_lower = q.lower()
-        def _match(c: dict) -> bool:
-            kor = str(c.get("한글", "")).lower()
-            sur = str(c.get("성", "")).lower()
-            giv = str(c.get("명", "")).lower()
-            eng = f"{sur} {giv}".strip()
-            if len(q) >= 1 and q_lower in kor:
-                return True
-            if len(q) >= 3 and (q_lower in eng or q_lower in sur or q_lower in giv):
-                return True
-            return False
-        customers = [c for c in customers if _match(c)]
+    Minimum query length:
+      - Korean (한글) — **2 characters** (single 글자는 결과 너무 많아 차단)
+      - English (성 / 명 / 풀네임) — 2 characters
+      - 숫자 (전화 / 등록증) — 3 digits
+
+    A mixed query qualifies if at least one dimension meets its floor. When
+    the floor is not met the endpoint returns an empty list with a
+    ``message`` field — the frontend shows it to the user instead of running
+    the search and is also our defense-in-depth: even if a future caller
+    forgets the client-side guard, no rows leak out.
+
+    In local PG mode (``FEATURE_PG_CUSTOMERS=true``) reads from
+    ``customers`` via ``customer_pg_service``; falls back to Sheets in
+    production. Result rows include 생년월일 (등록증 앞 6자리에서 추정) and
+    전화 so callers can disambiguate same-name people.
+    """
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+
+    # ── min-length gate (defense in depth) ─────────────────────────────
+    # If the query is too short the backend MUST NOT search — even if the
+    # frontend skipped its own guard. The response shape stays a list so
+    # the existing axios call (.then(r => r.data: T[])) still works.
+    allowed, _msg = _query_passes_minlen(q)
+    if not allowed:
+        return []
+
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import list_customers
+        customers = list_customers(tenant_id) or []
+    else:
+        CUSTOMER_SHEET_NAME = "고객 데이터"
+        try:
+            from backend.services.tenant_service import read_sheet
+            customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id) or []
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"고객 데이터 조회 실패: {e}")
+
+    q_stripped = q.strip()
+    q_lower = q_stripped.lower()
+    q_digits = "".join(ch for ch in q_stripped if ch.isdigit())
+    kor_count, eng_count, dig_count = _classify_query(q_stripped)
+
+    def _match(c: dict) -> bool:
+        kor = str(c.get("한글", "")).strip().lower()
+        sur = str(c.get("성", "")).strip().lower()
+        giv = str(c.get("명", "")).strip().lower()
+        eng_full = f"{sur} {giv}".strip()
+        p_digits = (
+            str(c.get("연", "")).strip()
+            + str(c.get("락", "")).strip()
+            + str(c.get("처", "")).strip()
+        )
+        reg_front = str(c.get("등록증", "")).strip()
+
+        # Korean — 2+
+        if kor_count >= 2 and kor and q_lower in kor:
+            return True
+        # English — 2+
+        if eng_count >= 2 and (
+            (sur and q_lower in sur)
+            or (giv and q_lower in giv)
+            or (eng_full and q_lower in eng_full)
+        ):
+            return True
+        # Digit substring — 3+
+        if dig_count >= 3 and (q_digits in p_digits or q_digits in reg_front):
+            return True
+        return False
+
+    customers = [c for c in customers if _match(c)]
 
     results = []
     for c in customers[:30]:
@@ -1064,22 +1173,30 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
         p2 = str(c.get("락", "")).strip()
         p3 = str(c.get("처", "")).strip()
         phone = "-".join(x for x in [p1, p2, p3] if x)
-        birth = str(c.get("등", "")).strip()
-        name_part = f"{c.get('한글', '')} ({birth})" if birth else str(c.get("한글", ""))
-        label_parts = [name_part]
-        if c.get("등록증"):
-            label_parts.append(str(c["등록증"]))
-        if phone:
-            label_parts.append(phone)
+        reg_front = str(c.get("등록증", "")).strip()
+        birth = _birth_from_reg_front(reg_front)
         sur = str(c.get("성", "")).strip()
         giv = str(c.get("명", "")).strip()
         name_en = f"{sur} {giv}".strip()
+        kor = str(c.get("한글", "")).strip()
+
+        bits = [kor or "(이름없음)"]
+        if name_en:
+            bits.append(name_en)
+        if birth:
+            bits.append(birth)
+        if phone:
+            bits.append(phone)
+        label = " · ".join(bits)
+
         results.append({
             "id":      str(c.get("고객ID", "")),
-            "label":   " / ".join(label_parts),
-            "name":    str(c.get("한글", "")),
+            "label":   label,
+            "name":    kor,
             "name_en": name_en,
-            "reg_no":  str(c.get("등록증", "")),
+            "birth":   birth,
+            "phone":   phone,
+            "reg_no":  reg_front,
         })
     return results
 

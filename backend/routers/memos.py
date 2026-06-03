@@ -36,7 +36,14 @@ def get_memo(
     user: dict = Depends(get_current_user),
 ):
     import time as _time
+    from backend.db.feature_flags import pg_memos_enabled
     tenant_id = user["tenant_id"]
+
+    if pg_memos_enabled():
+        from backend.services.memos_pg_service import get_memo as _pg_get
+        content = _pg_get(tenant_id, memo_type)
+        return {"memo_type": memo_type, "content": content or ""}
+
     ck = _cache_key(memo_type)
     cached = cache_get(tenant_id, ck)
     if cached is not None:
@@ -56,7 +63,15 @@ def save_memo_route(
     memo_type: str = Path(..., pattern="^(short|mid|long)$"),
     user: dict = Depends(get_current_user),
 ):
+    from backend.db.feature_flags import pg_memos_enabled
     tenant_id = user["tenant_id"]
+
+    if pg_memos_enabled():
+        from backend.services.memos_pg_service import save_memo as _pg_save
+        _pg_save(tenant_id, memo_type, req.content or "")
+        cache_invalidate(tenant_id, _cache_key(memo_type))
+        return {"ok": True}
+
     sheet_name = _get_sheet_name(memo_type)
     ok = save_memo(sheet_name, tenant_id, req.content)
     if not ok:

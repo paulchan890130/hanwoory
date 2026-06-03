@@ -31,7 +31,15 @@ _TTL_EVENTS = 30.0  # seconds
 def get_events(user: dict = Depends(get_current_user)):
     import time as _time
     from config import EVENTS_SHEET_NAME
+    from backend.db.feature_flags import pg_events_enabled
     tenant_id = user["tenant_id"]
+
+    if pg_events_enabled():
+        from backend.services.events_pg_service import get_events_map
+        result = get_events_map(tenant_id)
+        total = sum(len(v) for v in result.values())
+        print(f"[events GET] PG tenant={tenant_id} event_count={total}")
+        return result
 
     cached = cache_get(tenant_id, _CACHE_EVENTS)
     if cached is not None:
@@ -76,12 +84,23 @@ def save_events(req: EventDateSaveRequest, user: dict = Depends(get_current_user
     - 쓰기 후 검증 수행
     """
     from config import EVENTS_SHEET_NAME
+    from backend.db.feature_flags import pg_events_enabled
     tenant_id = user["tenant_id"]
     date_str = req.date_str.strip()
     lines = [l.strip() for l in req.lines if l.strip()]
 
     if not date_str:
         raise HTTPException(status_code=400, detail="date_str은 필수입니다")
+
+    if pg_events_enabled():
+        from backend.services.events_pg_service import save_events_for_date
+        try:
+            written = save_events_for_date(tenant_id, date_str, lines)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"일정 저장 실패: {e}")
+        cache_invalidate(tenant_id, _CACHE_EVENTS)
+        print(f"[events POST] PG tenant={tenant_id} date={date_str} written={written}")
+        return {"ok": True}
 
     # 1. 현재 시트 읽기
     try:
@@ -159,7 +178,15 @@ def save_events(req: EventDateSaveRequest, user: dict = Depends(get_current_user
 def delete_event(date_str: str, user: dict = Depends(get_current_user)):
     """특정 날짜의 모든 이벤트 삭제 — 다른 날짜 건드리지 않음."""
     from config import EVENTS_SHEET_NAME
+    from backend.db.feature_flags import pg_events_enabled
     tenant_id = user["tenant_id"]
+
+    if pg_events_enabled():
+        from backend.services.events_pg_service import delete_events_for_date
+        deleted = delete_events_for_date(tenant_id, date_str)
+        cache_invalidate(tenant_id, _CACHE_EVENTS)
+        print(f"[events DELETE] PG tenant={tenant_id} date={date_str} deleted={deleted}")
+        return {"ok": True, "deleted": deleted}
 
     # 1. 현재 시트 읽기
     try:

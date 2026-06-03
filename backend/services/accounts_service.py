@@ -59,9 +59,33 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """hash_password 결과와 평문 비밀번호를 대조."""
+    """평문 비밀번호를 저장된 해시와 대조 (하위호환).
+
+    지원 형식:
+      1) **레거시/현행** PBKDF2-HMAC-SHA256(100k) + ``base64(salt[16] + dk)``
+         — 본 시스템의 표준 형식. Streamlit 시절 Accounts 시트 해시와 동일하므로
+         마이그레이션된 해시가 그대로 검증된다.
+      2) (전방호환) ``$2…`` bcrypt 해시 — 새 형식 해시가 들어오는 경우에만 bcrypt
+         로 검증한다. bcrypt 미설치/미매칭이면 안전하게 False (다운그레이드 아님).
+    잘못된/손상된 해시는 예외 없이 False 를 반환한다. 비밀번호는 절대 로깅하지 않는다.
+    """
+    h = (hashed or "").strip()
+    if not h:
+        return False
+
+    # (2) 새 형식(bcrypt) — 레거시 base64 해시는 '$' 로 시작하지 않으므로 영향 없음.
+    if h.startswith("$2"):
+        try:
+            import bcrypt  # optional — only used if a bcrypt hash ever appears
+            return bcrypt.checkpw(password.encode("utf-8"), h.encode("utf-8"))
+        except Exception:
+            return False
+
+    # (1) 레거시/현행 PBKDF2 base64 — 동작 불변.
     try:
-        raw = base64.b64decode(hashed.encode("ascii"))
+        raw = base64.b64decode(h.encode("ascii"))
+        if len(raw) < 17:  # 최소 salt(16) + dk(>=1) 바이트
+            return False
         salt, dk = raw[:16], raw[16:]
         new_dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
         return hmac.compare_digest(dk, new_dk)

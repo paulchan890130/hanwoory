@@ -93,7 +93,15 @@ def _sanitize_record(r: dict) -> dict:
 
 
 def _get_records(tenant_id: str) -> list:
-    """tenant_service.read_sheet 경유로 고객 레코드 목록 반환 (JSON-safe)"""
+    """tenant_service.read_sheet 경유로 고객 레코드 목록 반환 (JSON-safe).
+
+    FEATURE_PG_CUSTOMERS=true일 때는 로컬 PostgreSQL에서 읽어 같은 형태의
+    dict 리스트를 반환한다. 플래그 off면 기존 Sheets 경로 그대로.
+    """
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import list_customers
+        return list_customers(tenant_id)
     from backend.services.tenant_service import read_sheet
     from config import CUSTOMER_SHEET_NAME
     raw = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
@@ -223,10 +231,20 @@ def get_customers(
 @router.post("")
 def add_customer(data: dict, user: dict = Depends(get_current_user)):
     """신규 고객 등록"""
+    from backend.db.feature_flags import pg_customers_enabled
+    tenant_id = user["tenant_id"]
+
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import next_customer_id, upsert_customer
+        if not data.get("고객ID"):
+            data["고객ID"] = next_customer_id(tenant_id)
+        upsert_customer(tenant_id, data)
+        cache_invalidate(tenant_id, _CACHE_EXPIRY)
+        return {"ok": True, "고객ID": data["고객ID"]}
+
     from backend.services.tenant_service import upsert_sheet
     from config import CUSTOMER_SHEET_NAME
 
-    tenant_id = user["tenant_id"]
     records = _get_records(tenant_id)
 
     # 헤더 결정: 기존 레코드 키 or 기본 스키마
@@ -254,10 +272,23 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
 
 @router.put("/{customer_id}")
 def update_customer(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_customers_enabled
+    tenant_id = user["tenant_id"]
+
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import find_customer, upsert_customer
+        existing = find_customer(tenant_id, str(customer_id).strip())
+        if existing is None:
+            raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+        merged = {**existing, **{k: str(v) for k, v in data.items()}}
+        merged["고객ID"] = customer_id
+        upsert_customer(tenant_id, merged)
+        cache_invalidate(tenant_id, _CACHE_EXPIRY)
+        return {"ok": True}
+
     from backend.services.tenant_service import upsert_sheet
     from config import CUSTOMER_SHEET_NAME
 
-    tenant_id = user["tenant_id"]
     records = _get_records(tenant_id)
     if not records:
         raise HTTPException(status_code=404, detail="고객을 찾을 수 없습니다.")
@@ -286,14 +317,23 @@ def update_customer(customer_id: str, data: dict, user: dict = Depends(get_curre
 @router.post("/{customer_id}/delegation-append")
 def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
     """위임내역 필드에 새 항목을 줄 바꿈으로 추가 (덮어쓰기 아님)"""
-    from backend.services.tenant_service import upsert_sheet
-    from config import CUSTOMER_SHEET_NAME
-
+    from backend.db.feature_flags import pg_customers_enabled
     entry: str = str(data.get("entry", "")).strip()
     if not entry:
         raise HTTPException(status_code=422, detail="entry 필드가 비어있습니다.")
 
     tenant_id = user["tenant_id"]
+
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import append_delegation as _pg_append
+        updated = _pg_append(tenant_id, str(customer_id).strip(), entry)
+        if updated is None:
+            raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+        cache_invalidate(tenant_id, _CACHE_EXPIRY)
+        return {"ok": True, "위임내역": updated.get("위임내역", "")}
+
+    from backend.services.tenant_service import upsert_sheet
+    from config import CUSTOMER_SHEET_NAME
     records = _get_records(tenant_id)
     if not records:
         raise HTTPException(status_code=404, detail="고객을 찾을 수 없습니다.")
@@ -324,10 +364,20 @@ def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_cur
 
 @router.delete("/{customer_id}")
 def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_customers_enabled
+    tenant_id = user["tenant_id"]
+
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import delete_customer as _pg_delete
+        ok = _pg_delete(tenant_id, str(customer_id).strip())
+        if not ok:
+            raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+        cache_invalidate(tenant_id, _CACHE_EXPIRY)
+        return {"ok": True}
+
     from backend.services.tenant_service import delete_from_sheet
     from config import CUSTOMER_SHEET_NAME
 
-    tenant_id = user["tenant_id"]
     ok = delete_from_sheet(CUSTOMER_SHEET_NAME, tenant_id, [customer_id], id_field="고객ID")
     if not ok:
         raise HTTPException(status_code=500, detail="고객 삭제 실패")
@@ -353,45 +403,123 @@ def _cat_group(cat: str) -> str:
 _EMPTY_GROUPS = {"출입국": 0, "전자민원": 0, "공증": 0, "여권·초청": 0, "기타": 0}
 
 
+def _load_completed_active_for_tenant(tenant_id: str) -> tuple[list[dict], list[dict]]:
+    """Return (completed, active) lists for the tenant.
+
+    PG mode (``FEATURE_PG_TASKS=true``) reads from PostgreSQL via
+    ``tasks_pg_service``; otherwise falls back to the Sheets path.
+
+    Both ``/work-summary`` and ``/completed-tasks`` MUST use this single
+    helper so the summary counts and the detail-modal list never diverge.
+    """
+    from backend.db.feature_flags import pg_tasks_enabled
+    if pg_tasks_enabled():
+        from backend.services.tasks_pg_service import list_completed, list_active
+        return (list_completed(tenant_id) or [], list_active(tenant_id) or [])
+    from backend.services.tenant_service import read_sheet
+    from config import COMPLETED_TASKS_SHEET_NAME, ACTIVE_TASKS_SHEET_NAME
+    return (
+        read_sheet(COMPLETED_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or [],
+        read_sheet(ACTIVE_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or [],
+    )
+
+
+def _resolve_customer_tasks(
+    tenant_id: str,
+    customer_id: str,
+    customer_name: Optional[str],
+) -> dict:
+    """Single source of truth for customer-card task matching.
+
+    Returns a dict with:
+      - ``by_id``: completed rows whose ``customer_id`` matches.
+      - ``by_name_only``: completed rows with **empty** ``customer_id`` whose
+        ``name`` matches ``customer_name`` (legacy fallback only).
+      - ``active_by_id``: active rows by customer_id.
+      - ``has_name_duplicate``: True iff 2+ customers in this tenant share
+        the same Korean name (used to warn the user that legacy matches may
+        be ambiguous).
+
+    Matching rules:
+      A. ``customer_id`` exact match if the task has one.
+      B. If the task has no customer_id AND ``customer_name`` is given, fall
+         back to exact Korean-name match.
+      C. Tasks with a non-matching customer_id are never returned — the
+         resolver does not silently re-bind them.
+
+    Both ``/work-summary`` and ``/completed-tasks`` use the same returned
+    structure so their counts agree.
+    """
+    completed, active = _load_completed_active_for_tenant(tenant_id)
+    by_id = [r for r in completed if str(r.get("customer_id", "")).strip() == customer_id]
+    by_name_only: list[dict] = []
+    has_name_duplicate = False
+
+    if customer_name:
+        nm = customer_name.strip()
+        if nm:
+            by_name_only = [
+                r for r in completed
+                if not str(r.get("customer_id", "")).strip()
+                and str(r.get("name", "")).strip() == nm
+            ]
+            # name duplicate check via the same source the customers list reads.
+            from backend.db.feature_flags import pg_customers_enabled
+            if pg_customers_enabled():
+                from backend.services.customer_pg_service import list_customers
+                all_customers = list_customers(tenant_id) or []
+            else:
+                from backend.services.tenant_service import read_sheet
+                from config import CUSTOMER_SHEET_NAME
+                all_customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+            has_name_duplicate = (
+                sum(1 for c in all_customers if str(c.get("한글", "")).strip() == nm) >= 2
+            )
+
+    active_by_id = [r for r in active if str(r.get("customer_id", "")).strip() == customer_id]
+    return {
+        "by_id": by_id,
+        "by_name_only": by_name_only,
+        "active_by_id": active_by_id,
+        "has_name_duplicate": has_name_duplicate,
+    }
+
+
 @router.get("/{customer_id}/work-summary")
 def get_work_summary(
     customer_id: str,
     name: Optional[str] = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    """고객별 완료업무 구분 요약. customer_id 기준 집계 + legacy name 기준 분리 반환."""
-    from backend.services.tenant_service import read_sheet
-    from config import COMPLETED_TASKS_SHEET_NAME, CUSTOMER_SHEET_NAME
+    """고객별 업무 요약.
 
-    tenant_id = user["tenant_id"]
-    completed = read_sheet(COMPLETED_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+    구성:
+      - ``groups`` / ``total`` — 이 고객 (customer_id 일치) 의 완료업무 카테고리
+      - ``active_total`` — 이 고객의 진행업무 개수 (드로어가 열려 있는 동안 일일
+        결산 추가/삭제로 즉시 반영되어야 함)
+      - ``legacy_groups`` / ``legacy_total`` — customer_id 가 비어 있고 한글
+        이름만 일치하는 과거 업무 (참고)
+      - ``has_name_duplicate`` — 동명이인 경고용
 
+    Local PG mode (``FEATURE_PG_TASKS=true``) 는 PG 의 active_tasks /
+    completed_tasks / customers 를 직접 조회. 운영 Sheets 경로는 그대로 폴백.
+    """
+    resolved = _resolve_customer_tasks(user["tenant_id"], customer_id, name)
     groups: dict = {k: 0 for k in _EMPTY_GROUPS}
     legacy_groups: dict = {k: 0 for k in _EMPTY_GROUPS}
-
-    for r in completed:
-        if str(r.get("customer_id", "")).strip() == customer_id:
-            g = _cat_group(str(r.get("category", "")))
-            groups[g] = groups.get(g, 0) + 1
-
-    has_name_duplicate = False
-    if name:
-        all_customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
-        same_name = sum(1 for c in all_customers if str(c.get("한글", "")).strip() == name.strip())
-        has_name_duplicate = same_name >= 2
-        for r in completed:
-            if str(r.get("customer_id", "")).strip():
-                continue
-            if str(r.get("name", "")).strip() == name.strip():
-                g = _cat_group(str(r.get("category", "")))
-                legacy_groups[g] = legacy_groups.get(g, 0) + 1
-
+    for r in resolved["by_id"]:
+        g = _cat_group(str(r.get("category", "")))
+        groups[g] = groups.get(g, 0) + 1
+    for r in resolved["by_name_only"]:
+        g = _cat_group(str(r.get("category", "")))
+        legacy_groups[g] = legacy_groups.get(g, 0) + 1
     return {
         "groups":            groups,
         "total":             sum(groups.values()),
+        "active_total":      len(resolved["active_by_id"]),
         "legacy_groups":     legacy_groups,
         "legacy_total":      sum(legacy_groups.values()),
-        "has_name_duplicate": has_name_duplicate,
+        "has_name_duplicate": resolved["has_name_duplicate"],
     }
 
 
@@ -402,26 +530,35 @@ def get_customer_completed_tasks(
     include_legacy: bool = Query(False),
     user: dict = Depends(get_current_user),
 ):
-    """고객별 완료업무 목록. customer_id 기준 우선, 옵션으로 legacy name 기준 포함."""
-    from backend.services.tenant_service import read_sheet
-    from config import COMPLETED_TASKS_SHEET_NAME
+    """고객별 완료업무 목록.
 
-    tenant_id = user["tenant_id"]
-    completed = read_sheet(COMPLETED_TASKS_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+    ``/work-summary`` 와 **같은** ``_resolve_customer_tasks`` 를 사용한다.
+    따라서 summary 가 ``출입국 1`` 을 반환하면 detail modal 도 그 1 건을
+    정확히 보여준다 (`tasks` 리스트). 두 응답이 서로 다른 데이터 소스를
+    바라보던 이전의 inconsistency 는 제거됨.
 
-    by_id = [r for r in completed if str(r.get("customer_id", "")).strip() == customer_id]
-    by_id.sort(key=lambda x: x.get("complete_date", "") or x.get("date", ""), reverse=True)
-
+    ``include_legacy=true`` 일 때만 name-기반 legacy 결과가 ``legacy_tasks``
+    에 동봉된다. legacy 결과는 customer_id 가 비어 있고 한글 이름이 정확히
+    일치하는 행 — summary 의 ``legacy_total`` 과 일치한다.
+    """
+    resolved = _resolve_customer_tasks(user["tenant_id"], customer_id, name)
+    by_id = sorted(
+        resolved["by_id"],
+        key=lambda x: (x.get("complete_date") or x.get("date") or ""),
+        reverse=True,
+    )
     legacy: list = []
-    if include_legacy and name:
-        legacy = [
-            r for r in completed
-            if not str(r.get("customer_id", "")).strip()
-            and str(r.get("name", "")).strip() == name.strip()
-        ]
-        legacy.sort(key=lambda x: x.get("complete_date", "") or x.get("date", ""), reverse=True)
-
-    return {"tasks": by_id, "legacy_tasks": legacy}
+    if include_legacy:
+        legacy = sorted(
+            resolved["by_name_only"],
+            key=lambda x: (x.get("complete_date") or x.get("date") or ""),
+            reverse=True,
+        )
+    return {
+        "tasks":              by_id,
+        "legacy_tasks":       legacy,
+        "has_name_duplicate": resolved["has_name_duplicate"],
+    }
 
 
 # ── 숙소제공자 연결 ────────────────────────────────────────────────────────────
@@ -581,6 +718,11 @@ def _upsert_accommodation_record(ws, record: dict) -> None:
 @router.get("/{customer_id}/accommodation-provider")
 def get_accommodation_provider(customer_id: str, user: dict = Depends(get_current_user)):
     """고객의 숙소제공자 연결 정보 조회."""
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.relationship_pg_service import get_accommodation
+        record = get_accommodation(user["tenant_id"], customer_id)
+        return {"data": record}
     tenant_id = user["tenant_id"]
     try:
         ws = _get_accommodation_ws(tenant_id)
@@ -595,7 +737,14 @@ def get_accommodation_provider(customer_id: str, user: dict = Depends(get_curren
 
 @router.post("/{customer_id}/accommodation-provider")
 def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
-    """고객의 숙소제공자 연결 저장 (upsert).
+    """고객의 숙소제공자 연결 저장 (upsert)."""
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.relationship_pg_service import save_accommodation
+        data["target_customer_id"] = customer_id
+        record = save_accommodation(user["tenant_id"], data)
+        return {"ok": True, "data": record}
+    """레거시 Sheets 경로 (플래그 OFF)
     provider_type=customer_db이면 고객 DB에서 빈 필드를 자동 보완한다."""
     import datetime
     tenant_id = user["tenant_id"]
@@ -675,7 +824,12 @@ def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depen
 @router.delete("/{customer_id}/accommodation-provider")
 def delete_accommodation_provider(customer_id: str, user: dict = Depends(get_current_user)):
     """고객의 숙소제공자 연결 해제 (해당 행 삭제)."""
+    from backend.db.feature_flags import pg_customers_enabled
     tenant_id = user["tenant_id"]
+    if pg_customers_enabled():
+        from backend.services.relationship_pg_service import delete_accommodation
+        delete_accommodation(tenant_id, customer_id)
+        return {"ok": True}
     try:
         ws = _get_accommodation_ws(tenant_id)
         values = ws.get_all_values()
@@ -822,7 +976,11 @@ def _upsert_guarantor_record(ws, record: dict) -> None:
 @router.get("/{customer_id}/guarantor")
 def get_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
     """고객의 신원보증인 연결 정보 조회."""
+    from backend.db.feature_flags import pg_customers_enabled
     tenant_id = user["tenant_id"]
+    if pg_customers_enabled():
+        from backend.services.relationship_pg_service import get_guarantor as _pg
+        return _pg(tenant_id, customer_id)
     try:
         ws = _get_guarantor_ws(tenant_id)
         record = _read_guarantor_record(ws, customer_id, tenant_id)
@@ -838,8 +996,14 @@ def get_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
 def save_guarantor(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
     """고객의 신원보증인 연결 저장 (upsert).
     guarantor_type=customer_db이면 고객 DB에서 빈 필드를 자동 보완한다."""
+    from backend.db.feature_flags import pg_customers_enabled
     import datetime
     tenant_id = user["tenant_id"]
+    if pg_customers_enabled():
+        from backend.services.relationship_pg_service import save_guarantor as _pg
+        data["target_customer_id"] = customer_id
+        record = _pg(tenant_id, data)
+        return {"ok": True, "data": record}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     record = {
@@ -910,6 +1074,11 @@ def save_guarantor(customer_id: str, data: dict, user: dict = Depends(get_curren
 @router.delete("/{customer_id}/guarantor")
 def delete_guarantor(customer_id: str, user: dict = Depends(get_current_user)):
     """고객의 신원보증인 연결 해제."""
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.relationship_pg_service import delete_guarantor as _pg
+        _pg(user["tenant_id"], customer_id)
+        return {"ok": True}
     tenant_id = user["tenant_id"]
     try:
         ws = _get_guarantor_ws(tenant_id)

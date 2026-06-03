@@ -33,6 +33,11 @@ def get_entries(
     date: Optional[str] = Query(None, description="YYYY-MM-DD"),
     user: dict = Depends(get_current_user),
 ):
+    from backend.db.feature_flags import pg_daily_enabled
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import list_entries
+        return list_entries(user["tenant_id"], date=date)
+
     from config import DAILY_SUMMARY_SHEET_NAME
     records = read_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], default_if_empty=[])
     if date:
@@ -327,12 +332,220 @@ def _apply_daily_to_active(rec: dict, tenant_id: str) -> None:
     cache_invalidate(tenant_id, "tasks:active")
 
 
+# ── PG-mode equivalents of _apply_daily_to_active / _append_delegation_to_customer ─
+#
+# The Sheets versions above operate on ``read_sheet`` / ``upsert_sheet`` which
+# hit Google. In local PG beta these would fail (or, worse, hit a stale Sheets
+# response). The PG versions implement the same business rules but talk only
+# to PostgreSQL via the existing tenant-aware repository services.
+
+
+def _apply_daily_to_active_pg(rec: dict, tenant_id: str) -> None:
+    """PG mirror of :func:`_apply_daily_to_active`.
+
+    Reads existing ``active_tasks`` rows from PG, decides whether to update an
+    existing one (by ``source_daily_id`` or content match) or insert a new row,
+    then writes via :func:`tasks_pg_service.upsert_active`. Money deltas are
+    accumulated using the same memo-encoded slot rules used in the Sheets
+    branch.
+    """
+    import re as _re
+    from backend.services import tasks_pg_service as _tasks
+    from backend.services.cache_service import cache_invalidate
+
+    category = str(rec.get("category", "")).strip()
+    if category == "현금출금":
+        return
+
+    name = str(rec.get("name", "")).strip()
+    work = str(rec.get("task", "")).strip()  # daily.task == active.work
+    date = str(rec.get("date", "")).strip()
+    customer_id = str(rec.get("customer_id", "")).strip()
+    source_daily_id = str(rec.get("id", "")).strip()
+    active_task_id = ("daily-" + source_daily_id) if source_daily_id else str(uuid.uuid4())
+
+    memo = str(rec.get("memo", "")) or ""
+    m = _re.search(r"\[KID\](.*?)\[/KID\]", memo)
+    inc_type = e1_type = e2_type = ""
+    e1_indiv = e2_indiv = 0
+    if m:
+        parts = dict(p.split("=", 1) for p in m.group(1).split(";") if "=" in p)
+        inc_type = parts.get("inc", "")
+        e1_type = parts.get("e1", "")
+        e2_type = parts.get("e2", "")
+        try:
+            e1_indiv = int(parts.get("e1a", "0") or "0")
+        except Exception:
+            e1_indiv = 0
+        try:
+            e2_indiv = int(parts.get("e2a", "0") or "0")
+        except Exception:
+            e2_indiv = 0
+
+    exp_cash = _safe_int(rec.get("exp_cash", 0))
+    exp_etc = _safe_int(rec.get("exp_etc", 0))
+
+    delta: dict = {"transfer": 0, "cash": 0, "card": 0, "stamp": 0, "receivable": 0}
+    if e1_indiv or e2_indiv:
+        for etype, eamt in ((e1_type, e1_indiv), (e2_type, e2_indiv)):
+            if not etype or not eamt:
+                continue
+            if etype == "이체":    delta["transfer"] += eamt
+            elif etype == "현금":  delta["cash"]     += eamt
+            elif etype == "카드":  delta["card"]     += eamt
+            elif etype == "인지":  delta["stamp"]    += eamt
+    else:
+        non_cash_types = {t for t in (e1_type, e2_type) if t and t != "현금"}
+        if len(non_cash_types) == 1:
+            t = next(iter(non_cash_types))
+            if t == "이체":    delta["transfer"] += exp_etc
+            elif t == "카드":  delta["card"]     += exp_etc
+            elif t == "인지":  delta["stamp"]    += exp_etc
+        if "현금" in (e1_type, e2_type) and exp_cash:
+            delta["cash"] += exp_cash
+
+    # Lookup existing active task: source_daily_id first, then content match.
+    active_tasks = _tasks.list_active(tenant_id)
+    matched = None
+    if source_daily_id:
+        matched = next(
+            (t for t in active_tasks
+             if str(t.get("source_daily_id", "")).strip() == source_daily_id),
+            None,
+        )
+    if not matched:
+        matched = next(
+            (t for t in active_tasks
+             if not str(t.get("source_daily_id", "")).strip()
+             and t.get("category") == category
+             and t.get("date") == date
+             and t.get("name") == name
+             and t.get("work") == work),
+            None,
+        )
+
+    if matched:
+        # Accumulate money deltas into the matched row, preserve other fields.
+        payload = dict(matched)
+        for field, dv in delta.items():
+            if dv:
+                payload[field] = str(_safe_int(payload.get(field, 0)) + dv)
+        if customer_id and not str(payload.get("customer_id", "")).strip():
+            payload["customer_id"] = customer_id
+        if source_daily_id and not str(payload.get("source_daily_id", "")).strip():
+            payload["source_daily_id"] = source_daily_id
+        _tasks.upsert_active(tenant_id, payload)
+    else:
+        new_task = {
+            "id":                  active_task_id,
+            "source_daily_id":     source_daily_id,
+            "category":            category,
+            "date":                date,
+            "name":                name,
+            "work":                work,
+            "details":             "",
+            "transfer":            str(delta["transfer"]),
+            "cash":                str(delta["cash"]),
+            "card":                str(delta["card"]),
+            "stamp":               str(delta["stamp"]),
+            "receivable":          str(delta["receivable"]),
+            "planned_expense":     "",
+            "processed":           False,
+            "processed_timestamp": "",
+            "reception":           datetime.utcnow().isoformat() + "Z",
+            "processing":          "",
+            "storage":             "",
+            "customer_id":         customer_id,
+        }
+        _tasks.upsert_active(tenant_id, new_task)
+
+    # Clear the active-tasks list cache so the dashboard / tasks page
+    # see the new row on their next refetch.
+    cache_invalidate(tenant_id, "tasks:active")
+
+
+def _append_delegation_to_customer_pg(rec: dict, tenant_id: str) -> None:
+    """PG mirror of :func:`_append_delegation_to_customer`.
+
+    Uses ``customer_pg_service.append_delegation`` which already implements
+    the "append a newline-separated line to the existing 위임내역" behavior.
+    Falls back to a Korean-name search when ``customer_id`` is empty (mirrors
+    the Sheets-path name fallback).
+    """
+    from backend.services import customer_pg_service as _cust
+
+    category = str(rec.get("category", "")).strip()
+    name = str(rec.get("name", "")).strip()
+    customer_id = str(rec.get("customer_id", "")).strip()
+    if category == "현금출금" or not name:
+        return
+
+    date = str(rec.get("date", "")).strip()
+    task = str(rec.get("task", "")).strip()
+    memo = str(rec.get("memo", "")) or ""
+    user_note = ""
+    if "[/KID]" in memo:
+        user_note = memo[memo.index("[/KID]") + 6:].strip()
+    elif "[KID]" not in memo:
+        user_note = memo.strip()
+
+    deposit    = _safe_int(rec.get("income_cash", 0)) + _safe_int(rec.get("income_etc", 0))
+    withdrawal = (_safe_int(rec.get("exp_cash", 0)) + _safe_int(rec.get("exp_etc", 0))
+                  + _safe_int(rec.get("cash_out", 0)))
+    net_profit = deposit - withdrawal
+
+    parts = [p for p in [date, category, task] if p]
+    amt_parts: list = []
+    if deposit:               amt_parts.append(f"입금 {deposit:,}")
+    if withdrawal:            amt_parts.append(f"출금 {withdrawal:,}")
+    if deposit or withdrawal: amt_parts.append(f"순수익 {net_profit:,}")
+
+    entry_line = " ".join(parts)
+    if amt_parts:
+        entry_line += f" ({', '.join(amt_parts)})"
+    if user_note:
+        entry_line += f" [{user_note}]"
+    if not entry_line.strip():
+        return
+
+    # Locate the target customer. Prefer explicit customer_id; fall back to
+    # the first row matching Korean name in this tenant.
+    target_id = customer_id
+    if not target_id:
+        all_customers = _cust.list_customers(tenant_id)
+        matches = [c for c in all_customers if (c.get("한글") or "").strip() == name]
+        if len(matches) == 1:
+            target_id = matches[0].get("고객ID", "")
+    if not target_id:
+        return
+
+    _cust.append_delegation(tenant_id, target_id, entry_line)
+
+
 @router.post("/entries", response_model=dict)
 def add_entry(entry: DailyEntry, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_SUMMARY_SHEET_NAME
     if not entry.id:
         entry.id = str(uuid.uuid4())
     rec = {k: ("" if v is None else str(v)) for k, v in entry.model_dump().items()}
+
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import upsert_entry
+        result = upsert_entry(user["tenant_id"], rec)
+        # PG path: also propagate to active tasks + customer delegation,
+        # mirroring the Sheets path. Each side-effect is best-effort so
+        # the primary daily-entry save is reported as success.
+        try:
+            _apply_daily_to_active_pg(rec, user["tenant_id"])
+        except Exception as _e:
+            print(f"[daily.pg] apply_daily_to_active_pg 실패: {_e}")
+        try:
+            _append_delegation_to_customer_pg(rec, user["tenant_id"])
+        except Exception as _e:
+            print(f"[daily.pg] append_delegation_to_customer_pg 실패: {_e}")
+        return result
+
     ok = upsert_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], DAILY_HEADER, [rec], id_field="id")
     if not ok:
         raise HTTPException(status_code=500, detail="일일결산 저장 실패 — 구글 시트에 기록되지 않았습니다.")
@@ -351,23 +564,60 @@ def add_entry(entry: DailyEntry, user: dict = Depends(get_current_user)):
 
 @router.put("/entries/{entry_id}", response_model=dict)
 def update_entry(entry_id: str, entry: DailyEntry, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_SUMMARY_SHEET_NAME
     entry.id = entry_id
     rec = {k: ("" if v is None else str(v)) for k, v in entry.model_dump().items()}
+
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import upsert_entry
+        result = upsert_entry(user["tenant_id"], rec)
+        # Edits also need to refresh the derived active-task row so the
+        # dashboard / task page reflect the latest amounts.
+        try:
+            _apply_daily_to_active_pg(rec, user["tenant_id"])
+        except Exception as _e:
+            print(f"[daily.pg] apply_daily_to_active_pg (edit) 실패: {_e}")
+        return result
+
     upsert_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], DAILY_HEADER, [rec], id_field="id")
     return rec
 
 
 @router.delete("/entries/{entry_id}")
 def delete_entry(entry_id: str, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_SUMMARY_SHEET_NAME
+
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import delete_entry as _pg_del
+        from backend.services import tasks_pg_service as _tasks
+        from backend.services.cache_service import cache_invalidate
+        _pg_del(user["tenant_id"], entry_id)
+        # Cascade: drop the derived active-task row keyed by source_daily_id,
+        # so the dashboard / task page no longer show a stale entry. This
+        # mirrors the Sheets path's behavior of deleting the matching row.
+        try:
+            derived_id = "daily-" + entry_id
+            _tasks.delete_active(user["tenant_id"], [derived_id])
+            cache_invalidate(user["tenant_id"], "tasks:active")
+        except Exception as _e:
+            print(f"[daily.pg] cascade delete active failed: {_e}")
+        return {"deleted": entry_id}
+
     delete_from_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], [entry_id], id_field="id")
     return {"deleted": entry_id}
 
 
 @router.get("/balance", response_model=BalanceData)
 def get_balance(user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_BALANCE_SHEET_NAME
+
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import get_balance as _pg_get_bal
+        return _pg_get_bal(user["tenant_id"])
+
     records = read_sheet(DAILY_BALANCE_SHEET_NAME, user["tenant_id"], default_if_empty=[])
     balance = {"cash": 0, "profit": 0}
     for r in records:
@@ -379,8 +629,15 @@ def get_balance(user: dict = Depends(get_current_user)):
 
 @router.post("/balance", response_model=BalanceData)
 def save_balance(data: BalanceData, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_BALANCE_SHEET_NAME
     tenant_id = user["tenant_id"]
+
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import save_balance as _pg_save_bal
+        _pg_save_bal(tenant_id, int(data.cash), int(data.profit))
+        return data
+
     rows = [
         {"key": "cash",   "value": str(data.cash)},
         {"key": "profit", "value": str(data.profit)},
@@ -402,8 +659,14 @@ def get_monthly_summary(
     user: dict = Depends(get_current_user),
 ):
     """월별 수입/지출 합계"""
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_SUMMARY_SHEET_NAME
-    records = read_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], default_if_empty=[])
+
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import list_entries
+        records = list_entries(user["tenant_id"]) or []
+    else:
+        records = read_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], default_if_empty=[])
 
     prefix = f"{year}-{month:02d}"
     monthly = [r for r in records if str(r.get("date", "")).startswith(prefix)]
@@ -436,9 +699,14 @@ def get_monthly_analysis(
     """월간 결산 분석 (요약테이블 + 추세 + 요일별 + 카테고리별 + 시간대별)"""
     import datetime
     from collections import defaultdict
+    from backend.db.feature_flags import pg_daily_enabled
     from config import DAILY_SUMMARY_SHEET_NAME
 
-    records = read_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], default_if_empty=[])
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import list_entries
+        records = list_entries(user["tenant_id"]) or []
+    else:
+        records = read_sheet(DAILY_SUMMARY_SHEET_NAME, user["tenant_id"], default_if_empty=[])
 
     # ── 전체 월별 요약 테이블 + 추세 ─────────────────────────────────────────
     monthly_full: dict = defaultdict(lambda: {

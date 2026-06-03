@@ -83,7 +83,12 @@ def _col_letter(n: int) -> str:
 @router.get("/sheets")
 def list_sheets(user: dict = Depends(get_current_user)):
     """테넌트의 업무정리 스프레드시트에 있는 시트 이름 목록 반환"""
+    from backend.db.feature_flags import pg_reference_enabled
     tenant_id = user["tenant_id"]
+    if pg_reference_enabled():
+        from backend.services.reference_pg_service import list_sheets as _pg
+        return _pg(tenant_id)
+
     cached = cache_get(tenant_id, _CACHE_REF_SHEETS)
     if cached is not None:
         return cached
@@ -104,7 +109,12 @@ def get_sheet_data(
     user: dict = Depends(get_current_user),
 ):
     """특정 시트의 데이터 반환 (헤더 + 행 목록)"""
+    from backend.db.feature_flags import pg_reference_enabled
     tenant_id = user["tenant_id"]
+    if pg_reference_enabled():
+        from backend.services.reference_pg_service import get_sheet_data as _pg
+        return _pg(tenant_id, sheet)
+
     sheet_key = get_work_sheet_key(tenant_id)
     try:
         sh = _get_spreadsheet(sheet_key)

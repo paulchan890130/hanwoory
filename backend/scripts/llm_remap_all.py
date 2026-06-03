@@ -118,7 +118,7 @@ def extract_json(text: str) -> dict:
     return json.loads(text.strip())
 
 
-def call_anthropic(prompt: str, *, model: str = "claude-sonnet-4-6", max_tokens: int = 8192) -> dict:
+def call_anthropic(prompt: str, *, model: str = "claude-opus-4-8", max_tokens: int = 8192) -> dict:
     import anthropic
     client = anthropic.Anthropic()
     resp = client.messages.create(

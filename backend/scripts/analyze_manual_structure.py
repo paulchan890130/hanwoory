@@ -117,7 +117,7 @@ USER_TEMPLATE = """\
 
 
 def call_anthropic(prompt: str, raw_save_path: Path, *,
-                   model: str = "claude-sonnet-4-6",
+                   model: str = "claude-opus-4-8",
                    max_tokens: int = 64000) -> dict:
     """매뉴얼 분석 LLM 호출 (streaming).
 

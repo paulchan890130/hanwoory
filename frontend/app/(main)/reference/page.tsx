@@ -116,6 +116,23 @@ export default function ReferencePage() {
         </div>
       )}
 
+      {/* 예시(샘플) 데이터 안내 — 샘플 행이 포함된 경우에만 표시 */}
+      {(() => {
+        const rows = (localData?.rows ?? []) as Record<string, unknown>[];
+        const hasSample = rows.some(
+          (r) => r && (r["_sample_seed"] ||
+            Object.values(r).some((v) => typeof v === "string" && v.includes("[예시]"))),
+        );
+        return hasSample ? (
+          <div style={{
+            background: "#EBF8FF", border: "1px solid #BEE3F8", borderRadius: 6,
+            padding: "8px 16px", fontSize: 12, color: "#2B6CB0",
+          }}>
+            현재 표시된 일부 항목은 예시 데이터입니다. 실제 업무 기준에 맞게 수정하거나 삭제하세요.
+          </div>
+        ) : null;
+      })()}
+
       {/* ── 메인 컨텐츠 ── */}
       {sheetsLoading ? (
         <div className="hw-card" style={{ fontSize: 13, color: "#A0AEC0" }}>시트 목록 불러오는 중...</div>

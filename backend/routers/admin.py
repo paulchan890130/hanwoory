@@ -120,6 +120,131 @@ class WorkspaceCreateRequest(BaseModel):
 
 @router.get("/accounts")
 def list_accounts(user: dict = Depends(require_admin)):
+    from backend.db.feature_flags import pg_admin_enabled, local_drive_mock_enabled
+    if pg_admin_enabled():
+        from sqlalchemy import select, func
+        from backend.db.models.tenant import Tenant
+        from backend.db.models.user import AccountUser
+        from backend.db.models.customer import Customer
+        from backend.db.models.task import ActiveTask, CompletedTask
+        from backend.db.models.daily import DailyEntry
+        from backend.db.models.work_data import WorkReferenceSheet
+        from backend.db.session import get_sessionmaker
+        SessionLocal = get_sessionmaker()
+
+        def _classify_file_storage(folder_id: str, customer_key: str, work_key: str) -> tuple[str, str]:
+            """Return (status, label) for the file-storage column.
+
+            ``status`` is one of:
+              - ``"none"``        — no keys provisioned yet
+              - ``"local-mock"``  — keys begin with ``local-`` (sentinel from local_drive_mock)
+              - ``"google-drive"`` — looks like a real Google ID
+              - ``"partial"``     — some keys are set, others empty
+              - ``"mixed"``       — sentinel + real together (shouldn't happen in clean state)
+            """
+            keys = [folder_id or "", customer_key or "", work_key or ""]
+            present = [k for k in keys if k]
+            if not present:
+                return ("none", "없음")
+            local_count = sum(1 for k in present if k.startswith("local-"))
+            real_count = len(present) - local_count
+            if len(present) < 3:
+                if local_count and not real_count:
+                    return ("partial", f"로컬 모의 ({len(present)}/3)")
+                if real_count and not local_count:
+                    return ("partial", f"Google Drive ({len(present)}/3)")
+                return ("partial", f"혼합 ({len(present)}/3)")
+            if local_count == 3:
+                return ("local-mock", "로컬 모의 저장소")
+            if real_count == 3:
+                return ("google-drive", "Google Drive")
+            return ("mixed", f"혼합 (local {local_count} + real {real_count})")
+
+        # Per-tenant business-data presence — single query each, grouped.
+        with SessionLocal() as session:
+            users = session.scalars(select(AccountUser).order_by(AccountUser.login_id)).all()
+            tenants_by_id = {
+                t.tenant_id: t for t in session.scalars(select(Tenant)).all()
+            }
+            # Counts per tenant for the most user-visible domains.
+            cust_counts = dict(session.execute(
+                select(Customer.tenant_id, func.count(Customer.id))
+                .where(Customer.deleted_at.is_(None))
+                .group_by(Customer.tenant_id)
+            ).all())
+            active_counts = dict(session.execute(
+                select(ActiveTask.tenant_id, func.count(ActiveTask.id))
+                .group_by(ActiveTask.tenant_id)
+            ).all())
+            completed_counts = dict(session.execute(
+                select(CompletedTask.tenant_id, func.count(CompletedTask.id))
+                .group_by(CompletedTask.tenant_id)
+            ).all())
+            daily_counts = dict(session.execute(
+                select(DailyEntry.tenant_id, func.count(DailyEntry.id))
+                .group_by(DailyEntry.tenant_id)
+            ).all())
+            ref_counts = dict(session.execute(
+                select(WorkReferenceSheet.tenant_id, func.count(WorkReferenceSheet.id))
+                .group_by(WorkReferenceSheet.tenant_id)
+            ).all())
+
+        is_mock_mode = local_drive_mock_enabled()
+        storage_mode = "pg+local-mock" if is_mock_mode else "pg+google-drive"
+        records = []
+        for u in users:
+            t = tenants_by_id.get(u.tenant_id)
+            folder = (t.folder_id if t else "") or ""
+            ckey = (t.customer_sheet_key if t else "") or ""
+            wkey = (t.work_sheet_key if t else "") or ""
+
+            cust = cust_counts.get(u.tenant_id, 0)
+            actv = active_counts.get(u.tenant_id, 0)
+            comp = completed_counts.get(u.tenant_id, 0)
+            dail = daily_counts.get(u.tenant_id, 0)
+            ref  = ref_counts.get(u.tenant_id, 0)
+            row_total = cust + actv + comp + dail + ref
+            pg_status = "ready" if row_total > 0 else "empty"
+            pg_label = (
+                f"고객 {cust} · 진행 {actv} · 완료 {comp} · 일일 {dail} · 업무참고 {ref}"
+                if row_total else "비어있음"
+            )
+
+            file_status, file_label = _classify_file_storage(folder, ckey, wkey)
+
+            records.append({
+                "login_id": u.login_id,
+                "tenant_id": u.tenant_id,
+                "office_name": (t.office_name if t else "") or "",
+                "office_adr": (t.office_adr if t else "") or "",
+                "biz_reg_no": (t.biz_reg_no if t else "") or "",
+                "agent_rrn": "",
+                "contact_name": u.contact_name or "",
+                "contact_tel": u.contact_tel or "",
+                "is_admin": "TRUE" if u.is_admin else "FALSE",
+                "is_active": "TRUE" if u.is_active else "FALSE",
+                # Raw keys remain in the payload so the workspace flow
+                # (which still reads them) keeps working. UI hides them
+                # in PG mode in favour of the new status columns.
+                "folder_id": folder,
+                "work_sheet_key": wkey,
+                "customer_sheet_key": ckey,
+                "sheet_key": "",
+                "created_at": u.created_at.isoformat() if u.created_at else "",
+                # Storage status — new fields for the PG-mode UI.
+                "storage_mode": storage_mode,
+                "pg_storage_status": pg_status,
+                "pg_storage_label": pg_label,
+                "pg_counts": {
+                    "customers": cust, "active_tasks": actv,
+                    "completed_tasks": comp, "daily_entries": dail,
+                    "work_reference_sheets": ref,
+                },
+                "file_storage_status": file_status,
+                "file_storage_label": file_label,
+            })
+        return records
+
     from core.google_sheets import read_data_from_sheet
     from config import ACCOUNTS_SHEET_NAME
     records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[])
@@ -137,6 +262,39 @@ def update_account(
     update: AccountUpdate,
     user: dict = Depends(require_admin),
 ):
+    from backend.db.feature_flags import pg_admin_enabled
+    if pg_admin_enabled():
+        from sqlalchemy import select
+        from backend.db.models.tenant import Tenant
+        from backend.db.models.user import AccountUser
+        from backend.db.session import get_sessionmaker
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+            if u is None:
+                raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+            if update.is_active is not None:
+                u.is_active = bool(update.is_active)
+            if update.is_admin is not None:
+                u.is_admin = bool(update.is_admin)
+            if update.tenant_id:
+                u.tenant_id = update.tenant_id
+            if update.contact_name is not None:
+                u.contact_name = update.contact_name
+            if update.contact_tel is not None:
+                u.contact_tel = update.contact_tel
+            t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
+            if t is not None:
+                if update.office_name is not None: t.office_name = update.office_name
+                if update.office_adr is not None: t.office_adr = update.office_adr
+                if update.biz_reg_no is not None: t.biz_reg_no = update.biz_reg_no
+                if update.folder_id is not None: t.folder_id = update.folder_id
+                if update.work_sheet_key is not None: t.work_sheet_key = update.work_sheet_key
+                if update.customer_sheet_key is not None: t.customer_sheet_key = update.customer_sheet_key
+                if update.is_active is not None: t.is_active = bool(update.is_active)
+            session.commit()
+        return {"ok": True}
+
     from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
     from config import ACCOUNTS_SHEET_NAME
 
@@ -205,6 +363,23 @@ def delete_account(
     user: dict = Depends(require_admin),
 ):
     """계정 비활성화 (소프트 삭제). is_active=FALSE → 로그인 즉시 차단."""
+    from backend.db.feature_flags import pg_admin_enabled
+    if login_id.strip() == str(user.get("login_id", "")).strip():
+        raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다.")
+    if pg_admin_enabled():
+        from sqlalchemy import select
+        from backend.db.models.user import AccountUser
+        from backend.db.session import get_sessionmaker
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+            if u is None:
+                raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+            already = not u.is_active
+            u.is_active = False
+            session.commit()
+        return {"ok": True, "login_id": login_id, "already_inactive": already}
+
     from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
     from config import ACCOUNTS_SHEET_NAME
     from backend.services.accounts_service import ACCOUNTS_SCHEMA
@@ -316,6 +491,23 @@ def create_account(
     return {"ok": True, "login_id": account["login_id"]}
 
 
+@router.post("/seed-samples/{login_id}")
+def seed_samples(login_id: str, user: dict = Depends(require_admin)):
+    """선택한 테넌트에 온보딩 예시 데이터를 시드 (대상 영역이 비어 있을 때만).
+
+    future-safe admin helper — "샘플 데이터 추가" 버튼용. 기존 데이터가 있으면
+    각 영역은 자동으로 건너뛰므로 덮어쓰기/중복이 발생하지 않는다. 운영 데이터
+    무수정. (호출 측 UI 는 확인 대화상자를 거치도록 권장.)
+    """
+    from backend.db.session import is_configured
+    if not is_configured():
+        raise HTTPException(status_code=400, detail="PostgreSQL이 구성되지 않아 시드할 수 없습니다.")
+    from backend.services.tenant_sample_seed_service import seed_new_tenant_sample_data
+    tenant_id = str(login_id).strip()
+    result = seed_new_tenant_sample_data(tenant_id)
+    return {"ok": not result.get("errors"), **result}
+
+
 @router.post("/workspace")
 def create_workspace(
     body: WorkspaceCreateRequest,
@@ -332,9 +524,89 @@ def create_workspace(
       E. is_active=TRUE — 세 키가 모두 채워졌을 때만 설정
 
     부분 성공 시 성공한 ID는 저장되며 실패 단계만 재시도 가능.
+
+    로컬 베타: FEATURE_LOCAL_DRIVE_MOCK=true 시 Google Drive를 호출하지 않고
+    로컬 모의 Drive 어댑터(``backend/services/local_drive_mock.py``)가 sentinel
+    ID를 반환한다. 운영 Drive 폴더는 절대 만들지 않는다.
     """
     import logging
     log = logging.getLogger("admin.workspace")
+
+    # ── 로컬 베타: Drive 호출 차단 + 로컬 모의 워크스페이스 ─────────────────
+    from backend.db.feature_flags import (
+        local_drive_mock_enabled,
+        pg_tenant_provisioning_enabled,
+    )
+    if local_drive_mock_enabled() or pg_tenant_provisioning_enabled():
+        from backend.services.local_drive_mock import provision_workspace
+        login_id = body.login_id.strip()
+        office_name = body.office_name.strip() or login_id
+        result = provision_workspace(login_id=login_id, office_name=office_name)
+
+        # 로컬 PG의 tenants 행 + 가입신청한 user 행 모두 즉시 갱신/활성화.
+        # 워크스페이스가 mocked로 완료되었으므로 가입신청 사용자도 로그인 가능
+        # 상태로 옮긴다 (is_active=True). 관리자 권한은 별도로 PUT /accounts/{id}
+        # 로 부여한다 — 본 mock 은 활성화만 책임진다.
+        try:
+            from sqlalchemy import select
+            from backend.db.models.tenant import Tenant
+            from backend.db.models.user import AccountUser
+            from backend.db.session import get_sessionmaker, is_configured
+            if is_configured():
+                SessionLocal = get_sessionmaker()
+                with SessionLocal() as session:
+                    # tenant: upsert sheet keys + activate
+                    t = session.scalar(select(Tenant).where(Tenant.tenant_id == login_id))
+                    if t is None:
+                        # signup → workspace 사이 tenant 행이 누락된 경우 생성
+                        t = Tenant(tenant_id=login_id, office_name=office_name)
+                        session.add(t)
+                        session.flush()
+                    t.folder_id = result["folder_id"]
+                    t.customer_sheet_key = result["customer_sheet_key"]
+                    t.work_sheet_key = result["work_sheet_key"]
+                    t.office_name = office_name
+                    t.is_active = True
+                    # user: activate the signup row(s) belonging to this tenant
+                    activated = 0
+                    for u in session.scalars(select(AccountUser).where(
+                        AccountUser.tenant_id == login_id
+                    )).all():
+                        if not u.is_active:
+                            u.is_active = True
+                            activated += 1
+                    session.commit()
+                    result["stages"]["accounts_update"] = {
+                        "status": "applied-to-local-tenants",
+                        "users_activated": activated,
+                        "error": None,
+                    }
+                    result["is_active"] = True
+        except Exception as e:
+            log.warning("[workspace] 로컬 tenants/users 갱신 실패 (non-fatal): %s", e)
+
+        # ── 온보딩 샘플 데이터 시드 (업무참고 / 각종공인증) ──────────────────
+        # 신규 테넌트가 빈 화면을 보지 않도록 예시 데이터를 1회만 시드한다.
+        # 대상 영역이 비어 있을 때만 동작하므로 기존 데이터/기존 테넌트는 영향 없음.
+        try:
+            from backend.db.session import is_configured as _is_cfg
+            if _is_cfg():
+                from backend.services.tenant_sample_seed_service import seed_new_tenant_sample_data
+                seed = seed_new_tenant_sample_data(login_id, result.get("work_sheet_key"))
+                result["stages"]["sample_seed"] = {
+                    "status": "seeded" if (seed.get("reference_rows") or
+                                           any(seed.get("certification", {}).values()))
+                              else "skipped-or-existing",
+                    "reference_rows": seed.get("reference_rows", 0),
+                    "certification": seed.get("certification", {}),
+                    "error": "; ".join(seed.get("errors", [])) or None,
+                }
+        except Exception as e:
+            log.warning("[workspace] 샘플 시드 실패 (non-fatal): %s", e)
+            result["stages"]["sample_seed"] = {"status": "failed", "error": str(e)}
+
+        log.info("[workspace] LOCAL MOCK 사용 — Google Drive 미호출. result=%s", result)
+        return result
 
     import config as _cfg
     from config import (

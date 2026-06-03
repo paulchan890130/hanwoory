@@ -140,6 +140,81 @@ function emptyCustomer(): Record<string, string> {
   return rec;
 }
 
+// ── 고객 검색 최소 길이 가드 ──────────────────────────────────────────────────
+// Korean: 2자, English: 2자, 숫자: 3자. 혼합 입력은 하나라도 통과하면 OK.
+// Backend (`/api/quick-doc/customers/search`) 도 동일 floor 를 강제하므로
+// 클라이언트 가드를 우회하더라도 결과가 노출되지 않는다.
+const HANGUL_REGEX = /[가-힯]/g;
+
+function classifyCustomerQuery(q: string): { korean: number; english: number; digits: number } {
+  const t = q.trim();
+  const korean = (t.match(HANGUL_REGEX) || []).length;
+  const english = (t.match(/[A-Za-z]/g) || []).length;
+  const digits = (t.match(/\d/g) || []).length;
+  return { korean, english, digits };
+}
+
+function customerQueryFloorMessage(q: string): string | null {
+  const t = q.trim();
+  if (!t) return null;          // 빈 입력 — 안내 메시지 없이 그냥 검색 안 함
+  const { korean, english, digits } = classifyCustomerQuery(t);
+  if (korean >= 2 || english >= 2 || digits >= 3) return null;
+  if (korean === 1) return "한글은 2글자 이상 입력하세요.";
+  if (english === 1) return "영문은 2글자 이상 입력하세요.";
+  if (digits > 0 && digits < 3) return "숫자는 3자리 이상 입력하세요.";
+  return "한글 2자 · 영문 2자 · 숫자 3자 이상 입력하세요.";
+}
+
+// ── 숙소제공자 / 신원보증인 해소(resolution) helper ──────────────────────────
+// Backend ``GET /api/customers/{id}/accommodation`` returns ``null`` when no
+// relationship row exists at all. When a row *does* exist but the linked
+// provider can no longer be resolved (e.g. the source customer was deleted,
+// or the row was written with empty fields by an old migration) the API still
+// returns an object — just one whose ``provider_name`` is empty. The
+// previous UI treated *any* object as "connected" which yielded
+// ``숙소: undefined`` badges + an empty modal "current" block + a still-shown
+// disconnect button. Both modals + the customer card badge now ask
+// ``resolveProviderName`` / ``resolveGuarantorName`` — the single source of
+// truth for "is this relationship actually usable?".
+
+function resolveProviderName(p: AccommodationProvider | null | undefined): string | null {
+  if (!p) return null;
+  const name = (p.provider_name || "").trim();
+  const last = (p.provider_last_name || "").trim();
+  const first = (p.provider_first_name || "").trim();
+  if (name) return name;
+  const eng = `${last} ${first}`.trim();
+  return eng || null;
+}
+
+function resolveGuarantorName(g: GuarantorConnection | null | undefined): string | null {
+  if (!g) return null;
+  const name = (g.guarantor_name || "").trim();
+  const last = (g.guarantor_last_name || "").trim();
+  const first = (g.guarantor_first_name || "").trim();
+  if (name) return name;
+  const eng = `${last} ${first}`.trim();
+  return eng || null;
+}
+
+// Relationship status surface — the card badge and the modal "current" block
+// both ask this. ``broken`` means the row exists in DB but has no usable
+// provider/guarantor name. UX wise we treat ``broken`` the SAME as
+// ``none``: the user gets a clean connectable surface with no blocking
+// warning. The actual underlying broken row is harmlessly upserted away
+// the moment the user saves a new selection.
+function providerStatus(p: AccommodationProvider | null | undefined):
+  "none" | "connected" | "broken" {
+  if (!p) return "none";
+  return resolveProviderName(p) ? "connected" : "broken";
+}
+
+function guarantorStatus(g: GuarantorConnection | null | undefined):
+  "none" | "connected" | "broken" {
+  if (!g) return "none";
+  return resolveGuarantorName(g) ? "connected" : "broken";
+}
+
 // ── 신원보증인 설정 모달 ──────────────────────────────────────────────────────
 function GuarantorModal({
   customerId, customerName, current, onClose, onSaved,
@@ -150,7 +225,9 @@ function GuarantorModal({
   onClose: () => void;
   onSaved: (g: GuarantorConnection | null) => void;
 }) {
-  const isDB = current?.guarantor_type === "customer_db";
+  // broken row 는 fresh 상태로 시작 (accommodation 모달과 동일 규칙).
+  const hasResolved = !!resolveGuarantorName(current);
+  const isDB = hasResolved && current?.guarantor_type === "customer_db";
   const [tab, setTab] = useState<"search" | "manual">(isDB ? "search" : "manual");
   const [searchQ, setSearchQ] = useState(isDB ? (current?.guarantor_name || "") : "");
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
@@ -160,9 +237,9 @@ function GuarantorModal({
       : null
   );
 
-  // manual 타입 필드용 (초기값은 manual 타입일 때만)
+  // manual 타입 필드용 (초기값은 정상 manual 타입일 때만 — broken 시 빈값)
   const m = (key: keyof GuarantorConnection) =>
-    current?.guarantor_type === "manual" ? (current[key] as string || "") : "";
+    hasResolved && current?.guarantor_type === "manual" ? (current[key] as string || "") : "";
   const [mName,      setMName]      = useState(m("guarantor_name"));
   const [mLastName,  setMLastName]  = useState(m("guarantor_last_name"));
   const [mFirstName, setMFirstName] = useState(m("guarantor_first_name"));
@@ -182,17 +259,24 @@ function GuarantorModal({
 
   const BORDER = "#E2E8F0"; const GOLD = "#D4A843";
   const inp: React.CSSProperties = {
-    width:"100%", padding:"6px 9px", border:`1px solid ${BORDER}`,
+    width:"100%", height:30, padding:"0 10px",
+    border:`1px solid ${BORDER}`,
     borderRadius:6, fontSize:12, boxSizing:"border-box",
+    lineHeight:"28px",
   };
 
+  // 검색 디바운스 — Korean 2자 / English 2자 / 숫자 3자 미만이면 호출 자체 차단.
+  // floor 미달 시 안내 문구만 표시하고 결과 리스트는 빈 상태로 둔다. 백엔드도
+  // 동일 floor 를 강제하므로 클라이언트 가드를 건너뛰더라도 결과가 노출되지 않음.
+  const floorMessage = customerQueryFloorMessage(searchQ);
   useEffect(() => {
-    if (tab !== "search" || searchQ.length < 1) { setSearchResults([]); return; }
+    if (tab !== "search") { setSearchResults([]); return; }
+    if (floorMessage !== null || !searchQ.trim()) { setSearchResults([]); return; }
     const t = setTimeout(() => {
       quickDocApi.searchCustomers(searchQ).then(r => setSearchResults(r.data)).catch(() => {});
     }, 300);
     return () => clearTimeout(t);
-  }, [searchQ, tab]);
+  }, [searchQ, tab, floorMessage]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -249,13 +333,13 @@ function GuarantorModal({
       <div style={{
         position:"fixed", top:"50%", left:"50%",
         transform:"translate(-50%,-50%)",
-        zIndex:301, width:"min(420px, 96vw)",
+        zIndex:301, width:"min(440px, 96vw)",
         background:"#fff", borderRadius:14,
         boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
         display:"flex", flexDirection:"column", maxHeight:"90vh",
       }}>
         {/* 헤더 */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"13px 18px", borderBottom:`1px solid ${BORDER}`, background:"#F0FFF4", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:`1px solid ${BORDER}`, background:"#F0FFF4", flexShrink:0 }}>
           <div>
             <div style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>신원보증인 설정</div>
             <div style={{ fontSize:11, color:"#718096" }}>대상: {customerName}</div>
@@ -263,26 +347,49 @@ function GuarantorModal({
           <button onClick={onClose} style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}><X size={16} /></button>
         </div>
 
-        <div style={{ overflowY:"auto", flex:1, padding:"14px 18px" }}>
-          {/* 현재 설정 표시 */}
-          {current && (
-            <div style={{ marginBottom:12, padding:"9px 12px", background:"#F0FFF4", borderRadius:8, border:"1px solid #C6F6D5", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ overflowY:"auto", flex:1, padding:"16px 20px" }}>
+          {/* 현재 설정 표시 — 보증인이 실제로 resolve 된 경우에만 노출.
+              broken (관계 행만 있고 이름 해소 불가) 은 "연결 안 됨" 과 동일 UX 로
+              취급 → 아래 탭(검색/직접 입력) 이 즉시 사용 가능. 작은 회색 안내만 표시. */}
+          {current && resolveGuarantorName(current) ? (
+            <div style={{
+              marginBottom:12, padding:"9px 12px",
+              background:"#F0FFF4", borderRadius:8, border:"1px solid #C6F6D5",
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+            }}>
               <div>
-                <div style={{ fontSize:12, fontWeight:700, color:"#276749" }}>현재: {current.guarantor_name}</div>
-                {current.guarantor_type === "customer_db" && <div style={{ fontSize:10, color:"#718096" }}>고객 DB 연결</div>}
+                <div style={{ fontSize:12, fontWeight:700, color:"#276749" }}>
+                  현재: {resolveGuarantorName(current)}
+                </div>
+                {current.guarantor_type === "customer_db" && (
+                  <div style={{ fontSize:10, color:"#718096" }}>고객 DB 연결</div>
+                )}
               </div>
               <button onClick={handleDelete} disabled={deleting}
                 style={{ fontSize:11, padding:"4px 10px", borderRadius:5, border:"1px solid #FC8181", background:"#FFF5F5", color:"#C53030", cursor:"pointer", flexShrink:0 }}>
                 {deleting ? "해제 중..." : "연결 해제"}
               </button>
             </div>
-          )}
+          ) : current ? (
+            <div style={{
+              marginBottom:12, padding:"7px 12px",
+              background:"#F7FAFC", borderRadius:8, border:"1px solid #E2E8F0",
+              fontSize:11, color:"#A0AEC0",
+            }}>
+              기존 연결 정보가 비어 있어 새로 연결할 수 있습니다.
+            </div>
+          ) : null}
 
-          {/* 탭 */}
-          <div style={{ display:"flex", gap:4, marginBottom:12, background:"#F7FAFC", borderRadius:8, padding:4 }}>
+          {/* 탭 — 두 모달 공통 모양 (높이 36px 일치) */}
+          <div style={{
+            display:"flex", gap:4, marginBottom:14,
+            background:"#F7FAFC", borderRadius:8, padding:4,
+            height:36, boxSizing:"border-box",
+          }}>
             {(["search", "manual"] as const).map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
-                flex:1, padding:"6px 0", borderRadius:6, fontSize:12, fontWeight:600,
+                flex:1, height:28, padding:"0",
+                borderRadius:6, fontSize:12, fontWeight:600,
                 border:"none", cursor:"pointer",
                 background: tab === t ? "#fff" : "transparent",
                 color: tab === t ? GOLD : "#718096",
@@ -300,16 +407,35 @@ function GuarantorModal({
                 <Search size={12} style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:"#A0AEC0" }} />
                 <input autoFocus value={searchQ}
                   onChange={e => { setSearchQ(e.target.value); if (selectedDB && e.target.value !== selectedDB.name) setSelectedDB(null); }}
-                  placeholder="이름 / 전화번호 / 고객ID 검색"
+                  placeholder="한글 2자 · 영문 2자 · 숫자 3자 이상"
                   style={{ ...inp, paddingLeft:28 }} />
               </div>
+              {floorMessage && (
+                <div style={{
+                  padding:"6px 10px", marginBottom:8,
+                  background:"#FFFAF0", borderRadius:6,
+                  border:"1px solid #F6E05E",
+                  fontSize:11, color:"#6B5314",
+                }}>
+                  {floorMessage}
+                </div>
+              )}
               {searchResults.length > 0 && (
-                <div style={{ border:`1px solid ${BORDER}`, borderRadius:8, maxHeight:160, overflowY:"auto", marginBottom:8 }}>
+                <div style={{ border:`1px solid ${BORDER}`, borderRadius:8, maxHeight:200, overflowY:"auto", marginBottom:8 }}>
                   {searchResults.map(c => (
                     <button key={c.id} onClick={() => { setSelectedDB(c); setSearchQ(c.name); setSearchResults([]); }}
-                      style={{ display:"block", width:"100%", textAlign:"left", padding:"7px 12px", border:"none", borderBottom:`1px solid ${BORDER}`, background: selectedDB?.id === c.id ? "#F0FFF4" : "#fff", cursor:"pointer", fontSize:12, color:"#2D3748" }}>
-                      {c.name}
-                      {c.name_en && <span style={{ fontSize:10, color:"#A0AEC0", marginLeft:4 }}>({c.name_en})</span>}
+                      style={{ display:"block", width:"100%", textAlign:"left", padding:"8px 12px", border:"none", borderBottom:`1px solid ${BORDER}`, background: selectedDB?.id === c.id ? "#F0FFF4" : "#fff", cursor:"pointer", fontSize:12, color:"#2D3748" }}>
+                      <div style={{ fontWeight:600 }}>
+                        {c.name || "(이름없음)"}
+                        {c.name_en && <span style={{ fontSize:10, color:"#718096", fontWeight:500, marginLeft:6 }}>({c.name_en})</span>}
+                      </div>
+                      {(c.birth || c.phone) && (
+                        <div style={{ fontSize:10, color:"#A0AEC0", marginTop:2 }}>
+                          {c.birth && <span>{c.birth}</span>}
+                          {c.birth && c.phone && <span style={{ margin:"0 6px" }}>·</span>}
+                          {c.phone && <span>{c.phone}</span>}
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -336,22 +462,28 @@ function GuarantorModal({
             </div>
           )}
 
-          {/* 직접 입력 탭 */}
+          {/* 직접 입력 탭 — 2-column 그리드, 논리적 페어 순서:
+                row 1: 한글 성명 (wide)
+                row 2: 영문 성 / 영문 이름
+                row 3: 국적 / 연락처
+                row 4: 등록번호 앞 / 등록번호 뒤
+                row 5: 주소 (wide)
+                row 6: 관계 (wide) */}
           {tab === "manual" && (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
               {([
                 { label:"한글 성명*",  val:mName,      set:setMName,      wide:true  },
                 { label:"영문 성",     val:mLastName,  set:setMLastName,  wide:false },
                 { label:"영문 이름",   val:mFirstName, set:setMFirstName, wide:false },
                 { label:"국적",        val:mNation,    set:setMNation,    wide:false },
+                { label:"연락처",      val:mPhone,     set:setMPhone,     wide:false },
                 { label:"등록번호 앞", val:mRegFront,  set:setMRegFront,  wide:false },
                 { label:"등록번호 뒤", val:mRegBack,   set:setMRegBack,   wide:false },
-                { label:"연락처",      val:mPhone,     set:setMPhone,     wide:true  },
                 { label:"주소",        val:mAddress,   set:setMAddress,   wide:true  },
-                { label:"관계",        val:mRelation,  set:setMRelation,  wide:false },
+                { label:"관계",        val:mRelation,  set:setMRelation,  wide:true  },
               ] as { label:string; val:string; set:(v:string)=>void; wide:boolean }[]).map(({ label, val, set, wide }) => (
                 <div key={label} style={wide ? { gridColumn:"1/-1" } : {}}>
-                  <label style={{ display:"block", fontSize:10, color:"#718096", marginBottom:2 }}>{label}</label>
+                  <label style={{ display:"block", fontSize:11, color:"#4A5568", marginBottom:4, fontWeight:600, letterSpacing:0.1 }}>{label}</label>
                   <input value={val} onChange={e => set(e.target.value)} style={inp} />
                 </div>
               ))}
@@ -360,9 +492,9 @@ function GuarantorModal({
         </div>
 
         {/* 저장 버튼 */}
-        <div style={{ padding:"12px 18px", borderTop:`1px solid ${BORDER}`, flexShrink:0 }}>
+        <div style={{ padding:"14px 20px", borderTop:`1px solid ${BORDER}`, flexShrink:0 }}>
           <button onClick={handleSave} disabled={saving}
-            style={{ width:"100%", padding:"11px 0", borderRadius:8, fontSize:13, fontWeight:700, background: saving ? "#E2E8F0" : "#276749", color:"#fff", border:"none", cursor: saving ? "default" : "pointer" }}>
+            style={{ width:"100%", height:42, padding:"0", borderRadius:8, fontSize:13, fontWeight:700, background: saving ? "#E2E8F0" : "#276749", color:"#fff", border:"none", cursor: saving ? "default" : "pointer" }}>
             {saving ? "저장 중..." : "신원보증인 고정"}
           </button>
         </div>
@@ -389,19 +521,26 @@ function CompletedTasksModal({
   hasNameDuplicate: boolean;
   onClose: () => void;
 }) {
-  const [tasks, setTasks] = useState<Record<string, string>[]>([]);
-  const [legacyTasks, setLegacyTasks] = useState<Record<string, string>[]>([]);
-  const [loading, setLoading] = useState(true);
+  // useQuery 로 fetch → 일일결산이 완료업무를 만들/지울 때 ["customer",
+  // "work-summary", ...] / ["tasks"] invalidate 가 prefix 매칭으로 같이
+  // refetch. summary 가 보여주는 카운트와 모달 리스트가 동일한 backend
+  // resolver 의 결과이므로 둘은 항상 일치한다.
+  const { data: ctData, isLoading: loading } = useQuery({
+    queryKey: ["customer", "completed-tasks", customerId, customerName],
+    queryFn: () =>
+      customersApi.completedTasks(customerId, customerName, true)
+        .then(r => r.data as {
+          tasks: Record<string, string>[];
+          legacy_tasks: Record<string, string>[];
+          has_name_duplicate?: boolean;
+        }),
+    enabled: !!customerId,
+    staleTime: 0,
+  });
+  const tasks = ctData?.tasks ?? [];
+  const legacyTasks = ctData?.legacy_tasks ?? [];
   const [catFilter, setCatFilter] = useState("전체");
   const [showLegacy, setShowLegacy] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    customersApi.completedTasks(customerId, customerName, true)
-      .then(r => { setTasks(r.data.tasks || []); setLegacyTasks(r.data.legacy_tasks || []); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [customerId, customerName]);
 
   const filterTask = (t: Record<string, string>) => {
     if (catFilter === "전체") return true;
@@ -469,7 +608,12 @@ function CompletedTasksModal({
           <div>
             <div style={{ fontSize:15, fontWeight:700, color:"#1A202C" }}>{customerName} — 완료업무 내역</div>
             <div style={{ fontSize:11, color:"#A0AEC0", marginTop:2 }}>
-              customer_id 기준 {tasks.length}건{legacyTasks.length > 0 ? ` + 이름 기준 참고 ${legacyTasks.length}건` : ""}
+              {tasks.length + legacyTasks.length === 0 ? "0건" :
+                tasks.length > 0 && legacyTasks.length > 0
+                  ? `고객ID 기준 ${tasks.length}건 + 이름 기준 ${legacyTasks.length}건 (총 ${tasks.length + legacyTasks.length}건)`
+                  : tasks.length > 0
+                    ? `고객ID 기준 ${tasks.length}건`
+                    : `이름 기준 ${legacyTasks.length}건`}
             </div>
           </div>
           <button onClick={onClose} style={{ padding:6, color:"#718096", background:"none", border:"none", cursor:"pointer" }}><X size={18} /></button>
@@ -539,7 +683,10 @@ function AccommodationProviderModal({
   onClose: () => void;
   onSaved: (p: AccommodationProvider | null) => void;
 }) {
-  const isDB = current?.provider_type === "customer_db";
+  // broken row (관계 행은 있지만 이름 해소 불가) 는 fresh 상태로 시작.
+  // 그렇지 않은 정상 연결은 기존 입력값을 그대로 미리 채워 사용자가 수정만 하면 됨.
+  const hasResolved = !!resolveProviderName(current);
+  const isDB = hasResolved && current?.provider_type === "customer_db";
   const [tab, setTab] = useState<"search" | "manual">(isDB ? "search" : "manual");
 
   // DB 검색 state
@@ -551,9 +698,10 @@ function AccommodationProviderModal({
       : null
   );
 
-  // 수동 입력 state (한글성명/영문성/영문명/국적/등록번호앞뒤/연락처)
+  // 수동 입력 state (한글성명/영문성/영문명/국적/등록번호앞뒤/연락처) —
+  // broken 행은 빈 값으로 시작하므로 m() helper 가 빈 문자열 반환.
   const m = (key: keyof AccommodationProvider) =>
-    current?.provider_type === "manual" ? (current[key] as string || "") : "";
+    hasResolved && current?.provider_type === "manual" ? (current[key] as string || "") : "";
   const [mName,      setMName]      = useState(m("provider_name"));
   const [mLastName,  setMLastName]  = useState(m("provider_last_name"));
   const [mFirstName, setMFirstName] = useState(m("provider_first_name"));
@@ -568,18 +716,25 @@ function AccommodationProviderModal({
   const BORDER = "#E2E8F0";
   const GOLD   = "#D4A843";
   const inp: React.CSSProperties = {
-    width:"100%", padding:"6px 9px", border:`1px solid ${BORDER}`,
+    width:"100%", height:30, padding:"0 10px",
+    border:`1px solid ${BORDER}`,
     borderRadius:6, fontSize:12, boxSizing:"border-box",
+    lineHeight:"28px",
   };
 
   // 검색 디바운스
+  // 검색 디바운스 — Korean 2자 / English 2자 / 숫자 3자 미만이면 호출 자체 차단.
+  // floor 미달 시 안내 문구만 표시하고 결과 리스트는 빈 상태로 둔다. 백엔드도
+  // 동일 floor 를 강제하므로 클라이언트 가드를 건너뛰더라도 결과가 노출되지 않음.
+  const floorMessage = customerQueryFloorMessage(searchQ);
   useEffect(() => {
-    if (tab !== "search" || searchQ.length < 1) { setSearchResults([]); return; }
+    if (tab !== "search") { setSearchResults([]); return; }
+    if (floorMessage !== null || !searchQ.trim()) { setSearchResults([]); return; }
     const t = setTimeout(() => {
       quickDocApi.searchCustomers(searchQ).then(r => setSearchResults(r.data)).catch(() => {});
     }, 300);
     return () => clearTimeout(t);
-  }, [searchQ, tab]);
+  }, [searchQ, tab, floorMessage]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -632,14 +787,14 @@ function AccommodationProviderModal({
       <div style={{
         position:"fixed", top:"50%", left:"50%",
         transform:"translate(-50%,-50%)",
-        zIndex:301, width:"min(400px, 96vw)",
+        zIndex:301, width:"min(440px, 96vw)",
         background:"#fff", borderRadius:14,
         boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
         display:"flex", flexDirection:"column",
         maxHeight:"90vh",
       }}>
         {/* 헤더 */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"13px 18px", borderBottom:`1px solid ${BORDER}`, background:"#F7FAFC", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:`1px solid ${BORDER}`, background:"#F7FAFC", flexShrink:0 }}>
           <div>
             <div style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>숙소제공자 설정</div>
             <div style={{ fontSize:11, color:"#718096" }}>대상: {customerName}</div>
@@ -647,26 +802,50 @@ function AccommodationProviderModal({
           <button onClick={onClose} style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}><X size={16} /></button>
         </div>
 
-        <div style={{ overflowY:"auto", flex:1, padding:"14px 18px" }}>
-          {/* 현재 설정 표시 */}
-          {current && (
-            <div style={{ marginBottom:12, padding:"9px 12px", background:"#EBF8FF", borderRadius:8, border:"1px solid #BEE3F8", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ overflowY:"auto", flex:1, padding:"16px 20px" }}>
+          {/* 현재 설정 표시 — 숙소제공자가 실제로 resolve 된 경우에만 노출.
+              broken (관계 행만 있고 이름 해소 불가) 은 "연결 안 됨" 과 동일 UX 로
+              취급 → 아래 탭(검색/직접 입력) 이 즉시 사용 가능.
+              guarantor 모달과 동일한 구조를 유지해 시각 대칭. */}
+          {current && resolveProviderName(current) ? (
+            <div style={{
+              marginBottom:12, padding:"9px 12px",
+              background:"#EBF8FF", borderRadius:8, border:"1px solid #BEE3F8",
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+            }}>
               <div>
-                <div style={{ fontSize:12, fontWeight:700, color:"#2B6CB0" }}>현재: {current.provider_name}</div>
-                {current.provider_type === "customer_db" && <div style={{ fontSize:10, color:"#718096" }}>고객 DB 연결</div>}
+                <div style={{ fontSize:12, fontWeight:700, color:"#2B6CB0" }}>
+                  현재: {resolveProviderName(current)}
+                </div>
+                {current.provider_type === "customer_db" && (
+                  <div style={{ fontSize:10, color:"#718096" }}>고객 DB 연결</div>
+                )}
               </div>
               <button onClick={handleDelete} disabled={deleting}
                 style={{ fontSize:11, padding:"4px 10px", borderRadius:5, border:"1px solid #FC8181", background:"#FFF5F5", color:"#C53030", cursor:"pointer", flexShrink:0 }}>
                 {deleting ? "해제 중..." : "연결 해제"}
               </button>
             </div>
-          )}
+          ) : current ? (
+            <div style={{
+              marginBottom:12, padding:"7px 12px",
+              background:"#F7FAFC", borderRadius:8, border:"1px solid #E2E8F0",
+              fontSize:11, color:"#A0AEC0",
+            }}>
+              기존 연결 정보가 비어 있어 새로 연결할 수 있습니다.
+            </div>
+          ) : null}
 
-          {/* 탭 */}
-          <div style={{ display:"flex", gap:4, marginBottom:12, background:"#F7FAFC", borderRadius:8, padding:4 }}>
+          {/* 탭 — 두 모달 공통 모양 (높이 36px 일치) */}
+          <div style={{
+            display:"flex", gap:4, marginBottom:14,
+            background:"#F7FAFC", borderRadius:8, padding:4,
+            height:36, boxSizing:"border-box",
+          }}>
             {(["search", "manual"] as const).map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
-                flex:1, padding:"6px 0", borderRadius:6, fontSize:12, fontWeight:600,
+                flex:1, height:28, padding:"0",
+                borderRadius:6, fontSize:12, fontWeight:600,
                 border:"none", cursor:"pointer",
                 background: tab === t ? "#fff" : "transparent",
                 color: tab === t ? GOLD : "#718096",
@@ -684,16 +863,35 @@ function AccommodationProviderModal({
                 <Search size={12} style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:"#A0AEC0" }} />
                 <input autoFocus value={searchQ}
                   onChange={e => { setSearchQ(e.target.value); if (selectedDB && e.target.value !== selectedDB.name) setSelectedDB(null); }}
-                  placeholder="이름 / 전화번호 / 고객ID 검색"
+                  placeholder="한글 2자 · 영문 2자 · 숫자 3자 이상"
                   style={{ ...inp, paddingLeft:28 }} />
               </div>
+              {floorMessage && (
+                <div style={{
+                  padding:"6px 10px", marginBottom:8,
+                  background:"#FFFAF0", borderRadius:6,
+                  border:"1px solid #F6E05E",
+                  fontSize:11, color:"#6B5314",
+                }}>
+                  {floorMessage}
+                </div>
+              )}
               {searchResults.length > 0 && (
-                <div style={{ border:`1px solid ${BORDER}`, borderRadius:8, maxHeight:160, overflowY:"auto", marginBottom:8 }}>
+                <div style={{ border:`1px solid ${BORDER}`, borderRadius:8, maxHeight:200, overflowY:"auto", marginBottom:8 }}>
                   {searchResults.map(c => (
                     <button key={c.id} onClick={() => { setSelectedDB(c); setSearchQ(c.name); setSearchResults([]); }}
-                      style={{ display:"block", width:"100%", textAlign:"left", padding:"7px 12px", border:"none", borderBottom:`1px solid ${BORDER}`, background: selectedDB?.id === c.id ? "#FFF9E6" : "#fff", cursor:"pointer", fontSize:12, color:"#2D3748" }}>
-                      {c.name}
-                      {c.name_en && <span style={{ fontSize:10, color:"#A0AEC0", marginLeft:4 }}>({c.name_en})</span>}
+                      style={{ display:"block", width:"100%", textAlign:"left", padding:"8px 12px", border:"none", borderBottom:`1px solid ${BORDER}`, background: selectedDB?.id === c.id ? "#FFF9E6" : "#fff", cursor:"pointer", fontSize:12, color:"#2D3748" }}>
+                      <div style={{ fontWeight:600 }}>
+                        {c.name || "(이름없음)"}
+                        {c.name_en && <span style={{ fontSize:10, color:"#718096", fontWeight:500, marginLeft:6 }}>({c.name_en})</span>}
+                      </div>
+                      {(c.birth || c.phone) && (
+                        <div style={{ fontSize:10, color:"#A0AEC0", marginTop:2 }}>
+                          {c.birth && <span>{c.birth}</span>}
+                          {c.birth && c.phone && <span style={{ margin:"0 6px" }}>·</span>}
+                          {c.phone && <span>{c.phone}</span>}
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -706,20 +904,24 @@ function AccommodationProviderModal({
             </div>
           )}
 
-          {/* 수동 입력 탭 — 핵심 인적사항만 */}
+          {/* 수동 입력 탭 — 핵심 인적사항만. 논리적 페어로 2-column 그리드 정렬:
+                row 1: 한글 성명 (wide)
+                row 2: 영문 성 / 영문 이름
+                row 3: 국적 / 연락처
+                row 4: 등록번호 앞 / 등록번호 뒤 */}
           {tab === "manual" && (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
               {([
                 { label:"한글 성명*",  val:mName,      set:setMName,      wide:true  },
                 { label:"영문 성",     val:mLastName,  set:setMLastName,  wide:false },
                 { label:"영문 이름",   val:mFirstName, set:setMFirstName, wide:false },
                 { label:"국적",        val:mNation,    set:setMNation,    wide:false },
+                { label:"연락처",      val:mPhone,     set:setMPhone,     wide:false },
                 { label:"등록번호 앞", val:mRegFront,  set:setMRegFront,  wide:false },
                 { label:"등록번호 뒤", val:mRegBack,   set:setMRegBack,   wide:false },
-                { label:"연락처",      val:mPhone,     set:setMPhone,     wide:true  },
               ] as { label:string; val:string; set:(v:string)=>void; wide:boolean }[]).map(({ label, val, set, wide }) => (
                 <div key={label} style={wide ? { gridColumn:"1/-1" } : {}}>
-                  <label style={{ display:"block", fontSize:10, color:"#718096", marginBottom:2 }}>{label}</label>
+                  <label style={{ display:"block", fontSize:11, color:"#4A5568", marginBottom:4, fontWeight:600, letterSpacing:0.1 }}>{label}</label>
                   <input value={val} onChange={e => set(e.target.value)} style={inp} />
                 </div>
               ))}
@@ -728,9 +930,9 @@ function AccommodationProviderModal({
         </div>
 
         {/* 저장 버튼 */}
-        <div style={{ padding:"12px 18px", borderTop:`1px solid ${BORDER}`, flexShrink:0 }}>
+        <div style={{ padding:"14px 20px", borderTop:`1px solid ${BORDER}`, flexShrink:0 }}>
           <button onClick={handleSave} disabled={saving}
-            style={{ width:"100%", padding:"11px 0", borderRadius:8, fontSize:13, fontWeight:700, background: saving ? "#E2E8F0" : GOLD, color:"#fff", border:"none", cursor: saving ? "default" : "pointer" }}>
+            style={{ width:"100%", height:42, padding:"0", borderRadius:8, fontSize:13, fontWeight:700, background: saving ? "#E2E8F0" : GOLD, color:"#fff", border:"none", cursor: saving ? "default" : "pointer" }}>
             {saving ? "저장 중..." : "숙소제공자 고정"}
           </button>
         </div>
@@ -778,7 +980,10 @@ function CustomerDrawer({
   const [showGuarantorModal, setShowGuarantorModal] = useState(false);
 
   // ── 업무 현황 ──
-  const [workSummary, setWorkSummary] = useState<WorkSummary | null>(null);
+  // useQuery 로 관리 → 일일결산 mutation 이 ["customer","work-summary"] 키를
+  // invalidate 하면 드로어가 열려 있어도 즉시 refetch 된다. (이전 라운드의
+  // useEffect 구현은 invalidate 신호를 받지 않아 드로어를 닫았다 다시 열어야만
+  // 갱신되는 문제가 있었다.)
   const [showCompletedPopup, setShowCompletedPopup] = useState(false);
   const [showLegacyDelegation, setShowLegacyDelegation] = useState(false);
 
@@ -850,13 +1055,18 @@ function CustomerDrawer({
       .catch(() => { setGuarantorData(null); setGuarantorLoading(false); });
   }, [customerId, isNew]);
 
-  // 업무 현황 로드 (신규 고객 제외)
-  useEffect(() => {
-    if (!customerId || isNew) { setWorkSummary(null); return; }
-    customersApi.workSummary(customerId, customerName || undefined)
-      .then(r => setWorkSummary(r.data))
-      .catch(() => setWorkSummary(null));
-  }, [customerId, isNew]);
+  // 업무 현황 로드 — useQuery 로 변경.
+  // queryKey 에 customerId 와 customerName 을 모두 포함하면 (a) 다른 고객으로
+  // 이동 시 캐시 분리, (b) 이름 기반 legacy 검색 결과 변화도 반영됨.
+  // staleTime: 0 → 일일결산 add/edit/delete 후 invalidate 가 즉시 refetch 트리거.
+  const { data: workSummary = null } = useQuery({
+    queryKey: ["customer", "work-summary", customerId, customerName],
+    queryFn: () =>
+      customersApi.workSummary(customerId, customerName || undefined)
+        .then(r => r.data as WorkSummary),
+    enabled: !!customerId && !isNew,
+    staleTime: 0,
+  });
 
   if (!customer) return null;
 
@@ -994,9 +1204,21 @@ function CustomerDrawer({
             ];
             const total = workSummary.total;
             const legacyTotal = workSummary.legacy_total;
+            const activeTotal = workSummary.active_total ?? 0;
             return (
               <div style={{ marginBottom:18 }}>
                 <div style={{ fontSize:11, fontWeight:700, color:"#D4A843", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>업무 현황</div>
+                {/* 진행 중 — 일일결산이 추가/삭제될 때 즉시 변동 */}
+                {activeTotal > 0 && (
+                  <div style={{
+                    display:"inline-flex", alignItems:"center", gap:6,
+                    marginBottom:8, padding:"4px 10px", borderRadius:6,
+                    background:"#FFF9E6", border:"1px solid #F6E05E",
+                    color:"#6B5314", fontSize:11, fontWeight:700,
+                  }}>
+                    진행 중 <strong>{activeTotal}</strong>건
+                  </div>
+                )}
                 <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
                   {CAT_GROUPS.map(({ key, label }) => {
                     const cnt = workSummary.groups[key] ?? 0;
@@ -1082,34 +1304,58 @@ function CustomerDrawer({
                       <FileText size={11} /> 문서자동작성
                     </button>
                   )}
-                  <button
-                    onClick={() => setShowProviderModal(true)}
-                    style={{
-                      display:"flex", alignItems:"center", gap:5,
-                      fontSize:11, padding:"5px 12px", borderRadius:6,
-                      border: providerData ? "1px solid #BEE3F8" : "1px solid #CBD5E0",
-                      color: providerLoading ? "#A0AEC0" : providerData ? "#2B6CB0" : "#4A5568",
-                      background: providerData ? "#EBF8FF" : "#F7FAFC",
-                      cursor:"pointer", fontWeight:600,
-                    }}
-                  >
-                    <Home size={11} />
-                    {providerLoading ? "숙소 확인 중..." : providerData ? `숙소: ${providerData.provider_name}` : "숙소제공자"}
-                  </button>
-                  <button
-                    onClick={() => setShowGuarantorModal(true)}
-                    style={{
-                      display:"flex", alignItems:"center", gap:5,
-                      fontSize:11, padding:"5px 12px", borderRadius:6,
-                      border: guarantorData ? "1px solid #C6F6D5" : "1px solid #CBD5E0",
-                      color: guarantorLoading ? "#A0AEC0" : guarantorData ? "#276749" : "#4A5568",
-                      background: guarantorData ? "#F0FFF4" : "#F7FAFC",
-                      cursor:"pointer", fontWeight:600,
-                    }}
-                  >
-                    <Shield size={11} />
-                    {guarantorLoading ? "보증인 확인 중..." : guarantorData ? `보증인: ${guarantorData.guarantor_name}` : "신원보증인"}
-                  </button>
+                  {(() => {
+                    // broken 행은 사용자 입장에서 "연결 안 됨" 과 동일하게 취급한다.
+                    // 빨간 경고 뱃지를 보여주는 대신 평범한 회색 "숙소제공자"
+                    // 칩으로 노출 → 즉시 새로 연결 가능한 상태로 인식.
+                    const pStatus = providerStatus(providerData);
+                    const pName = resolveProviderName(providerData);
+                    const isConnected = pStatus === "connected";
+                    const labelText = providerLoading ? "숙소 확인 중..."
+                      : isConnected ? `숙소: ${pName}`
+                      : "숙소제공자";
+                    return (
+                      <button
+                        onClick={() => setShowProviderModal(true)}
+                        style={{
+                          display:"flex", alignItems:"center", gap:5,
+                          fontSize:11, padding:"5px 12px", borderRadius:6,
+                          border: isConnected ? "1px solid #BEE3F8" : "1px solid #CBD5E0",
+                          color: providerLoading ? "#A0AEC0" : isConnected ? "#2B6CB0" : "#4A5568",
+                          background: isConnected ? "#EBF8FF" : "#F7FAFC",
+                          cursor:"pointer", fontWeight:600,
+                        }}
+                      >
+                        <Home size={11} />
+                        {labelText}
+                      </button>
+                    );
+                  })()}
+                  {(() => {
+                    // 신원보증인도 동일: broken 은 unlinked 와 동일 UX.
+                    const gStatus = guarantorStatus(guarantorData);
+                    const gName = resolveGuarantorName(guarantorData);
+                    const isConnected = gStatus === "connected";
+                    const labelText = guarantorLoading ? "보증인 확인 중..."
+                      : isConnected ? `보증인: ${gName}`
+                      : "신원보증인";
+                    return (
+                      <button
+                        onClick={() => setShowGuarantorModal(true)}
+                        style={{
+                          display:"flex", alignItems:"center", gap:5,
+                          fontSize:11, padding:"5px 12px", borderRadius:6,
+                          border: isConnected ? "1px solid #C6F6D5" : "1px solid #CBD5E0",
+                          color: guarantorLoading ? "#A0AEC0" : isConnected ? "#276749" : "#4A5568",
+                          background: isConnected ? "#F0FFF4" : "#F7FAFC",
+                          cursor:"pointer", fontWeight:600,
+                        }}
+                      >
+                        <Shield size={11} />
+                        {labelText}
+                      </button>
+                    );
+                  })()}
                   {onOpenQuickPoaOverlay && (
                     <button
                       onClick={onOpenQuickPoaOverlay}

@@ -25,7 +25,44 @@ router = APIRouter()
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest):
-    acc = _find_account(req.login_id)
+    # PG-first when the local-beta flag is on; falls through to Sheets if the
+    # user simply doesn't exist in PG yet (so a partial import doesn't lock
+    # anyone out). Sheets remains the source of truth when the flag is off.
+    from backend.db.feature_flags import pg_users_enabled
+    acc: dict = {}
+    if pg_users_enabled():
+        try:
+            from backend.services.auth_pg_service import find_user_pg
+            pg_info = find_user_pg(req.login_id)
+            if pg_info is not None:
+                acc = {
+                    "login_id":      pg_info["login_id"],
+                    "tenant_id":     pg_info["tenant_id"],
+                    "password_hash": pg_info["password_hash"],
+                    "is_admin":      "TRUE" if pg_info["is_admin"] else "",
+                    "is_active":     "TRUE" if pg_info["is_active"] else "",
+                    "office_name":   "",  # not stored on AccountUser yet
+                    "contact_name":  pg_info["contact_name"],
+                }
+                # Hydrate office_name from tenants table if available
+                try:
+                    from sqlalchemy import select
+                    from backend.db.models.tenant import Tenant
+                    from backend.db.session import get_sessionmaker
+                    SessionLocal = get_sessionmaker()
+                    with SessionLocal() as session:
+                        t = session.scalar(select(Tenant).where(
+                            Tenant.tenant_id == pg_info["tenant_id"]
+                        ))
+                        if t is not None:
+                            acc["office_name"] = t.office_name or ""
+                except Exception as _e:
+                    print(f"[auth.login] tenant lookup failed (non-fatal): {_e}")
+        except Exception as e:
+            print(f"[auth.login] PG path failed, falling back to Sheets: {e}")
+
+    if not acc:
+        acc = _find_account(req.login_id) or {}
     if not acc:
         raise HTTPException(status_code=401, detail="계정이 존재하지 않습니다.")
 
@@ -71,12 +108,56 @@ def signup(req: SignupRequest):
     if not req.office_name.strip():
         raise HTTPException(status_code=400, detail="사무실 이름을 입력해주세요.")
 
-    # 중복 체크 (accounts_service 경유 → 서비스 계정 사용)
-    existing = _find_account(req.login_id.strip())
+    login_id = req.login_id.strip()
+
+    # ── Local PG branch ──────────────────────────────────────────────────
+    # In local beta with FEATURE_PG_USERS=true, write a pending tenant +
+    # user row directly to PostgreSQL. We do NOT call Google Sheets here
+    # because the Sheets path requires service-account access the local
+    # box does not (and should not) have. The new row appears in the
+    # admin accounts page immediately with is_active=False.
+    from backend.db.feature_flags import pg_users_enabled
+    if pg_users_enabled():
+        from sqlalchemy import select
+        from backend.db.models.tenant import Tenant
+        from backend.db.models.user import AccountUser
+        from backend.db.session import get_sessionmaker
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            if session.scalar(select(AccountUser).where(AccountUser.login_id == login_id)):
+                raise HTTPException(status_code=409, detail="동일한 ID가 존재합니다. 다른 ID로 가입신청해 주십시오.")
+            tenant_id = login_id  # default rule: tenant_id == login_id
+            if not session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)):
+                session.add(Tenant(
+                    tenant_id=tenant_id,
+                    office_name=req.office_name.strip(),
+                    office_adr=(req.office_adr or "").strip() or None,
+                    biz_reg_no=(req.biz_reg_no or "").strip() or None,
+                    is_active=False,
+                ))
+                session.flush()
+            session.add(AccountUser(
+                login_id=login_id,
+                tenant_id=tenant_id,
+                password_hash=_hash_password(req.password),
+                contact_name=(req.contact_name or "").strip() or None,
+                contact_tel=(req.contact_tel or "").strip() or None,
+                is_admin=False,
+                is_active=False,  # admin approval required
+            ))
+            session.commit()
+        return {
+            "message": "가입신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.",
+            "login_id": login_id,
+            "tenant_id": tenant_id,
+            "status": "pending",
+        }
+
+    # ── Sheets fallback (production) ─────────────────────────────────────
+    existing = _find_account(login_id)
     if existing:
         raise HTTPException(status_code=409, detail="동일한 ID가 존재합니다. 다른 ID로 가입신청해 주십시오.")
 
-    # 16컬럼 dict 생성 후 append
     account = build_account_dict(
         login_id=req.login_id,
         password_hash=_hash_password(req.password),
@@ -87,7 +168,7 @@ def signup(req: SignupRequest):
         biz_reg_no=req.biz_reg_no or "",
         agent_rrn=req.agent_rrn or "",
         is_admin=False,
-        is_active=False,   # 가입신청 → 관리자 승인 필요
+        is_active=False,
     )
 
     try:

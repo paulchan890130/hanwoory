@@ -433,8 +433,14 @@ export default function DashboardPage() {
     queryFn: () => memosApi.get("short").then((r) => r.data.content || ""),
     staleTime: 30_000,
   });
+  // 일정(events) 캐시는 tenant-scoped 키 사용 + staleTime 0.
+  // 백엔드는 tenant 단위로 자동 격리되지만, 멀티-테넌트 SaaS 의 일반 원칙
+  // (캐시 키에 tenant_id 포함) 을 따른다. 다른 테넌트로 로그인 전환 시 캐시
+  // 충돌 방지.
+  const tenantId = user?.tenant_id ?? "_anon_";
+  const eventsKey = ["events", tenantId] as const;
   const { data: events = {} } = useQuery({
-    queryKey: ["events"],
+    queryKey: eventsKey,
     queryFn: () => eventsApi.get().then((r) => r.data),
     staleTime: 0,  // 캐시 없음 — 달력 내용은 항상 최신값 사용
   });
@@ -626,6 +632,16 @@ export default function DashboardPage() {
     },
   });
 
+  // saveEventMut — Add / Edit / Delete a date's events.
+  //
+  // * `onMutate` 가 캐시를 **즉시** 패치 (낙관적 업데이트) → 모달 닫히는 순간
+  //   캘린더 + 오늘 일정 영역이 바로 새 내용으로 보인다. 네트워크 왕복을
+  //   기다리지 않는다.
+  // * `onError` 에서 이전 스냅샷으로 롤백.
+  // * `onSettled` 가 ``["events", tenantId]`` 를 invalidate → 서버 응답으로
+  //   배경 refetch → 최종 일관성 보장.
+  // * 다른 날짜의 키는 절대 건드리지 않는다 — 객체 spread 후 해당 date 한
+  //   개만 수정/삭제.
   const saveEventMut = useMutation({
     mutationFn: ({ date, text }: { date: string; text: string }) => {
       const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -635,16 +651,38 @@ export default function DashboardPage() {
       }
       return eventsApi.save(date, lines);
     },
+    onMutate: async ({ date, text }: { date: string; text: string }) => {
+      await qc.cancelQueries({ queryKey: eventsKey });
+      const previous = qc.getQueryData<Record<string, string[]>>(eventsKey);
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      qc.setQueryData<Record<string, string[]>>(eventsKey, (prev) => {
+        const next: Record<string, string[]> = { ...(prev || {}) };
+        if (lines.length === 0) delete next[date];
+        else next[date] = lines;
+        return next;
+      });
+      return { previous };
+    },
+    onError: (_err, { text }, context) => {
+      // Roll back to the pre-mutation snapshot so the UI never shows a
+      // mid-flight phantom state.
+      if (context?.previous) {
+        qc.setQueryData(eventsKey, context.previous);
+      }
+      const isEmpty = !text.split("\n").map((l) => l.trim()).filter(Boolean).length;
+      toast.error(isEmpty ? "일정 삭제 실패 — 다시 시도해주세요" : "일정 저장 실패 — 다시 시도해주세요");
+    },
     onSuccess: (_, { text }) => {
       const isEmpty = !text.split("\n").map((l) => l.trim()).filter(Boolean).length;
       toast.success(isEmpty ? "일정이 삭제되었습니다." : "일정이 저장되었습니다.");
-      qc.invalidateQueries({ queryKey: ["events"] });
       setShowCalModal(false);
       setCalendarMemo("");
     },
-    onError: (_, { text }) => {
-      const isEmpty = !text.split("\n").map((l) => l.trim()).filter(Boolean).length;
-      toast.error(isEmpty ? "일정 삭제 실패 — 다시 시도해주세요" : "일정 저장 실패 — 다시 시도해주세요");
+    onSettled: () => {
+      // Force a server refetch as belt-and-suspenders — confirms optimistic
+      // patch matches the server's truth (handles concurrent edits from
+      // other tabs / sessions).
+      qc.invalidateQueries({ queryKey: eventsKey });
     },
   });
 

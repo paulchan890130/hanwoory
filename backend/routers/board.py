@@ -49,6 +49,17 @@ def _sheet():
 @router.get("/popup")
 def get_popup_notices(user: dict = Depends(get_current_user)):
     """팝업 표시 공지 목록 (popup_yn=Y)"""
+    from backend.db.feature_flags import pg_board_enabled
+    if pg_board_enabled():
+        from backend.services.board_pg_service import list_posts
+        posts = list_posts(exclude_categories=(_MANUAL_CHECK_CATEGORY,))
+        result = [
+            p for p in posts
+            if str(p.get("popup_yn", "")).strip().upper() == "Y"
+        ]
+        result.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+        return result
+
     read = _read()
     BOARD, _ = _sheet()
     posts = read(BOARD, default_if_empty=[]) or []
@@ -135,6 +146,16 @@ def check_manual_update(user: dict = Depends(get_current_user)):
 @router.get("")
 def get_posts(user: dict = Depends(get_current_user)):
     """게시판 목록 - 공지 상단, 나머지 최신순. comment_count 컬럼에서 직접 읽음."""
+    from backend.db.feature_flags import pg_board_enabled
+    if pg_board_enabled():
+        from backend.services.board_pg_service import list_posts
+        posts = list_posts(exclude_categories=(_MANUAL_CHECK_CATEGORY,))
+        notices = [p for p in posts if str(p.get("is_notice", "")).strip().upper() == "Y"]
+        normal  = [p for p in posts if str(p.get("is_notice", "")).strip().upper() != "Y"]
+        notices.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        normal.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return notices + normal
+
     read = _read()
     BOARD, COMMENT = _sheet()
     posts = read(BOARD, default_if_empty=[]) or []
@@ -170,9 +191,8 @@ def get_posts(user: dict = Depends(get_current_user)):
 
 @router.post("", response_model=dict)
 def create_post(post: BoardPost, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_board_enabled
     import traceback as _tb
-    upsert, _ = _write()
-    BOARD, _ = _sheet()
     now = datetime.datetime.now().isoformat()
     post.id          = str(uuid.uuid4())
     post.tenant_id   = user.get("tenant_id", "")
@@ -187,6 +207,13 @@ def create_post(post: BoardPost, user: dict = Depends(get_current_user)):
         post.popup_yn = ""
     rec = {k: ("" if v is None else str(v)) for k, v in post.model_dump().items()}
     rec["comment_count"] = "0"
+
+    if pg_board_enabled():
+        from backend.services.board_pg_service import upsert_post
+        return upsert_post(rec)
+
+    upsert, _ = _write()
+    BOARD, _ = _sheet()
     try:
         result = upsert(BOARD, header_list=POST_HEADER, records=[rec], id_field="id")
         if not result:
@@ -233,6 +260,12 @@ def update_post(post_id: str, post: BoardPost, user: dict = Depends(get_current_
 
 @router.delete("/{post_id}")
 def delete_post(post_id: str, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_board_enabled
+    if pg_board_enabled():
+        from backend.services.board_pg_service import delete_post as _pg
+        _pg(post_id)
+        return {"ok": True}
+
     _, delete = _write()
     BOARD, COMMENT = _sheet()
     # 작성자 또는 관리자만 삭제 가능
@@ -255,6 +288,11 @@ def delete_post(post_id: str, user: dict = Depends(get_current_user)):
 
 @router.get("/{post_id}/comments")
 def get_comments(post_id: str, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_board_enabled
+    if pg_board_enabled():
+        from backend.services.board_pg_service import list_comments
+        return list_comments(post_id)
+
     read = _read()
     _, COMMENT = _sheet()
     comments = read(COMMENT, default_if_empty=[]) or []
@@ -263,9 +301,7 @@ def get_comments(post_id: str, user: dict = Depends(get_current_user)):
 
 @router.post("/{post_id}/comments", response_model=dict)
 def add_comment(post_id: str, comment: BoardComment, user: dict = Depends(get_current_user)):
-    upsert, _ = _write()
-    read = _read()
-    BOARD, COMMENT = _sheet()
+    from backend.db.feature_flags import pg_board_enabled
     now = datetime.datetime.now().isoformat()
     comment.id          = str(uuid.uuid4())
     comment.post_id     = post_id
@@ -276,6 +312,14 @@ def add_comment(post_id: str, comment: BoardComment, user: dict = Depends(get_cu
     comment.created_at  = now
     comment.updated_at  = now
     rec = {k: ("" if v is None else str(v)) for k, v in comment.model_dump().items()}
+
+    if pg_board_enabled():
+        from backend.services.board_pg_service import add_comment as _pg
+        return _pg(rec)
+
+    upsert, _ = _write()
+    read = _read()
+    BOARD, COMMENT = _sheet()
     upsert(COMMENT, header_list=COMMENT_HEADER, records=[rec], id_field="id")
     # comment_count 증가
     posts = read(BOARD, default_if_empty=[]) or []
@@ -290,6 +334,12 @@ def add_comment(post_id: str, comment: BoardComment, user: dict = Depends(get_cu
 
 @router.delete("/{post_id}/comments/{comment_id}")
 def delete_comment(post_id: str, comment_id: str, user: dict = Depends(get_current_user)):
+    from backend.db.feature_flags import pg_board_enabled
+    if pg_board_enabled():
+        from backend.services.board_pg_service import delete_comment as _pg
+        _pg(post_id, comment_id)
+        return {"ok": True}
+
     upsert, delete = _write()
     read = _read()
     BOARD, COMMENT = _sheet()
