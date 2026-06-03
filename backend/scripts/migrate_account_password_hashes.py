@@ -53,6 +53,8 @@ try:
 except ImportError:
     pass
 
+from backend.db.local_guard import REMOTE_CONFIRM_STRING  # single source of truth
+
 MIGRATION_INPUT = ROOT / "migration_input"
 BACKUP_DIR = ROOT / "backend" / "data" / "backups"
 
@@ -119,6 +121,13 @@ def main() -> int:
                     help="Explicit dry-run (default behavior; no-op unless --apply is also absent).")
     ap.add_argument("--only-empty", action="store_true",
                     help="Only fill empty PG hashes; do NOT touch mismatched ones.")
+    ap.add_argument("--allow-remote-render-pg", action="store_true",
+                    help="Explicitly permit --apply against a NON-LOCAL (e.g. Render) PostgreSQL. "
+                         "Must be combined with the exact --confirm string. (Dry-run reads only and "
+                         "needs neither flag.)")
+    ap.add_argument("--confirm", default="",
+                    help=f'Required confirmation string for remote --apply. Must equal exactly: '
+                         f'"{REMOTE_CONFIRM_STRING}".')
     args = ap.parse_args()
 
     source = Path(args.source) if args.source else _discover_source()
@@ -183,9 +192,24 @@ def main() -> int:
         return 0
 
     # ── apply ──
-    from backend.db.local_guard import assert_local_database_url
-    assert_local_database_url(os.environ.get("DATABASE_URL"))
-    print("[guard] DATABASE_URL host check: PASS (local loopback only)")
+    # LOCAL allowed by default; a non-local (Render) target requires the same
+    # explicit confirmation as the importer. Dry-run above never reaches here.
+    from backend.db.local_guard import resolve_execution_mode
+    _hint = (
+        "python backend/scripts/migrate_account_password_hashes.py \\\n"
+        f"  --login-id {args.login_id or '<login>'} --apply --allow-remote-render-pg \\\n"
+        f'  --confirm "{REMOTE_CONFIRM_STRING}"'
+    )
+    mode = resolve_execution_mode(
+        os.environ.get("DATABASE_URL"),
+        allow_remote=args.allow_remote_render_pg,
+        confirm=args.confirm,
+        reset_requested=False,   # this script never resets
+        command_hint=_hint,
+        say=print,
+    )
+    if mode is None:
+        return 3  # gate printed a clear abort message
 
     # backup affected rows (old hashes) to a local, git-ignored file
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)

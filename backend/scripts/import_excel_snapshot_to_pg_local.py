@@ -1092,6 +1092,23 @@ def inspect_template(wb, label: str) -> dict:
     return info
 
 
+# ── Remote (Render) execution gate ──────────────────────────────────────────
+# The default safety contract is unchanged: local loopback DBs are allowed,
+# everything else is blocked. Importing into a real Render PostgreSQL requires
+# THREE explicit signals together (--execute + --allow-remote-render-pg +
+# exact --confirm). Destructive reset is NEVER allowed against a remote DB.
+# The policy + confirmation string live in backend.db.local_guard (single
+# source of truth), shared with migrate_account_password_hashes.py.
+from backend.db.local_guard import REMOTE_CONFIRM_STRING  # noqa: E402
+
+_REMOTE_COMMAND_HINT = (
+    "python backend/scripts/import_excel_snapshot_to_pg_local.py \\\n"
+    "  --only all --execute --allow-remote-render-pg \\\n"
+    f'  --confirm "{REMOTE_CONFIRM_STRING}"\n'
+    "(Do NOT pass --reset-local-pg against Render.)"
+)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────
 
 
@@ -1126,6 +1143,17 @@ def main() -> int:
         help="When a tenant has no is_admin=true user, create a local-only "
              "{tenant_id}_admin login with password beta_test_password_123. "
              "Off by default — real admins from Accounts (e.g. wkdwhfl) are kept as-is.",
+    )
+    parser.add_argument(
+        "--allow-remote-render-pg", action="store_true",
+        help="Explicitly permit importing into a NON-LOCAL (e.g. Render) PostgreSQL. "
+             "Must be combined with --execute and the exact --confirm string. "
+             "Off by default — the local-only guard blocks remote DBs otherwise.",
+    )
+    parser.add_argument(
+        "--confirm", default="",
+        help=f'Required confirmation string for remote execution. Must equal exactly: '
+             f'"{REMOTE_CONFIRM_STRING}".',
     )
     args = parser.parse_args()
 
@@ -1183,9 +1211,20 @@ def main() -> int:
         _say("\n[DRY-RUN] No DB connection opened. Pass --execute to actually import.")
         return 0
 
-    # Local guard
-    from backend.db.local_guard import assert_local_database_url
-    assert_local_database_url(os.environ.get("DATABASE_URL"))
+    # Local guard (LOCAL allowed by default; REMOTE requires explicit confirmation).
+    from backend.db.local_guard import resolve_execution_mode
+    mode = resolve_execution_mode(
+        os.environ.get("DATABASE_URL"),
+        allow_remote=args.allow_remote_render_pg,
+        confirm=args.confirm,
+        reset_requested=args.reset_local_pg,
+        command_hint=_REMOTE_COMMAND_HINT,
+        say=_say,
+    )
+    if mode is None:
+        return 3  # gate printed a clear abort message
+    if mode == "REMOTE_RENDER_CONFIRMED":
+        _say("[guard]   (destructive reset disabled for remote; row-level upserts only)")
 
     from backend.db.session import get_sessionmaker
     SessionLocal = get_sessionmaker()

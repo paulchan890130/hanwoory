@@ -46,3 +46,85 @@ def assert_local_database_url(url: Optional[str]) -> None:
             file=sys.stderr,
         )
         raise SystemExit(3)
+
+
+# ── Explicit, confirmed remote (e.g. Render) execution ───────────────────────
+# The default contract above is unchanged: local loopback only. The helper
+# below is the *single source of truth* for the one narrow escape hatch —
+# writing to a non-local DB requires three explicit signals together. It is
+# shared by the importer and the password-migration script so the policy and
+# confirmation string can never drift between them.
+REMOTE_CONFIRM_STRING = "I-UNDERSTAND-IMPORT-TO-RENDER-PG"
+
+
+def database_host(url: Optional[str]) -> str:
+    return (urlparse(url).hostname or "").lower() if url else ""
+
+
+def mask_host(host: str) -> str:
+    """Show enough of the host to recognize it, hiding the unique middle.
+
+    ``urlparse().hostname`` excludes any ``user:pass`` — no credential leaks."""
+    if not host:
+        return "(none)"
+    if len(host) <= 12:
+        return host[:3] + "***"
+    return f"{host[:8]}…{host[-12:]}"
+
+
+def looks_render_host(host: str) -> bool:
+    h = host or ""
+    return ("render.com" in h) or h.startswith("dpg-")
+
+
+def resolve_execution_mode(
+    url: Optional[str],
+    *,
+    allow_remote: bool,
+    confirm: str,
+    reset_requested: bool = False,
+    command_hint: str = "",
+    say=print,
+) -> Optional[str]:
+    """Decide how a mutating script may proceed against ``url``.
+
+    Returns ``"LOCAL"`` or ``"REMOTE_RENDER_CONFIRMED"`` when allowed, or
+    ``None`` after printing a clear abort message (caller should exit non-zero).
+    Unset / local URLs delegate to :func:`assert_local_database_url` (which
+    exits on unset). No DB connection is opened here; no password is printed.
+    """
+    host = database_host(url)
+
+    if not url:
+        assert_local_database_url(url)   # exits(2) with the standard message
+        return None                      # unreachable
+
+    if host in LOCAL_HOSTS:
+        assert_local_database_url(url)   # belt-and-suspenders; passes for loopback
+        say(f"[guard]   target host: {mask_host(host)}  (LOCAL loopback)")
+        say("[guard]   execution mode: LOCAL")
+        return "LOCAL"
+
+    # ── Non-local host ──
+    # Hard block: destructive reset must NEVER touch a non-local DB, even with
+    # the allow flag + confirmation present.
+    if reset_requested:
+        say(f"[guard][ABORT] destructive reset is FORBIDDEN against a non-local DB "
+            f"(host {mask_host(host)}). Remove the reset flag to import into Render.")
+        return None
+
+    if not (allow_remote and confirm == REMOTE_CONFIRM_STRING):
+        say(f"[guard][ABORT] DATABASE_URL points at a NON-LOCAL host "
+            f"({mask_host(host)}) — refusing without explicit confirmation.")
+        if allow_remote and confirm != REMOTE_CONFIRM_STRING:
+            say("[guard]        --allow-remote-render-pg given but --confirm does not match.")
+        if command_hint:
+            say("[guard]        To proceed against the remote DB, run EXACTLY:")
+            for line in command_hint.splitlines():
+                say(f"[guard]          {line}")
+        return None
+
+    kind = "Render-style" if looks_render_host(host) else "non-local (explicitly confirmed)"
+    say(f"[guard]   target host: {mask_host(host)}  ({kind})")
+    say("[guard]   execution mode: REMOTE_RENDER_CONFIRMED")
+    return "REMOTE_RENDER_CONFIRMED"
