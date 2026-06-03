@@ -1,0 +1,112 @@
+{
+  "version": "260414",
+  "created_at": "2026-06-02T19:33:54",
+  "note": "baseline registration — references existing files; no duplication",
+  "manuals": {
+    "residence": {
+      "source_hwp": {
+        "path": "backend\\data\\manuals\\raw_260414 체류민원 자격별 안내 매뉴얼.hwp",
+        "exists": true,
+        "sha256": "16330aa76443488b4598aada03937cbd205cd1d55bc9b6bea8729830e51eb8a5",
+        "size": 3167744
+      },
+      "unlocked_hwp": {
+        "path": "backend\\data\\manuals\\unlocked_체류민원.hwp",
+        "exists": true,
+        "sha256": "1ad2fbf320a9c37b0165e38e407c04c37b6eb2ab67c7e45f644138032f21084f",
+        "size": 4834816
+      },
+      "existing_pdf": {
+        "path": "backend\\data\\manuals\\unlocked_체류민원.pdf",
+        "exists": true,
+        "sha256": "adbac759dcb187e527d20f470c32edb29b39b933009b76d89111dc666fcf887a",
+        "size": 12097749
+      },
+      "rhwp_jsonl": {
+        "path": "analysis\\rhwp_remap_260414\\residence_pages.jsonl",
+        "exists": true,
+        "sha256": "873844fa6b48a627f8cebec82321bf9615a5275c744fedcdc03304e48287f0bb",
+        "size": 2015310
+      },
+      "rhwp_page_text_dir": {
+        "path": "analysis\\rhwp_remap_260414\\page_text\\residence",
+        "exists": true,
+        "sha256": null,
+        "size": null
+      },
+      "rhwp_merged_pdf": {
+        "path": "analysis\\rhwp_pdf_poc_260414\\merged_pdf\\rhwp_260414_residence.pdf",
+        "exists": true,
+        "sha256": "01f4f77cd6f81e26833a43bdf16085f8abdec364da454ab53f1d543e40d04978",
+        "size": 74408787
+      },
+      "page_count": 886
+    },
+    "visa": {
+      "source_hwp": {
+        "path": "backend\\data\\manuals\\raw_260414 사증민원 자격별 안내 매뉴얼.hwp",
+        "exists": true,
+        "sha256": "85581694ac78e337195cffe85dd12072ae3f22f775317654acac9fdea7c3628b",
+        "size": 2169344
+      },
+      "unlocked_hwp": {
+        "path": "backend\\data\\manuals\\unlocked_사증민원.hwp",
+        "exists": true,
+        "sha256": "02f9fbe4dcbe5664ea4846adb4a57c54cfd26c2d862720674b9f63a2723363cc",
+        "size": 3246592
+      },
+      "existing_pdf": {
+        "path": "backend\\data\\manuals\\unlocked_사증민원.pdf",
+        "exists": true,
+        "sha256": "442f93b0070bfe8eed60bca977faca7d360a7793e08267d37f3403c049eee541",
+        "size": 11693461
+      },
+      "rhwp_jsonl": {
+        "path": "analysis\\rhwp_remap_260414\\visa_pages.jsonl",
+        "exists": true,
+        "sha256": "e6e2da0accf1ef80ec19d56bc30ad888bc503e905e8aa16e05bcd4f40c7e7243",
+        "size": 1335078
+      },
+      "rhwp_page_text_dir": {
+        "path": "analysis\\rhwp_remap_260414\\page_text\\visa",
+        "exists": true,
+        "sha256": null,
+        "size": null
+      },
+      "rhwp_merged_pdf": {
+        "path": "analysis\\rhwp_pdf_poc_260414\\merged_pdf\\rhwp_260414_visa.pdf",
+        "exists": true,
+        "sha256": "8e0ab776e33e785a55911ec2fd3f102f2443a85db855036b5f75534c06b9f158",
+        "size": 49745178
+      },
+      "page_count": 558
+    },
+    "revision_history": {
+      "source_hwp": {
+        "path": "backend\\data\\manuals\\raw_260414 사증.체류 민원 자격별 안내 매뉴얼 수정 이력(공개).hwp",
+        "exists": true,
+        "sha256": "67205e06c6d848b2991ed7b6aa11788410a38b3fdbbb6643f068681a4f014305",
+        "size": 163328
+      },
+      "rhwp_jsonl": {
+        "path": "analysis\\rhwp_remap_260414\\revision_history_pages.jsonl",
+        "exists": true,
+        "sha256": "2427ce0bca82ec9ad9adbf8f8b4768cff119e09a7fac79d23e102dae260415cc",
+        "size": 14798
+      },
+      "rhwp_page_text_dir": {
+        "path": "analysis\\rhwp_remap_260414\\page_text\\revision_history",
+        "exists": true,
+        "sha256": null,
+        "size": null
+      },
+      "rhwp_merged_pdf": {
+        "path": "analysis\\rhwp_pdf_poc_260414\\merged_pdf\\rhwp_260414_revision_history.pdf",
+        "exists": true,
+        "sha256": "b89e3fdbb6f73600f82393489d5138011340deb7132e9d5996ba199b98d279a6",
+        "size": 280739
+      },
+      "page_count": 5
+    }
+  }
+}

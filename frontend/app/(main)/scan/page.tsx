@@ -1211,7 +1211,10 @@ export default function ScanPage() {
         setSignPrompt({ name: savedName, customerId: newId });
       }
     },
-    onError: () => toast.error("고객 등록/업데이트 실패"),
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail ? `고객 등록/업데이트 실패: ${detail}` : "고객 등록/업데이트 실패");
+    },
   });
 
   const handleSubmit = () => {

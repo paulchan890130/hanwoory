@@ -33,8 +33,63 @@ def pg_audit_enabled() -> bool:
 
 
 def pg_customers_enabled() -> bool:
-    """Reserved for Phase 4. Not yet wired to any code path."""
+    """If true, customers router reads/writes go to PG instead of Sheets."""
     return _bool("FEATURE_PG_CUSTOMERS")
+
+
+def pg_events_enabled() -> bool:
+    """If true, events router reads/writes go to PG."""
+    return _bool("FEATURE_PG_EVENTS")
+
+
+def pg_tasks_enabled() -> bool:
+    """If true, active/planned/completed task routes go to PG."""
+    return _bool("FEATURE_PG_TASKS")
+
+
+def pg_daily_enabled() -> bool:
+    """If true, daily entries + balance go to PG."""
+    return _bool("FEATURE_PG_DAILY")
+
+
+def pg_memos_enabled() -> bool:
+    """If true, memos (short/mid/long) go to PG."""
+    return _bool("FEATURE_PG_MEMOS")
+
+
+def pg_signatures_enabled() -> bool:
+    """Reserved — signature flow not yet wired (deferred for safety)."""
+    return _bool("FEATURE_PG_SIGNATURES")
+
+
+def pg_reference_enabled() -> bool:
+    """If true, work_reference + certification routes go to PG (read side)."""
+    return _bool("FEATURE_PG_REFERENCE")
+
+
+def pg_board_enabled() -> bool:
+    """If true, board posts/comments go to PG."""
+    return _bool("FEATURE_PG_BOARD")
+
+
+def pg_marketing_enabled() -> bool:
+    """If true, marketing posts go to PG."""
+    return _bool("FEATURE_PG_MARKETING")
+
+
+def pg_admin_enabled() -> bool:
+    """If true, admin account listing / approval flows go to PG."""
+    return _bool("FEATURE_PG_ADMIN")
+
+
+def pg_tenant_provisioning_enabled() -> bool:
+    """If true, tenant workspace creation routes through the local mock."""
+    return _bool("FEATURE_PG_TENANT_PROVISIONING")
+
+
+def local_drive_mock_enabled() -> bool:
+    """If true, Drive folder/file create/copy calls are mocked locally."""
+    return _bool("FEATURE_LOCAL_DRIVE_MOCK")
 
 
 def snapshot() -> dict[str, bool]:
@@ -43,4 +98,15 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_PG_USERS": pg_users_enabled(),
         "FEATURE_PG_AUDIT": pg_audit_enabled(),
         "FEATURE_PG_CUSTOMERS": pg_customers_enabled(),
+        "FEATURE_PG_EVENTS": pg_events_enabled(),
+        "FEATURE_PG_TASKS": pg_tasks_enabled(),
+        "FEATURE_PG_DAILY": pg_daily_enabled(),
+        "FEATURE_PG_MEMOS": pg_memos_enabled(),
+        "FEATURE_PG_SIGNATURES": pg_signatures_enabled(),
+        "FEATURE_PG_REFERENCE": pg_reference_enabled(),
+        "FEATURE_PG_BOARD": pg_board_enabled(),
+        "FEATURE_PG_MARKETING": pg_marketing_enabled(),
+        "FEATURE_PG_ADMIN": pg_admin_enabled(),
+        "FEATURE_PG_TENANT_PROVISIONING": pg_tenant_provisioning_enabled(),
+        "FEATURE_LOCAL_DRIVE_MOCK": local_drive_mock_enabled(),
     }

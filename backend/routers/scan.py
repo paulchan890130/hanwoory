@@ -420,7 +420,70 @@ def scan_register(
     if not data:
         raise HTTPException(status_code=400, detail="upsert할 데이터가 없습니다.")
 
-    # ── 시트 데이터 로드 ──────────────────────────────────────────
+    def _norm(s): return str(s or "").strip()
+
+    # ── PG 경로 (현재 PostgreSQL 런타임) ────────────────────────────────────
+    # customers 라우터(add_customer/update_customer)와 동일하게 feature flag 를
+    # 존중하고 동일 서비스(customer_pg_service)로 라우팅한다. 플래그가 꺼져 있으면
+    # 아래 기존 Google Sheets 경로로 폴백(하위호환). row-level INSERT/UPDATE 만 수행.
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import (
+            list_customers, next_customer_id, upsert_customer,
+        )
+
+        key_passport  = _norm(data.get("여권"))
+        key_reg_front = _norm(data.get("등록증"))
+        key_reg_back  = _norm(data.get("번호"))
+
+        existing = None
+        match_reason = None
+        rows = list_customers(tenant_id)
+        if key_passport:
+            for r in rows:
+                if _norm(r.get("여권")) == key_passport:
+                    existing = r
+                    match_reason = f"passport match: 여권={key_passport!r}"
+                    break
+        if existing is None and key_reg_front and key_reg_back:
+            for r in rows:
+                if _norm(r.get("등록증")) == key_reg_front and _norm(r.get("번호")) == key_reg_back:
+                    existing = r
+                    match_reason = f"reg-number match: 등록증={key_reg_front!r} 번호={key_reg_back!r}"
+                    break
+
+        # incoming 중 비어있지 않은 필드만 사용 → 빈 OCR 값이 기존 값을 덮어쓰지 않음
+        non_empty = {k: v for k, v in data.items() if _norm(v)}
+        try:
+            if existing is not None:
+                customer_id = _norm(existing.get("고객ID"))
+                merged = {**existing, **non_empty}
+                merged["고객ID"] = customer_id
+                upsert_customer(tenant_id, merged)
+                _log.warning("[SCAN][BE][PG] PATH=updated customer_id=%r match=%s",
+                             customer_id, match_reason)
+                return {
+                    "status": "updated",
+                    "고객ID": customer_id,
+                    "message": f"기존 고객({customer_id}) 정보가 업데이트되었습니다.",
+                }
+            new_id = next_customer_id(tenant_id)
+            payload = dict(non_empty)
+            payload["고객ID"] = new_id
+            upsert_customer(tenant_id, payload)
+            _log.warning("[SCAN][BE][PG] PATH=created customer_id=%r tenant=%r", new_id, tenant_id)
+            return {
+                "status": "created",
+                "고객ID": new_id,
+                "message": f"신규 고객이 추가되었습니다 (고객ID: {new_id}).",
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            _log.exception("[SCAN][BE][PG] upsert failed")
+            raise HTTPException(status_code=500, detail=f"고객 저장 실패(PG): {e}")
+
+    # ── 시트 데이터 로드 (Google Sheets 경로 — PG 플래그 off) ──────────────
     try:
         ws = get_worksheet(CUSTOMER_SHEET_NAME, tenant_id)
         all_values = ws.get_all_values()

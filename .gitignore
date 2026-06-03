@@ -98,6 +98,15 @@ page_scan을 손보고싶어*
 backend/data/manuals/*.hwp
 backend/data/manuals/*.pdf
 
+# ===== Manual Update v1 — generated/working artifacts (heavy, local-only) =====
+# Pipeline outputs (per-page + merged PDFs can be 100MB+) and user-dropped inputs.
+backend/data/manuals/staging/
+backend/data/manuals/incoming/
+# rhwp remap backups of the guidelines DB
+backend/data/*.rhwp_remap_backup_*.json
+# Local PostgreSQL beta drive mock (per-developer runtime state)
+.local_pg_beta_drive/
+
 # ===== Local samples / analysis =====
 샘플/
 analysis/

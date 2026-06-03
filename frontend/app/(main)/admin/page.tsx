@@ -13,6 +13,86 @@ import {
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 
+// ── PG 저장소 상태 helper ────────────────────────────────────────────────────
+// Backend returns storage_mode === "pg+local-mock" when FEATURE_LOCAL_DRIVE_MOCK
+// is on; in that case we swap the four Sheet-key columns for two status chips
+// (PostgreSQL 저장소 / 파일 저장소).
+function isPgMode(rows: Record<string, string>[]): boolean {
+  return rows.some((r) => String(r.storage_mode || "").startsWith("pg+"));
+}
+
+function PgStorageChip({ acc }: { acc: Record<string, unknown> }) {
+  const status = String(acc.pg_storage_status || "");
+  const label = String(acc.pg_storage_label || "");
+  if (status === "ready") {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded-full"
+        style={{ background: "#C6F6D5", color: "#276749" }}
+        title={label}
+      >
+        ✓ PG 데이터 있음
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-xs px-2 py-1 rounded-full"
+      style={{ background: "#F7FAFC", color: "#A0AEC0", border: "1px solid #E2E8F0" }}
+      title={label}
+    >
+      비어있음
+    </span>
+  );
+}
+
+function FileStorageChip({ acc }: { acc: Record<string, unknown> }) {
+  const status = String(acc.file_storage_status || "");
+  const label = String(acc.file_storage_label || "");
+  if (status === "local-mock") {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded-full"
+        style={{ background: "#FAF5FF", color: "#553C9A", border: "1px solid #D6BCFA" }}
+        title="로컬 모의 저장소 (Google Drive 미호출)"
+      >
+        🧪 {label}
+      </span>
+    );
+  }
+  if (status === "google-drive") {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded-full"
+        style={{ background: "#EBF8FF", color: "#2B6CB0" }}
+        title="Google Drive 키 (운영 Sheets 참조 — 로컬 PG 모드에서는 더 이상 호출되지 않음)"
+      >
+        ☁️ {label}
+      </span>
+    );
+  }
+  if (status === "partial" || status === "mixed") {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded-full"
+        style={{ background: "#FFF9E6", color: "#6B5314" }}
+        title={label}
+      >
+        ⚠ {label}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-xs px-2 py-1 rounded-full"
+      style={{ background: "#F7FAFC", color: "#A0AEC0", border: "1px solid #E2E8F0" }}
+      title="아직 워크스페이스 생성 안 됨"
+    >
+      없음
+    </span>
+  );
+}
+
 // ── 워크스페이스 단계별 결과 타입 ─────────────────────────────────────────────
 interface WsProbe {
   accessible: boolean;
@@ -152,10 +232,14 @@ function CreateAccountModal({
   onClose,
   onCreated,
   onWsResult,
+  pgMode = false,
+  isLocalMock = false,
 }: {
   onClose: () => void;
   onCreated: () => void;
   onWsResult?: (r: WsResult) => void;
+  pgMode?: boolean;
+  isLocalMock?: boolean;
 }) {
   const [form, setForm] = useState({
     login_id: "",
@@ -302,11 +386,13 @@ function CreateAccountModal({
             </div>
           </div>
 
-          {/* 섹션3: Google Sheets 연동 */}
+          {/* 섹션3: 워크스페이스 (Google Sheets 또는 로컬 모의) */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-[11px] font-semibold uppercase px-2 py-1 rounded" style={{ color: "#718096", background: "#F7FAFC" }}>
-                Google Sheets 연동
+                {pgMode
+                  ? (isLocalMock ? "워크스페이스 (로컬 모의)" : "워크스페이스 (PostgreSQL)")
+                  : "Google Sheets 연동"}
               </div>
               <SubmitButton
                 type="button"
@@ -317,20 +403,30 @@ function CreateAccountModal({
                 className="text-xs"
                 style={{ padding: "6px 12px", fontSize: 11, borderRadius: 8, border: "1px solid var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
               >
-                <><FolderOpen size={11} /> 워크스페이스 자동 생성</>
+                <><FolderOpen size={11} /> {isLocalMock ? "로컬 모의 생성" : "워크스페이스 자동 생성"}</>
               </SubmitButton>
             </div>
             {(form.customer_sheet_key || form.folder_id) && (
               <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: "#C6F6D5", color: "#276749" }}>
                 ✅ 워크스페이스 자동 생성됨
+                {isLocalMock && <span className="ml-2 font-mono">(local-* sentinel ID)</span>}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">{F("customer_sheet_key", "고객 데이터 시트키", "스프레드시트 ID", true)}</div>
-              <div className="col-span-2">{F("work_sheet_key", "업무정리 시트키", "업무정리 스프레드시트 ID", true)}</div>
-              {F("folder_id", "Drive 폴더 ID", "Google Drive 폴더 ID", true)}
-              {F("sheet_key", "마스터 시트키", "공용 시트 ID (일반적으로 비워둠)", true)}
-            </div>
+            {pgMode ? (
+              <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: "#F7FAFC", color: "#4A5568" }}>
+                로컬 PG 모드에서는 Google Sheets / Drive 키를 직접 입력하지 않습니다.<br />
+                위 버튼을 누르면 backend의 <code>local_drive_mock</code> 이 sentinel ID
+                <code>(local-folder-… / local-sheet-…)</code> 를 생성하고 PostgreSQL <code>tenants</code> 행에
+                저장합니다. Google API는 호출되지 않습니다.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">{F("customer_sheet_key", "고객 데이터 시트키", "스프레드시트 ID", true)}</div>
+                <div className="col-span-2">{F("work_sheet_key", "업무정리 시트키", "업무정리 스프레드시트 ID", true)}</div>
+                {F("folder_id", "Drive 폴더 ID", "Google Drive 폴더 ID", true)}
+                {F("sheet_key", "마스터 시트키", "공용 시트 ID (일반적으로 비워둠)", true)}
+              </div>
+            )}
           </div>
 
           {/* 관리자 여부 */}
@@ -373,10 +469,12 @@ function AccountDetailPanel({
   acc,
   onUpdate,
   onClose,
+  pgMode = false,
 }: {
   acc: Record<string, string>;
   onUpdate: (loginId: string, data: Record<string, unknown>) => void;
   onClose: () => void;
+  pgMode?: boolean;
 }) {
   const [form, setForm] = useState({ ...acc });
   const { submit: submitSave, isSubmitting: saving } = useSubmit();
@@ -431,13 +529,35 @@ function AccountDetailPanel({
             {F("agent_rrn", "행정사 주민등록번호")}
           </div>
 
-          <div className="hw-section-divider mt-4">Google Sheets 연동</div>
-          <div className="space-y-2">
-            {F("customer_sheet_key", "고객 데이터 시트키", true)}
-            {F("work_sheet_key", "업무정리 시트키", true)}
-            {F("folder_id", "Drive 폴더 ID", true)}
-            {F("sheet_key", "마스터 시트키", true)}
-          </div>
+          {pgMode ? (
+            <>
+              <div className="hw-section-divider mt-4">저장소 상태 (PostgreSQL 모드)</div>
+              <div className="text-xs space-y-2" style={{ color: "#4A5568" }}>
+                <div>
+                  <span style={{ color: "#718096" }}>PostgreSQL: </span>
+                  <span className="font-mono">{acc.pg_storage_label || "(없음)"}</span>
+                </div>
+                <div>
+                  <span style={{ color: "#718096" }}>파일 저장소: </span>
+                  <span className="font-mono">{acc.file_storage_label || "(없음)"}</span>
+                </div>
+                <div className="text-[11px]" style={{ color: "#A0AEC0" }}>
+                  로컬 PG 모드에서는 Google Sheets / Drive 키를 직접 편집하지 않습니다.<br />
+                  워크스페이스가 필요하면 계정 행의 ‘워크스페이스 자동 생성’ 버튼을 사용하세요.
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="hw-section-divider mt-4">Google Sheets 연동</div>
+              <div className="space-y-2">
+                {F("customer_sheet_key", "고객 데이터 시트키", true)}
+                {F("work_sheet_key", "업무정리 시트키", true)}
+                {F("folder_id", "Drive 폴더 ID", true)}
+                {F("sheet_key", "마스터 시트키", true)}
+              </div>
+            </>
+          )}
 
           <div className="hw-section-divider mt-4">메타데이터</div>
           <div>
@@ -818,12 +938,315 @@ function ManualReviewTab() {
 }
 
 
+// ── 매뉴얼 업데이트 v1 (staging 검토) ─────────────────────────────────────────
+// rhwp 텍스트/diff 엔진이 만든 staging 산출물(변경 페이지 · 영향 후보 · 변경 페이지
+// 검토 PDF)을 admin 전용으로 조회. 운영 PDF 뷰어/운영 DB 는 절대 변경하지 않는다.
+const LABEL_KR: Record<string, string> = {
+  residence: "체류민원", visa: "사증민원", revision_history: "수정이력",
+};
+
+interface StagingManifest {
+  version: string;
+  baseline_version: string;
+  status: string;
+  manuals: Record<string, { source_file: string; page_count: number; pdf_path: string | null }>;
+  changed_pages_summary: Record<string, Record<string, number>>;
+  changed_page_count: number;
+  manual_ref_candidate_count: number;
+  pdf_mode: "none" | "changed-pages-only" | "full";
+  review_pdf_pages: Record<string, number[]>;
+}
+interface ChangedPageRow {
+  manual_label: string;
+  baseline_page: number | null;
+  new_page: number | null;
+  change_type: string;
+  similarity: number | null;
+  moved_from?: number | null;
+  keywords: string[];
+}
+interface StagingCandidate {
+  row_id: string;
+  item_index: number;
+  detailed_code: string;
+  manual_label: string;
+  old_page_from: number;
+  old_page_to: number;
+  candidate_page_from: number;
+  candidate_page_to: number;
+  confidence: string;
+  action: string;
+  reason: string;
+  business_name?: string;
+  major_action_std?: string;
+  user_decision?: string;
+}
+
+const CHANGE_BADGE: Record<string, { bg: string; color: string }> = {
+  modified: { bg: "#FFFFF0", color: "#6B5314" },
+  moved:    { bg: "#EBF8FF", color: "#2B6CB0" },
+  added:    { bg: "#F0FFF4", color: "#276749" },
+  deleted:  { bg: "#FFF5F5", color: "#C53030" },
+};
+
+function ManualUpdateV1Tab() {
+  const [versions, setVersions] = useState<string[]>([]);
+  const [version, setVersion] = useState<string>("");
+  const [manifest, setManifest] = useState<StagingManifest | null>(null);
+  const [changed, setChanged] = useState<ChangedPageRow[]>([]);
+  const [candidates, setCandidates] = useState<StagingCandidate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [review, setReview] = useState<{ label: string; page: number } | null>(null);
+
+  const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || "") : "";
+
+  // 버전 목록 로드
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get("/api/guidelines/manual-staging/versions");
+        const vs = (r.data?.versions ?? []) as string[];
+        setVersions(vs);
+        if (vs.length && !version) setVersion(vs[vs.length - 1]);
+      } catch { /* 무시 */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 선택 버전의 manifest/changed/candidates 로드
+  const loadVersion = useCallback(async (v: string) => {
+    if (!v) return;
+    setLoading(true);
+    setManifest(null); setChanged([]); setCandidates([]);
+    try {
+      const [m, ch, ca] = await Promise.all([
+        api.get(`/api/guidelines/manual-staging/${encodeURIComponent(v)}/manifest`),
+        api.get(`/api/guidelines/manual-staging/${encodeURIComponent(v)}/changed-pages`),
+        api.get(`/api/guidelines/manual-staging/${encodeURIComponent(v)}/candidates`),
+      ]);
+      setManifest(m.data as StagingManifest);
+      setChanged((ch.data?.rows ?? []) as ChangedPageRow[]);
+      setCandidates((ca.data?.rows ?? []) as StagingCandidate[]);
+    } catch {
+      toast.error("staging 자료를 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (version) void loadVersion(version); }, [version, loadVersion]);
+
+  // 변경 페이지의 검토 PDF가 생성되어 있는지 (review_pdf_pages 에 포함된 new_page 만)
+  const hasReviewPdf = useCallback((label: string, page: number | null) => {
+    if (!page || !manifest) return false;
+    return (manifest.review_pdf_pages?.[label] ?? []).includes(page);
+  }, [manifest]);
+
+  const pdfModeLabel: Record<string, string> = {
+    none: "없음 (변경 없음 / 미생성)",
+    "changed-pages-only": "변경 페이지만",
+    full: "전체 PDF",
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 안내 배너 */}
+      <div className="hw-card text-xs leading-relaxed" style={{ background: "#F7FAFC", borderColor: "#E2E8F0" }}>
+        <div style={{ color: "#276749", fontWeight: 600 }}>✅ 기존 실무지침 PDF 조회는 변경되지 않았습니다.</div>
+        <div style={{ color: "#4A5568", marginTop: 4 }}>아래 자료는 최신 매뉴얼 후보 검토용 staging 자료입니다.</div>
+        <div style={{ color: "#C53030", marginTop: 2 }}>승인 전에는 운영 실무지침에 반영되지 않습니다.</div>
+      </div>
+
+      {/* 버전 선택 */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-medium" style={{ color: "#718096" }}>staging 버전</span>
+        <select
+          className="hw-input text-xs"
+          style={{ minWidth: 200 }}
+          value={version}
+          onChange={(e) => setVersion(e.target.value)}>
+          {versions.length === 0 && <option value="">(staging 버전 없음)</option>}
+          {versions.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <button
+          onClick={() => version && loadVersion(version)}
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border"
+          style={{ borderColor: "#4299E1", color: "#2B6CB0", background: "#EBF8FF" }}>
+          <RotateCcw size={12} /> 새로고침
+        </button>
+        {loading && <Loader2 size={14} className="animate-spin" style={{ color: "#A0AEC0" }} />}
+      </div>
+
+      {/* manifest 요약 */}
+      {manifest && (
+        <div className="hw-card">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            {[
+              ["버전", manifest.version],
+              ["기준(baseline)", manifest.baseline_version],
+              ["상태", manifest.status],
+              ["PDF 모드", pdfModeLabel[manifest.pdf_mode] ?? manifest.pdf_mode],
+              ["매뉴얼 수", String(Object.keys(manifest.manuals || {}).length)],
+              ["변경 페이지 수", String(manifest.changed_page_count ?? 0)],
+              ["영향 후보 수", String(manifest.manual_ref_candidate_count ?? 0)],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <div style={{ color: "#A0AEC0" }}>{k}</div>
+                <div style={{ color: "#2D3748", fontWeight: 600 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Object.entries(manifest.manuals || {}).map(([label, m]) => (
+              <span key={label} className="text-xs px-2 py-1 rounded-full" style={{ background: "#EDF2F7", color: "#4A5568" }}>
+                {LABEL_KR[label] ?? label}: {m.page_count}p
+              </span>
+            ))}
+          </div>
+          {/* full PDF 생성은 명시적 CLI 옵션 (운영 영향 없음) */}
+          <div className="mt-3 text-[11px] p-2 rounded" style={{ background: "#FFFDF7", color: "#6B5314", border: "1px solid #FAF089" }}>
+            전체 staging PDF 가 필요하면 로컬에서 명시적으로 생성하세요:
+            <code className="ml-1 font-mono">python backend/scripts/manual_update_local.py --version {manifest.version} --full-pdf</code>
+            <br />기본 파이프라인은 변경 페이지 ± 이웃만 PDF 로 만들어 불필요한 작업을 최소화합니다.
+          </div>
+        </div>
+      )}
+
+      {/* 변경 페이지 테이블 */}
+      <div>
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>변경 페이지 ({changed.length})</div>
+        {changed.length === 0 ? (
+          <div className="hw-card text-sm text-center py-6" style={{ color: "#A0AEC0" }}>
+            {manifest ? "변경된 페이지가 없습니다 (baseline 과 동일)." : "버전을 선택하세요."}
+          </div>
+        ) : (
+          <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="overflow-x-auto">
+              <table className="hw-table w-full text-xs" style={{ minWidth: 760 }}>
+                <thead>
+                  <tr>{["매뉴얼", "baseline p.", "new p.", "변경 유형", "유사도", "키워드", "보기"].map(h =>
+                    <th key={h} className="text-left whitespace-nowrap">{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {changed.map((r, i) => {
+                    const badge = CHANGE_BADGE[r.change_type] ?? { bg: "#F7FAFC", color: "#718096" };
+                    const canView = hasReviewPdf(r.manual_label, r.new_page);
+                    return (
+                      <tr key={`${r.manual_label}-${r.new_page}-${i}`}>
+                        <td>{LABEL_KR[r.manual_label] ?? r.manual_label}</td>
+                        <td className="font-mono text-center">{r.baseline_page ?? "—"}</td>
+                        <td className="font-mono text-center">{r.new_page ?? "—"}</td>
+                        <td>
+                          <span className="px-2 py-0.5 rounded-full font-medium" style={{ background: badge.bg, color: badge.color }}>
+                            {r.change_type}{r.moved_from ? ` (←p.${r.moved_from})` : ""}
+                          </span>
+                        </td>
+                        <td className="font-mono text-center">{r.similarity != null ? r.similarity.toFixed(2) : "—"}</td>
+                        <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={(r.keywords || []).join(", ")}>{(r.keywords || []).join(", ") || "—"}</td>
+                        <td>
+                          {canView ? (
+                            <button onClick={() => setReview({ label: r.manual_label, page: r.new_page! })}
+                              className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                              style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
+                              <FileText size={11} /> 변경 페이지 보기
+                            </button>
+                          ) : <span style={{ color: "#CBD5E0" }}>—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 후보 테이블 */}
+      <div>
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>
+          영향 받은 manual_ref 후보 ({candidates.length}) — 승인 전 자동 반영 안 됨
+        </div>
+        {candidates.length === 0 ? (
+          <div className="hw-card text-sm text-center py-6" style={{ color: "#A0AEC0" }}>
+            영향 받은 후보가 없습니다.
+          </div>
+        ) : (
+          <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="overflow-x-auto">
+              <table className="hw-table w-full text-xs" style={{ minWidth: 920 }}>
+                <thead>
+                  <tr>{["row_id", "자격코드", "매뉴얼", "기존 p.", "후보 p.", "신뢰도", "액션", "사유", "결정", "보기"].map(h =>
+                    <th key={h} className="text-left whitespace-nowrap">{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {candidates.map((c) => {
+                    const canView = hasReviewPdf(c.manual_label, c.candidate_page_from);
+                    return (
+                      <tr key={`${c.row_id}-${c.item_index}`}>
+                        <td className="font-mono">{c.row_id}</td>
+                        <td className="font-mono">{c.detailed_code || "—"}</td>
+                        <td>{LABEL_KR[c.manual_label] ?? c.manual_label}</td>
+                        <td className="font-mono text-center">p.{c.old_page_from}-{c.old_page_to}</td>
+                        <td className="font-mono text-center">p.{c.candidate_page_from}-{c.candidate_page_to}</td>
+                        <td>{c.confidence}</td>
+                        <td>{c.action}</td>
+                        <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={c.reason}>{c.reason}</td>
+                        <td style={{ color: "#A0AEC0" }}>{c.user_decision || "미정"}</td>
+                        <td>
+                          {canView ? (
+                            <button onClick={() => setReview({ label: c.manual_label, page: c.candidate_page_from })}
+                              className="flex items-center gap-1 px-2 py-1 rounded"
+                              style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
+                              <FileText size={11} /> 보기
+                            </button>
+                          ) : <span style={{ color: "#CBD5E0" }}>—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 변경 페이지 검토 PDF 뷰어 (운영 뷰어와 분리된 staging 전용) */}
+      {review && version && (
+        <div
+          onClick={() => setReview(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 12, width: "min(80vw, 900px)", height: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #E2E8F0", flexShrink: 0 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>
+                [검토용 staging] {LABEL_KR[review.label] ?? review.label} — p.{review.page}
+              </span>
+              <button onClick={() => setReview(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#718096", lineHeight: 1 }}>✕</button>
+            </div>
+            <iframe
+              key={`${version}-${review.label}-${review.page}`}
+              src={`/api/guidelines/manual-staging/${encodeURIComponent(version)}/${encodeURIComponent(review.label)}/review-page/${review.page}/pdf?token=${encodeURIComponent(token)}#toolbar=1&view=Fit`}
+              style={{ flex: 1, border: "none", width: "100%" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ── 메인 어드민 페이지 ────────────────────────────────────────────────────────
 export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -841,6 +1264,15 @@ export default function AdminPage() {
     queryFn: () => adminApi.listAccounts().then((r) => r.data as Record<string, string>[]),
     enabled: !!user?.is_admin,
   });
+
+  // Detected from backend response. When ``storage_mode`` starts with ``pg+``
+  // we hide the four Google-Sheets-key inputs and surface storage status
+  // chips instead. Pure-Sheets installations have ``storage_mode`` absent
+  // and the original 4-key view is preserved.
+  const pgMode = isPgMode(accounts);
+  const isLocalMock = accounts.some(
+    (r) => String(r.storage_mode || "") === "pg+local-mock",
+  );
 
   const updateMut = useMutation({
     mutationFn: ({ loginId, data }: { loginId: string; data: Record<string, unknown> }) =>
@@ -905,6 +1337,23 @@ export default function AdminPage() {
         <div className="flex items-center gap-2">
           <Shield size={18} style={{ color: "var(--hw-gold)" }} />
           <h1 className="hw-page-title">관리자</h1>
+          {pgMode && (
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full"
+              style={{
+                background: isLocalMock ? "#FAF5FF" : "#EBF8FF",
+                color: isLocalMock ? "#553C9A" : "#2B6CB0",
+                border: `1px solid ${isLocalMock ? "#D6BCFA" : "#BEE3F8"}`,
+              }}
+              title={
+                isLocalMock
+                  ? "PostgreSQL + 로컬 모의 저장소 모드 — Google Sheets/Drive는 호출되지 않습니다"
+                  : "PostgreSQL 모드"
+              }
+            >
+              {isLocalMock ? "🧪 PG + 로컬 모의" : "🗄 PG 모드"}
+            </span>
+          )}
         </div>
         {activeTab === "accounts" && (
           <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-1.5 text-xs">
@@ -926,10 +1375,19 @@ export default function AdminPage() {
           <BookOpen size={12} className="inline mr-1" />
           매뉴얼 업데이트 검토
         </button>
+        <button
+          className={`hw-tab ${activeTab === "manual-v1" ? "active" : ""}`}
+          onClick={() => setActiveTab("manual-v1")}>
+          <FileText size={12} className="inline mr-1" />
+          매뉴얼 업데이트 v1 (staging)
+        </button>
       </div>
 
       {/* 매뉴얼 검토 탭 */}
       {activeTab === "manual-review" && <ManualReviewTab />}
+
+      {/* 매뉴얼 업데이트 v1 (staging 검토) 탭 */}
+      {activeTab === "manual-v1" && <ManualUpdateV1Tab />}
 
       {/* 계정 목록 */}
       {activeTab === "accounts" && (<>
@@ -940,16 +1398,25 @@ export default function AdminPage() {
       ) : (
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
           <div className="overflow-x-auto">
-            <table className="hw-table w-full" style={{ minWidth: 1400 }}>
+            <table className="hw-table w-full" style={{ minWidth: pgMode ? 1200 : 1400 }}>
               <thead>
                 <tr>
-                  {[
-                    "ID", "테넌트ID", "사무실명", "주소", "담당자", "연락처",
-                    "사업자번호", "행정사RRN", "가입일",
-                    "활성", "관리자",
-                    "고객시트키", "업무시트키", "폴더", "마스터시트",
-                    "워크스페이스", "편집", "삭제",
-                  ].map((h) => (
+                  {(pgMode
+                    ? [
+                        "ID", "테넌트ID", "사무실명", "주소", "담당자", "연락처",
+                        "사업자번호", "행정사RRN", "가입일",
+                        "활성", "관리자",
+                        "PG 저장소", "파일 저장소",
+                        "워크스페이스", "편집", "삭제",
+                      ]
+                    : [
+                        "ID", "테넌트ID", "사무실명", "주소", "담당자", "연락처",
+                        "사업자번호", "행정사RRN", "가입일",
+                        "활성", "관리자",
+                        "고객시트키", "업무시트키", "폴더", "마스터시트",
+                        "워크스페이스", "편집", "삭제",
+                      ]
+                  ).map((h) => (
                     <th key={h} className="text-left whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -1019,10 +1486,19 @@ export default function AdminPage() {
                           {isAdm ? "관리자" : "일반"}
                         </button>
                       </td>
-                      <td><InlineEdit field="customer_sheet_key" width="w-40" /></td>
-                      <td><InlineEdit field="work_sheet_key" width="w-40" /></td>
-                      <td><InlineEdit field="folder_id" width="w-32" /></td>
-                      <td><InlineEdit field="sheet_key" width="w-32" /></td>
+                      {pgMode ? (
+                        <>
+                          <td><PgStorageChip acc={acc as Record<string, unknown>} /></td>
+                          <td><FileStorageChip acc={acc as Record<string, unknown>} /></td>
+                        </>
+                      ) : (
+                        <>
+                          <td><InlineEdit field="customer_sheet_key" width="w-40" /></td>
+                          <td><InlineEdit field="work_sheet_key" width="w-40" /></td>
+                          <td><InlineEdit field="folder_id" width="w-32" /></td>
+                          <td><InlineEdit field="sheet_key" width="w-32" /></td>
+                        </>
+                      )}
                       <td>
                         {(() => {
                           const hasFolder = !!acc.folder_id;
@@ -1117,6 +1593,8 @@ export default function AdminPage() {
           onClose={() => setShowCreate(false)}
           onCreated={() => qc.invalidateQueries({ queryKey: ["admin"] })}
           onWsResult={(r) => setWsDetail(r)}
+          pgMode={pgMode}
+          isLocalMock={isLocalMock}
         />
       )}
 
@@ -1126,6 +1604,7 @@ export default function AdminPage() {
           acc={detailAcc}
           onUpdate={(loginId, data) => updateMut.mutate({ loginId, data })}
           onClose={() => setDetailAcc(null)}
+          pgMode={pgMode}
         />
       )}
 

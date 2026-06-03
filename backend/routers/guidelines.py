@@ -450,6 +450,179 @@ def serve_manual_pdf(
     )
 
 
+_STAGING_LABEL_MAP = {
+    "residence": "체류민원",
+    "visa": "사증민원",
+    "revision_history": "수정이력",
+}
+
+
+@router.get("/manual-pdf-staging/{version}/{label}/download")
+def serve_manual_pdf_staging(
+    version: str,
+    label: str,
+    user: dict = Depends(require_admin),
+):
+    """Staged rhwp PDF 다운로드 (admin only).
+
+    경로: ``backend/data/manuals/staging/{version}/rhwp_pdf/rhwp_{version}_{label}.pdf``
+    label: residence / visa / revision_history
+
+    운영 PDF 뷰어 (``/manual-pdf/{manual}``) 와 분리된 경로. 본 엔드포인트는 신규
+    rhwp 파이프라인이 만든 staging PDF 의 admin 다운로드 전용. 운영 뷰어 / 운영
+    PDF 파일은 무수정.
+    """
+    if label not in _STAGING_LABEL_MAP:
+        raise HTTPException(status_code=400, detail=f"unknown label '{label}'. Use one of {list(_STAGING_LABEL_MAP)}")
+    # version sanity — prevent path traversal
+    if not version.replace('_', '').replace('-', '').isalnum():
+        raise HTTPException(status_code=400, detail=f"invalid version: {version!r}")
+    base = os.path.join(_BASE_DIR, "data", "manuals", "staging", version, "rhwp_pdf")
+    path = os.path.join(base, f"rhwp_{version}_{label}.pdf")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"staging PDF not found: {path}")
+    from urllib.parse import quote
+    ascii_name = f"rhwp_{version}_{label}.pdf"
+    kr = _STAGING_LABEL_MAP[label]
+    utf8_name = quote(f"rhwp_{version}_{kr}.pdf", safe="")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        headers={
+            # staging — no long cache, no public sharing
+            "Cache-Control": "no-store",
+            "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}",
+            "X-Staging-Version": version,
+        },
+    )
+
+
+@router.get("/manual-pdf-staging/{version}/manifest")
+def get_manual_pdf_staging_manifest(
+    version: str,
+    user: dict = Depends(require_admin),
+):
+    """staging 버전의 manifest.json 반환. 운영 영향 없음."""
+    if not version.replace('_', '').replace('-', '').isalnum():
+        raise HTTPException(status_code=400, detail=f"invalid version: {version!r}")
+    path = os.path.join(_BASE_DIR, "data", "manuals", "staging", version, "manifest.json")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"manifest not found: {path}")
+    with open(path, encoding="utf-8") as f:
+        import json as _json
+        return _json.load(f)
+
+
+# ── Manual Update v1 — staging review endpoints (admin only) ─────────────────
+# 운영 PDF 뷰어(/manual-pdf/{manual})·운영 PDF 파일과 완전히 분리.
+# 본 엔드포인트들은 rhwp 파이프라인이 backend/data/manuals/staging/{version}/ 에
+# 만든 검토용 staging 산출물만 노출한다. 운영 데이터는 절대 건드리지 않는다.
+
+def _safe_version(version: str) -> str:
+    """버전 경로 검증 — path traversal 차단. alnum + _ + - 만 허용."""
+    if not version or not version.replace('_', '').replace('-', '').isalnum():
+        raise HTTPException(status_code=400, detail=f"invalid version: {version!r}")
+    return version
+
+
+def _staging_dir(version: str):
+    return os.path.join(_BASE_DIR, "data", "manuals", "staging", _safe_version(version))
+
+
+def _read_staging_json(version: str, *rel_parts: str):
+    """staging/{version}/<rel_parts> JSON 읽기. 없으면 404, 손상 시 500."""
+    base = _staging_dir(version)
+    path = os.path.normpath(os.path.join(base, *rel_parts))
+    # normpath 후에도 staging dir 밖이면 거부 (이중 방어)
+    if os.path.commonpath([os.path.abspath(path), os.path.abspath(base)]) != os.path.abspath(base):
+        raise HTTPException(status_code=400, detail="invalid path")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"not found: {os.path.basename(path)}")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"read failed: {e}")
+
+
+_NOSTORE = {"Cache-Control": "no-store"}
+
+
+@router.get("/manual-staging/versions")
+def list_manual_staging_versions(user: dict = Depends(require_admin)):
+    """staging/ 아래 사용 가능한 버전 목록 (manifest.json 보유 버전만)."""
+    root = os.path.join(_BASE_DIR, "data", "manuals", "staging")
+    out = []
+    if os.path.isdir(root):
+        for name in sorted(os.listdir(root)):
+            d = os.path.join(root, name)
+            if os.path.isdir(d) and os.path.isfile(os.path.join(d, "manifest.json")):
+                out.append(name)
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"versions": out}, headers=_NOSTORE)
+
+
+@router.get("/manual-staging/{version}/manifest")
+def get_manual_staging_manifest(version: str, user: dict = Depends(require_admin)):
+    """staging 버전 manifest.json (pdf_mode/changed_page_count/candidate_count 포함)."""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(_read_staging_json(version, "manifest.json"), headers=_NOSTORE)
+
+
+@router.get("/manual-staging/{version}/changed-pages")
+def get_manual_staging_changed_pages(version: str, user: dict = Depends(require_admin)):
+    """변경 페이지 목록 (non-same: modified/moved/added/deleted)."""
+    from fastapi.responses import JSONResponse
+    data = _read_staging_json(version, "diff", "changed_pages.json")
+    return JSONResponse({"version": version, "count": len(data), "rows": data}, headers=_NOSTORE)
+
+
+@router.get("/manual-staging/{version}/candidates")
+def get_manual_staging_candidates(version: str, user: dict = Depends(require_admin)):
+    """영향 받은 manual_ref 후보 목록 (변경 페이지에 연결된 항목만)."""
+    from fastapi.responses import JSONResponse
+    data = _read_staging_json(version, "candidates", "manual_ref_update_candidates.json")
+    return JSONResponse({"version": version, "count": len(data), "rows": data}, headers=_NOSTORE)
+
+
+@router.get("/manual-staging/{version}/{label}/review-page/{page_no}/pdf")
+def get_manual_staging_review_page_pdf(
+    version: str,
+    label: str,
+    page_no: int,
+    token: Optional[str] = Query(None, description="JWT (iframe 인증용 query token)"),
+    authorization: Optional[str] = Header(None),
+):
+    """변경 페이지 검토용 PDF 1장 서빙.
+
+    경로: staging/{version}/review_pdf_pages/{label}/p####.pdf
+    iframe 임베드 지원을 위해 query token 또는 Authorization 헤더 허용 — 단,
+    반드시 admin 토큰이어야 한다. 운영 PDF 뷰어와 분리된 검토 전용 경로.
+    """
+    payload = _verify_token_flexible(token, authorization)
+    if not payload.get("is_admin"):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
+    if label not in _STAGING_LABEL_MAP:
+        raise HTTPException(status_code=400, detail=f"unknown label '{label}'. Use one of {list(_STAGING_LABEL_MAP)}")
+    if page_no < 1 or page_no > 99999:
+        raise HTTPException(status_code=400, detail=f"invalid page_no: {page_no}")
+    base = _staging_dir(version)
+    path = os.path.normpath(os.path.join(base, "review_pdf_pages", label, f"p{page_no:04d}.pdf"))
+    if os.path.commonpath([os.path.abspath(path), os.path.abspath(base)]) != os.path.abspath(base):
+        raise HTTPException(status_code=400, detail="invalid path")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"review page PDF not found: {label} p.{page_no}")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": f'inline; filename="review_{label}_p{page_no:04d}.pdf"',
+            "X-Staging-Version": version,
+        },
+    )
+
+
 @router.get("/manual-pdf-info")
 def get_manual_pdf_info(user: dict = Depends(get_current_user)):
     """프론트가 사용 가능한 매뉴얼 목록 + 메타 정보 조회."""
