@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { adminApi, api } from "@/lib/api";
@@ -653,8 +653,31 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }>
   SKIP:         { label: "건너뜀",   bg: "#F7FAFC", color: "#A0AEC0" },
 };
 
+// 우선순위: HIGH=미발견·큰 페이지 이동·복잡자격(F-5/F-2/E-7/F-1), MEDIUM=페이지변경, LOW=일치/완료
+const HIGH_CODE_RE = /^(F-5|F-2|E-7|F-1)\b/;
+const PRIO_META: Record<string, { label: string; bg: string; color: string; rank: number }> = {
+  HIGH:   { label: "HIGH",   bg: "#FFF5F5", color: "#C53030", rank: 3 },
+  MEDIUM: { label: "MEDIUM", bg: "#FFFFF0", color: "#975A16", rank: 2 },
+  LOW:    { label: "LOW",    bg: "#F7FAFC", color: "#A0AEC0", rank: 1 },
+};
+function rowPriority(r: RematchRow): "HIGH" | "MEDIUM" | "LOW" {
+  if (r.applied || r.reviewed || r.status === "PASS" || r.status === "SKIP") return "LOW";
+  const moved = r.found_page && r.current_page_from ? Math.abs(r.found_page - r.current_page_from) : 0;
+  if (r.status === "NOT_FOUND" || moved >= 20 || HIGH_CODE_RE.test(r.detailed_code || "")) return "HIGH";
+  if (r.status === "PAGE_CHANGED") return "MEDIUM";
+  return "LOW";
+}
+
+type RvStatusFilter = "needReview" | "all" | "PAGE_CHANGED" | "NOT_FOUND" | "PASS" | "applied";
+type RvGroupBy = "found_page" | "code" | "action" | "none";
+
 function ManualReviewTab() {
-  const [filter, setFilter] = useState<"all" | "changed" | "review" | "done">("all");
+  const [statusFilter, setStatusFilter] = useState<RvStatusFilter>("needReview");
+  const [manualFilter, setManualFilter] = useState<string>("");
+  const [codeFilter, setCodeFilter] = useState<string>("");
+  const [groupBy, setGroupBy] = useState<RvGroupBy>("found_page");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [approvingGroup, setApprovingGroup] = useState<string | null>(null);
   const { submit: submitRematch, isSubmitting: runningRematch } = useSubmit();
   const [rows, setRows] = useState<RematchRow[]>([]);
   const [lastRun, setLastRun] = useState<string | null>(null);
@@ -710,18 +733,212 @@ function ManualReviewTab() {
     finally { setSkippingRowId(null); }
   };
 
-  const filtered = rows.filter(r => {
-    if (filter === "all") return true;
-    if (filter === "changed") return r.status === "PAGE_CHANGED" && !r.reviewed;
-    if (filter === "review") return r.status === "NOT_FOUND" && !r.reviewed;
-    if (filter === "done") return r.reviewed || r.applied;
+  // 그룹 승인 = 그룹 내 미검토 행을 '검토완료'로 표시 (skip 엔드포인트 → 검토 JSON 에만 기록).
+  // 운영 실무지침(manual_ref)에는 절대 쓰지 않는다. 운영 반영은 행별 '적용' 버튼으로만.
+  const handleGroupApprove = async (groupKey: string, groupRows: RematchRow[]) => {
+    const actionable = groupRows.filter(r => !r.reviewed && !r.applied);
+    if (!actionable.length) return;
+    if (!window.confirm(
+      `이 그룹의 ${actionable.length}건을 '검토완료'로 표시합니다.\n` +
+      `※ 운영 실무지침(manual_ref)에는 기록하지 않습니다 (staging 표시만).`
+    )) return;
+    setApprovingGroup(groupKey);
+    try {
+      for (const r of actionable) {
+        await api.post(`/api/manual/update-review/${r.row_id}/skip`);
+      }
+      const ids = new Set(actionable.map(r => r.row_id));
+      setRows(prev => prev.map(r => ids.has(r.row_id) ? { ...r, reviewed: true } : r));
+      toast.success(`${actionable.length}건 검토완료 표시 (운영 미반영)`);
+    } catch { toast.error("그룹 검토완료 실패"); }
+    finally { setApprovingGroup(null); }
+  };
+
+  // ── 요약 카운트 ──
+  const summary = {
+    total: rows.length,
+    pass: rows.filter(r => r.status === "PASS" && !r.applied).length,
+    applied: rows.filter(r => r.applied).length,
+    pageChanged: rows.filter(r => r.status === "PAGE_CHANGED" && !r.reviewed && !r.applied).length,
+    notFound: rows.filter(r => r.status === "NOT_FOUND" && !r.reviewed && !r.applied).length,
+  };
+  const needReview = summary.pageChanged + summary.notFound;
+
+  // ── 필터 적용 (기본: 검토필요만 → 일치/적용완료 숨김) ──
+  const manualOptions = Array.from(new Set(rows.map(r => r.manual).filter(Boolean)));
+  const visible = rows.filter(r => {
+    const needs = (r.status === "PAGE_CHANGED" || r.status === "NOT_FOUND") && !r.reviewed && !r.applied;
+    if (statusFilter === "needReview" && !needs) return false;
+    if (statusFilter === "PAGE_CHANGED" && r.status !== "PAGE_CHANGED") return false;
+    if (statusFilter === "NOT_FOUND" && r.status !== "NOT_FOUND") return false;
+    if (statusFilter === "PASS" && r.status !== "PASS") return false;
+    if (statusFilter === "applied" && !r.applied) return false;
+    if (manualFilter && r.manual !== manualFilter) return false;
+    if (codeFilter && !(r.detailed_code || "").toLowerCase().includes(codeFilter.toLowerCase())) return false;
     return true;
   });
 
-  const counts = {
-    changed: rows.filter(r => r.status === "PAGE_CHANGED" && !r.reviewed).length,
-    review:  rows.filter(r => r.status === "NOT_FOUND" && !r.reviewed).length,
-    done:    rows.filter(r => r.reviewed || r.applied).length,
+  // ── 그룹핑 (발견 페이지 / 자격코드 / 업무 / 없음) ──
+  const groupKeyOf = (r: RematchRow): string => {
+    if (groupBy === "found_page") return `${r.manual} · 발견 p.${r.found_page || "—"}`;
+    if (groupBy === "code") return r.detailed_code || "(코드 없음)";
+    if (groupBy === "action") return r.action_type || "(업무 없음)";
+    return r.row_id; // none → 행별 단독
+  };
+  const groupMap = new Map<string, RematchRow[]>();
+  for (const r of visible) {
+    const k = groupKeyOf(r);
+    (groupMap.get(k) ?? groupMap.set(k, []).get(k)!).push(r);
+  }
+  const groups = Array.from(groupMap.entries()).map(([key, gr]) => {
+    const topPrio = gr.reduce<"HIGH" | "MEDIUM" | "LOW">((acc, r) => {
+      const p = rowPriority(r);
+      return PRIO_META[p].rank > PRIO_META[acc].rank ? p : acc;
+    }, "LOW");
+    const actionable = gr.filter(r => !r.reviewed && !r.applied).length;
+    return { key, rows: gr, topPrio, actionable };
+  }).sort((a, b) => PRIO_META[b.topPrio].rank - PRIO_META[a.topPrio].rank);
+
+  const toggleGroup = (k: string) =>
+    setCollapsed(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+
+  const SUMMARY_CARDS: { label: string; value: number; filter: RvStatusFilter; bg: string; color: string }[] = [
+    { label: "전체",        value: summary.total,       filter: "all",        bg: "#F7FAFC", color: "#2D3748" },
+    { label: "검토필요",     value: needReview,          filter: "needReview", bg: "#FFFAF0", color: "#9C4221" },
+    { label: "페이지 변경",   value: summary.pageChanged, filter: "PAGE_CHANGED", bg: "#FFFFF0", color: "#6B5314" },
+    { label: "미발견",       value: summary.notFound,    filter: "NOT_FOUND",  bg: "#FFF5F5", color: "#C53030" },
+    { label: "자동통과/일치", value: summary.pass,        filter: "PASS",       bg: "#F0FFF4", color: "#276749" },
+    { label: "적용완료",     value: summary.applied,     filter: "applied",    bg: "#EBF8FF", color: "#2B6CB0" },
+  ];
+
+  // ── 행 렌더 (apply/직접입력/건너뜀 액션 유지) ──
+  const renderRow = (row: RematchRow) => {
+    const badge = row.applied
+      ? { label: "적용완료", bg: "#EBF8FF", color: "#2B6CB0" }
+      : row.reviewed
+      ? { label: "확인됨", bg: "#F7FAFC", color: "#A0AEC0" }
+      : STATUS_BADGE[row.status] ?? STATUS_BADGE.SKIP;
+    const canAct = !row.reviewed && !row.applied;
+    const prio = rowPriority(row);
+    const pm = PRIO_META[prio];
+    return (
+      <tr key={row.row_id}>
+        <td>
+          <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
+        </td>
+        <td className="font-mono">{row.detailed_code || "—"}</td>
+        <td style={{ color: "#718096" }}>{row.action_type}</td>
+        <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={row.title}>{row.title}</td>
+        <td>{row.manual}</td>
+        <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
+          <span>{row.current_page_from}{row.current_page_to !== row.current_page_from ? `–${row.current_page_to}` : ""}</span>
+          <button
+            onClick={() => setPdfPreview({ manual: row.manual, page: row.current_page_from, label: "현재 페이지" })}
+            title="현재 페이지 PDF 보기"
+            style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
+            <FileText size={13} />
+          </button>
+        </td>
+        <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
+          {row.found_page ? (
+            <>
+              <span style={{ color: row.status === "PAGE_CHANGED" ? "#D97706" : "inherit" }}>{row.found_page}</span>
+              <button
+                onClick={() => setPdfPreview({ manual: row.manual, page: row.found_page, label: "발견 페이지" })}
+                title="발견 페이지 PDF 보기"
+                style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
+                <FileText size={13} />
+              </button>
+            </>
+          ) : <span style={{ color: "#CBD5E0" }}>—</span>}
+        </td>
+        <td>
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+            style={{ background: badge.bg, color: badge.color }}>
+            {badge.label}
+          </span>
+        </td>
+        <td>
+          {canAct && row.status === "PAGE_CHANGED" && (
+            <div className="flex gap-1.5 flex-wrap">
+              {/* 운영 반영(적용) — 행별 명시적 액션 */}
+              <button onClick={() => handleApply(row, row.found_page, row.found_page)}
+                disabled={applyingRowId === row.row_id}
+                title="운영 실무지침에 이 페이지를 적용합니다"
+                className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11, opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
+                {applyingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 적용 (p.{row.found_page})
+              </button>
+              {inlineEdit?.rowId === row.row_id ? (
+                <div className="flex gap-1 items-center">
+                  <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
+                    className="hw-input w-12 text-xs" placeholder="from" />
+                  <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
+                    className="hw-input w-12 text-xs" placeholder="to" />
+                  <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
+                    disabled={applyingRowId === row.row_id}
+                    style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
+                    {applyingRowId === row.row_id ? "저장 중..." : "저장"}
+                  </button>
+                  <button onClick={() => setInlineEdit(null)}
+                    style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.found_page), pt: String(row.found_page) })}
+                  className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                  style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
+                  <Edit3 size={11} /> 직접 페이지 입력
+                </button>
+              )}
+              <button onClick={() => handleSkip(row.row_id)}
+                disabled={skippingRowId === row.row_id}
+                title="검토완료로 표시 (운영 미반영)"
+                className="flex items-center gap-1 px-2 py-1 rounded"
+                style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
+                {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 보류
+              </button>
+            </div>
+          )}
+          {canAct && row.status === "NOT_FOUND" && (
+            <div className="flex gap-1.5 flex-wrap">
+              {inlineEdit?.rowId === row.row_id ? (
+                <div className="flex gap-1 items-center">
+                  <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
+                    className="hw-input w-12 text-xs" placeholder="from" />
+                  <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
+                    className="hw-input w-12 text-xs" placeholder="to" />
+                  <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
+                    disabled={applyingRowId === row.row_id}
+                    style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
+                    {applyingRowId === row.row_id ? "저장 중..." : "저장"}
+                  </button>
+                  <button onClick={() => setInlineEdit(null)}
+                    style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.current_page_from), pt: String(row.current_page_to) })}
+                  className="flex items-center gap-1 px-2 py-1 rounded font-medium"
+                  style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
+                  <Edit3 size={11} /> 직접 페이지 입력
+                </button>
+              )}
+              <button onClick={() => handleSkip(row.row_id)}
+                disabled={skippingRowId === row.row_id}
+                title="미발견 상태 유지 + 검토완료 표시 (운영 미반영)"
+                className="flex items-center gap-1 px-2 py-1 rounded"
+                style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
+                {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 미발견 유지
+              </button>
+            </div>
+          )}
+        </td>
+      </tr>
+    );
   };
 
   return (
@@ -749,159 +966,96 @@ function ManualReviewTab() {
         </SubmitButton>
       </div>
 
-      {/* 필터 */}
-      <div className="flex gap-2 flex-wrap">
-        {([
-          { key: "all",     label: "전체",      count: rows.length },
-          { key: "changed", label: "페이지 변경", count: counts.changed },
-          { key: "review",  label: "재확인 필요", count: counts.review },
-          { key: "done",    label: "완료",       count: counts.done },
-        ] as const).map(({ key, label, count }) => (
-          <button key={key}
-            onClick={() => setFilter(key)}
-            className={`hw-tab ${filter === key ? "active" : ""}`}>
-            {label} {count > 0 && <span className="ml-1 text-xs opacity-70">({count})</span>}
+      {/* 요약 카드 (클릭 시 해당 상태로 필터) */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        {SUMMARY_CARDS.map(c => (
+          <button key={c.label} onClick={() => setStatusFilter(c.filter)}
+            className="hw-card text-left"
+            style={{
+              padding: "10px 12px", cursor: "pointer",
+              border: statusFilter === c.filter ? `2px solid ${c.color}` : "1px solid #E2E8F0",
+              background: c.bg,
+            }}>
+            <div style={{ fontSize: 11, color: c.color, fontWeight: 600 }}>{c.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.color, lineHeight: 1.2 }}>{c.value}</div>
           </button>
         ))}
       </div>
 
-      {/* 테이블 */}
-      {filtered.length === 0 ? (
+      {/* 필터 행: 매뉴얼 / 자격코드 / 그룹기준 / 빠른토글 */}
+      <div className="flex gap-2 flex-wrap items-center text-xs">
+        <select className="hw-input text-xs" style={{ minWidth: 120 }}
+          value={manualFilter} onChange={e => setManualFilter(e.target.value)}>
+          <option value="">매뉴얼 전체</option>
+          {manualOptions.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <input className="hw-input text-xs" style={{ width: 130 }} placeholder="자격코드 검색"
+          value={codeFilter} onChange={e => setCodeFilter(e.target.value)} />
+        <span style={{ color: "#A0AEC0" }}>|</span>
+        <span style={{ color: "#718096" }}>그룹</span>
+        {([
+          { k: "found_page", label: "발견 페이지" },
+          { k: "code", label: "자격코드" },
+          { k: "action", label: "업무" },
+          { k: "none", label: "없음" },
+        ] as const).map(({ k, label }) => (
+          <button key={k} onClick={() => setGroupBy(k)}
+            className={`hw-tab ${groupBy === k ? "active" : ""}`}>{label}</button>
+        ))}
+        <span style={{ color: "#A0AEC0" }}>|</span>
+        <button onClick={() => setStatusFilter("NOT_FOUND")} className={`hw-tab ${statusFilter === "NOT_FOUND" ? "active" : ""}`}>미발견만</button>
+        <button onClick={() => setStatusFilter("PAGE_CHANGED")} className={`hw-tab ${statusFilter === "PAGE_CHANGED" ? "active" : ""}`}>페이지 변경만</button>
+      </div>
+
+      {/* 그룹 테이블 */}
+      {visible.length === 0 ? (
         <div className="hw-card text-sm text-center py-10" style={{ color: "#A0AEC0" }}>
-          {rows.length === 0 ? "재탐색을 실행해 주세요." : "해당 항목 없음"}
+          {rows.length === 0 ? "재탐색을 실행해 주세요." : "해당 조건의 항목이 없습니다 (일치/적용완료는 기본 숨김)."}
         </div>
       ) : (
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
           <div className="overflow-x-auto">
-            <table className="hw-table w-full text-xs" style={{ minWidth: 900 }}>
+            <table className="hw-table w-full text-xs" style={{ minWidth: 980 }}>
               <thead>
                 <tr>
-                  {["자격코드", "업무", "제목", "매뉴얼", "현재 페이지", "발견 페이지", "상태", "액션"].map(h => (
+                  {["우선순위", "자격코드", "업무", "제목", "매뉴얼", "현재 페이지", "발견 페이지", "상태", "액션"].map(h => (
                     <th key={h} className="text-left whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(row => {
-                  const badge = row.applied
-                    ? { label: "적용완료", bg: "#EBF8FF", color: "#2B6CB0" }
-                    : row.reviewed
-                    ? { label: "확인됨", bg: "#F7FAFC", color: "#A0AEC0" }
-                    : STATUS_BADGE[row.status] ?? STATUS_BADGE.SKIP;
-                  const canAct = !row.reviewed && !row.applied;
-
+                {groups.map(g => {
+                  const isCollapsed = collapsed.has(g.key);
+                  const pm = PRIO_META[g.topPrio];
+                  const single = groupBy === "none";
                   return (
-                    <tr key={row.row_id}>
-                      <td className="font-mono">{row.detailed_code || "—"}</td>
-                      <td style={{ color: "#718096" }}>{row.action_type}</td>
-                      <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                        title={row.title}>{row.title}</td>
-                      <td>{row.manual}</td>
-                      <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
-                        <span>{row.current_page_from}{row.current_page_to !== row.current_page_from ? `–${row.current_page_to}` : ""}</span>
-                        <button
-                          onClick={() => setPdfPreview({ manual: row.manual, page: row.current_page_from, label: "현재 페이지" })}
-                          title="현재 페이지 PDF 보기"
-                          style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
-                          <FileText size={13} />
-                        </button>
-                      </td>
-                      <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
-                        {row.found_page ? (
-                          <>
-                            <span style={{ color: row.status === "PAGE_CHANGED" ? "#D97706" : "inherit" }}>{row.found_page}</span>
-                            <button
-                              onClick={() => setPdfPreview({ manual: row.manual, page: row.found_page, label: "발견 페이지" })}
-                              title="발견 페이지 PDF 보기"
-                              style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
-                              <FileText size={13} />
-                            </button>
-                          </>
-                        ) : <span style={{ color: "#CBD5E0" }}>—</span>}
-                      </td>
-                      <td>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{ background: badge.bg, color: badge.color }}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td>
-                        {canAct && row.status === "PAGE_CHANGED" && (
-                          <div className="flex gap-1.5 flex-wrap">
-                            {/* 자동 적용 버튼 */}
-                            <button onClick={() => handleApply(row, row.found_page, row.found_page)}
-                              disabled={applyingRowId === row.row_id}
-                              className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                              style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11, opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
-                              {applyingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 적용 (p.{row.found_page})
-                            </button>
-                            {/* 직접 입력 */}
-                            {inlineEdit?.rowId === row.row_id ? (
-                              <div className="flex gap-1 items-center">
-                                <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
-                                  className="hw-input w-12 text-xs" placeholder="from" />
-                                <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
-                                  className="hw-input w-12 text-xs" placeholder="to" />
-                                <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
-                                  disabled={applyingRowId === row.row_id}
-                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
-                                  {applyingRowId === row.row_id ? "저장 중..." : "저장"}
-                                </button>
-                                <button onClick={() => setInlineEdit(null)}
-                                  style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
-                                  취소
-                                </button>
-                              </div>
-                            ) : (
-                              <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.found_page), pt: String(row.found_page) })}
-                                className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                                style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
-                                <Edit3 size={11} /> 직접 입력
+                    <Fragment key={g.key}>
+                      {!single && (
+                        <tr style={{ background: "#F7FAFC" }}>
+                          <td colSpan={9} style={{ padding: "6px 10px" }}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button onClick={() => toggleGroup(g.key)}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "#4A5568", display: "flex", alignItems: "center", gap: 4, fontWeight: 700 }}>
+                                <ChevronRight size={14} style={{ transform: isCollapsed ? "none" : "rotate(90deg)", transition: "transform .15s" }} />
+                                {g.key}
                               </button>
-                            )}
-                            <button onClick={() => handleSkip(row.row_id)}
-                              disabled={skippingRowId === row.row_id}
-                              className="flex items-center gap-1 px-2 py-1 rounded"
-                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
-                              {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 건너뜀
-                            </button>
-                          </div>
-                        )}
-                        {canAct && row.status === "NOT_FOUND" && (
-                          <div className="flex gap-1.5 flex-wrap">
-                            {inlineEdit?.rowId === row.row_id ? (
-                              <div className="flex gap-1 items-center">
-                                <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
-                                  className="hw-input w-12 text-xs" placeholder="from" />
-                                <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
-                                  className="hw-input w-12 text-xs" placeholder="to" />
-                                <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
-                                  disabled={applyingRowId === row.row_id}
-                                  style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
-                                  {applyingRowId === row.row_id ? "저장 중..." : "저장"}
+                              <span style={{ fontSize: 11, color: "#718096" }}>({g.rows.length}건)</span>
+                              <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
+                              {g.actionable > 0 && (
+                                <button onClick={() => handleGroupApprove(g.key, g.rows)}
+                                  disabled={approvingGroup === g.key}
+                                  title="그룹 전체를 검토완료로 표시 (운영 실무지침 미반영)"
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded font-medium"
+                                  style={{ background: "#FEFCBF", border: "1px solid #D69E2E", color: "#975A16", fontSize: 11, opacity: approvingGroup === g.key ? 0.5 : 1 }}>
+                                  {approvingGroup === g.key ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 그룹 승인 (검토완료 표시)
                                 </button>
-                                <button onClick={() => setInlineEdit(null)}
-                                  style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
-                                  취소
-                                </button>
-                              </div>
-                            ) : (
-                              <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.current_page_from), pt: String(row.current_page_to) })}
-                                className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                                style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
-                                <Edit3 size={11} /> 직접 입력
-                              </button>
-                            )}
-                            <button onClick={() => handleSkip(row.row_id)}
-                              disabled={skippingRowId === row.row_id}
-                              className="flex items-center gap-1 px-2 py-1 rounded"
-                              style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
-                              {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 건너뜀
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {(single || !isCollapsed) && g.rows.map(renderRow)}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -1076,6 +1230,18 @@ function ManualUpdateV1Tab() {
         </button>
         {loading && <Loader2 size={14} className="animate-spin" style={{ color: "#A0AEC0" }} />}
       </div>
+
+      {/* 빈 상태 안내 (staging 검토본 없음) */}
+      {!loading && versions.length === 0 && (
+        <div className="hw-card text-sm" style={{ color: "#4A5568", lineHeight: 1.7 }}>
+          <div style={{ fontWeight: 700, color: "#2D3748", marginBottom: 6 }}>
+            아직 생성된 매뉴얼 staging 검토본이 없습니다.
+          </div>
+          <div>이 화면은 새 매뉴얼을 분석한 뒤 변경 페이지와 manual_ref 후보를 검토하는 곳입니다.</div>
+          <div style={{ color: "#276749" }}>기존 실무지침 PDF 조회는 정상 유지됩니다.</div>
+          <div style={{ color: "#C53030" }}>승인 전에는 운영 실무지침에 반영되지 않습니다.</div>
+        </div>
+      )}
 
       {/* manifest 요약 */}
       {manifest && (
