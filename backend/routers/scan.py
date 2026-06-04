@@ -422,6 +422,23 @@ def scan_register(
 
     def _norm(s): return str(s or "").strip()
 
+    def _invalidate_customer_caches():
+        """저장 성공 직후 고객 관련 캐시를 비워, 고객관리 목록이 즉시 갱신되도록 한다.
+
+        특히 Sheets 경로는 raw worksheet(batch_update/append_row)로 직접 쓰므로
+        tenant_service.read_sheet 의 120초 read 캐시를 우회한다 → 명시적 무효화 필요.
+        PG 경로에서는 해당 키가 없어 no-op (안전)."""
+        try:
+            from backend.services.tenant_service import invalidate_read_cache
+            invalidate_read_cache(tenant_id, CUSTOMER_SHEET_NAME)
+        except Exception:
+            pass
+        try:
+            from backend.services.cache_service import cache_invalidate
+            cache_invalidate(tenant_id, "customers:expiry-alerts")
+        except Exception:
+            pass
+
     # ── PG 경로 (현재 PostgreSQL 런타임) ────────────────────────────────────
     # customers 라우터(add_customer/update_customer)와 동일하게 feature flag 를
     # 존중하고 동일 서비스(customer_pg_service)로 라우팅한다. 플래그가 꺼져 있으면
@@ -460,6 +477,7 @@ def scan_register(
                 merged = {**existing, **non_empty}
                 merged["고객ID"] = customer_id
                 upsert_customer(tenant_id, merged)
+                _invalidate_customer_caches()
                 _log.warning("[SCAN][BE][PG] PATH=updated customer_id=%r match=%s",
                              customer_id, match_reason)
                 return {
@@ -471,6 +489,7 @@ def scan_register(
             payload = dict(non_empty)
             payload["고객ID"] = new_id
             upsert_customer(tenant_id, payload)
+            _invalidate_customer_caches()
             _log.warning("[SCAN][BE][PG] PATH=created customer_id=%r tenant=%r", new_id, tenant_id)
             return {
                 "status": "created",
@@ -567,6 +586,7 @@ def scan_register(
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"고객 업데이트 실패: {str(e)}")
 
+        _invalidate_customer_caches()
         return {
             "status": "updated",
             "고객ID": customer_id,
@@ -601,6 +621,7 @@ def scan_register(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"고객 추가 실패: {str(e)}")
 
+    _invalidate_customer_caches()
     return {
         "status": "created",
         "고객ID": new_id,

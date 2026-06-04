@@ -1896,6 +1896,9 @@ export default function CustomersPage() {
         total_pages: number;
       }),
     staleTime: 2_000,
+    // OCR 스캔 등 다른 창/탭에서 고객을 추가한 뒤 이 창으로 돌아오면 즉시 재조회.
+    // (같은 창 내 등록은 scan 페이지의 invalidateQueries(["customers"])가 처리)
+    refetchOnWindowFocus: true,
   });
 
   const customers = pageData?.items ?? [];
