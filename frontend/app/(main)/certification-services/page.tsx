@@ -881,7 +881,7 @@ export default function CertificationServicesPage() {
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1A202C", margin: 0 }}>각종공인증</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1A202C", margin: 0 }}>기타업무참고</h1>
         <button onClick={load} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 12px", border: "1px solid #CBD5E0", borderRadius: 6, background: "#fff", cursor: "pointer", fontSize: 13, color: "#4A5568" }}>
           <RefreshCw size={13} /> 새로고침
         </button>

@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import {
   Home, Users, DollarSign, ClipboardList, FileText,
-  ScanLine, MessageSquare, Settings, LogOut, Zap, BookOpen,
+  ScanLine, MessageSquare, Settings, LogOut, Zap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { href: "/daily",      label: "결산",     icon: DollarSign },
   { href: "/memos",      label: "메모",     icon: FileText },
   { href: "/board",      label: "게시판",   icon: MessageSquare },
-  { href: "/reference",  label: "업무참고", icon: BookOpen },
+  // 업무참고는 기타업무참고로 대체되어 메뉴에서 숨김 (라우트는 유지).
   { href: "/scan",       label: "OCR 스캔", icon: ScanLine },
   { href: "/quick-doc",  label: "위임장",   icon: Zap },
 ];

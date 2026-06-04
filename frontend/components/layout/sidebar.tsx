@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import {
   Home, Users, ClipboardList, DollarSign,
-  FileText, ScanLine, BookOpen, Search, FileEdit,
+  FileText, ScanLine, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
   ExternalLink, X, Library, Globe, User, Award,
 } from "lucide-react";
@@ -17,8 +17,9 @@ const NAV_ITEMS = [
   { href: "/monthly",    label: "월간결산",       icon: BarChart2 },
   { href: "/quick-doc",  label: "문서자동작성",   icon: FileEdit },
   { href: "/scan",       label: "OCR 스캔",       icon: ScanLine },
-  { href: "/reference",               label: "업무참고",    icon: BookOpen },
-  { href: "/certification-services",  label: "각종공인증",  icon: Award },
+  // 업무참고는 기타업무참고(각종공인증)로 대체되어 메뉴에서 숨김. 라우트/데이터는 유지.
+  // { href: "/reference",            label: "업무참고",    icon: BookOpen },
+  { href: "/certification-services",  label: "기타업무참고", icon: Award },
   { href: "/guidelines",              label: "실무지침",    icon: Library },
   { href: "/search",     label: "통합검색",       icon: Search },
   { href: "/memos",      label: "메모",           icon: FileText },
