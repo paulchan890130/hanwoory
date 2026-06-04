@@ -967,10 +967,35 @@ def create_workspace(
         stages["accounts_update"] = {"status": "failed", "error": err_msg}
         log.error("[workspace] Accounts 업데이트 실패: %s", err_msg)
 
+    # ── 온보딩 샘플 데이터 시드 (PG 백엔드일 때만) ──────────────────────────
+    # local-mock 분기와 동일하게, PG가 구성된 런타임에서는 신규 테넌트의
+    # 업무참고/각종공인증(기타업무참고) 영역에 instructional 예시 데이터만 1회 시드한다.
+    # empty-only·idempotent 이므로 기존/실데이터는 절대 건드리지 않는다.
+    # 주의: 이 시드는 PG instructional 샘플만 넣는다. Google Sheets 템플릿
+    # (WORK_REFERENCE_TEMPLATE_ID) 복사본의 탭 내용은 별도 데이터이며 여기서 변경하지 않는다.
+    try:
+        from backend.db.session import is_configured as _is_cfg
+        if _is_cfg():
+            from backend.services.tenant_sample_seed_service import seed_new_tenant_sample_data
+            seed = seed_new_tenant_sample_data(login_id, work_sheet_key)
+            stages["sample_seed"] = {
+                "status": "seeded" if (seed.get("reference_rows") or
+                                       any(seed.get("certification", {}).values()))
+                          else "skipped-or-existing",
+                "reference_rows": seed.get("reference_rows", 0),
+                "certification": seed.get("certification", {}),
+                "error": "; ".join(seed.get("errors", [])) or None,
+            }
+    except Exception as e:
+        log.warning("[workspace] 샘플 시드 실패 (non-fatal): %s", e)
+        stages["sample_seed"] = {"status": "failed", "error": str(e)}
+
     # ── 최종 응답 ────────────────────────────────────────────────────────────
+    # sample_seed 는 비핵심(non-fatal) 온보딩 단계이므로 성공 판정에서 제외한다.
     any_failed = any(
         s.get("status") == "failed"
-        for s in stages.values()
+        for k, s in stages.items()
+        if k != "sample_seed"
     )
     return {
         "ok": not any_failed,
