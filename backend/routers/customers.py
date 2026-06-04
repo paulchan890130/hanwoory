@@ -728,7 +728,10 @@ def get_accommodation_provider(customer_id: str, user: dict = Depends(get_curren
     if pg_customers_enabled():
         from backend.services.relationship_pg_service import get_accommodation
         record = get_accommodation(user["tenant_id"], customer_id)
-        return {"data": record}
+        # PG/Sheets 응답 형태 통일: 레코드를 그대로 반환한다(프론트는 응답 body 자체를
+        # 레코드로 기대). 이전엔 {"data": record} 로 이중 래핑되어 PG 모드에서 카드 재조회
+        # 시 숙소제공자 바인딩이 사라져 보였다. (Sheets 경로는 record 를 그대로 반환.)
+        return record
     tenant_id = user["tenant_id"]
     try:
         ws = _get_accommodation_ws(tenant_id)
@@ -746,6 +749,7 @@ def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depen
     """고객의 숙소제공자 연결 저장 (upsert)."""
     from backend.db.feature_flags import pg_customers_enabled
     if pg_customers_enabled():
+        print(f"[write-path] lodging-provider: PG tenant={user['tenant_id']!r}")
         from backend.services.relationship_pg_service import save_accommodation
         data["target_customer_id"] = customer_id
         record = save_accommodation(user["tenant_id"], data)
@@ -754,6 +758,7 @@ def save_accommodation_provider(customer_id: str, data: dict, user: dict = Depen
     provider_type=customer_db이면 고객 DB에서 빈 필드를 자동 보완한다."""
     import datetime
     tenant_id = user["tenant_id"]
+    print(f"[write-path] lodging-provider: SHEETS tenant={tenant_id!r}")
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     record = {
@@ -1006,10 +1011,12 @@ def save_guarantor(customer_id: str, data: dict, user: dict = Depends(get_curren
     import datetime
     tenant_id = user["tenant_id"]
     if pg_customers_enabled():
+        print(f"[write-path] guarantor: PG tenant={tenant_id!r}")
         from backend.services.relationship_pg_service import save_guarantor as _pg
         data["target_customer_id"] = customer_id
         record = _pg(tenant_id, data)
         return {"ok": True, "data": record}
+    print(f"[write-path] guarantor: SHEETS tenant={tenant_id!r}")
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     record = {

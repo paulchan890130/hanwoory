@@ -312,7 +312,10 @@ function GuarantorModal({
       toast.success("신원보증인이 고정되었습니다.");
       onSaved(res.data.data);
       onClose();
-    } catch { toast.error("저장 실패"); }
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail ? `신원보증인 저장 실패: ${detail}` : "신원보증인 저장 실패");
+    }
     finally { setSaving(false); }
   };
 
@@ -766,7 +769,10 @@ function AccommodationProviderModal({
       toast.success("숙소제공자가 고정되었습니다.");
       onSaved(res.data.data);
       onClose();
-    } catch { toast.error("저장 실패"); }
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail ? `숙소제공자 저장 실패: ${detail}` : "숙소제공자 저장 실패");
+    }
     finally { setSaving(false); }
   };
 
