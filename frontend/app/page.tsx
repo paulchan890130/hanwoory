@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import "./homepage.css";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
+import { DirectionsSection } from "@/components/public/DirectionsSection";
 
 interface Post {
   id: string;
@@ -168,6 +169,7 @@ export default function HomePage() {
             <a href="#board">업무 안내</a>
             <Link href="/documents">업무별 준비서류</Link>
             <a href="#faq">FAQ</a>
+            <a href="#directions">오시는 길</a>
             <a href="#contact">상담 문의</a>
             <Link href="/login" className="nav-login">로그인 →</Link>
           </div>
@@ -188,6 +190,7 @@ export default function HomePage() {
         <a href="#board" onClick={closeMenu}>업무 안내</a>
         <Link href="/documents" onClick={closeMenu}>업무별 준비서류</Link>
         <a href="#faq" onClick={closeMenu}>FAQ</a>
+        <a href="#directions" onClick={closeMenu}>오시는 길</a>
         <a href="#contact" onClick={closeMenu}>상담 문의</a>
         <Link href="/login" style={{ color: "var(--gold-600)" }} onClick={closeMenu}>
           로그인 →
@@ -538,6 +541,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* DIRECTIONS / 오시는 길 (메인 하단) */}
+      <DirectionsSection />
+
       {/* FOOTER */}
       <footer role="contentinfo">
         <div className="footer-inner">
@@ -560,6 +566,7 @@ export default function HomePage() {
             <a href="#services">업무 분야</a>
             <a href="#board">업무 안내</a>
             <a href="#faq">자주 묻는 질문</a>
+            <a href="#directions">오시는 길</a>
             <a href="#contact">상담 문의</a>
           </div>
           <div className="footer-col">

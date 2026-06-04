@@ -642,3 +642,96 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* ── DIRECTIONS / 오시는 길 ── */
+  #directions { scroll-margin-top: 80px; }   /* 고정 nav(68px) 아래로 anchor 안착 */
+  .dir-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+  .dir-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--hp-radius);
+    padding: 30px 28px;
+    display: flex; flex-direction: column;
+  }
+  .dir-rows { display: flex; flex-direction: column; }
+  .dir-row {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .dir-row:first-child { padding-top: 0; }
+  .dir-row-label {
+    flex-shrink: 0; width: 80px;
+    font-size: 0.78rem; font-weight: 600;
+    color: var(--gold-600);
+    padding-top: 2px;
+  }
+  .dir-row-value {
+    font-size: 0.92rem; font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+  .dir-tel { text-decoration: none; color: var(--text-primary); transition: color 0.2s; }
+  .dir-tel:hover { color: var(--gold-600); }
+  .dir-places-area { margin-top: 18px; }
+  .dir-places { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .dir-chip {
+    display: inline-flex; align-items: center;
+    font-size: 0.8rem; font-weight: 500;
+    color: var(--gold-700);
+    background: var(--gold-100);
+    border: 1px solid var(--gold-200);
+    padding: 6px 13px;
+    border-radius: 20px;
+  }
+  .dir-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: auto; padding-top: 24px; }
+  .dir-card-route {
+    background: linear-gradient(135deg, var(--gold-50), var(--gold-100));
+    border-color: var(--border-gold);
+  }
+  .dir-route-title {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 1.05rem; font-weight: 700;
+    color: var(--gold-700);
+    margin-bottom: 16px;
+  }
+  .dir-route { display: flex; flex-direction: column; align-items: stretch; margin-bottom: 18px; }
+  .dir-route-step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.9rem; font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-white);
+    border: 1px solid var(--border-gold);
+    border-radius: 8px;
+    padding: 9px 16px;
+  }
+  .dir-route-num {
+    flex-shrink: 0; width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--gold-200); color: var(--gold-700);
+    font-size: 0.72rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dir-route-dest { border-color: var(--gold-400); color: var(--gold-700); box-shadow: var(--shadow-sm); }
+  .dir-route-dest .dir-route-num { background: var(--gold-400); color: #fff; }
+  .dir-route-arrow { color: var(--gold-400); font-size: 1rem; line-height: 1; text-align: center; padding: 4px 0; }
+  .dir-bullets { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .dir-bullets li {
+    position: relative; padding-left: 18px;
+    font-size: 0.84rem; color: var(--text-secondary); line-height: 1.6;
+  }
+  .dir-bullets li::before {
+    content: ''; position: absolute; left: 0; top: 9px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--gold-400);
+  }
+  @media (max-width: 768px) {
+    .dir-grid { grid-template-columns: 1fr; gap: 16px; }
+    .dir-row-label { width: 64px; }
+    .dir-actions .btn-primary, .dir-actions .btn-secondary { flex: 1; justify-content: center; }
+  }
