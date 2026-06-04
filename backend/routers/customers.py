@@ -235,6 +235,7 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
     tenant_id = user["tenant_id"]
 
     if pg_customers_enabled():
+        print(f"[write-path] customers(add): PG tenant={tenant_id!r}")
         from backend.services.customer_pg_service import next_customer_id, upsert_customer
         if not data.get("고객ID"):
             data["고객ID"] = next_customer_id(tenant_id)
@@ -242,6 +243,7 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
         cache_invalidate(tenant_id, _CACHE_EXPIRY)
         return {"ok": True, "고객ID": data["고객ID"]}
 
+    print(f"[write-path] customers(add): SHEETS tenant={tenant_id!r}")
     from backend.services.tenant_service import upsert_sheet
     from config import CUSTOMER_SHEET_NAME
 
@@ -276,6 +278,7 @@ def update_customer(customer_id: str, data: dict, user: dict = Depends(get_curre
     tenant_id = user["tenant_id"]
 
     if pg_customers_enabled():
+        print(f"[write-path] customers(update): PG tenant={tenant_id!r}")
         from backend.services.customer_pg_service import find_customer, upsert_customer
         existing = find_customer(tenant_id, str(customer_id).strip())
         if existing is None:
@@ -286,6 +289,7 @@ def update_customer(customer_id: str, data: dict, user: dict = Depends(get_curre
         cache_invalidate(tenant_id, _CACHE_EXPIRY)
         return {"ok": True}
 
+    print(f"[write-path] customers(update): SHEETS tenant={tenant_id!r}")
     from backend.services.tenant_service import upsert_sheet
     from config import CUSTOMER_SHEET_NAME
 
@@ -368,6 +372,7 @@ def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
     tenant_id = user["tenant_id"]
 
     if pg_customers_enabled():
+        print(f"[write-path] customers(delete): PG tenant={tenant_id!r}")
         from backend.services.customer_pg_service import delete_customer as _pg_delete
         ok = _pg_delete(tenant_id, str(customer_id).strip())
         if not ok:
@@ -375,6 +380,7 @@ def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
         cache_invalidate(tenant_id, _CACHE_EXPIRY)
         return {"ok": True}
 
+    print(f"[write-path] customers(delete): SHEETS tenant={tenant_id!r}")
     from backend.services.tenant_service import delete_from_sheet
     from config import CUSTOMER_SHEET_NAME
 

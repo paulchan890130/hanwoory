@@ -445,6 +445,7 @@ def scan_register(
     # 아래 기존 Google Sheets 경로로 폴백(하위호환). row-level INSERT/UPDATE 만 수행.
     from backend.db.feature_flags import pg_customers_enabled
     if pg_customers_enabled():
+        print(f"[write-path] customers(scan): PG tenant={tenant_id!r}")
         from backend.services.customer_pg_service import (
             list_customers, next_customer_id, upsert_customer,
         )
@@ -503,6 +504,7 @@ def scan_register(
             raise HTTPException(status_code=500, detail=f"고객 저장 실패(PG): {e}")
 
     # ── 시트 데이터 로드 (Google Sheets 경로 — PG 플래그 off) ──────────────
+    print(f"[write-path] customers(scan): SHEETS tenant={tenant_id!r}")
     try:
         ws = get_worksheet(CUSTOMER_SHEET_NAME, tenant_id)
         all_values = ws.get_all_values()
