@@ -637,54 +637,91 @@ function DeleteConfirmModal({
 
 
 // ── 매뉴얼 업데이트 검토 탭 ──────────────────────────────────────────────────
+type Decision =
+  | "" | "NEW_CANDIDATE" | "REVIEWED_KEEP_EXISTING" | "REVIEWED_APPROVE_CANDIDATE"
+  | "APPLIED" | "REJECTED_BAD_CANDIDATE" | "NEEDS_MANUAL_PAGE" | "UNRESOLVED";
+
 interface RematchRow {
   row_id: string; detailed_code: string; action_type: string; title: string;
   manual: string; current_page_from: number; current_page_to: number;
   found_page: number; found_pages: number[];
   status: "PASS" | "PAGE_CHANGED" | "NOT_FOUND" | "SKIP";
   match_text: string; search_keyword: string; heading_snippet: string;
-  auto_apply: boolean; reviewed: boolean; applied: boolean;
+  // ── 보수적 품질 가드 + 결정 워크플로 (백엔드 manual_ref_rematch.py) ──
+  current_snippet?: string; candidate_snippet?: string;
+  recommendation?: string; confidence?: "HIGH" | "MEDIUM" | "LOW" | "";
+  risk_flags?: string[]; reason?: string;
+  decision?: Decision; candidate_changed?: boolean;
+  manual_page_from?: number | null; manual_page_to?: number | null;
+  auto_apply?: boolean; reviewed: boolean; applied: boolean;
 }
 
-const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  PASS:         { label: "일치",     bg: "#F0FFF4", color: "#276749" },
-  PAGE_CHANGED: { label: "페이지 변경", bg: "#FFFFF0", color: "#6B5314" },
-  NOT_FOUND:    { label: "미발견",   bg: "#FFF5F5", color: "#C53030" },
-  SKIP:         { label: "건너뜀",   bg: "#F7FAFC", color: "#A0AEC0" },
+// decision 메타: actionable = 기본(검토필요) 뷰에 노출되는 상태
+const DECISION_META: Record<string, { label: string; bg: string; color: string; actionable: boolean }> = {
+  NEW_CANDIDATE:              { label: "신규 후보",        bg: "#FFFFF0", color: "#6B5314", actionable: true },
+  NEEDS_MANUAL_PAGE:          { label: "직접 페이지 필요",  bg: "#FFFAF0", color: "#9C4221", actionable: true },
+  UNRESOLVED:                 { label: "미해결",           bg: "#FFF5F5", color: "#C53030", actionable: true },
+  REVIEWED_APPROVE_CANDIDATE: { label: "후보 승인(미반영)", bg: "#FEFCBF", color: "#975A16", actionable: true },
+  REVIEWED_KEEP_EXISTING:     { label: "기존 유지",        bg: "#F7FAFC", color: "#718096", actionable: false },
+  REJECTED_BAD_CANDIDATE:     { label: "후보 기각",        bg: "#F7FAFC", color: "#A0AEC0", actionable: false },
+  APPLIED:                    { label: "운영 반영됨",      bg: "#EBF8FF", color: "#2B6CB0", actionable: false },
+  "":                         { label: "일치",            bg: "#F0FFF4", color: "#276749", actionable: false },
+};
+const CONF_META: Record<string, { bg: string; color: string }> = {
+  HIGH:   { bg: "#F0FFF4", color: "#276749" },
+  MEDIUM: { bg: "#FFFFF0", color: "#975A16" },
+  LOW:    { bg: "#FFF5F5", color: "#C53030" },
+};
+const RISK_LABEL: Record<string, string> = {
+  large_move: "큰 이동", weak_code_match: "코드 약일치", common_page: "공통 페이지",
+  no_title_match: "제목 불일치", no_pdf_match: "PDF 미발견",
 };
 
-// 우선순위: HIGH=미발견·큰 페이지 이동·복잡자격(F-5/F-2/E-7/F-1), MEDIUM=페이지변경, LOW=일치/완료
-const HIGH_CODE_RE = /^(F-5|F-2|E-7|F-1)\b/;
+function effDecision(r: RematchRow): Decision {
+  if (r.applied) return "APPLIED";
+  if (r.decision) return r.decision;
+  if (r.status === "PASS") return "";
+  if (r.status === "NOT_FOUND") return "UNRESOLVED";
+  if (r.status === "PAGE_CHANGED") return "NEW_CANDIDATE";
+  return "";
+}
+function isActionable(r: RematchRow): boolean {
+  if (r.applied) return false;
+  if (r.candidate_changed) return true;   // 후보 변경됨 → 재검토 필요
+  return DECISION_META[effDecision(r)]?.actionable ?? false;
+}
+
 const PRIO_META: Record<string, { label: string; bg: string; color: string; rank: number }> = {
   HIGH:   { label: "HIGH",   bg: "#FFF5F5", color: "#C53030", rank: 3 },
   MEDIUM: { label: "MEDIUM", bg: "#FFFFF0", color: "#975A16", rank: 2 },
   LOW:    { label: "LOW",    bg: "#F7FAFC", color: "#A0AEC0", rank: 1 },
 };
+// 우선순위: HIGH=미해결·직접입력필요·후보변경·큰이동·LOW신뢰도, MEDIUM=그 외 actionable, LOW=비actionable
 function rowPriority(r: RematchRow): "HIGH" | "MEDIUM" | "LOW" {
-  if (r.applied || r.reviewed || r.status === "PASS" || r.status === "SKIP") return "LOW";
-  const moved = r.found_page && r.current_page_from ? Math.abs(r.found_page - r.current_page_from) : 0;
-  if (r.status === "NOT_FOUND" || moved >= 20 || HIGH_CODE_RE.test(r.detailed_code || "")) return "HIGH";
-  if (r.status === "PAGE_CHANGED") return "MEDIUM";
-  return "LOW";
+  if (!isActionable(r)) return "LOW";
+  const eff = effDecision(r);
+  const risk = r.risk_flags || [];
+  if (r.candidate_changed || eff === "UNRESOLVED" || eff === "NEEDS_MANUAL_PAGE"
+      || risk.includes("large_move") || r.confidence === "LOW") return "HIGH";
+  return "MEDIUM";
 }
 
-type RvStatusFilter = "needReview" | "all" | "PAGE_CHANGED" | "NOT_FOUND" | "PASS" | "applied";
+type RvStatusFilter = "actionable" | "all" | "approve" | "unresolved" | "reviewed" | "applied";
 type RvGroupBy = "found_page" | "code" | "action" | "none";
 
 function ManualReviewTab() {
-  const [statusFilter, setStatusFilter] = useState<RvStatusFilter>("needReview");
+  const [statusFilter, setStatusFilter] = useState<RvStatusFilter>("actionable");
   const [manualFilter, setManualFilter] = useState<string>("");
   const [codeFilter, setCodeFilter] = useState<string>("");
   const [groupBy, setGroupBy] = useState<RvGroupBy>("found_page");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [approvingGroup, setApprovingGroup] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const { submit: submitRematch, isSubmitting: runningRematch } = useSubmit();
   const [rows, setRows] = useState<RematchRow[]>([]);
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [totalOverride, setTotalOverride] = useState(0);
   const [inlineEdit, setInlineEdit] = useState<{ rowId: string; pf: string; pt: string } | null>(null);
-  const [applyingRowId, setApplyingRowId] = useState<string | null>(null);
-  const [skippingRowId, setSkippingRowId] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{
     manual: string;
     page: number;
@@ -713,65 +750,81 @@ function ManualReviewTab() {
     );
   };
 
-  const handleApply = async (row: RematchRow, pf: number, pt: number) => {
-    setApplyingRowId(row.row_id);
-    try {
-      await api.post(`/api/manual/update-review/${row.row_id}/apply`, { page_from: pf, page_to: pt });
-      setRows(prev => prev.map(r => r.row_id === row.row_id ? { ...r, applied: true, reviewed: true, found_page: pf } : r));
-      toast.success(`${row.row_id} 적용 완료 (p.${pf})`);
-    } catch { toast.error("적용 실패"); }
-    finally { setApplyingRowId(null); }
+  const _errDetail = (err: unknown, fallback: string) => {
+    const d = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+    return d ? `${fallback}: ${d}` : fallback;
   };
 
-  const handleSkip = async (row_id: string) => {
-    setSkippingRowId(row_id);
+  // 검토 결정 저장 — staging(review JSON)에만 기록. 운영 manual_ref 미반영.
+  const decide = async (row: RematchRow, decision: Decision, pf?: number, pt?: number) => {
+    setBusyId(row.row_id);
     try {
-      await api.post(`/api/manual/update-review/${row_id}/skip`);
-      setRows(prev => prev.map(r => r.row_id === row_id ? { ...r, reviewed: true } : r));
-      toast.success("건너뜀 처리됨");
-    } catch { toast.error("건너뜀 실패"); }
-    finally { setSkippingRowId(null); }
+      await api.post(`/api/manual/update-review/${row.row_id}/decision`, {
+        decision, page_from: pf ?? null, page_to: pt ?? null,
+      });
+      setRows(prev => prev.map(r => r.row_id === row.row_id ? {
+        ...r, decision, reviewed: decision !== "NEW_CANDIDATE", candidate_changed: false,
+        manual_page_from: decision === "NEEDS_MANUAL_PAGE" ? (pf ?? null) : r.manual_page_from,
+        manual_page_to: decision === "NEEDS_MANUAL_PAGE" ? (pt ?? pf ?? null) : r.manual_page_to,
+      } : r));
+      toast.success(`${DECISION_META[decision]?.label ?? decision} (운영 미반영)`);
+    } catch (err) { toast.error(_errDetail(err, "결정 저장 실패")); }
+    finally { setBusyId(null); }
   };
 
-  // 그룹 승인 = 그룹 내 미검토 행을 '검토완료'로 표시 (skip 엔드포인트 → 검토 JSON 에만 기록).
-  // 운영 실무지침(manual_ref)에는 절대 쓰지 않는다. 운영 반영은 행별 '적용' 버튼으로만.
-  const handleGroupApprove = async (groupKey: string, groupRows: RematchRow[]) => {
-    const actionable = groupRows.filter(r => !r.reviewed && !r.applied);
-    if (!actionable.length) return;
-    if (!window.confirm(
-      `이 그룹의 ${actionable.length}건을 '검토완료'로 표시합니다.\n` +
-      `※ 운영 실무지침(manual_ref)에는 기록하지 않습니다 (staging 표시만).`
-    )) return;
+  // 운영 반영 — 승인된 후보/직접입력 페이지만. 백업 후 manual_ref 수정(백엔드 가드).
+  const applyToProd = async (row: RematchRow) => {
+    const eff = effDecision(row);
+    let pf = 0, pt = 0;
+    if (eff === "REVIEWED_APPROVE_CANDIDATE") { pf = row.found_page; pt = row.found_page; }
+    else if (eff === "NEEDS_MANUAL_PAGE") { pf = row.manual_page_from || 0; pt = row.manual_page_to || pf; }
+    else { toast.error("운영 반영은 '후보 승인' 또는 '직접 페이지 입력' 상태에서만 가능합니다."); return; }
+    if (!pf || pf < 1) { toast.error("반영할 페이지가 없습니다."); return; }
+    if (!window.confirm(`운영 manual_ref에 반영합니다 (p.${pf}).\n백업을 생성한 뒤 적용합니다.`)) return;
+    setBusyId(row.row_id);
+    try {
+      const res = await api.post(`/api/manual/update-review/${row.row_id}/apply`, { page_from: pf, page_to: pt });
+      setRows(prev => prev.map(r => r.row_id === row.row_id ? { ...r, applied: true, reviewed: true, decision: "APPLIED", found_page: pf } : r));
+      toast.success(`운영 반영 완료 (p.${pf})${res.data?.backup ? ` · 백업 ${res.data.backup}` : ""}`);
+    } catch (err) { toast.error(_errDetail(err, "운영 반영 실패")); }
+    finally { setBusyId(null); }
+  };
+
+  // 그룹 기존 유지 = 그룹 내 actionable 을 일괄 '기존 유지'(staging)로 표시. 운영 미반영.
+  const handleGroupKeep = async (groupKey: string, groupRows: RematchRow[]) => {
+    const targets = groupRows.filter(isActionable);
+    if (!targets.length) return;
+    if (!window.confirm(`이 그룹 ${targets.length}건을 '기존 유지'로 표시합니다 (운영 미반영).`)) return;
     setApprovingGroup(groupKey);
     try {
-      for (const r of actionable) {
-        await api.post(`/api/manual/update-review/${r.row_id}/skip`);
+      for (const r of targets) {
+        await api.post(`/api/manual/update-review/${r.row_id}/decision`, { decision: "REVIEWED_KEEP_EXISTING" });
       }
-      const ids = new Set(actionable.map(r => r.row_id));
-      setRows(prev => prev.map(r => ids.has(r.row_id) ? { ...r, reviewed: true } : r));
-      toast.success(`${actionable.length}건 검토완료 표시 (운영 미반영)`);
-    } catch { toast.error("그룹 검토완료 실패"); }
+      const ids = new Set(targets.map(r => r.row_id));
+      setRows(prev => prev.map(r => ids.has(r.row_id) ? { ...r, decision: "REVIEWED_KEEP_EXISTING", reviewed: true, candidate_changed: false } : r));
+      toast.success(`${targets.length}건 기존 유지 표시 (운영 미반영)`);
+    } catch (err) { toast.error(_errDetail(err, "그룹 기존 유지 실패")); }
     finally { setApprovingGroup(null); }
   };
 
-  // ── 요약 카운트 ──
+  // ── 요약 카운트 (decision 기반) ──
   const summary = {
     total: rows.length,
-    pass: rows.filter(r => r.status === "PASS" && !r.applied).length,
+    actionable: rows.filter(isActionable).length,
+    approve: rows.filter(r => !r.applied && effDecision(r) === "REVIEWED_APPROVE_CANDIDATE").length,
     applied: rows.filter(r => r.applied).length,
-    pageChanged: rows.filter(r => r.status === "PAGE_CHANGED" && !r.reviewed && !r.applied).length,
-    notFound: rows.filter(r => r.status === "NOT_FOUND" && !r.reviewed && !r.applied).length,
+    reviewed: rows.filter(r => !r.applied && ["REVIEWED_KEEP_EXISTING", "REJECTED_BAD_CANDIDATE"].includes(effDecision(r))).length,
+    unresolved: rows.filter(r => !r.applied && ["UNRESOLVED", "NEEDS_MANUAL_PAGE"].includes(effDecision(r))).length,
   };
-  const needReview = summary.pageChanged + summary.notFound;
 
-  // ── 필터 적용 (기본: 검토필요만 → 일치/적용완료 숨김) ──
+  // ── 필터 적용 (기본: actionable 만 → 일치/적용완료/기존유지/기각 숨김) ──
   const manualOptions = Array.from(new Set(rows.map(r => r.manual).filter(Boolean)));
   const visible = rows.filter(r => {
-    const needs = (r.status === "PAGE_CHANGED" || r.status === "NOT_FOUND") && !r.reviewed && !r.applied;
-    if (statusFilter === "needReview" && !needs) return false;
-    if (statusFilter === "PAGE_CHANGED" && r.status !== "PAGE_CHANGED") return false;
-    if (statusFilter === "NOT_FOUND" && r.status !== "NOT_FOUND") return false;
-    if (statusFilter === "PASS" && r.status !== "PASS") return false;
+    const eff = effDecision(r);
+    if (statusFilter === "actionable" && !isActionable(r)) return false;
+    if (statusFilter === "approve" && !(eff === "REVIEWED_APPROVE_CANDIDATE" && !r.applied)) return false;
+    if (statusFilter === "unresolved" && !(["UNRESOLVED", "NEEDS_MANUAL_PAGE"].includes(eff) && !r.applied)) return false;
+    if (statusFilter === "reviewed" && !["REVIEWED_KEEP_EXISTING", "REJECTED_BAD_CANDIDATE"].includes(eff)) return false;
     if (statusFilter === "applied" && !r.applied) return false;
     if (manualFilter && r.manual !== manualFilter) return false;
     if (codeFilter && !(r.detailed_code || "").toLowerCase().includes(codeFilter.toLowerCase())) return false;
@@ -795,7 +848,7 @@ function ManualReviewTab() {
       const p = rowPriority(r);
       return PRIO_META[p].rank > PRIO_META[acc].rank ? p : acc;
     }, "LOW");
-    const actionable = gr.filter(r => !r.reviewed && !r.applied).length;
+    const actionable = gr.filter(isActionable).length;
     return { key, rows: gr, topPrio, actionable };
   }).sort((a, b) => PRIO_META[b.topPrio].rank - PRIO_META[a.topPrio].rank);
 
@@ -803,141 +856,97 @@ function ManualReviewTab() {
     setCollapsed(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   const SUMMARY_CARDS: { label: string; value: number; filter: RvStatusFilter; bg: string; color: string }[] = [
-    { label: "전체",        value: summary.total,       filter: "all",        bg: "#F7FAFC", color: "#2D3748" },
-    { label: "검토필요",     value: needReview,          filter: "needReview", bg: "#FFFAF0", color: "#9C4221" },
-    { label: "페이지 변경",   value: summary.pageChanged, filter: "PAGE_CHANGED", bg: "#FFFFF0", color: "#6B5314" },
-    { label: "미발견",       value: summary.notFound,    filter: "NOT_FOUND",  bg: "#FFF5F5", color: "#C53030" },
-    { label: "자동통과/일치", value: summary.pass,        filter: "PASS",       bg: "#F0FFF4", color: "#276749" },
-    { label: "적용완료",     value: summary.applied,     filter: "applied",    bg: "#EBF8FF", color: "#2B6CB0" },
+    { label: "전체",          value: summary.total,      filter: "all",        bg: "#F7FAFC", color: "#2D3748" },
+    { label: "검토 필요",      value: summary.actionable, filter: "actionable", bg: "#FFFAF0", color: "#9C4221" },
+    { label: "승인 대기",      value: summary.approve,    filter: "approve",    bg: "#FEFCBF", color: "#975A16" },
+    { label: "미해결/직접입력", value: summary.unresolved, filter: "unresolved", bg: "#FFF5F5", color: "#C53030" },
+    { label: "검토완료(유지/기각)", value: summary.reviewed, filter: "reviewed", bg: "#F7FAFC", color: "#718096" },
+    { label: "운영 반영됨",     value: summary.applied,    filter: "applied",    bg: "#EBF8FF", color: "#2B6CB0" },
   ];
 
-  // ── 행 렌더 (apply/직접입력/건너뜀 액션 유지) ──
+  // ── 행 렌더 (decision 기반: 기존유지/후보승인/후보기각/직접입력/운영반영) ──
   const renderRow = (row: RematchRow) => {
-    const badge = row.applied
-      ? { label: "적용완료", bg: "#EBF8FF", color: "#2B6CB0" }
-      : row.reviewed
-      ? { label: "확인됨", bg: "#F7FAFC", color: "#A0AEC0" }
-      : STATUS_BADGE[row.status] ?? STATUS_BADGE.SKIP;
-    const canAct = !row.reviewed && !row.applied;
-    const prio = rowPriority(row);
-    const pm = PRIO_META[prio];
+    const eff = effDecision(row);
+    const dm = DECISION_META[eff] ?? DECISION_META[""];
+    const pm = PRIO_META[rowPriority(row)];
+    const act = isActionable(row);
+    const busy = busyId === row.row_id;
+    const hasCand = !!row.found_page;
+    const canApply = eff === "REVIEWED_APPROVE_CANDIDATE" || (eff === "NEEDS_MANUAL_PAGE" && !!row.manual_page_from);
+    const dim = busy ? 0.5 : 1;
     return (
-      <tr key={row.row_id}>
-        <td>
-          <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
-        </td>
-        <td className="font-mono">{row.detailed_code || "—"}</td>
-        <td style={{ color: "#718096" }}>{row.action_type}</td>
-        <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-          title={row.title}>{row.title}</td>
-        <td>{row.manual}</td>
-        <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
-          <span>{row.current_page_from}{row.current_page_to !== row.current_page_from ? `–${row.current_page_to}` : ""}</span>
-          <button
-            onClick={() => setPdfPreview({ manual: row.manual, page: row.current_page_from, label: "현재 페이지" })}
-            title="현재 페이지 PDF 보기"
-            style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
-            <FileText size={13} />
-          </button>
-        </td>
-        <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
-          {row.found_page ? (
-            <>
-              <span style={{ color: row.status === "PAGE_CHANGED" ? "#D97706" : "inherit" }}>{row.found_page}</span>
-              <button
-                onClick={() => setPdfPreview({ manual: row.manual, page: row.found_page, label: "발견 페이지" })}
-                title="발견 페이지 PDF 보기"
-                style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#718096", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle" }}>
-                <FileText size={13} />
-              </button>
-            </>
-          ) : <span style={{ color: "#CBD5E0" }}>—</span>}
-        </td>
-        <td>
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-            style={{ background: badge.bg, color: badge.color }}>
-            {badge.label}
-          </span>
-        </td>
-        <td>
-          {canAct && row.status === "PAGE_CHANGED" && (
-            <div className="flex gap-1.5 flex-wrap">
-              {/* 운영 반영(적용) — 행별 명시적 액션 */}
-              <button onClick={() => handleApply(row, row.found_page, row.found_page)}
-                disabled={applyingRowId === row.row_id}
-                title="운영 실무지침에 이 페이지를 적용합니다"
-                className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11, opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
-                {applyingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 적용 (p.{row.found_page})
-              </button>
-              {inlineEdit?.rowId === row.row_id ? (
+      <Fragment key={row.row_id}>
+        <tr>
+          <td><span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span></td>
+          <td className="font-mono">{row.detailed_code || "—"}</td>
+          <td style={{ color: "#718096" }}>{row.action_type}</td>
+          <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.title}>{row.title}</td>
+          <td>{row.manual}</td>
+          <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
+            {row.current_page_from || "—"}
+            {!!row.current_page_from && (
+              <button onClick={() => setPdfPreview({ manual: row.manual, page: row.current_page_from, label: "기존 페이지" })} title="기존 페이지 보기"
+                style={{ marginLeft: 5, background: "none", border: "none", cursor: "pointer", color: "#718096", verticalAlign: "middle" }}><FileText size={12} /></button>
+            )}
+          </td>
+          <td className="font-mono text-center" style={{ whiteSpace: "nowrap" }}>
+            {hasCand ? (<>
+              <span style={{ color: "#D97706" }}>{row.found_page}</span>
+              <button onClick={() => setPdfPreview({ manual: row.manual, page: row.found_page, label: "후보 페이지" })} title="후보 페이지 보기"
+                style={{ marginLeft: 5, background: "none", border: "none", cursor: "pointer", color: "#718096", verticalAlign: "middle" }}><FileText size={12} /></button>
+            </>) : <span style={{ color: "#CBD5E0" }}>—</span>}
+          </td>
+          <td style={{ whiteSpace: "nowrap" }}>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: dm.bg, color: dm.color }}>{dm.label}</span>
+            {row.candidate_changed && <span className="ml-1 px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: "#FEFCBF", color: "#975A16" }}>후보 변경됨</span>}
+          </td>
+          <td>
+            {act ? (
+              inlineEdit?.rowId === row.row_id ? (
                 <div className="flex gap-1 items-center">
-                  <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
-                    className="hw-input w-12 text-xs" placeholder="from" />
-                  <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
-                    className="hw-input w-12 text-xs" placeholder="to" />
-                  <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
-                    disabled={applyingRowId === row.row_id}
-                    style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
-                    {applyingRowId === row.row_id ? "저장 중..." : "저장"}
-                  </button>
-                  <button onClick={() => setInlineEdit(null)}
-                    style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
-                    취소
-                  </button>
+                  <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })} className="hw-input w-12 text-xs" placeholder="from" />
+                  <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })} className="hw-input w-12 text-xs" placeholder="to" />
+                  <button disabled={busy} onClick={() => { const pf = Number(inlineEdit.pf); const pt = Number(inlineEdit.pt) || pf; if (pf >= 1) { decide(row, "NEEDS_MANUAL_PAGE", pf, pt); setInlineEdit(null); } }}
+                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: dim }}>저장</button>
+                  <button onClick={() => setInlineEdit(null)} style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>취소</button>
                 </div>
               ) : (
-                <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.found_page), pt: String(row.found_page) })}
-                  className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                  style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
-                  <Edit3 size={11} /> 직접 페이지 입력
-                </button>
-              )}
-              <button onClick={() => handleSkip(row.row_id)}
-                disabled={skippingRowId === row.row_id}
-                title="검토완료로 표시 (운영 미반영)"
-                className="flex items-center gap-1 px-2 py-1 rounded"
-                style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
-                {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 보류
-              </button>
-            </div>
-          )}
-          {canAct && row.status === "NOT_FOUND" && (
-            <div className="flex gap-1.5 flex-wrap">
-              {inlineEdit?.rowId === row.row_id ? (
-                <div className="flex gap-1 items-center">
-                  <input value={inlineEdit.pf} onChange={e => setInlineEdit({ ...inlineEdit, pf: e.target.value })}
-                    className="hw-input w-12 text-xs" placeholder="from" />
-                  <input value={inlineEdit.pt} onChange={e => setInlineEdit({ ...inlineEdit, pt: e.target.value })}
-                    className="hw-input w-12 text-xs" placeholder="to" />
-                  <button onClick={() => { handleApply(row, Number(inlineEdit.pf), Number(inlineEdit.pt)); setInlineEdit(null); }}
-                    disabled={applyingRowId === row.row_id}
-                    style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#4299E1", color: "#fff", border: "none", cursor: "pointer", opacity: applyingRowId === row.row_id ? 0.5 : 1 }}>
-                    {applyingRowId === row.row_id ? "저장 중..." : "저장"}
-                  </button>
-                  <button onClick={() => setInlineEdit(null)}
-                    style={{ fontSize: 11, padding: "3px 6px", borderRadius: 5, background: "#fff", color: "#718096", border: "1px solid #CBD5E0", cursor: "pointer" }}>
-                    취소
-                  </button>
+                <div className="flex gap-1 flex-wrap">
+                  <button disabled={busy} onClick={() => decide(row, "REVIEWED_KEEP_EXISTING")} title="기존 매핑 유지(권장 기본)"
+                    className="px-2 py-1 rounded font-medium" style={{ background: "#F7FAFC", border: "1px solid #CBD5E0", color: "#4A5568", fontSize: 11, opacity: dim }}>기존 유지</button>
+                  {hasCand && <button disabled={busy} onClick={() => decide(row, "REVIEWED_APPROVE_CANDIDATE")} title="후보 승인(운영 미반영)"
+                    className="px-2 py-1 rounded font-medium" style={{ background: "#FEFCBF", border: "1px solid #D69E2E", color: "#975A16", fontSize: 11, opacity: dim }}>후보 승인</button>}
+                  {hasCand && <button disabled={busy} onClick={() => decide(row, "REJECTED_BAD_CANDIDATE")} title="후보 기각"
+                    className="px-2 py-1 rounded font-medium" style={{ background: "#FFF5F5", border: "1px solid #FC8181", color: "#C53030", fontSize: 11, opacity: dim }}>후보 기각</button>}
+                  <button disabled={busy} onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.manual_page_from || row.found_page || row.current_page_from || ""), pt: "" })}
+                    className="flex items-center gap-1 px-2 py-1 rounded font-medium" style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}><Edit3 size={11} /> 직접 입력</button>
+                  {canApply && <button disabled={busy} onClick={() => applyToProd(row)} title="운영 manual_ref 에 반영(백업 후)"
+                    className="flex items-center gap-1 px-2 py-1 rounded font-medium" style={{ background: "#F0FFF4", border: "1px solid #48BB78", color: "#276749", fontSize: 11, opacity: dim }}>
+                    {busy ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 운영 반영</button>}
                 </div>
-              ) : (
-                <button onClick={() => setInlineEdit({ rowId: row.row_id, pf: String(row.current_page_from), pt: String(row.current_page_to) })}
-                  className="flex items-center gap-1 px-2 py-1 rounded font-medium"
-                  style={{ background: "#EBF8FF", border: "1px solid #4299E1", color: "#2B6CB0", fontSize: 11 }}>
-                  <Edit3 size={11} /> 직접 페이지 입력
-                </button>
+              )
+            ) : <span style={{ color: "#CBD5E0", fontSize: 11 }}>—</span>}
+          </td>
+        </tr>
+        {(act || row.reason) && (
+          <tr>
+            <td></td>
+            <td colSpan={8} style={{ paddingTop: 0, paddingBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "#718096", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                {row.confidence && <span className="px-1.5 py-0.5 rounded font-semibold" style={{ background: CONF_META[row.confidence]?.bg, color: CONF_META[row.confidence]?.color }}>신뢰도 {row.confidence}</span>}
+                {(row.risk_flags || []).map(f => <span key={f} className="px-1.5 py-0.5 rounded" style={{ background: "#FFF5F5", color: "#C53030" }}>{RISK_LABEL[f] ?? f}</span>)}
+                {row.reason && <span>· {row.reason}</span>}
+              </div>
+              {(row.current_snippet || row.candidate_snippet) && (
+                <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 3, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div title={row.current_snippet}><b style={{ color: "#718096" }}>기존 p.{row.current_page_from}:</b> {(row.current_snippet || "").slice(0, 90) || "—"}</div>
+                  <div title={row.candidate_snippet}><b style={{ color: "#D97706" }}>후보 p.{row.found_page || "—"}:</b> {(row.candidate_snippet || "").slice(0, 90) || "—"}</div>
+                </div>
               )}
-              <button onClick={() => handleSkip(row.row_id)}
-                disabled={skippingRowId === row.row_id}
-                title="미발견 상태 유지 + 검토완료 표시 (운영 미반영)"
-                className="flex items-center gap-1 px-2 py-1 rounded"
-                style={{ border: "1px solid #CBD5E0", color: "#718096", background: "#fff", fontSize: 11, cursor: skippingRowId === row.row_id ? "not-allowed" : "pointer", opacity: skippingRowId === row.row_id ? 0.4 : 1 }}>
-                {skippingRowId === row.row_id ? <Loader2 size={11} className="animate-spin" /> : <SkipForward size={11} />} 미발견 유지
-              </button>
-            </div>
-          )}
-        </td>
-      </tr>
+            </td>
+          </tr>
+        )}
+      </Fragment>
     );
   };
 
@@ -964,6 +973,20 @@ function ManualReviewTab() {
         >
           <><RotateCcw size={13} /> 지금 재탐색</>
         </SubmitButton>
+      </div>
+
+      {/* 워크플로 안내 배너 */}
+      <div className="hw-card text-xs" style={{ background: "#F7FAFC", borderColor: "#E2E8F0", lineHeight: 1.7 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", color: "#2D3748", fontWeight: 600 }}>
+          <span>1단계: 후보 검토</span><span style={{ color: "#CBD5E0" }}>→</span>
+          <span>2단계: 승인 후보 확인</span><span style={{ color: "#CBD5E0" }}>→</span>
+          <span>3단계: 운영 반영</span>
+        </div>
+        <div style={{ color: "#C53030", marginTop: 2 }}>운영 반영 전에는 기존 실무지침이 변경되지 않습니다.</div>
+        <div style={{ color: "#718096", marginTop: 2 }}>
+          기존 유지·후보 승인·후보 기각·직접 입력은 모두 staging 결정(운영 미반영)이며,
+          ‘운영 반영’ 버튼을 눌러야만 백업 후 manual_ref 에 적용됩니다. 보수적 기본값은 ‘기존 유지’입니다.
+        </div>
       </div>
 
       {/* 요약 카드 (클릭 시 해당 상태로 필터) */}
@@ -1003,14 +1026,14 @@ function ManualReviewTab() {
             className={`hw-tab ${groupBy === k ? "active" : ""}`}>{label}</button>
         ))}
         <span style={{ color: "#A0AEC0" }}>|</span>
-        <button onClick={() => setStatusFilter("NOT_FOUND")} className={`hw-tab ${statusFilter === "NOT_FOUND" ? "active" : ""}`}>미발견만</button>
-        <button onClick={() => setStatusFilter("PAGE_CHANGED")} className={`hw-tab ${statusFilter === "PAGE_CHANGED" ? "active" : ""}`}>페이지 변경만</button>
+        <button onClick={() => setStatusFilter("approve")} className={`hw-tab ${statusFilter === "approve" ? "active" : ""}`}>승인 대기만</button>
+        <button onClick={() => setStatusFilter("unresolved")} className={`hw-tab ${statusFilter === "unresolved" ? "active" : ""}`}>미해결/직접입력만</button>
       </div>
 
       {/* 그룹 테이블 */}
       {visible.length === 0 ? (
         <div className="hw-card text-sm text-center py-10" style={{ color: "#A0AEC0" }}>
-          {rows.length === 0 ? "재탐색을 실행해 주세요." : "해당 조건의 항목이 없습니다 (일치/적용완료는 기본 숨김)."}
+          {rows.length === 0 ? "재탐색을 실행해 주세요." : "해당 조건의 항목이 없습니다 (일치/적용완료/기존유지/기각은 기본 숨김)."}
         </div>
       ) : (
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
@@ -1042,12 +1065,12 @@ function ManualReviewTab() {
                               <span style={{ fontSize: 11, color: "#718096" }}>({g.rows.length}건)</span>
                               <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
                               {g.actionable > 0 && (
-                                <button onClick={() => handleGroupApprove(g.key, g.rows)}
+                                <button onClick={() => handleGroupKeep(g.key, g.rows)}
                                   disabled={approvingGroup === g.key}
-                                  title="그룹 전체를 검토완료로 표시 (운영 실무지침 미반영)"
+                                  title="그룹 전체를 '기존 유지'로 표시 (운영 실무지침 미반영)"
                                   className="flex items-center gap-1 px-2 py-0.5 rounded font-medium"
-                                  style={{ background: "#FEFCBF", border: "1px solid #D69E2E", color: "#975A16", fontSize: 11, opacity: approvingGroup === g.key ? 0.5 : 1 }}>
-                                  {approvingGroup === g.key ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 그룹 승인 (검토완료 표시)
+                                  style={{ background: "#F7FAFC", border: "1px solid #CBD5E0", color: "#4A5568", fontSize: 11, opacity: approvingGroup === g.key ? 0.5 : 1 }}>
+                                  {approvingGroup === g.key ? <Loader2 size={11} className="animate-spin" /> : <CheckSquare size={11} />} 그룹 기존 유지
                                 </button>
                               )}
                             </div>

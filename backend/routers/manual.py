@@ -150,9 +150,24 @@ def apply_page_change(
     body: ApplyPageBody,
     admin: dict = Depends(require_admin),
 ):
-    """수동 or 자동 페이지 번호를 DB에 반영."""
+    """승인된 후보/직접입력 페이지만 운영 manual_ref 에 반영(2단계 분리).
+
+    가드: 해당 row 의 decision 이 REVIEWED_APPROVE_CANDIDATE 또는 NEEDS_MANUAL_PAGE
+    일 때만 반영한다. KEEP_EXISTING / REJECTED / UNRESOLVED / 미검토(NEW_CANDIDATE)는
+    운영 반영을 거부 → 기존 매핑을 자동/실수로 강등하지 않는다."""
     if body.page_from < 1:
         raise HTTPException(status_code=400, detail="page_from은 1 이상이어야 합니다.")
+
+    # 운영 반영 전 staging 결정 확인 (승인/직접입력만 허용)
+    APPLYABLE = {"REVIEWED_APPROVE_CANDIDATE", "NEEDS_MANUAL_PAGE"}
+    review_row = _get_review_row(row_id)
+    decision = (review_row or {}).get("decision", "")
+    if decision not in APPLYABLE:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"운영 반영 불가: decision='{decision or '미검토'}'. "
+                    f"'후보 승인' 또는 '직접 페이지 입력' 상태에서만 반영할 수 있습니다."),
+        )
 
     # DB 읽기
     if not DB_PATH.exists():
@@ -186,18 +201,49 @@ def apply_page_change(
     # DB 저장
     DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # review JSON 갱신
-    _update_review_row(row_id, applied=True, reviewed=True, page_from=body.page_from, page_to=body.page_to)
+    # review JSON 갱신 (decision=APPLIED)
+    _update_review_row(row_id, applied=True, reviewed=True, decision="APPLIED",
+                       page_from=body.page_from, page_to=body.page_to)
 
     return {"ok": True, "row_id": row_id, "page_from": body.page_from, "page_to": body.page_to, "backup": bk.name}
 
 
-# ── 검토 건너뜀 ───────────────────────────────────────────────────────────────
+# ── 검토 건너뜀 (하위호환) ─────────────────────────────────────────────────────
 @router.post("/update-review/{row_id}/skip")
 def skip_review(row_id: str, admin: dict = Depends(require_admin)):
-    """검토 건너뜀 표시."""
+    """검토 건너뜀 표시 (하위호환 — 운영 반영 없음, review JSON 만 갱신)."""
     _update_review_row(row_id, reviewed=True)
     return {"ok": True, "row_id": row_id}
+
+
+# ── 검토 결정 저장 (staging 전용 — 운영 manual_ref 미반영) ──────────────────────
+_VALID_DECISIONS = {
+    "NEW_CANDIDATE", "REVIEWED_KEEP_EXISTING", "REVIEWED_APPROVE_CANDIDATE",
+    "REJECTED_BAD_CANDIDATE", "NEEDS_MANUAL_PAGE", "UNRESOLVED",
+}
+
+
+class DecisionBody(BaseModel):
+    decision: str
+    page_from: Optional[int] = None
+    page_to: Optional[int] = None
+    note: Optional[str] = None
+
+
+@router.post("/update-review/{row_id}/decision")
+def set_review_decision(row_id: str, body: DecisionBody, admin: dict = Depends(require_admin)):
+    """검토 결정을 review JSON 에만 저장한다. 운영 manual_ref(DB)는 절대 건드리지 않음.
+
+    실제 운영 반영은 별도의 /apply (운영 반영) 액션으로만 수행된다."""
+    if body.decision not in _VALID_DECISIONS:
+        raise HTTPException(status_code=400, detail=f"허용되지 않은 decision: {body.decision}")
+    ok = _set_review_decision(
+        row_id, body.decision,
+        manual_page_from=body.page_from, manual_page_to=body.page_to, note=body.note,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"row_id '{row_id}' 없음")
+    return {"ok": True, "row_id": row_id, "decision": body.decision}
 
 
 # ── rematch 즉시 실행 ─────────────────────────────────────────────────────────
@@ -232,11 +278,26 @@ def run_rematch(admin: dict = Depends(require_admin)):
 
 
 # ── 내부 헬퍼 ──────────────────────────────────────────────────────────────────
+def _get_review_row(row_id: str) -> Optional[dict]:
+    """manual_update_review.json 에서 단일 row 반환 (읽기 전용)."""
+    if not REVIEW_PATH.exists():
+        return None
+    try:
+        data = json.loads(REVIEW_PATH.read_text(encoding="utf-8"))
+        for r in data.get("rows", []):
+            if r.get("row_id") == row_id:
+                return r
+    except Exception:
+        return None
+    return None
+
+
 def _update_review_row(
     row_id: str,
     *,
     reviewed: bool = False,
     applied: bool = False,
+    decision: Optional[str] = None,
     page_from: Optional[int] = None,
     page_to: Optional[int] = None,
 ) -> None:
@@ -251,9 +312,53 @@ def _update_review_row(
                     r["reviewed"] = True
                 if applied:
                     r["applied"] = True
+                if decision is not None:
+                    r["decision"] = decision
                 if page_from is not None:
                     r["found_page"] = page_from
                 break
         REVIEW_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         pass
+
+
+def _set_review_decision(
+    row_id: str,
+    decision: str,
+    *,
+    manual_page_from: Optional[int] = None,
+    manual_page_to: Optional[int] = None,
+    note: Optional[str] = None,
+) -> bool:
+    """검토 결정을 review JSON 에 저장 (staging 전용). 운영 DB 미반영.
+
+    결정 시점의 후보 페이지를 reviewed_candidate_page 로 스냅샷 → 재실행 시
+    후보가 바뀌면 candidate_changed 로 재검토를 유도한다."""
+    if not REVIEW_PATH.exists():
+        return False
+    try:
+        data = json.loads(REVIEW_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    hit = False
+    for r in data.get("rows", []):
+        if r.get("row_id") == row_id:
+            hit = True
+            r["decision"] = decision
+            # NEW_CANDIDATE 로 되돌리는 경우만 미검토로, 그 외 결정은 검토완료로 표시
+            r["reviewed"] = decision != "NEW_CANDIDATE"
+            r["reviewed_candidate_page"] = r.get("found_page")
+            r["candidate_changed"] = False
+            if decision == "NEEDS_MANUAL_PAGE" and manual_page_from is not None:
+                r["manual_page_from"] = manual_page_from
+                r["manual_page_to"] = manual_page_to if manual_page_to is not None else manual_page_from
+            if note is not None:
+                r["decision_note"] = note
+            break
+    if not hit:
+        return False
+    try:
+        REVIEW_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        return False
+    return True

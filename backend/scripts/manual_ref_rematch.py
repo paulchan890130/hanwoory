@@ -154,7 +154,27 @@ def search_keyword_in_pdf(manual: str, keyword: str) -> list[int]:
     return hits
 
 
-# ── 분석 ─────────────────────────────────────────────────────────────────────
+# ── 보수적 추천 품질 가드 ─────────────────────────────────────────────────────
+# 핵심 원칙: 기존 manual_ref 를 자동으로 강등(degrade)하지 않는다. 후보가 "명백히
+# 더 낫다"고 판단될 때만 APPROVE_CANDIDATE 를 권장하고, 그 외에는 KEEP_EXISTING.
+_COMMON_PAGE_HITS = 8   # 키워드가 이만큼 많은 페이지에 등장하면 후보 선택 신뢰도↓ (공통 페이지)
+_LARGE_MOVE_PAGES = 30  # 이 이상 페이지가 이동하면 고위험
+
+
+def _title_tokens(title: str) -> list[str]:
+    """제목에서 한글 토큰(2자 이상)만 추출 — 후보 페이지 제목 일치 검사용."""
+    toks = keyword_to_tokens(normalize_pdf_text(title or ""))
+    return [t for t in toks if re.search(r"[가-힣]", t)]
+
+
+def _visa_code_prefix(detailed_code: str) -> str:
+    """'F-4-19' → 'F-4', 'E-7' → 'E-7'. 자격코드 강일치 검사용."""
+    m = re.match(r"([A-Za-z]-?\d+)", (detailed_code or "").strip())
+    return m.group(1) if m else ""
+
+
+# decision: 운영 워크플로 상태. status 는 원시 분석 결과(PASS/PAGE_CHANGED/NOT_FOUND/SKIP).
+# recommendation/confidence/risk 는 보수적 권고(자동 반영 아님).
 def analyse_row(
     row_id: str,
     detailed_code: str,
@@ -162,7 +182,7 @@ def analyse_row(
     title: str,
     ref: dict,
 ) -> dict:
-    """단일 manual_ref 엔트리를 분석해 결과 dict 반환."""
+    """단일 manual_ref 엔트리를 분석해 결과 dict 반환 (보수적 품질 가드 포함)."""
     manual = ref.get("manual", "")
     current_pf = ref.get("page_from", 0)
     current_pt = ref.get("page_to", 0)
@@ -181,8 +201,19 @@ def analyse_row(
         "status":           "SKIP",
         "match_text":       match_text,
         "search_keyword":   "",
-        "heading_snippet":  "",
-        "auto_apply":       False,
+        "heading_snippet":  "",        # 후보 페이지 스니펫(하위호환)
+        "current_snippet":  "",        # 기존 페이지 스니펫
+        "candidate_snippet": "",       # 후보 페이지 스니펫
+        "recommendation":   "",        # KEEP_EXISTING|APPROVE_CANDIDATE|NEEDS_MANUAL_PAGE|UNRESOLVED
+        "confidence":       "",        # HIGH|MEDIUM|LOW
+        "risk_flags":       [],        # large_move|weak_code_match|common_page|no_title_match|no_pdf_match
+        "reason":           "",
+        "decision":         "",        # 워크플로 상태(아래 7종). 미검토 후보=NEW_CANDIDATE
+        "reviewed_candidate_page": None,  # 결정 시점의 후보 페이지(재실행 시 변경 감지)
+        "candidate_changed": False,    # 재실행 후 후보가 바뀌면 True → 재검토 필요
+        "manual_page_from": None,      # NEEDS_MANUAL_PAGE 직접 입력값
+        "manual_page_to":   None,
+        "auto_apply":       False,     # 폐기됨(자동 반영 금지) — 항상 False
         "reviewed":         False,
         "applied":          False,
     }
@@ -193,40 +224,132 @@ def analyse_row(
 
     keyword = extract_keyword(match_text)
     base["search_keyword"] = keyword
-
     if not keyword or len(keyword) < 2:
         base["status"] = "SKIP"
         return base
 
     found_pages = search_keyword_in_pdf(manual, keyword)
     base["found_pages"] = found_pages
+    pages = _get_pdf_pages(manual)
+    if pages and 1 <= current_pf <= len(pages):
+        base["current_snippet"] = pages[current_pf - 1][:220].replace("\n", " ").strip()
 
     if not found_pages:
         base["status"] = "NOT_FOUND"
+        base["decision"] = "UNRESOLVED"
+        base["recommendation"] = "NEEDS_MANUAL_PAGE"
+        base["confidence"] = "LOW"
+        base["risk_flags"] = ["no_pdf_match"]
+        base["reason"] = "PDF에서 키워드를 찾지 못함 → 직접 페이지 확인 필요."
         return base
 
-    # 가장 가까운 페이지 선택
     closest = min(found_pages, key=lambda p: abs(p - current_pf))
     base["found_page"] = closest
-
-    # heading snippet
-    pages = _get_pdf_pages(manual)
     if pages and 1 <= closest <= len(pages):
-        snippet = pages[closest - 1][:200].replace("\n", " ").strip()
-        base["heading_snippet"] = snippet
+        snip = pages[closest - 1][:220].replace("\n", " ").strip()
+        base["heading_snippet"] = snip
+        base["candidate_snippet"] = snip
 
     if closest == current_pf:
-        base["status"] = "PASS"
+        base["status"] = "PASS"            # 일치 (decision 공란 → 기본 숨김)
+        base["recommendation"] = "KEEP_EXISTING"
+        base["confidence"] = "HIGH"
+        base["reason"] = "현재 페이지가 키워드와 일치 (변경 없음)."
         return base
 
-    # 페이지 다름
+    # ── 페이지 다름 → 보수적 품질 평가 ──
     base["status"] = "PAGE_CHANGED"
+    base["decision"] = "NEW_CANDIDATE"
     page_diff = abs(closest - current_pf)
-    # auto_apply: 찾은 페이지 1개이고 차이 50 이내
-    if len(found_pages) == 1 and page_diff <= 50:
-        base["auto_apply"] = True
+    cand_text = pages[closest - 1].lower() if (pages and 1 <= closest <= len(pages)) else ""
+    old_still_matches = current_pf in found_pages   # 기존 페이지에 키워드가 여전히 존재
 
+    risk: list[str] = []
+    if len(found_pages) >= _COMMON_PAGE_HITS:
+        risk.append("common_page")
+    if page_diff >= _LARGE_MOVE_PAGES:
+        risk.append("large_move")
+    code_prefix = _visa_code_prefix(detailed_code)
+    if code_prefix and code_prefix.lower().replace("-", "") not in cand_text.replace("-", ""):
+        risk.append("weak_code_match")
+    ttoks = _title_tokens(title)
+    if ttoks and not any(t.lower() in cand_text for t in ttoks):
+        risk.append("no_title_match")
+
+    if "common_page" in risk or "no_title_match" in risk:
+        conf = "LOW"
+    elif "large_move" in risk or "weak_code_match" in risk:
+        conf = "MEDIUM"
+    else:
+        conf = "HIGH"
+    base["risk_flags"] = risk
+    base["confidence"] = conf
+
+    if old_still_matches:
+        # 기존 페이지가 여전히 유효 → 절대 자동 강등하지 않음
+        base["recommendation"] = "KEEP_EXISTING"
+        base["reason"] = (f"기존 p.{current_pf} 에 키워드가 여전히 존재 → 기존 유지 권장 "
+                          f"(후보 p.{closest}, 강등 방지).")
+    elif conf == "HIGH":
+        base["recommendation"] = "APPROVE_CANDIDATE"
+        base["reason"] = (f"후보 p.{closest} 코드/제목 강일치·이동폭/위험 낮음 → 후보 승인 검토. "
+                          f"(이동 {page_diff}p)")
+    else:
+        # MEDIUM/LOW 후보로는 기존을 강등하지 않는다(보수적 기본값)
+        base["recommendation"] = "KEEP_EXISTING"
+        base["reason"] = (f"후보 신뢰도 {conf}, 위험 {risk or '없음'} → 기존 유지 권장 "
+                          f"(자동 강등 방지, 이동 {page_diff}p).")
     return base
+
+
+# ── 이전 결정 병합 ─────────────────────────────────────────────────────────────
+_PERSISTED_DECISIONS = {
+    "REVIEWED_KEEP_EXISTING", "REVIEWED_APPROVE_CANDIDATE",
+    "REJECTED_BAD_CANDIDATE", "NEEDS_MANUAL_PAGE", "UNRESOLVED",
+}
+
+
+def _merge_prior_decisions(results: list[dict]) -> None:
+    """기존 manual_update_review.json 의 검토 결정을 새 분석 결과에 병합한다.
+
+    - applied=True 행은 운영 반영 완료 → decision=APPLIED 로 보존.
+    - 검토 결정(_PERSISTED_DECISIONS)은 그대로 보존 → 재검토 목록에 다시 안 뜸.
+    - 단, 후보 페이지가 직전 검토 시점과 달라졌으면 candidate_changed=True 로 표시해
+      재검토를 유도(결정은 유지하되 UI가 actionable 로 노출).
+    이 함수는 어떤 운영 DB(manual_ref)도 수정하지 않는다 — review JSON 병합만 수행."""
+    if not OUT_JSON.exists():
+        return
+    try:
+        prior = json.loads(OUT_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    prior_map = {r.get("row_id"): r for r in prior.get("rows", []) if r.get("row_id")}
+
+    for r in results:
+        p = prior_map.get(r["row_id"])
+        if not p:
+            continue
+        if p.get("applied"):
+            r["applied"] = True
+            r["reviewed"] = True
+            r["decision"] = "APPLIED"
+            r["reviewed_candidate_page"] = p.get("reviewed_candidate_page")
+            continue
+        prior_decision = p.get("decision", "")
+        if prior_decision in _PERSISTED_DECISIONS:
+            r["decision"] = prior_decision
+            r["reviewed"] = True
+            r["reviewed_candidate_page"] = p.get("reviewed_candidate_page")
+            if p.get("manual_page_from") is not None:
+                r["manual_page_from"] = p.get("manual_page_from")
+                r["manual_page_to"] = p.get("manual_page_to")
+            if p.get("decision_note"):
+                r["decision_note"] = p["decision_note"]
+            # 후보 변경 감지: 검토 당시 후보와 새 후보가 다르면 재검토 필요
+            prev_cand = p.get("reviewed_candidate_page")
+            if (prev_cand is not None and r.get("found_page")
+                    and int(r["found_page"]) != int(prev_cand)):
+                r["candidate_changed"] = True
 
 
 # ── 메인 ──────────────────────────────────────────────────────────────────────
@@ -305,6 +428,9 @@ def run(dry_run: bool = True, auto_apply: bool = False, report_only: bool = Fals
         if changed:
             DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
             print(f"[save] DB updated: {len(applied_ids)} rows")
+
+    # ── 이전 검토 결정 병합 (재실행 시 검토완료 항목이 다시 미검토로 돌아오지 않게) ──
+    _merge_prior_decisions(results)
 
     # 리포트 저장
     out = {
