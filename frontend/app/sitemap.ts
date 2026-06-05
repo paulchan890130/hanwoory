@@ -67,7 +67,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     } else {
       const posts: MarketingPost[] = await res.json();
       dynamicEntries = posts.map((post) => ({
-        url: `${BASE_URL}/board/${post.slug || post.id}`,
+        // slug/id 가 한글·공백 등 비ASCII 문자를 포함할 수 있으므로 경로 세그먼트만 인코딩한다.
+        // (원본 slug 데이터는 변경하지 않음 / 원본이 이미 인코딩돼 있지 않으므로 이중 인코딩 위험 없음)
+        url: `${BASE_URL}/board/${encodeURIComponent(post.slug || post.id)}`,
         lastModified: post.updated_at ? new Date(post.updated_at) : now,
         changeFrequency: "weekly" as const,
         priority: 0.6,
