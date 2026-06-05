@@ -645,41 +645,50 @@
 
   /* ── DIRECTIONS / 오시는 길 ── */
   #directions { scroll-margin-top: 80px; }   /* 고정 nav(68px) 아래로 anchor 안착 */
-  .dir-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: stretch;
+
+  /* 약도 이미지 (PPT 기반, 전체폭) */
+  .dir-map-figure {
+    margin: 0 0 20px;
+    background: linear-gradient(135deg, var(--gold-50), var(--gold-100));
+    border: 1px solid var(--border-gold);
+    border-radius: var(--hp-radius);
+    padding: 18px;
   }
-  .dir-card {
+  .dir-map-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+
+  /* 핵심 정보 가로 바 (약도 하단, 전체폭) */
+  .dir-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 28px;
     background: var(--bg-white);
     border: 1px solid var(--border-light);
     border-radius: var(--hp-radius);
-    padding: 30px 28px;
-    display: flex; flex-direction: column;
+    padding: 22px 28px;
   }
-  .dir-rows { display: flex; flex-direction: column; }
-  .dir-row {
-    display: flex; gap: 16px; align-items: flex-start;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border-light);
+  .dir-bar-info {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 12px 18px;
   }
-  .dir-row:first-child { padding-top: 0; }
-  .dir-row-label {
-    flex-shrink: 0; width: 80px;
-    font-size: 0.78rem; font-weight: 600;
-    color: var(--gold-600);
-    padding-top: 2px;
+  .dir-bar-item { display: flex; align-items: baseline; gap: 9px; }
+  .dir-bar-label {
+    font-size: 0.78rem; font-weight: 600; color: var(--gold-600);
+    flex-shrink: 0;
   }
-  .dir-row-value {
-    font-size: 0.92rem; font-weight: 500;
-    color: var(--text-primary);
-    line-height: 1.6;
+  .dir-bar-value {
+    font-size: 0.92rem; font-weight: 600; color: var(--text-primary);
+    line-height: 1.5;
   }
-  .dir-tel { text-decoration: none; color: var(--text-primary); transition: color 0.2s; }
-  .dir-tel:hover { color: var(--gold-600); }
-  .dir-places-area { margin-top: 18px; }
-  .dir-places { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  a.dir-bar-tel { text-decoration: none; transition: color 0.2s; }
+  a.dir-bar-tel:hover { color: var(--gold-600); }
+  .dir-bar-sep { width: 1px; height: 16px; background: var(--border-gold); }
+  .dir-bar-places { display: flex; flex-wrap: wrap; gap: 8px; }
   .dir-chip {
     display: inline-flex; align-items: center;
     font-size: 0.8rem; font-weight: 500;
@@ -689,122 +698,13 @@
     padding: 6px 13px;
     border-radius: 20px;
   }
-  .dir-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: auto; padding-top: 24px; }
-  .dir-card-route {
-    background: linear-gradient(135deg, var(--gold-50), var(--gold-100));
-    border-color: var(--border-gold);
-  }
-  .dir-route-title {
-    font-family: 'Noto Serif KR', serif;
-    font-size: 1.05rem; font-weight: 700;
-    color: var(--gold-700);
-    margin-bottom: 16px;
-  }
-  .dir-route { display: flex; flex-direction: column; align-items: stretch; margin-bottom: 18px; }
-  .dir-route-step {
-    display: flex; align-items: center; gap: 10px;
-    font-size: 0.9rem; font-weight: 600;
-    color: var(--text-secondary);
-    background: var(--bg-white);
-    border: 1px solid var(--border-gold);
-    border-radius: 8px;
-    padding: 9px 16px;
-  }
-  .dir-route-num {
-    flex-shrink: 0; width: 20px; height: 20px;
-    border-radius: 50%;
-    background: var(--gold-200); color: var(--gold-700);
-    font-size: 0.72rem; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .dir-route-dest { border-color: var(--gold-400); color: var(--gold-700); box-shadow: var(--shadow-sm); }
-  .dir-route-dest .dir-route-num { background: var(--gold-400); color: #fff; }
-  .dir-route-arrow { color: var(--gold-400); font-size: 1rem; line-height: 1; text-align: center; padding: 4px 0; }
-  .dir-bullets { list-style: none; display: flex; flex-direction: column; gap: 9px; }
-  .dir-bullets li {
-    position: relative; padding-left: 18px;
-    font-size: 0.84rem; color: var(--text-secondary); line-height: 1.6;
-  }
-  .dir-bullets li::before {
-    content: ''; position: absolute; left: 0; top: 9px;
-    width: 5px; height: 5px; border-radius: 50%;
-    background: var(--gold-400);
-  }
-  /* ── 간략 안내도 (지도 타일 복사 없이 위치관계만 도식화) ── */
-  .dir-map {
-    margin-top: 24px;
-    background: var(--bg-white);
-    border: 1px solid var(--border-light);
-    border-radius: var(--hp-radius);
-    padding: 26px 28px 30px;
-  }
-  .dir-map-head {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
-    margin-bottom: 22px;
-  }
-  .dir-map-badge {
-    flex-shrink: 0;
-    font-size: 0.78rem; font-weight: 700;
-    color: var(--gold-700);
-    background: var(--gold-100);
-    border: 1px solid var(--gold-200);
-    padding: 5px 13px; border-radius: 20px;
-  }
-  .dir-map-caption {
-    font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); line-height: 1.6;
-  }
-  .dir-map-canvas {
-    position: relative;
-    background: linear-gradient(135deg, var(--gold-50), var(--gold-100));
-    border: 1px solid var(--border-gold);
-    border-radius: 12px;
-    padding: 42px 24px 28px;
-  }
-  .dir-map-ref {
-    position: absolute; top: 14px; left: 24px;
-    font-size: 0.74rem; font-weight: 600; color: var(--gold-700);
-    background: var(--bg-white);
-    border: 1px dashed var(--gold-200);
-    padding: 3px 11px; border-radius: 6px;
-  }
-  .dir-map-ref::after { content: ' ↓ 인근'; color: var(--gold-400); font-weight: 500; }
-  .dir-map-row {
-    display: flex; align-items: stretch; justify-content: center;
-    flex-wrap: nowrap; gap: 0;
-  }
-  .dir-map-node {
-    flex: 0 1 auto;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-    text-align: center;
-    background: var(--bg-white);
-    border: 1px solid var(--border-gold);
-    border-radius: 10px;
-    padding: 13px 16px;
-    min-width: 104px;
-  }
-  .dir-map-node-name { font-size: 0.86rem; font-weight: 700; color: var(--text-primary); line-height: 1.35; }
-  .dir-map-node-tag { font-size: 0.72rem; font-weight: 600; color: var(--gold-600); }
-  .dir-map-node-dest {
-    border-color: var(--gold-400); box-shadow: var(--shadow-sm);
-    background: linear-gradient(135deg, #fff, var(--gold-50));
-  }
-  .dir-map-node-dest .dir-map-node-name { color: var(--gold-700); }
-  .dir-map-link {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 5px; padding: 0 12px; min-width: 116px;
-  }
-  .dir-map-link-short { min-width: 60px; }
-  .dir-map-road { font-size: 0.74rem; font-weight: 600; color: var(--gold-700); white-space: nowrap; }
-  .dir-map-arrow { color: var(--gold-400); font-size: 1.25rem; font-weight: 700; line-height: 1; }
+  .dir-bar-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+
   @media (max-width: 768px) {
-    .dir-grid { grid-template-columns: 1fr; gap: 16px; }
-    .dir-row-label { width: 64px; }
-    .dir-actions .btn-primary, .dir-actions .btn-secondary { flex: 1; justify-content: center; }
-    .dir-map { padding: 22px 18px 24px; }
-    .dir-map-canvas { padding: 18px 16px 22px; }
-    .dir-map-ref { position: static; display: inline-block; margin-bottom: 14px; }
-    .dir-map-row { flex-direction: column; align-items: stretch; }
-    .dir-map-node { min-width: 0; }
-    .dir-map-link, .dir-map-link-short { flex-direction: row; min-width: 0; padding: 8px 0; gap: 8px; }
-    .dir-map-arrow { transform: rotate(90deg); }
+    .dir-map-figure { padding: 12px; }
+    .dir-bar { padding: 18px 18px; gap: 14px; }
+    .dir-bar-sep { display: none; }
+    .dir-bar-info { gap: 8px 16px; }
+    .dir-bar-actions { margin-left: 0; width: 100%; }
+    .dir-bar-actions .btn-primary, .dir-bar-actions .btn-secondary { flex: 1; justify-content: center; }
   }
