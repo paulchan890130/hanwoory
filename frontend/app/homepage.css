@@ -644,7 +644,7 @@
   }
 
   /* ── DIRECTIONS / 오시는 길 ── */
-  #directions { scroll-margin-top: 80px; }   /* 고정 nav(68px) 아래로 anchor 안착 */
+  #directions { scroll-margin-top: 90px; }   /* 고정 nav(68px) 아래로 anchor 안착 (+여유) */
 
   /* 약도 이미지 (PPT 기반, 전체폭) */
   .dir-map-figure {

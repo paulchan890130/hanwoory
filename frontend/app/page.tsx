@@ -16,6 +16,20 @@ interface Post {
   is_published: string;
 }
 
+// #directions 보정 스크롤(즉시).
+// CSS의 html{scroll-behavior:smooth}를 보정 순간에만 무력화하여 smooth가 모바일 스크롤 복원과
+// 충돌하지 않도록 한다(보정은 항상 즉시 이동). 일반 내비게이션 클릭의 smooth는 그대로 유지.
+function scrollToDirectionsInstant() {
+  if (typeof window === "undefined") return;
+  const el = document.getElementById("directions");
+  if (!el) return;
+  const root = document.documentElement;
+  const prev = root.style.scrollBehavior;
+  root.style.scrollBehavior = "auto";
+  el.scrollIntoView({ behavior: "auto", block: "start" });
+  root.style.scrollBehavior = prev;
+}
+
 export default function HomePage() {
   const navRef = useRef<HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -53,6 +67,33 @@ export default function HomePage() {
       .then((data: Post[]) => setPosts(Array.isArray(data) ? data : []))
       .catch(() => setPosts([]));
   }, []);
+
+  // #directions 앵커 안정화 (공개 홈페이지 한정):
+  // 게시물 비동기 로드로 상단 BOARD 섹션 높이가 늘어나면 초기 앵커 위치가 어긋나
+  // viewport가 FAQ 쪽으로 밀린다. 마운트 직후 + 짧은 지연 반복으로 레이아웃 시프트를 보정한다.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#directions") return;
+
+    // 브라우저 스크롤 복원이 앵커 타겟을 덮어쓰지 않도록 (이 진입 한정)
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    scrollToDirectionsInstant();
+    const timers = [300, 800, 1500].map((ms) =>
+      window.setTimeout(scrollToDirectionsInstant, ms)
+    );
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  // 게시물 로딩 완료(상단 높이 변동) 후 한 번 더 보정
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#directions") return;
+    if (posts.length === 0) return;
+    scrollToDirectionsInstant();
+  }, [posts]);
 
   const closeMenu = useCallback(() => setMobileOpen(false), []);
 
