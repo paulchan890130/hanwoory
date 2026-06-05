@@ -173,6 +173,95 @@ def _visa_code_prefix(detailed_code: str) -> str:
     return m.group(1) if m else ""
 
 
+# title 강일치 판정에서 '단독'으로는 인정하지 않는 일반 업무어(정규화 후 단일 토큰 기준).
+# 이 단어 하나만 페이지에 있다고 기존 페이지를 유효로 보면, 실제로 틀린 manual_ref 도
+# KEEP_EXISTING 으로 숨어버리므로 제외한다.
+_TITLE_STOPWORDS = {
+    "신청", "요건", "대상", "서류", "변경", "연장", "등록", "체류",
+    "사증", "외국인", "허가", "발급", "인정", "활동", "자격",
+}
+
+# 여러 페이지에 반복되는 일반 동작구/업무유형 정규화 문구. title 토큰이 이 중 하나여도
+# '고유성'으로 인정하지 않는다(단독 KEEP 위험 차단). normalize_pdf_text 가 만들어내는
+# 복합어 형태까지 포함한다(예: 근무처변경추가, 사증발급확인서).
+_TITLE_GENERIC_PHRASES = {
+    "체류기간연장", "외국인등록", "사증발급인정서", "사증발급확인서",
+    "체류자격변경", "체류자격부여", "근무처변경", "근무처추가", "근무처변경추가",
+    "체류자격외활동", "재입국허가", "외국인등록사항변경",
+    "거소신고", "거소이전신고", "비자연장", "비자변경",
+}
+
+
+def _strong_title_match(title: str, page_text_lower: str) -> bool:
+    """현재 페이지에 title 이 '강하게' 일치하는지 판정 (약한 토큰 1개로는 불인정).
+
+    phrase(전체 문구) match 는 제거했다 — 일반 업무유형 문구가 여러 페이지에 반복돼
+    틀린 manual_ref 를 KEEP 으로 숨길 위험이 있기 때문. 오직 '고유성 있는 토큰' 기준만 본다:
+      (a) 공통어/일반업무구 제외 '의미 토큰' 2개 이상이 현재 페이지에 존재
+      (b) 4글자 이상 고유 토큰(공통어/일반업무구 아님)이 현재 페이지에 존재
+    """
+    toks = _title_tokens(title)
+    meaningful = [
+        t for t in toks
+        if t not in _TITLE_STOPWORDS and t not in _TITLE_GENERIC_PHRASES
+    ]
+    present = [t for t in meaningful if t.lower() in page_text_lower]
+    if len(present) >= 2:                                                     # (a)
+        return True
+    if any(len(t) >= 4 and t.lower() in page_text_lower for t in meaningful):  # (b)
+        return True
+    return False
+
+
+# 코드 비교용 정규화 — 공백/각종 하이픈·대시·중점·점 제거(소문자). PDF가 'F­1­15'(소프트
+# 하이픈) 처럼 다른 글자로 코드를 렌더해도 'f115' 로 일치시키기 위함.
+_CODE_STRIP = re.compile(r"[\s\-­‐‑‒–—―·.]")
+
+
+def _code_norm(s: str) -> str:
+    return _CODE_STRIP.sub("", (s or "").lower())
+
+
+def _current_page_signals(
+    pages: Optional[list[str]],
+    current_pf: int,
+    detailed_code: str,
+    title: str,
+) -> dict:
+    """현재(사람이 정한) 페이지의 코드/제목 신호를 **분리** 판정.
+
+    취약한 키워드 AND-검색과 독립적으로 현재 페이지 텍스트만 본다.
+      - full_code_on_current   : full detailed_code(예 F-1-15/E-7-2/D-8-2)가 그대로 존재
+      - family_code_on_current : 자격코드 패밀리(예 F-1/E-7)만 존재 (약한 신호)
+      - title_strong_on_current: 고유성 있는 강한 title 일치(_strong_title_match)
+
+    Returns: dict(위 3개 bool). KEEP 판단은 호출부에서 정책에 따라 결정한다.
+    """
+    out = {
+        "full_code_on_current": False,
+        "family_code_on_current": False,
+        "title_strong_on_current": False,
+    }
+    if not pages or not (1 <= current_pf <= len(pages)):
+        return out
+    cur = pages[current_pf - 1]
+    curl = cur.lower()
+    cur_code = _code_norm(cur)
+
+    dc_ns = _code_norm(detailed_code)
+    if len(dc_ns) >= 2 and dc_ns in cur_code:
+        out["full_code_on_current"] = True
+
+    fam_ns = _code_norm(_visa_code_prefix(detailed_code))
+    if fam_ns and fam_ns in cur_code:
+        out["family_code_on_current"] = True
+
+    if _strong_title_match(title, curl):
+        out["title_strong_on_current"] = True
+
+    return out
+
+
 # decision: 운영 워크플로 상태. status 는 원시 분석 결과(PASS/PAGE_CHANGED/NOT_FOUND/SKIP).
 # recommendation/confidence/risk 는 보수적 권고(자동 반영 아님).
 def analyse_row(
@@ -234,13 +323,51 @@ def analyse_row(
     if pages and 1 <= current_pf <= len(pages):
         base["current_snippet"] = pages[current_pf - 1][:220].replace("\n", " ").strip()
 
+    # ── 기존 페이지 유효성 가드 (취약 키워드 검색과 독립) ───────────────────────────
+    # KEEP_EXISTING 으로 숨기는 조건은 '강한 신호'만 허용한다:
+    #   (1) full detailed_code(예 F-1-15/E-7-2/D-8-2)가 현재 페이지에 존재
+    #   (2) strong title match
+    #   (3) candidate_page == current_page (아래 분기에서 처리)
+    # family prefix(F-1/E-7 등)만 존재하는 경우는 KEEP 으로 숨기지 않고 검토로 보낸다
+    # (family_code_only / weak_family_code_match risk 부여). 운영 반영은 explicit apply 로만.
+    sig = _current_page_signals(pages, current_pf, detailed_code, title)
+    if sig["full_code_on_current"] or sig["title_strong_on_current"]:
+        evidence = [k for k in ("full_code_on_current", "title_strong_on_current") if sig[k]]
+        base["status"] = "PASS"          # decision 공란 → 기본 미검토 목록에서 숨김
+        base["decision"] = ""
+        base["recommendation"] = "KEEP_EXISTING"
+        base["confidence"] = "HIGH"
+        base["risk_flags"] = ["current_still_valid"]
+        if found_pages:                  # 참고용 후보만 표시 (대체 아님)
+            closest = min(found_pages, key=lambda p: abs(p - current_pf))
+            base["found_page"] = closest
+            if pages and 1 <= closest <= len(pages):
+                snip = pages[closest - 1][:220].replace("\n", " ").strip()
+                base["heading_snippet"] = snip
+                base["candidate_snippet"] = snip
+        base["reason"] = (
+            f"현재 p.{current_pf} 에 {'·'.join(evidence)} 존재 → 기존 manual_ref 유지 "
+            f"(후보 페이지는 참고용, 자동 변경 안 함)."
+        )
+        return base
+
+    # full code·strong title 없음 → KEEP 으로 숨기지 않는다. family prefix 만 있으면 weak
+    # 신호로만 기록하고 검토 로직으로 넘긴다.
+    extra_risk: list[str] = []
+    if sig["family_code_on_current"]:
+        extra_risk = ["family_code_only", "weak_family_code_match"]
+
     if not found_pages:
         base["status"] = "NOT_FOUND"
         base["decision"] = "UNRESOLVED"
         base["recommendation"] = "NEEDS_MANUAL_PAGE"
         base["confidence"] = "LOW"
-        base["risk_flags"] = ["no_pdf_match"]
-        base["reason"] = "PDF에서 키워드를 찾지 못함 → 직접 페이지 확인 필요."
+        base["risk_flags"] = ["no_pdf_match"] + extra_risk
+        base["reason"] = (
+            "현재 페이지에 full code/strong title 없음"
+            + (" (family code-prefix만 존재)" if extra_risk else "")
+            + " + PDF 키워드 미발견 → 직접 페이지 확인 필요."
+        )
         return base
 
     closest = min(found_pages, key=lambda p: abs(p - current_pf))
@@ -251,10 +378,11 @@ def analyse_row(
         base["candidate_snippet"] = snip
 
     if closest == current_pf:
-        base["status"] = "PASS"            # 일치 (decision 공란 → 기본 숨김)
+        base["status"] = "PASS"            # 후보=현재 → 유지 (decision 공란 → 기본 숨김)
         base["recommendation"] = "KEEP_EXISTING"
         base["confidence"] = "HIGH"
-        base["reason"] = "현재 페이지가 키워드와 일치 (변경 없음)."
+        base["risk_flags"] = ["candidate_equals_current"]
+        base["reason"] = "후보 페이지 = 현재 페이지 → 기존 유지 (변경 없음)."
         return base
 
     # ── 페이지 다름 → 보수적 품질 평가 ──
@@ -275,6 +403,11 @@ def analyse_row(
     ttoks = _title_tokens(title)
     if ttoks and not any(t.lower() in cand_text for t in ttoks):
         risk.append("no_title_match")
+
+    # family prefix 만 맞던 약한 신호(weak_family_code_match/family_code_only) 합류
+    for f in extra_risk:
+        if f not in risk:
+            risk.append(f)
 
     if "common_page" in risk or "no_title_match" in risk:
         conf = "LOW"
@@ -375,6 +508,23 @@ def run(dry_run: bool = True, auto_apply: bool = False, report_only: bool = Fals
             result = analyse_row(rid, code, action, title, ref)
             results.append(result)
             break  # row당 첫 번째 manual_override만
+
+    # ── shared generic page: family_code_only(= full code/strong title 없이 family prefix만)
+    #    행이 같은 (manual, current_page) 를 2개 이상 공유하면 generic 공유 페이지로 보고
+    #    shared_generic_page risk 를 추가한다. (예: F-1 계열이 모두 p.355 복수재입국허가 공유) ──
+    from collections import Counter as _Counter
+    _fam_pages = _Counter(
+        (r.get("manual"), r.get("current_page_from"))
+        for r in results
+        if "family_code_only" in (r.get("risk_flags") or [])
+    )
+    for r in results:
+        if (
+            "family_code_only" in (r.get("risk_flags") or [])
+            and _fam_pages[(r.get("manual"), r.get("current_page_from"))] >= 2
+            and "shared_generic_page" not in r["risk_flags"]
+        ):
+            r["risk_flags"].append("shared_generic_page")
 
     # 통계
     counts = {

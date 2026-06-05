@@ -53,12 +53,41 @@ _scheduler = BackgroundScheduler()
 _scheduler.add_job(_run_watcher, "interval", hours=12, id="manual_watcher")
 
 
+def _is_server_env() -> bool:
+    """운영(server) 환경 여부. HANWOORY_ENV 또는 RUN_ENV 가 'server' 이면 True.
+
+    config.RUN_ENV 는 HANWOORY_ENV(기본 'local')에서 파생된다. 두 환경변수를 모두
+    확인해, 레거시 Hancom/OpenHwpExe 자동 워처가 운영에서 기동되지 않도록 한다."""
+    try:
+        from config import RUN_ENV as _cfg_env
+    except Exception:
+        _cfg_env = os.environ.get("HANWOORY_ENV", "local")
+    candidates = (
+        str(_cfg_env or "").strip().lower(),
+        os.environ.get("HANWOORY_ENV", "").strip().lower(),
+        os.environ.get("RUN_ENV", "").strip().lower(),
+    )
+    return "server" in candidates
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _scheduler.start()
-    print("[watcher] 스케줄러 시작 (12시간마다 자동 실행)")
+    # 레거시 Hancom/OpenHwpExe 자동 워처는 Windows·로컬 전용이다. 운영(server)에서는
+    # win32com / OpenHwpExe.exe 가 없어 동작 불가하며, 설령 동작하더라도 운영 PDF를
+    # 직접 덮어써 "staging 검토 + explicit apply" 원칙과 충돌한다. 따라서 server 에서는
+    # 자동 실행 배선만 끊는다. (워처 코드 자체·rhwp v1·PDF 뷰어·apply 흐름은 무변경)
+    if _is_server_env():
+        print(
+            "[watcher] legacy Hancom/OpenHwpExe manual watcher disabled on server; "
+            "rhwp Manual Update v1 should be used"
+        )
+    else:
+        _scheduler.start()
+        print("[watcher] 스케줄러 시작 (12시간마다 자동 실행) — local 전용")
     yield
-    _scheduler.shutdown(wait=False)
+    # server 에서는 start 하지 않았으므로, 실행 중일 때만 정리한다.
+    if _scheduler.running:
+        _scheduler.shutdown(wait=False)
 
 from backend.routers import (
     auth,
