@@ -55,7 +55,7 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       ...(post.thumbnail_url ? { images: [{ url: post.thumbnail_url }] } : {}),
     },
-    alternates: { canonical: `/board/${post.slug || post.id}` },
+    alternates: { canonical: `${BASE_URL}/board/${post.slug || post.id}` },
   };
 }
 

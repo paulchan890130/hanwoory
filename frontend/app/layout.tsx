@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.hanwory.com"),
   title: {
     default: "한우리행정사사무소 | 시흥·정왕 출입국 행정사",
     template: "%s | 한우리행정사사무소",
