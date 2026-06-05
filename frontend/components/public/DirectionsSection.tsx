@@ -1,6 +1,8 @@
 // 공개 홈페이지 메인(/) 하단 "오시는 길" 섹션.
 // 정적 안내 + 링크 중심(지도 API/외부 SDK 미연동). 기존 homepage.css 토큰/클래스를 재사용한다.
-// 지도 링크는 상수로 분리 — 추후 링크만 교체 가능.
+// 위치 기준: 시흥정왕동우체국 → 경기스마트고등학교 방향 약 150m → 한우리행정사사무소.
+// 지도 타일을 복사하지 않고, 위치관계만 반영한 "간략 안내도"(CSS 도식)로 표현한다.
+// 지도 링크는 상수로 분리 — 추후 링크만 교체 가능. #directions anchor로 바로 진입 가능.
 const NAVER_MAP_URL = "https://naver.me/xXnSEq0b"; // 확정됨
 // TODO: 카카오맵 링크 확정 시 KAKAO_MAP_URL 상수 추가 후 버튼 1개 더 노출 (이번 작업 범위 아님)
 
@@ -8,16 +10,20 @@ const PHONE = "01047028886";
 const PHONE_DISPLAY = "010-4702-8886";
 const ADDRESS = "경기도 시흥시 군서마을로 12, 101호";
 
-const NEARBY = ["정왕시장 인근", "시흥정왕동우체국 인근", "경기스마트고등학교 인근"];
+// 주변 주요 지점(칩) — 우체국 출발 기준 + 인근 기준점
+const NEARBY = ["시흥정왕동우체국", "경기스마트고사거리", "정왕시장 인근", "경기스마트고등학교 방향"];
 
-const ROUTE_STEPS = ["큰도로 진입", "작은도로 방향", "한우리행정사사무소"];
-
+// 찾아오는 방법 안내 — 우체국 기준, 경기스마트고 방향 약 150m
 const FIND_TIPS = [
-  "큰도로 쪽에서 진입 후 작은도로 방향으로 들어오시면 사무실을 찾기 쉽습니다.",
-  "정왕시장과 시흥정왕동우체국을 기준으로 보시면 위치 파악이 쉽습니다.",
-  "경기스마트고등학교 인근 방향에서도 접근 가능합니다.",
-  "사무실은 작은도로 앞쪽에 위치해 가까이 오시면 비교적 쉽게 확인하실 수 있습니다.",
+  "시흥정왕동우체국을 기준으로 경기스마트고등학교 방향으로 약 150m 이동합니다.",
+  "군서마을로 도로변에서 한우리행정사사무소를 확인하실 수 있습니다.",
+  "정확한 위치는 네이버지도에서 확인 가능합니다.",
 ];
+
+// 간략 안내도 도식 — 우체국(출발) → 사무소(도착) → 경기스마트고사거리(경기스마트고 방향)
+const MAP_CAPTION = "시흥정왕동우체국 → 경기스마트고등학교 방향 약 150m → 한우리행정사사무소";
+const MAP_ARIA =
+  "간략 안내도: 시흥정왕동우체국에서 경기스마트고등학교 방향으로 군서마을로를 따라 약 150m 이동하면 한우리행정사사무소가 있으며, 인근에 정왕시장과 경기스마트고사거리가 있습니다.";
 
 export function DirectionsSection() {
   return (
@@ -26,8 +32,8 @@ export function DirectionsSection() {
         <p className="section-label fade-in">Location</p>
         <h2 className="section-title fade-in" id="directions-title">오시는 길</h2>
         <p className="section-desc fade-in">
-          정왕시장·시흥정왕동우체국 인근에 위치한 한우리행정사사무소입니다.
-          큰도로에서 작은도로 방향으로 들어오시면 비교적 쉽게 찾으실 수 있습니다.
+          한우리행정사사무소는 시흥정왕동우체국에서 경기스마트고등학교 방향으로
+          약 150m 거리에 위치해 있습니다.
         </p>
 
         <div className="dir-grid">
@@ -79,23 +85,44 @@ export function DirectionsSection() {
             </div>
           </div>
 
-          {/* 찾아오는 길 카드 */}
+          {/* 찾아오는 방법 카드 */}
           <div className="dir-card dir-card-route fade-in">
-            <h3 className="dir-route-title">찾아오는 길</h3>
-            <div className="dir-route" aria-label="큰도로에서 작은도로를 거쳐 사무실로 오는 경로">
-              {ROUTE_STEPS.map((step, i) => (
-                <div key={step} style={{ width: "100%" }}>
-                  <div className={`dir-route-step${i === ROUTE_STEPS.length - 1 ? " dir-route-dest" : ""}`}>
-                    <span className="dir-route-num">{i + 1}</span>
-                    {step}
-                  </div>
-                  {i < ROUTE_STEPS.length - 1 && <div className="dir-route-arrow" aria-hidden="true">↓</div>}
-                </div>
-              ))}
-            </div>
+            <h3 className="dir-route-title">찾아오는 방법</h3>
             <ul className="dir-bullets">
               {FIND_TIPS.map((t) => <li key={t}>{t}</li>)}
             </ul>
+          </div>
+        </div>
+
+        {/* 간략 안내도 — 지도 타일 복사 없이 위치관계만 도식화 */}
+        <div className="dir-map fade-in">
+          <div className="dir-map-head">
+            <span className="dir-map-badge">간략 안내도</span>
+            <p className="dir-map-caption">{MAP_CAPTION}</p>
+          </div>
+          <div className="dir-map-canvas" role="img" aria-label={MAP_ARIA}>
+            <span className="dir-map-ref">정왕시장</span>
+            <div className="dir-map-row">
+              <div className="dir-map-node">
+                <span className="dir-map-node-name">시흥정왕동우체국</span>
+                <span className="dir-map-node-tag">출발 기준점</span>
+              </div>
+              <div className="dir-map-link">
+                <span className="dir-map-road">군서마을로 · 약 150m</span>
+                <span className="dir-map-arrow" aria-hidden="true">→</span>
+              </div>
+              <div className="dir-map-node dir-map-node-dest">
+                <span className="dir-map-node-name">한우리행정사사무소</span>
+                <span className="dir-map-node-tag">도착</span>
+              </div>
+              <div className="dir-map-link dir-map-link-short">
+                <span className="dir-map-arrow" aria-hidden="true">→</span>
+              </div>
+              <div className="dir-map-node dir-map-node-cross">
+                <span className="dir-map-node-name">경기스마트고사거리</span>
+                <span className="dir-map-node-tag">경기스마트고등학교 방향</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

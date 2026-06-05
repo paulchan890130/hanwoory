@@ -730,8 +730,81 @@
     width: 5px; height: 5px; border-radius: 50%;
     background: var(--gold-400);
   }
+  /* ── 간략 안내도 (지도 타일 복사 없이 위치관계만 도식화) ── */
+  .dir-map {
+    margin-top: 24px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--hp-radius);
+    padding: 26px 28px 30px;
+  }
+  .dir-map-head {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-bottom: 22px;
+  }
+  .dir-map-badge {
+    flex-shrink: 0;
+    font-size: 0.78rem; font-weight: 700;
+    color: var(--gold-700);
+    background: var(--gold-100);
+    border: 1px solid var(--gold-200);
+    padding: 5px 13px; border-radius: 20px;
+  }
+  .dir-map-caption {
+    font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); line-height: 1.6;
+  }
+  .dir-map-canvas {
+    position: relative;
+    background: linear-gradient(135deg, var(--gold-50), var(--gold-100));
+    border: 1px solid var(--border-gold);
+    border-radius: 12px;
+    padding: 42px 24px 28px;
+  }
+  .dir-map-ref {
+    position: absolute; top: 14px; left: 24px;
+    font-size: 0.74rem; font-weight: 600; color: var(--gold-700);
+    background: var(--bg-white);
+    border: 1px dashed var(--gold-200);
+    padding: 3px 11px; border-radius: 6px;
+  }
+  .dir-map-ref::after { content: ' ↓ 인근'; color: var(--gold-400); font-weight: 500; }
+  .dir-map-row {
+    display: flex; align-items: stretch; justify-content: center;
+    flex-wrap: nowrap; gap: 0;
+  }
+  .dir-map-node {
+    flex: 0 1 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    text-align: center;
+    background: var(--bg-white);
+    border: 1px solid var(--border-gold);
+    border-radius: 10px;
+    padding: 13px 16px;
+    min-width: 104px;
+  }
+  .dir-map-node-name { font-size: 0.86rem; font-weight: 700; color: var(--text-primary); line-height: 1.35; }
+  .dir-map-node-tag { font-size: 0.72rem; font-weight: 600; color: var(--gold-600); }
+  .dir-map-node-dest {
+    border-color: var(--gold-400); box-shadow: var(--shadow-sm);
+    background: linear-gradient(135deg, #fff, var(--gold-50));
+  }
+  .dir-map-node-dest .dir-map-node-name { color: var(--gold-700); }
+  .dir-map-link {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px; padding: 0 12px; min-width: 116px;
+  }
+  .dir-map-link-short { min-width: 60px; }
+  .dir-map-road { font-size: 0.74rem; font-weight: 600; color: var(--gold-700); white-space: nowrap; }
+  .dir-map-arrow { color: var(--gold-400); font-size: 1.25rem; font-weight: 700; line-height: 1; }
   @media (max-width: 768px) {
     .dir-grid { grid-template-columns: 1fr; gap: 16px; }
     .dir-row-label { width: 64px; }
     .dir-actions .btn-primary, .dir-actions .btn-secondary { flex: 1; justify-content: center; }
+    .dir-map { padding: 22px 18px 24px; }
+    .dir-map-canvas { padding: 18px 16px 22px; }
+    .dir-map-ref { position: static; display: inline-block; margin-bottom: 14px; }
+    .dir-map-row { flex-direction: column; align-items: stretch; }
+    .dir-map-node { min-width: 0; }
+    .dir-map-link, .dir-map-link-short { flex-direction: row; min-width: 0; padding: 8px 0; gap: 8px; }
+    .dir-map-arrow { transform: rotate(90deg); }
   }
