@@ -656,6 +656,111 @@ def get_manual_auto_update_state(user: dict = Depends(require_admin)):
     return JSONResponse({"state": state, "staging_versions": versions}, headers=_NOSTORE)
 
 
+# ── Manual Update v1 — PG single-source endpoints (admin) ────────────────────
+# FEATURE_PG_MANUAL_UPDATE=true → PostgreSQL 조회. false → 기존 파일 기반 fallback.
+# admin 기본 화면은 active current + 이번 orphaned 1회만(archive·구세대 제외).
+
+def _pg_manual_enabled() -> bool:
+    try:
+        from backend.db.feature_flags import pg_manual_update_enabled
+        from backend.db.session import is_configured
+        return is_configured() and pg_manual_update_enabled()
+    except Exception:
+        return False
+
+
+@router.get("/manual-update/state")
+def get_manual_update_state_v2(user: dict = Depends(require_admin)):
+    """자동화 상태. PG on → manual_update_state, off → manual_auto_update_state.json."""
+    from fastapi.responses import JSONResponse
+    if _pg_manual_enabled():
+        from backend.services import manual_update_pg_service as svc
+        return JSONResponse({"source": "pg", "state": svc.get_state_dict()}, headers=_NOSTORE)
+    # 파일 fallback
+    path = os.path.join(_MANUALS_DIR, "manual_auto_update_state.json")
+    state = {"status": "never_run", "needs_review": False}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception as e:
+            state = {"status": "error", "error": f"state read failed: {e}"}
+    return JSONResponse({"source": "file", "state": state}, headers=_NOSTORE)
+
+
+@router.get("/manual-update/versions")
+def list_manual_update_versions_v2(user: dict = Depends(require_admin)):
+    """감지된 업데이트 버전 목록."""
+    from fastapi.responses import JSONResponse
+    if _pg_manual_enabled():
+        from backend.services import manual_update_pg_service as svc
+        return JSONResponse({"source": "pg", "versions": svc.list_versions()}, headers=_NOSTORE)
+    # 파일 fallback: staging/ 하위 manifest 보유 버전
+    out = []
+    root = os.path.join(_MANUALS_DIR, "staging")
+    if os.path.isdir(root):
+        for name in sorted(os.listdir(root)):
+            if os.path.isfile(os.path.join(root, name, "manifest.json")):
+                out.append({"version": name})
+    return JSONResponse({"source": "file", "versions": out}, headers=_NOSTORE)
+
+
+@router.get("/manual-update/versions/{version}/changed-pages")
+def get_manual_update_changed_pages_v2(version: str, user: dict = Depends(require_admin)):
+    """버전별 변경 페이지."""
+    from fastapi.responses import JSONResponse
+    if _pg_manual_enabled():
+        from backend.services import manual_update_pg_service as svc
+        rows = svc.get_changed_pages(version)
+        return JSONResponse({"source": "pg", "version": version, "count": len(rows),
+                             "rows": rows}, headers=_NOSTORE)
+    data = _read_staging_json(version, "diff", "changed_pages.json")
+    return JSONResponse({"source": "file", "version": version, "count": len(data),
+                         "rows": data}, headers=_NOSTORE)
+
+
+@router.get("/manual-update/versions/{version}/candidates")
+def get_manual_update_candidates_v2(version: str, user: dict = Depends(require_admin)):
+    """버전별 영향 manual_ref 후보."""
+    from fastapi.responses import JSONResponse
+    if _pg_manual_enabled():
+        from backend.services import manual_update_pg_service as svc
+        rows = svc.get_candidates(version)
+        return JSONResponse({"source": "pg", "version": version, "count": len(rows),
+                             "rows": rows}, headers=_NOSTORE)
+    data = _read_staging_json(version, "candidates", "manual_ref_update_candidates.json")
+    return JSONResponse({"source": "file", "version": version, "count": len(data),
+                         "rows": data}, headers=_NOSTORE)
+
+
+@router.get("/manual-update/decisions/active")
+def get_manual_update_active_decisions_v2(user: dict = Depends(require_admin)):
+    """admin 기본 검토 화면용 active decision(현재 + 이번 orphaned 1회). archive 제외."""
+    from fastapi.responses import JSONResponse
+    if _pg_manual_enabled():
+        from backend.services import manual_update_pg_service as svc
+        rows = svc.get_active_decisions()
+        return JSONResponse({"source": "pg", "count": len(rows), "rows": rows},
+                            headers=_NOSTORE)
+    # 파일 fallback: manual_review_decisions.json (Phase 0 구조)
+    path = os.path.join(_MANUALS_DIR, "manual_review_decisions.json")
+    rows = []
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            decisions = (data.get("decisions") or {}) if isinstance(data, dict) else {}
+            # 파일 fallback 은 version 정보가 약해 비-2세대 orphaned 까지 단순 노출
+            for rid, d in decisions.items():
+                if isinstance(d, dict):
+                    rows.append({"row_id": rid, **d})
+        except Exception as e:
+            return JSONResponse({"source": "file", "error": f"read failed: {e}",
+                                 "rows": []}, headers=_NOSTORE)
+    return JSONResponse({"source": "file", "count": len(rows), "rows": rows},
+                        headers=_NOSTORE)
+
+
 @router.get("/manual-pdf-info")
 def get_manual_pdf_info(user: dict = Depends(get_current_user)):
     """프론트가 사용 가능한 매뉴얼 목록 + 메타 정보 조회."""

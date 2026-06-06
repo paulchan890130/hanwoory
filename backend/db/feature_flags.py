@@ -92,6 +92,14 @@ def local_drive_mock_enabled() -> bool:
     return _bool("FEATURE_LOCAL_DRIVE_MOCK")
 
 
+def pg_manual_update_enabled() -> bool:
+    """If true, manual-update (baseline/staging/decisions/state) uses PostgreSQL
+    as the single source of truth. Off → file-based fallback (legacy JSON/staging).
+    별개 플래그 FEATURE_MANUAL_AUTO_UPDATE 는 '자동 실행' 스위치이며, 본 플래그는
+    '저장/조회를 PG 로 할지'를 제어한다."""
+    return _bool("FEATURE_PG_MANUAL_UPDATE")
+
+
 def snapshot() -> dict[str, bool]:
     """Return the current flag state. Useful for debug endpoints."""
     return {
@@ -109,4 +117,5 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_PG_ADMIN": pg_admin_enabled(),
         "FEATURE_PG_TENANT_PROVISIONING": pg_tenant_provisioning_enabled(),
         "FEATURE_LOCAL_DRIVE_MOCK": local_drive_mock_enabled(),
+        "FEATURE_PG_MANUAL_UPDATE": pg_manual_update_enabled(),
     }

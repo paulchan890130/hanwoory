@@ -26,6 +26,12 @@ from backend.db.models.certification import (  # noqa: F401
 )
 from backend.db.models.work_data import WorkReferenceSheet, WorkReferenceRow  # noqa: F401
 from backend.db.models.document import DocumentMetadata  # noqa: F401
+from backend.db.models.manual_update import (  # noqa: F401
+    ManualBaseVersion, ManualBasePage, ManualBaseRef,
+    ManualUpdateRun, ManualUpdateVersion, ManualUpdateChangedPage,
+    ManualUpdateCandidate, ManualReviewDecision, ManualReviewDecisionArchive,
+    ManualUpdateState,
+)
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -39,4 +45,8 @@ __all__ = [
     "CertVendor", "CertDirection", "CertGroup", "CertRegion", "CertPrice",
     "WorkReferenceSheet", "WorkReferenceRow",
     "DocumentMetadata",
+    "ManualBaseVersion", "ManualBasePage", "ManualBaseRef",
+    "ManualUpdateRun", "ManualUpdateVersion", "ManualUpdateChangedPage",
+    "ManualUpdateCandidate", "ManualReviewDecision", "ManualReviewDecisionArchive",
+    "ManualUpdateState",
 ]

@@ -400,12 +400,140 @@ def run_auto_update(*, force: bool = False, detect_only: bool = False,
     return result
 
 
-def scheduled_job() -> None:
-    """APScheduler 가 호출하는 래퍼. 절대 예외를 밖으로 던지지 않는다(서버 보호)."""
+# ── PG 기반 entry (단일 출처 = PostgreSQL) ────────────────────────────────────
+def _download_changed_to(changed: list[dict], dest_dir: Path) -> list[Path]:
+    """변경 원본을 임의 디렉토리(/tmp 등)에 원본 파일명으로 저장. unlock/PDF 변환 없음."""
+    import requests
+    from backend.services.manual_watcher import download_attachment, HEADERS
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    s = requests.Session()
+    s.headers.update(HEADERS)
+    s.verify = False
+    saved: list[Path] = []
+    for c in changed:
+        att = c["att"]
+        ori = att.get("ori") or f"{c['label']}.hwp"
+        dst = dest_dir / ori
+        download_attachment(s, att, dst)
+        saved.append(dst)
+    return saved
+
+
+def _seen_from_pg(svc) -> dict:
+    """PG 의 최신 version label_timestamps 를 seen 기준으로 사용. 없으면 레거시 시드."""
+    versions = svc.list_versions()
+    if versions:
+        lt = versions[0].get("label_timestamps") or {}
+        if lt:
+            return lt
+    state: dict = {}
+    _seed_seen_from_legacy(state)
+    return state.get("seen_timestamps", {})
+
+
+def run_auto_update_pg(*, force: bool = False, trigger: str = "manual",
+                       notify: bool = True) -> dict:
+    """PG 단일 출처 파이프라인: 감지 → /tmp 다운로드 → rhwp extract(/tmp) →
+    PG baseline diff → PG 저장(version/changed/candidates) → decision 병합 →
+    /tmp 삭제. chromium/검토PDF 미사용. 운영 manual_ref/PDF 무수정. 예외 비전파."""
+    import shutil
+    import tempfile
+
+    from backend.services import manual_update_pg_service as svc
+    if not svc.pg_enabled():
+        return {"status": "skipped", "reason": "pg_disabled "
+                "(need DATABASE_URL + FEATURE_PG_MANUAL_UPDATE=true)"}
+
+    run_id = svc.start_run(trigger, force=force,
+                           instance=os.environ.get("RENDER_INSTANCE_ID"))
+    if run_id is None:
+        return {"status": "skipped", "reason": "already ran today or locked"}
+
+    tmpdir: Path | None = None
+    version: str | None = None
     try:
-        res = run_auto_update(force=False, detect_only=False, notify=True)
-        print(f"[manual-auto] scheduled run: {res}")
-    except Exception as e:  # run_auto_update 가 이미 잡지만 이중 방어
+        seen = _seen_from_pg(svc)
+        changed = detect_changes({"seen_timestamps": seen})
+        if not changed:
+            svc.finish_no_change(run_id)
+            return {"status": "no_change"}
+
+        version = _version_from_changes(changed)
+        tmpdir = Path(tempfile.gettempdir()) / "manual_update" / version
+        _download_changed_to(changed, tmpdir)
+
+        # rhwp extract → /tmp, diff vs PG baseline (chromium 불필요)
+        from backend.scripts.manual_update_local import (
+            NODE_TOOLS, run_node, load_jsonl, classify_label, diff_pages,
+        )
+        new_pages_by_label: dict[str, list[dict]] = {}
+        all_changed: list[dict] = []
+        label_ts: dict[str, str] = {c["label"]: c["new_ts"] for c in changed}
+
+        for p in sorted(tmpdir.iterdir()):
+            if not p.is_file() or p.suffix.lower() not in (".hwp", ".hwpx"):
+                continue
+            label = classify_label(p.name)
+            if not label:
+                continue
+            run_node([
+                str(NODE_TOOLS / "extract.mjs"),
+                "--src", str(p), "--label", label,
+                "--out-dir", str(tmpdir),
+            ], tmpdir / f"extract_{label}.log")
+            pages = load_jsonl(tmpdir / f"{label}_pages.jsonl")
+            new_pages_by_label[label] = pages
+            baseline = svc.load_baseline_pages(label)
+            if baseline:
+                all_changed.extend(diff_pages(baseline, pages))
+            else:
+                print(f"[manual-auto] no PG baseline for {label} — diff skipped")
+
+        non_same = [c for c in all_changed if c.get("change_type") != "same"]
+        refs = svc.load_base_refs()
+        candidates = svc.compute_candidates(all_changed, new_pages_by_label, refs)
+
+        svc.save_version(version, label_ts, non_same, candidates, run_id)
+        merge = svc.merge_decisions_for_version(version, candidates)
+        svc.finish_staged(run_id, version, len(non_same), len(candidates))
+
+        if notify:
+            try:
+                _post_review_notice(
+                    changed, version,
+                    {"changed_page_count": len(non_same),
+                     "manual_ref_candidate_count": len(candidates)},
+                )
+            except Exception as e:
+                print(f"[manual-auto] board notice skipped (non-fatal): {e}")
+
+        return {"status": "staged", "version": version,
+                "changed": len(non_same), "candidates": len(candidates),
+                "decisions": merge}
+    except Exception as e:
+        svc.finish_error(run_id, f"{type(e).__name__}: {e}")
+        return {"status": "error", "error": f"{type(e).__name__}: {e}"}
+    finally:
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def scheduled_job() -> None:
+    """APScheduler 가 호출하는 래퍼. 절대 예외를 밖으로 던지지 않는다(서버 보호).
+    FEATURE_PG_MANUAL_UPDATE=true 면 PG 경로, 아니면 파일 기반 경로(fallback)."""
+    use_pg = False
+    try:
+        from backend.db.feature_flags import pg_manual_update_enabled
+        use_pg = pg_manual_update_enabled()
+    except Exception:
+        use_pg = False
+    try:
+        if use_pg:
+            res = run_auto_update_pg(force=False, trigger="web", notify=True)
+        else:
+            res = run_auto_update(force=False, detect_only=False, notify=True)
+        print(f"[manual-auto] scheduled run ({'pg' if use_pg else 'file'}): {res}")
+    except Exception as e:  # entry 들이 이미 잡지만 이중 방어
         print(f"[manual-auto] scheduled run crashed (suppressed): {e}")
 
 
@@ -413,11 +541,17 @@ def scheduled_job() -> None:
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description="rhwp 매뉴얼 자동 staging")
+    ap.add_argument("--pg", action="store_true",
+                    help="PG 단일 출처 경로 실행(Render Cron Job 권장). 미지정 시 파일 기반")
     ap.add_argument("--detect-only", action="store_true",
                     help="감지만 수행(다운로드/스테이징/상태변경 없음)")
     ap.add_argument("--force", action="store_true", help="오늘 already-ran guard 무시")
     ap.add_argument("--no-notify", action="store_true", help="게시판 공지 생략")
     args = ap.parse_args()
-    out = run_auto_update(force=args.force, detect_only=args.detect_only,
-                          notify=not args.no_notify)
+    if args.pg:
+        out = run_auto_update_pg(force=args.force, trigger="manual",
+                                 notify=not args.no_notify)
+    else:
+        out = run_auto_update(force=args.force, detect_only=args.detect_only,
+                              notify=not args.no_notify)
     print(json.dumps(out, ensure_ascii=False, indent=2))
