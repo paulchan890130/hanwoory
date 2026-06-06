@@ -27,7 +27,14 @@ router = APIRouter()
 
 # ── 데이터 로딩 (모듈 임포트 시 1회) ──────────────────────────────
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 운영 DB 는 이미지 baked 경로 유지(절대 Persistent Disk 로 옮기지 않는다).
 _DB_PATH = os.path.join(_BASE_DIR, "data", "immigration_guidelines_db_v2.json")
+# 매뉴얼/스테이징 디렉토리만 MANUALS_DATA_DIR(기본=backend/data/manuals)로 분리.
+# 운영 PDF 뷰어·staging 검토·매뉴얼 PDF 가 모두 이 경로를 읽는다.
+try:
+    from config import MANUALS_DATA_DIR as _MANUALS_DIR
+except Exception:
+    _MANUALS_DIR = os.path.join(_BASE_DIR, "data", "manuals")
 
 with open(_DB_PATH, encoding="utf-8") as _f:
     _DB = json.load(_f)
@@ -432,7 +439,7 @@ def serve_manual_pdf(
     if manual not in _MANUAL_FILES:
         raise HTTPException(status_code=404, detail=f"매뉴얼 '{manual}' 없음. 사용 가능: {list(_MANUAL_FILES)}")
 
-    path = os.path.join(_BASE_DIR, "data", "manuals", _MANUAL_FILES[manual])
+    path = os.path.join(_MANUALS_DIR, _MANUAL_FILES[manual])
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail=f"PDF 파일 없음: {_MANUAL_FILES[manual]}")
 
@@ -477,7 +484,7 @@ def serve_manual_pdf_staging(
     # version sanity — prevent path traversal
     if not version.replace('_', '').replace('-', '').isalnum():
         raise HTTPException(status_code=400, detail=f"invalid version: {version!r}")
-    base = os.path.join(_BASE_DIR, "data", "manuals", "staging", version, "rhwp_pdf")
+    base = os.path.join(_MANUALS_DIR, "staging", version, "rhwp_pdf")
     path = os.path.join(base, f"rhwp_{version}_{label}.pdf")
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail=f"staging PDF not found: {path}")
@@ -505,7 +512,7 @@ def get_manual_pdf_staging_manifest(
     """staging 버전의 manifest.json 반환. 운영 영향 없음."""
     if not version.replace('_', '').replace('-', '').isalnum():
         raise HTTPException(status_code=400, detail=f"invalid version: {version!r}")
-    path = os.path.join(_BASE_DIR, "data", "manuals", "staging", version, "manifest.json")
+    path = os.path.join(_MANUALS_DIR, "staging", version, "manifest.json")
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail=f"manifest not found: {path}")
     with open(path, encoding="utf-8") as f:
@@ -526,7 +533,7 @@ def _safe_version(version: str) -> str:
 
 
 def _staging_dir(version: str):
-    return os.path.join(_BASE_DIR, "data", "manuals", "staging", _safe_version(version))
+    return os.path.join(_MANUALS_DIR, "staging", _safe_version(version))
 
 
 def _read_staging_json(version: str, *rel_parts: str):
@@ -551,7 +558,7 @@ _NOSTORE = {"Cache-Control": "no-store"}
 @router.get("/manual-staging/versions")
 def list_manual_staging_versions(user: dict = Depends(require_admin)):
     """staging/ 아래 사용 가능한 버전 목록 (manifest.json 보유 버전만)."""
-    root = os.path.join(_BASE_DIR, "data", "manuals", "staging")
+    root = os.path.join(_MANUALS_DIR, "staging")
     out = []
     if os.path.isdir(root):
         for name in sorted(os.listdir(root)):
@@ -628,7 +635,7 @@ def get_manual_pdf_info(user: dict = Depends(get_current_user)):
     """프론트가 사용 가능한 매뉴얼 목록 + 메타 정보 조회."""
     info = {}
     for label, fname in _MANUAL_FILES.items():
-        path = os.path.join(_BASE_DIR, "data", "manuals", fname)
+        path = os.path.join(_MANUALS_DIR, fname)
         info[label] = {
             "available": os.path.isfile(path),
             "filename":  fname,

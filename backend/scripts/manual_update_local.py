@@ -52,8 +52,32 @@ sys.stdout.reconfigure(encoding='utf-8')  # type: ignore[union-attr]
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 NODE_TOOLS = ROOT / 'tools' / 'rhwp_manual_pipeline'
-BASELINE_DIR_PARENT = ROOT / 'backend' / 'data' / 'manuals' / 'baseline'
-DB_PATH = ROOT / 'backend' / 'data' / 'immigration_guidelines_db_v2.json'
+# 매뉴얼 데이터 디렉토리 — MANUALS_DATA_DIR(기본=backend/data/manuals)로 분리(Persistent Disk 대응).
+# config.MANUALS_DATA_DIR 와 동일한 env 계약을 standalone 스크립트에서 직접 읽는다.
+MANUALS = pathlib.Path(os.environ.get(
+    'MANUALS_DATA_DIR', str(ROOT / 'backend' / 'data' / 'manuals')))
+BASELINE_DIR_PARENT = MANUALS / 'baseline'
+DB_PATH = ROOT / 'backend' / 'data' / 'immigration_guidelines_db_v2.json'  # 운영 DB — 이동 금지
+# version-independent 사람-검토 결정 저장소 (row_id 기준). staging 재생성과 무관하게 유지.
+# 절대 immigration_guidelines_db_v2.json 에 자동 반영되지 않는다 (참고/보존 전용).
+DECISIONS_PATH = MANUALS / 'manual_review_decisions.json'
+
+
+def _resolve_baseline_path(rel: str) -> pathlib.Path:
+    """baseline manifest 의 repo-relative 경로를 현재 MANUALS 기준으로도 해석한다.
+
+    로컬 기본(MANUALS=backend/data/manuals)에서는 ROOT/rel 그대로 존재한다.
+    Persistent Disk(/data/manuals)로 분리된 경우 'manuals/' 이후 구간을 MANUALS 에 붙여
+    재해석한다(baseline 이 디스크로 시드된 상황 대응)."""
+    p = ROOT / rel
+    if p.exists():
+        return p
+    norm = rel.replace('\\', '/')
+    marker = 'manuals/'
+    idx = norm.find(marker)
+    if idx >= 0:
+        return MANUALS / norm[idx + len(marker):]
+    return p
 
 LABEL_PATTERNS = [
     ('residence',        re.compile(r'체류민원|residence')),
@@ -214,6 +238,113 @@ def diff_pages(baseline: list[dict], new: list[dict], *, snippet_len: int = 140)
     return out
 
 
+# ── 사람-검토 결정 보존 (version-independent, row_id 기준) ─────────────────────
+# 자동 staging 재생성 시 사람이 내린 decision/note/manual_page 입력이 사라지지 않도록
+# manual_review_decisions.json 을 row_id 기준으로 left-join 병합한다. 새 추천 결과가
+# 기존 결정을 덮어쓰지 않는다. 후보 페이지가 바뀌면 결정은 보존하되 재검토 플래그만 단다.
+_PRESERVED_DECISION_FIELDS = (
+    'decision', 'decision_note', 'reviewed', 'reviewed_candidate_page',
+    'manual_page_from', 'manual_page_to', 'applied', 'updated_at', 'orphaned',
+)
+
+
+def load_decisions() -> dict:
+    """manual_review_decisions.json 의 decisions(dict, row_id 키)를 로드.
+
+    파일이 없거나 손상돼도 절대 raise 하지 않고 {} 반환 (파이프라인 보호)."""
+    if not DECISIONS_PATH.exists():
+        return {}
+    try:
+        data = json.loads(DECISIONS_PATH.read_text(encoding='utf-8'))
+    except Exception as e:
+        print(f'[warn] manual_review_decisions.json 읽기 실패 — 빈 결정으로 진행: {e}',
+              file=sys.stderr)
+        return {}
+    d = data.get('decisions') if isinstance(data, dict) else None
+    return d if isinstance(d, dict) else {}
+
+
+def save_decisions(decisions: dict) -> None:
+    """decisions(dict, row_id 키)를 메타와 함께 저장. immigration DB 는 건드리지 않는다."""
+    payload = {
+        '_schema': 1,
+        '_updated_at': datetime.datetime.now().isoformat(timespec='seconds'),
+        '_note': ('version-independent manual_ref review decisions keyed by row_id. '
+                  'Never auto-applied to immigration_guidelines_db_v2.json — '
+                  'reference/preservation only.'),
+        'decisions': decisions,
+    }
+    DECISIONS_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def _flag_candidate_recheck(c: dict, d: dict) -> None:
+    """검토 당시 후보(reviewed_candidate_page)와 새 후보(candidate_page_from)가 다르면
+    결정은 유지한 채 candidate_changed/needs_recheck/recheck_reason 만 표시."""
+    prev = d.get('reviewed_candidate_page')
+    new = c.get('candidate_page_from')
+    reasons: list[str] = []
+    if prev is not None and new and int(prev) != int(new):
+        c['candidate_changed'] = True
+        reasons.append(f'candidate page {prev}→{new}')
+        if d.get('applied'):
+            reasons.append('applied page may be stale')
+    if reasons:
+        c['needs_recheck'] = True
+        c['recheck_reason'] = '; '.join(reasons)
+
+
+def merge_decisions_into_candidates(candidates: list[dict], decisions: dict) -> list[dict]:
+    """저장된 결정(row_id 키)을 새로 생성된 candidates 에 left-join 병합.
+
+    사람 입력(decision/note/manual_page/reviewed/applied)은 보존되며 새 추천이
+    덮어쓰지 않는다. 결정이 없는 후보는 기본값만 채워진다."""
+    for c in candidates:
+        c.setdefault('candidate_changed', False)
+        c.setdefault('needs_recheck', False)
+        c.setdefault('recheck_reason', '')
+        c.setdefault('orphaned', False)
+        c.setdefault('reviewed', False)
+        c.setdefault('applied', False)
+        c.setdefault('reviewed_candidate_page', None)
+        c.setdefault('manual_page_from', None)
+        c.setdefault('manual_page_to', None)
+        c.setdefault('decision', '')
+        c.setdefault('decision_note', '')
+        d = decisions.get(c.get('row_id'))
+        if not d:
+            continue
+        # 사람 결정 보존 (새 추천으로 덮어쓰지 않음)
+        c['decision'] = d.get('decision', '')
+        c['decision_note'] = d.get('decision_note', '')
+        # 기존 산출물 컬럼(user_decision/user_note)도 동기화하여 하위 호환 유지
+        c['user_decision'] = d.get('decision', '')
+        c['user_note'] = d.get('decision_note', '')
+        c['reviewed'] = bool(d.get('reviewed'))
+        c['applied'] = bool(d.get('applied'))
+        c['reviewed_candidate_page'] = d.get('reviewed_candidate_page')
+        if d.get('manual_page_from') is not None:
+            c['manual_page_from'] = d.get('manual_page_from')
+            c['manual_page_to'] = d.get('manual_page_to')
+        _flag_candidate_recheck(c, d)
+    return candidates
+
+
+def reconcile_decision_store(decisions: dict, candidates: list[dict]) -> dict:
+    """현재 후보 집합에 없는 row_id 의 결정을 orphaned=True 로 표시(보존, 삭제 안 함).
+    다시 등장한 결정은 orphaned=False 로 복구. decision/note 값은 절대 변경하지 않는다."""
+    present = {c.get('row_id') for c in candidates}
+    for rid, d in decisions.items():
+        if not isinstance(d, dict):
+            continue
+        if rid in present:
+            if d.get('orphaned'):
+                d['orphaned'] = False
+        else:
+            d['orphaned'] = True
+    return decisions
+
+
 def make_ref_candidates(changed: list[dict], new_pages_by_label: dict[str, list[dict]]) -> list[dict]:
     """Generate manual_ref update candidates ONLY for refs whose page range
     overlaps a changed page or whose match_text appears on a changed page.
@@ -325,12 +456,15 @@ def write_candidates(candidates: list[dict], out_dir: pathlib.Path) -> None:
         head = ['row_id','item_index','manual_label','detailed_code','business_name','major_action_std',
                 'old_page_from','old_page_to','candidate_page_from','candidate_page_to',
                 'reason','change_type','confidence','action',
-                'match_text','baseline_snippet','new_snippet','user_decision','user_note']
+                'match_text','baseline_snippet','new_snippet','user_decision','user_note',
+                'reviewed','reviewed_candidate_page','candidate_changed','needs_recheck',
+                'recheck_reason','orphaned']
         ws.append(head)
         for c in ws[1]: c.font = Font(bold=True); c.fill = PatternFill('solid', fgColor='DDDDDD')
         for c in candidates:
             ws.append([c.get(k) for k in head])
-        widths = [11,7,13,11,18,16,8,8,10,10,40,16,11,12,30,40,40,16,30]
+        widths = [11,7,13,11,18,16,8,8,10,10,40,16,11,12,30,40,40,16,30,
+                  9,12,10,12,30,9]
         for i, w in enumerate(widths, 1):
             ws.column_dimensions[chr(64+i) if i <= 26 else f'A{chr(64+i-26)}'].width = w
         for row in ws.iter_rows(min_row=2):
@@ -393,7 +527,7 @@ def generate_changed_page_pdfs(affected: dict[str, list[int]],
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--version', required=True, help='version string e.g. 260620 or 260414_test')
-    ap.add_argument('--input-dir', default=str(ROOT / 'backend/data/manuals/incoming'))
+    ap.add_argument('--input-dir', default=str(MANUALS / 'incoming'))
     ap.add_argument('--baseline-version', default='260414')
     ap.add_argument('--dry-run', action='store_true', default=True)
     ap.add_argument('--changed-pages-pdf', action='store_true',
@@ -412,7 +546,7 @@ def main() -> int:
     args = ap.parse_args()
 
     incoming = pathlib.Path(args.input_dir)
-    staging = ROOT / 'backend/data/manuals/staging' / args.version
+    staging = MANUALS / 'staging' / args.version
 
     # rerun guard
     manifest_path = staging / 'manifest.json'
@@ -497,8 +631,9 @@ def main() -> int:
         b_meta = (baseline_manifest['manuals'] or {}).get(label, {}) or {}
         b_jsonl_rel = (b_meta.get('rhwp_jsonl') or {}).get('path')
         ct: dict[str, int] = {}
-        if b_jsonl_rel and (ROOT / b_jsonl_rel).exists():
-            b_pages = load_jsonl(ROOT / b_jsonl_rel)
+        b_jsonl_path = _resolve_baseline_path(b_jsonl_rel) if b_jsonl_rel else None
+        if b_jsonl_path and b_jsonl_path.exists():
+            b_pages = load_jsonl(b_jsonl_path)
             changed = diff_pages(b_pages, new_pages_by_label[label])
             (staging / 'diff' / f'{label}_changed_pages.json').write_text(
                 json.dumps(changed, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -539,6 +674,18 @@ def main() -> int:
 
     # ref candidates (only affected — never touches the production DB)
     candidates_list = make_ref_candidates(all_changed, new_pages_by_label)
+    # 사람-검토 결정 보존: row_id 기준 left-join 병합 (staging 재생성과 무관하게 유지)
+    decisions = load_decisions()
+    candidates_list = merge_decisions_into_candidates(candidates_list, decisions)
+    if decisions:
+        decisions = reconcile_decision_store(decisions, candidates_list)
+        save_decisions(decisions)
+        preserved = sum(1 for c in candidates_list if c.get('reviewed') or c.get('applied'))
+        recheck = sum(1 for c in candidates_list if c.get('needs_recheck'))
+        orphaned = sum(1 for d in decisions.values()
+                       if isinstance(d, dict) and d.get('orphaned'))
+        print(f'[decisions] preserved={preserved} needs_recheck={recheck} '
+              f'orphaned={orphaned} (store: manual_review_decisions.json)')
     write_candidates(candidates_list, staging / 'candidates')
     manifest['manual_ref_candidate_count'] = len(candidates_list)
     print(f'\n[candidates] {len(candidates_list)} affected manual_ref rows '

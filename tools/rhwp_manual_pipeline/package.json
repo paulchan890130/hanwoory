@@ -1,0 +1,15 @@
+{
+  "name": "rhwp-manual-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Manual Update v1 — HWP/HWPX extract/diff (@rhwp/core) + on-demand review PDF (playwright-core/chromium).",
+  "scripts": {
+    "extract": "node extract.mjs",
+    "generate-pdf": "node generate_pdf.mjs"
+  },
+  "dependencies": {
+    "@rhwp/core": "0.7.13",
+    "playwright-core": "1.60.0"
+  }
+}

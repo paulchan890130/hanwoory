@@ -43,6 +43,13 @@ RUN python -c "from omnimrz import OmniMRZ; print('omnimrz smoke test passed')"
 
 COPY . .
 
+# ── rhwp Manual Update v1 deps (extract/diff) ─────────────────────────────────
+# @rhwp/core (HWP/HWPX 파서, prebuilt WASM) + playwright-core (JS only).
+# ⚠ chromium 브라우저는 설치하지 않는다 — extract/diff/candidates/manifest 는
+#   chromium 없이 동작하며, 검토 PDF 생성은 향후 on-demand 단계에서 별도 도입한다.
+#   playwright-core 패키지 자체는 브라우저 바이너리를 내려받지 않으므로 안전하다.
+RUN cd /app/tools/rhwp_manual_pipeline && npm ci --omit=dev
+
 # ── Next.js frontend (built artifacts from Stage 1) ───────────────────────────
 COPY --from=frontend-builder /app/frontend/.next ./frontend/.next
 COPY --from=frontend-builder /app/frontend/node_modules ./frontend/node_modules

@@ -72,6 +72,16 @@ def _is_server_env() -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Persistent Disk 최초 시드: MANUALS_DATA_DIR 가 baked 기본과 다르면 운영 PDF/baseline 을
+    # '없을 때만' 복사한다(덮어쓰기 없음, 운영 DB 미이동). 실패해도 기동을 막지 않는다.
+    try:
+        from backend.services.manuals_disk_bootstrap import bootstrap_manuals_dir
+        _seed = bootstrap_manuals_dir()
+        if _seed.get("copied_files") or _seed.get("copied_dirs"):
+            print(f"[manuals-disk] seeded {_seed}")
+    except Exception as e:
+        print(f"[manuals-disk] bootstrap skipped (non-fatal): {e}")
+
     # 레거시 Hancom/OpenHwpExe 자동 워처는 Windows·로컬 전용이다. 운영(server)에서는
     # win32com / OpenHwpExe.exe 가 없어 동작 불가하며, 설령 동작하더라도 운영 PDF를
     # 직접 덮어써 "staging 검토 + explicit apply" 원칙과 충돌한다. 따라서 server 에서는

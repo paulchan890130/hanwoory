@@ -18,15 +18,18 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import sys
 from pathlib import Path
 from typing import Optional
 
 ROOT     = Path(__file__).parent.parent.parent
-DB_PATH  = ROOT / "backend" / "data" / "immigration_guidelines_db_v2.json"
-MANUALS  = ROOT / "backend" / "data" / "manuals"
-BACKUP   = ROOT / "backend" / "data" / "backups"
+DB_PATH  = ROOT / "backend" / "data" / "immigration_guidelines_db_v2.json"  # 운영 DB — 이동 금지
+# 매뉴얼/검토 산출물 디렉토리 — MANUALS_DATA_DIR(기본=backend/data/manuals)로 분리.
+# unlocked_*.pdf(검증용) 와 manual_update_review.json 이 이 경로를 따른다.
+MANUALS  = Path(os.environ.get("MANUALS_DATA_DIR", str(ROOT / "backend" / "data" / "manuals")))
+BACKUP   = ROOT / "backend" / "data" / "backups"  # DB 백업 — 운영 DB 와 함께 baked 경로 유지
 OUT_JSON = MANUALS / "manual_update_review.json"
 
 PDF_MAP = {
@@ -442,13 +445,31 @@ _PERSISTED_DECISIONS = {
 }
 
 
+def _flag_recheck(r: dict, p: dict) -> None:
+    """검토 당시 후보(reviewed_candidate_page)와 새 후보(found_page)가 다르면 결정은
+    유지한 채 candidate_changed/needs_recheck/recheck_reason 만 표시(재검토 유도)."""
+    prev = p.get("reviewed_candidate_page")
+    new = r.get("found_page")
+    reasons: list[str] = []
+    if prev is not None and new and int(new) != int(prev):
+        r["candidate_changed"] = True
+        reasons.append(f"candidate page {prev}→{new}")
+        if p.get("applied"):
+            reasons.append("applied page may be stale")
+    if reasons:
+        r["needs_recheck"] = True
+        r["recheck_reason"] = "; ".join(reasons)
+
+
 def _merge_prior_decisions(results: list[dict]) -> None:
     """기존 manual_update_review.json 의 검토 결정을 새 분석 결과에 병합한다.
 
     - applied=True 행은 운영 반영 완료 → decision=APPLIED 로 보존.
     - 검토 결정(_PERSISTED_DECISIONS)은 그대로 보존 → 재검토 목록에 다시 안 뜸.
-    - 단, 후보 페이지가 직전 검토 시점과 달라졌으면 candidate_changed=True 로 표시해
+    - 후보 페이지가 직전 검토 시점과 달라졌으면 candidate_changed/needs_recheck 로 표시해
       재검토를 유도(결정은 유지하되 UI가 actionable 로 노출).
+    - 이번 분석 결과에 더 이상 없는 row_id 의 검토/반영 결정은 버리지 않고 orphaned=True 로
+      보존해 results 에 다시 추가한다(매뉴얼 개정으로 항목이 사라졌다 돌아오는 경우 대비).
     이 함수는 어떤 운영 DB(manual_ref)도 수정하지 않는다 — review JSON 병합만 수행."""
     if not OUT_JSON.exists():
         return
@@ -459,6 +480,10 @@ def _merge_prior_decisions(results: list[dict]) -> None:
     prior_map = {r.get("row_id"): r for r in prior.get("rows", []) if r.get("row_id")}
 
     for r in results:
+        r.setdefault("candidate_changed", False)
+        r.setdefault("needs_recheck", False)
+        r.setdefault("recheck_reason", "")
+        r.setdefault("orphaned", False)
         p = prior_map.get(r["row_id"])
         if not p:
             continue
@@ -467,6 +492,7 @@ def _merge_prior_decisions(results: list[dict]) -> None:
             r["reviewed"] = True
             r["decision"] = "APPLIED"
             r["reviewed_candidate_page"] = p.get("reviewed_candidate_page")
+            _flag_recheck(r, p)
             continue
         prior_decision = p.get("decision", "")
         if prior_decision in _PERSISTED_DECISIONS:
@@ -479,10 +505,19 @@ def _merge_prior_decisions(results: list[dict]) -> None:
             if p.get("decision_note"):
                 r["decision_note"] = p["decision_note"]
             # 후보 변경 감지: 검토 당시 후보와 새 후보가 다르면 재검토 필요
-            prev_cand = p.get("reviewed_candidate_page")
-            if (prev_cand is not None and r.get("found_page")
-                    and int(r["found_page"]) != int(prev_cand)):
-                r["candidate_changed"] = True
+            _flag_recheck(r, p)
+
+    # orphaned 보존: 이번 결과에 없는 row_id 의 사람 결정/반영은 삭제하지 않고 보존
+    existing_ids = {r["row_id"] for r in results}
+    for rid, p in prior_map.items():
+        if rid in existing_ids:
+            continue
+        if p.get("applied") or p.get("decision", "") in _PERSISTED_DECISIONS:
+            orphan = dict(p)
+            orphan["orphaned"] = True
+            orphan["needs_recheck"] = True
+            orphan["recheck_reason"] = "row no longer present in DB/analysis — decision preserved"
+            results.append(orphan)
 
 
 # ── 메인 ──────────────────────────────────────────────────────────────────────

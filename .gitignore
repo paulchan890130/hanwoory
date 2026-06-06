@@ -104,6 +104,8 @@ backend/data/manuals/staging/
 backend/data/manuals/incoming/
 # rhwp remap backups of the guidelines DB
 backend/data/*.rhwp_remap_backup_*.json
+# version-independent human-review decision store (runtime/persistent, row_id keyed)
+backend/data/manuals/manual_review_decisions.json
 # Local PostgreSQL beta drive mock (per-developer runtime state)
 .local_pg_beta_drive/
 

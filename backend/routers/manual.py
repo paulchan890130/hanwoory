@@ -26,7 +26,13 @@ from backend.auth import get_current_user, require_admin, decode_token
 router = APIRouter()
 
 ROOT        = Path(__file__).parent.parent.parent
-MANUALS     = ROOT / "backend" / "data" / "manuals"
+# 매뉴얼/검토 산출물 디렉토리 — MANUALS_DATA_DIR(기본=backend/data/manuals)로 분리.
+# Render 운영에서 Persistent Disk(/data/manuals)를 쓰면 watcher_state/review JSON 이 영속화된다.
+try:
+    from config import MANUALS_DATA_DIR as _MANUALS_DATA_DIR
+    MANUALS = Path(_MANUALS_DATA_DIR)
+except Exception:
+    MANUALS = ROOT / "backend" / "data" / "manuals"
 BACKUP_DIR  = ROOT / "backend" / "data" / "backups"
 STATE_PATH  = MANUALS / ".watcher_state.json"
 REVIEW_PATH = MANUALS / "manual_update_review.json"

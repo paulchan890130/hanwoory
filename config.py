@@ -31,6 +31,16 @@ ENABLE_CUSTOMER_FOLDERS = True
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# ===== 매뉴얼/스테이징 데이터 디렉토리 (Persistent Disk 대응) =====
+# 기본값은 기존 경로(backend/data/manuals) — 로컬 동작 무변경.
+# Render 운영에서는 MANUALS_DATA_DIR=/data/manuals 처럼 Persistent Disk mount 경로를
+# 주입해 staging/incoming/decisions/manual_update_review 등을 영속화한다.
+# ⚠ immigration_guidelines_db_v2.json(운영 DB)은 이 경로로 옮기지 않는다 — 이미지 baked 유지.
+MANUALS_DATA_DIR = os.environ.get(
+    "MANUALS_DATA_DIR",
+    os.path.join(BASE_DIR, "backend", "data", "manuals"),
+)
+
 # ===== 구글 서비스 계정 키 경로 =====
 if platform.system() == "Windows":
     _env_key   = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")

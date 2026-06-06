@@ -1,28 +1,23 @@
-// 공유 헬퍼 — 기존 PoC 의 node_modules (analysis/rhwp_pdf_poc_260414/node_modules) 를 재사용.
-// 본 폴더에는 node_modules 가 없음. 추가 npm install 미발생.
+// 공유 헬퍼 — 자체 package.json 의존성(tools/rhwp_manual_pipeline/node_modules)을 사용한다.
+// (이전: analysis/rhwp_pdf_poc_260414/node_modules 재사용 → 제거됨. 이제 npm ci 로 정식 설치.)
+// @rhwp/core 는 즉시 로드(extract/diff 에 필수). playwright/chromium 은 PDF 생성 시에만
+// lazy import 한다 → extract/diff/candidates/manifest 는 chromium 없이 동작한다.
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const POC = path.resolve(here, '..', '..', 'analysis', 'rhwp_pdf_poc_260414');
-const requireFromPoc = createRequire(path.join(POC, 'package.json'));
+const requireSelf = createRequire(import.meta.url);
 
-const rhwpPkgPath = requireFromPoc.resolve('@rhwp/core/package.json');
+const rhwpPkgPath = requireSelf.resolve('@rhwp/core/package.json');
 const rhwpRoot = path.dirname(rhwpPkgPath);
 const rhwpEntry = path.join(rhwpRoot, 'rhwp.js');
 const rhwpWasm  = path.join(rhwpRoot, 'rhwp_bg.wasm');
 
-const playwrightPkgPath = requireFromPoc.resolve('playwright-core/package.json');
-const playwrightRoot = path.dirname(playwrightPkgPath);
-
-// ESM 동적 import — 경로를 file:// URL 로 변환
+// ESM 동적 import — 경로를 file:// URL 로 변환 (@rhwp/core 만; playwright 는 아래 lazy)
 const rhwpMod = await import(pathToFileURL(rhwpEntry).href);
 const init = rhwpMod.default;
 const { HwpDocument, version } = rhwpMod;
-const playwrightMod = await import(pathToFileURL(path.join(playwrightRoot, 'index.mjs')).href);
-const { chromium } = playwrightMod;
 
 let _ready = null;
 export async function rhwpReady() {
@@ -41,16 +36,29 @@ export async function loadDoc(hwpPath) {
   return new HwpDocument(new Uint8Array(buf));
 }
 
-const SYSTEM_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+// chromium 실행파일 경로. CHROME_PATH env 로 주입 가능(서버/Docker). 미설정 시 로컬
+// 기본값(Windows Chrome). 빈 문자열로 두면 playwright-core 번들 chromium 을 시도한다.
+const CHROME_PATH = process.env.CHROME_PATH !== undefined
+  ? process.env.CHROME_PATH
+  : 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+
+let _chromium = null;
+async function _getChromium() {
+  // lazy import — PDF 생성 경로에서만 playwright 를 로드한다. extract/diff 는 미호출.
+  if (!_chromium) {
+    const pw = await import('playwright-core');
+    _chromium = pw.chromium;
+  }
+  return _chromium;
+}
 
 let _browser = null;
 export async function browser() {
   if (!_browser) {
-    _browser = await chromium.launch({
-      executablePath: SYSTEM_CHROME,
-      headless: true,
-      args: ['--disable-gpu', '--no-sandbox'],
-    });
+    const chromium = await _getChromium();
+    const launchOpts = { headless: true, args: ['--disable-gpu', '--no-sandbox'] };
+    if (CHROME_PATH) launchOpts.executablePath = CHROME_PATH;
+    _browser = await chromium.launch(launchOpts);
   }
   return _browser;
 }
