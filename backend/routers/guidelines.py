@@ -675,7 +675,11 @@ def get_manual_update_state_v2(user: dict = Depends(require_admin)):
     from fastapi.responses import JSONResponse
     if _pg_manual_enabled():
         from backend.services import manual_update_pg_service as svc
-        return JSONResponse({"source": "pg", "state": svc.get_state_dict()}, headers=_NOSTORE)
+        return JSONResponse(
+            {"source": "pg", "state": svc.get_state_dict(),
+             "baseline": svc.get_baseline_summary()},
+            headers=_NOSTORE,
+        )
     # 파일 fallback
     path = os.path.join(_MANUALS_DIR, "manual_auto_update_state.json")
     state = {"status": "never_run", "needs_review": False}

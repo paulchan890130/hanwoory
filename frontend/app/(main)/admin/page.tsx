@@ -1430,6 +1430,302 @@ function ManualUpdateV1Tab() {
 }
 
 
+// ── 매뉴얼 업데이트 (PostgreSQL 단일 출처) ───────────────────────────────────
+// FEATURE_PG_MANUAL_UPDATE=true 이면 /api/guidelines/manual-update/state 가
+// source:"pg" 를 반환 → PG 화면. 아니면 source:"file" → 기존 파일 staging 화면.
+type PgStateResp = {
+  source: "pg" | "file";
+  state?: {
+    status?: string;
+    last_run_at?: string | null;
+    last_success_at?: string | null;
+    last_run_date_kst?: string | null;
+    last_checked_version?: string | null;
+    last_detected_version?: string | null;
+    last_staging_version?: string | null;
+    needs_review?: boolean;
+    error?: string | null;
+    updated_at?: string | null;
+  };
+  baseline?: {
+    loaded?: boolean;
+    versions?: { manual_label: string; version: string; page_count: number }[];
+    refs_count?: number;
+    total_pages?: number;
+  };
+};
+type PgVersion = {
+  version: string;
+  detected_at?: string | null;
+  changed_page_count?: number;
+  candidate_count?: number;
+  status?: string | null;
+  label_timestamps?: Record<string, string>;
+};
+type PgChangedPage = {
+  manual_label?: string; change_type?: string;
+  baseline_page?: number | null; new_page?: number | null;
+  similarity?: number | null; new_snippet?: string; baseline_snippet?: string;
+};
+type PgCandidate = {
+  row_id: string; item_index?: number | null; manual_label?: string;
+  old_page_from?: number | null; old_page_to?: number | null;
+  candidate_page_from?: number | null; candidate_page_to?: number | null;
+  reason?: string; change_type?: string; confidence?: string; action?: string;
+  match_text?: string; new_snippet?: string; detailed_code?: string; business_name?: string;
+};
+type PgDecision = {
+  row_id: string; decision?: string; decision_note?: string; reviewed?: boolean;
+  reviewed_candidate_page?: number | null;
+  manual_page_from?: number | null; manual_page_to?: number | null;
+  applied?: boolean; source_version?: string | null; previous_version?: string | null;
+  orphaned?: boolean; orphaned_at?: string | null;
+  needs_recheck?: boolean; candidate_changed?: boolean; updated_at?: string | null;
+};
+
+const PG_STATUS_KR: Record<string, string> = {
+  never_run: "실행 이력 없음",
+  no_change: "변경 없음",
+  staged: "검토 대기 (staged)",
+  running: "실행 중",
+  error: "오류",
+  pg_disabled: "PG 비활성",
+};
+
+function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
+  const [versions, setVersions] = useState<PgVersion[]>([]);
+  const [version, setVersion] = useState<string>("");
+  const [changed, setChanged] = useState<PgChangedPage[]>([]);
+  const [candidates, setCandidates] = useState<PgCandidate[]>([]);
+  const [decisions, setDecisions] = useState<PgDecision[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadTop = useCallback(async () => {
+    try {
+      const [vr, dr] = await Promise.all([
+        api.get("/api/guidelines/manual-update/versions"),
+        api.get("/api/guidelines/manual-update/decisions/active"),
+      ]);
+      const vs = (vr.data?.versions ?? []) as PgVersion[];
+      setVersions(vs);
+      setDecisions((dr.data?.rows ?? []) as PgDecision[]);
+      if (vs.length) setVersion(vs[0].version);
+    } catch { toast.error("PG manual update 자료를 불러오지 못했습니다."); }
+  }, []);
+
+  useEffect(() => { void loadTop(); }, [loadTop]);
+
+  const loadVersion = useCallback(async (v: string) => {
+    if (!v) return;
+    setLoading(true); setChanged([]); setCandidates([]);
+    try {
+      const [ch, ca] = await Promise.all([
+        api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(v)}/changed-pages`),
+        api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(v)}/candidates`),
+      ]);
+      setChanged((ch.data?.rows ?? []) as PgChangedPage[]);
+      setCandidates((ca.data?.rows ?? []) as PgCandidate[]);
+    } catch { toast.error("버전 자료를 불러오지 못했습니다."); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (version) void loadVersion(version); }, [version, loadVersion]);
+
+  const s = state?.state ?? {};
+  const bl = state?.baseline ?? {};
+  const blVersions = bl.versions ?? [];
+
+  return (
+    <div className="space-y-4">
+      {/* 안내 배너 — PG 단일 출처 */}
+      <div className="hw-card text-xs leading-relaxed" style={{ background: "#EBF8FF", borderColor: "#BEE3F8" }}>
+        <div style={{ color: "#2B6CB0", fontWeight: 700 }}>🗄 PostgreSQL 기반 매뉴얼 업데이트 (단일 출처)</div>
+        <div style={{ color: "#4A5568", marginTop: 4 }}>변경 감지·후보·검토 결정이 PG에 저장됩니다. 기존 실무지침 PDF 조회는 변경되지 않습니다.</div>
+        <div style={{ color: "#C53030", marginTop: 2 }}>운영 manual_ref는 관리자 검토 후에만 별도로 반영됩니다(자동 반영 없음).</div>
+      </div>
+
+      {/* 상태 카드 */}
+      <div className="hw-card">
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>자동화 상태</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          {[
+            ["상태", PG_STATUS_KR[s.status ?? ""] ?? (s.status ?? "-")],
+            ["검토 필요", s.needs_review ? "예 ⚠" : "아니오"],
+            ["마지막 실행", s.last_run_at ?? "-"],
+            ["마지막 성공", s.last_success_at ?? "-"],
+            ["최근 staging 버전", s.last_staging_version ?? "-"],
+            ["오류", s.error ?? "-"],
+          ].map(([k, v]) => (
+            <div key={k as string}>
+              <div style={{ color: "#A0AEC0" }}>{k}</div>
+              <div style={{ color: "#2D3748", fontWeight: 600, wordBreak: "break-all" }}>{v as string}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* baseline 요약 */}
+      <div className="hw-card">
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>
+          기준 DB (baseline) {bl.loaded ? "✅ 적재됨" : "⚠ 미적재"}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          {blVersions.map((v) => (
+            <div key={v.manual_label}>
+              <div style={{ color: "#A0AEC0" }}>{v.manual_label} (v{v.version})</div>
+              <div style={{ color: "#2D3748", fontWeight: 600 }}>{v.page_count} pages</div>
+            </div>
+          ))}
+          <div>
+            <div style={{ color: "#A0AEC0" }}>manual_base_refs</div>
+            <div style={{ color: "#2D3748", fontWeight: 600 }}>{bl.refs_count ?? 0} rows</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 버전 선택 */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-medium" style={{ color: "#718096" }}>업데이트 버전</span>
+        <select className="hw-input text-xs" style={{ minWidth: 200 }} value={version}
+          onChange={(e) => setVersion(e.target.value)}>
+          {versions.length === 0 && <option value="">(버전 없음)</option>}
+          {versions.map((v) => (
+            <option key={v.version} value={v.version}>
+              {v.version} · 변경 {v.changed_page_count ?? 0} · 후보 {v.candidate_count ?? 0}
+            </option>
+          ))}
+        </select>
+        <button onClick={() => void loadTop()}
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border"
+          style={{ borderColor: "#4299E1", color: "#2B6CB0", background: "#EBF8FF" }}>
+          <RotateCcw size={12} /> 새로고침
+        </button>
+        {loading && <Loader2 size={14} className="animate-spin" style={{ color: "#A0AEC0" }} />}
+      </div>
+
+      {/* 버전 0건 안내 (정상) */}
+      {versions.length === 0 && (
+        <div className="hw-card text-sm" style={{ color: "#4A5568", lineHeight: 1.7 }}>
+          <div style={{ fontWeight: 700, color: "#2D3748", marginBottom: 6 }}>
+            기준 DB는 적재되었습니다. 아직 매뉴얼 변경 감지 실행 이력이 없습니다.
+          </div>
+          <div>매일 자동 감지(또는 수동 실행)가 변경을 발견하면 이 목록에 버전이 나타납니다.</div>
+          <div style={{ color: "#276749" }}>기존 실무지침 PDF 조회는 정상 유지됩니다.</div>
+        </div>
+      )}
+
+      {/* 변경 페이지 */}
+      {version && (
+        <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="text-xs font-semibold px-3 py-2" style={{ color: "#2D3748", borderBottom: "1px solid #EDF2F7" }}>
+            변경 페이지 ({changed.length})
+          </div>
+          <div className="overflow-x-auto">
+            <table className="hw-table w-full text-xs" style={{ minWidth: 700 }}>
+              <thead><tr>
+                {["매뉴얼", "변경", "baseline p.", "new p.", "유사도", "new 스니펫"].map((h) => <th key={h}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {changed.length === 0 && <tr><td colSpan={6} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>변경 페이지 없음</td></tr>}
+                {changed.map((c, i) => (
+                  <tr key={i}>
+                    <td>{c.manual_label}</td><td>{c.change_type}</td>
+                    <td>{c.baseline_page ?? "-"}</td><td>{c.new_page ?? "-"}</td>
+                    <td>{c.similarity ?? "-"}</td>
+                    <td style={{ maxWidth: 320, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.new_snippet}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* manual_ref 후보 */}
+      {version && (
+        <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="text-xs font-semibold px-3 py-2" style={{ color: "#2D3748", borderBottom: "1px solid #EDF2F7" }}>
+            영향 manual_ref 후보 ({candidates.length})
+          </div>
+          <div className="overflow-x-auto">
+            <table className="hw-table w-full text-xs" style={{ minWidth: 800 }}>
+              <thead><tr>
+                {["row_id", "코드", "매뉴얼", "기존 p.", "후보 p.", "신뢰도", "action"].map((h) => <th key={h}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {candidates.length === 0 && <tr><td colSpan={7} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>후보 없음</td></tr>}
+                {candidates.map((c, i) => (
+                  <tr key={i}>
+                    <td>{c.row_id}</td><td>{c.detailed_code}</td><td>{c.manual_label}</td>
+                    <td>{c.old_page_from}-{c.old_page_to}</td>
+                    <td>{c.candidate_page_from}-{c.candidate_page_to}</td>
+                    <td>{c.confidence}</td><td>{c.action}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* active decisions (현재 + 이번 orphaned 1회만; archive 제외) */}
+      <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="text-xs font-semibold px-3 py-2" style={{ color: "#2D3748", borderBottom: "1px solid #EDF2F7" }}>
+          검토 결정 (active · {decisions.length})
+        </div>
+        <div className="overflow-x-auto">
+          <table className="hw-table w-full text-xs" style={{ minWidth: 800 }}>
+            <thead><tr>
+              {["row_id", "결정", "검토", "후보p.", "재검토", "후보변경", "orphaned", "source ver"].map((h) => <th key={h}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {decisions.length === 0 && <tr><td colSpan={8} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>검토 결정 없음 (PG 신규 시작)</td></tr>}
+              {decisions.map((d, i) => (
+                <tr key={i}>
+                  <td>{d.row_id}</td><td>{d.decision || "-"}</td>
+                  <td>{d.reviewed ? "✓" : ""}</td>
+                  <td>{d.reviewed_candidate_page ?? "-"}</td>
+                  <td>{d.needs_recheck ? "⚠" : ""}</td>
+                  <td>{d.candidate_changed ? "✓" : ""}</td>
+                  <td>{d.orphaned ? `예(${d.orphaned_at ?? ""})` : ""}</td>
+                  <td>{d.source_version ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualUpdateTab() {
+  const [mode, setMode] = useState<"loading" | "pg" | "file">("loading");
+  const [st, setSt] = useState<PgStateResp | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get("/api/guidelines/manual-update/state");
+        const data = r.data as PgStateResp;
+        setSt(data);
+        setMode(data?.source === "pg" ? "pg" : "file");
+      } catch {
+        setMode("file"); // 안전: 상태 조회 실패 시 기존 파일 화면 fallback
+      }
+    })();
+  }, []);
+
+  if (mode === "loading") {
+    return <div className="hw-card text-sm" style={{ color: "#A0AEC0" }}>상태 확인 중...</div>;
+  }
+  if (mode === "file") {
+    return <ManualUpdateV1Tab />;  // FEATURE_PG_MANUAL_UPDATE off → 기존 파일 staging 화면
+  }
+  return <ManualUpdatePgView state={st} />;
+}
+
+
 // ── 메인 어드민 페이지 ────────────────────────────────────────────────────────
 export default function AdminPage() {
   const router = useRouter();
@@ -1558,25 +1854,37 @@ export default function AdminPage() {
           onClick={() => setActiveTab("accounts")}>
           계정관리
         </button>
-        <button
-          className={`hw-tab ${activeTab === "manual-review" ? "active" : ""}`}
-          onClick={() => setActiveTab("manual-review")}>
-          <BookOpen size={12} className="inline mr-1" />
-          매뉴얼 업데이트 검토
-        </button>
+        {/* PG 기반 매뉴얼 업데이트 (기본/주) — 먼저 노출 */}
         <button
           className={`hw-tab ${activeTab === "manual-v1" ? "active" : ""}`}
           onClick={() => setActiveTab("manual-v1")}>
           <FileText size={12} className="inline mr-1" />
-          매뉴얼 업데이트 v1 (staging)
+          매뉴얼 업데이트
+        </button>
+        {/* 레거시 파일/rematch 검토 — 표시만 유지 */}
+        <button
+          className={`hw-tab ${activeTab === "manual-review" ? "active" : ""}`}
+          onClick={() => setActiveTab("manual-review")}>
+          <BookOpen size={12} className="inline mr-1" />
+          매뉴얼 업데이트 검토 (레거시)
         </button>
       </div>
 
-      {/* 매뉴얼 검토 탭 */}
-      {activeTab === "manual-review" && <ManualReviewTab />}
+      {/* 매뉴얼 업데이트 (PG 단일 출처; PG off 시 파일 staging fallback) */}
+      {activeTab === "manual-v1" && <ManualUpdateTab />}
 
-      {/* 매뉴얼 업데이트 v1 (staging 검토) 탭 */}
-      {activeTab === "manual-v1" && <ManualUpdateV1Tab />}
+      {/* 레거시 검토 탭 (manual_update_review.json + rematch) */}
+      {activeTab === "manual-review" && (
+        <>
+          <div className="hw-card text-xs leading-relaxed mb-3" style={{ background: "#FFFAF0", borderColor: "#FEEBC8" }}>
+            <div style={{ color: "#C05621", fontWeight: 700 }}>⚠ 레거시 화면 (파일 기반 manual_update_review.json + rematch)</div>
+            <div style={{ color: "#4A5568", marginTop: 4 }}>
+              PostgreSQL 기반 검토는 상단 “매뉴얼 업데이트” 탭을 사용하세요. 이 화면은 호환을 위해 유지되는 구버전입니다.
+            </div>
+          </div>
+          <ManualReviewTab />
+        </>
+      )}
 
       {/* 계정 목록 */}
       {activeTab === "accounts" && (<>

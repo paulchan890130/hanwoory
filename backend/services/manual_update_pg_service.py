@@ -62,6 +62,37 @@ def _get_or_create_state(session, *, for_update: bool = False):
     return row
 
 
+def get_baseline_summary() -> dict:
+    """활성 baseline 요약: 라벨별 버전/페이지수 + manual_base_refs 건수.
+
+    admin 화면이 '기준 DB 적재 완료'를 표시하는 데 사용. PG off 면 빈 요약."""
+    if not pg_enabled():
+        return {"loaded": False, "versions": [], "refs_count": 0, "total_pages": 0}
+    from sqlalchemy import select, func as safunc
+    from backend.db.models.manual_update import ManualBaseVersion, ManualBaseRef
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(ManualBaseVersion)
+            .where(ManualBaseVersion.is_active.is_(True))
+            .order_by(ManualBaseVersion.manual_label)
+        ).all()
+        versions = [{
+            "manual_label": r.manual_label,
+            "version": r.version,
+            "page_count": r.page_count or 0,
+        } for r in rows]
+        refs_count = session.scalar(select(safunc.count()).select_from(ManualBaseRef)) or 0
+        total_pages = sum(v["page_count"] for v in versions)
+        return {
+            "loaded": bool(versions),
+            "versions": versions,
+            "refs_count": int(refs_count),
+            "total_pages": int(total_pages),
+        }
+
+
 def get_state_dict() -> dict:
     """admin 상태 조회용 dict. PG off 면 {'status':'pg_disabled'}."""
     if not pg_enabled():
