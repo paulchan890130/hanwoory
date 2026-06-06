@@ -630,6 +630,32 @@ def get_manual_staging_review_page_pdf(
     )
 
 
+@router.get("/manual-auto-update/state")
+def get_manual_auto_update_state(user: dict = Depends(require_admin)):
+    """rhwp 자동 staging 상태 조회 (admin).
+
+    manual_auto_update_state.json 을 그대로 노출한다 + 사용 가능한 staging 버전 목록.
+    needs_review=True 면 admin UI 가 '새 매뉴얼 검토 필요' 배너를 띄울 수 있다.
+    이 엔드포인트는 어떤 자동 반영도 트리거하지 않는다 — 읽기 전용 상태 보고일 뿐."""
+    from fastapi.responses import JSONResponse
+    path = os.path.join(_MANUALS_DIR, "manual_auto_update_state.json")
+    state = {"status": "never_run", "needs_review": False}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception as e:
+            state = {"status": "error", "error": f"state read failed: {e}"}
+    # 검토 대상 staging 버전 목록(없으면 빈 리스트)
+    versions = []
+    root = os.path.join(_MANUALS_DIR, "staging")
+    if os.path.isdir(root):
+        for name in sorted(os.listdir(root)):
+            if os.path.isfile(os.path.join(root, name, "manifest.json")):
+                versions.append(name)
+    return JSONResponse({"state": state, "staging_versions": versions}, headers=_NOSTORE)
+
+
 @router.get("/manual-pdf-info")
 def get_manual_pdf_info(user: dict = Depends(get_current_user)):
     """프론트가 사용 가능한 매뉴얼 목록 + 메타 정보 조회."""

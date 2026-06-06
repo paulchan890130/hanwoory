@@ -52,6 +52,43 @@ def _run_watcher():
 _scheduler = BackgroundScheduler()
 _scheduler.add_job(_run_watcher, "interval", hours=12, id="manual_watcher")
 
+# ── 신규 rhwp 매뉴얼 자동 staging 스케줄러 (레거시 watcher 와 완전 분리) ──────────
+# FEATURE_MANUAL_AUTO_UPDATE=true 일 때만 등록/기동된다. 기본 OFF.
+# server 환경이라도 env 로 명시적으로 켠 경우에만 동작한다(레거시 watcher 의 server 차단과 무관).
+_rhwp_scheduler = BackgroundScheduler()
+
+
+def _feature_auto_update_enabled() -> bool:
+    return os.environ.get("FEATURE_MANUAL_AUTO_UPDATE", "false").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
+def _register_rhwp_auto_update() -> None:
+    """매일 15:00 KST(기본)에 rhwp 자동 staging 잡 등록. KST는 DST가 없어 고정 오프셋
+    (UTC+9)으로 환산한다. 트리거 timezone 을 명시 UTC 로 두어 컨테이너 TZ 에 의존하지 않는다."""
+    from datetime import timezone as _tz
+    from apscheduler.triggers.cron import CronTrigger
+    from backend.services.manual_auto_update import scheduled_job
+
+    hour_kst = 15
+    try:
+        hour_kst = int(os.environ.get("MANUAL_AUTO_UPDATE_HOUR_KST", "15"))
+    except ValueError:
+        hour_kst = 15
+    utc_hour = (hour_kst - 9) % 24  # 15 KST → 06 UTC
+    _rhwp_scheduler.add_job(
+        scheduled_job,
+        CronTrigger(hour=utc_hour, minute=0, timezone=_tz.utc),
+        id="rhwp_manual_auto_update",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    _rhwp_scheduler.start()
+    print(f"[manual-auto] rhwp auto-staging scheduler started — daily {hour_kst:02d}:00 KST "
+          f"({utc_hour:02d}:00 UTC). FEATURE_MANUAL_AUTO_UPDATE=true")
+
 
 def _is_server_env() -> bool:
     """운영(server) 환경 여부. HANWOORY_ENV 또는 RUN_ENV 가 'server' 이면 True.
@@ -94,10 +131,22 @@ async def lifespan(app: FastAPI):
     else:
         _scheduler.start()
         print("[watcher] 스케줄러 시작 (12시간마다 자동 실행) — local 전용")
+
+    # 신규 rhwp 자동 staging 스케줄러 — env 로 명시적으로 켠 경우에만(기본 OFF).
+    if _feature_auto_update_enabled():
+        try:
+            _register_rhwp_auto_update()
+        except Exception as e:
+            print(f"[manual-auto] scheduler 등록 실패 (non-fatal): {e}")
+    else:
+        print("[manual-auto] rhwp auto-staging disabled (set FEATURE_MANUAL_AUTO_UPDATE=true to enable)")
+
     yield
     # server 에서는 start 하지 않았으므로, 실행 중일 때만 정리한다.
     if _scheduler.running:
         _scheduler.shutdown(wait=False)
+    if _rhwp_scheduler.running:
+        _rhwp_scheduler.shutdown(wait=False)
 
 from backend.routers import (
     auth,
