@@ -172,26 +172,99 @@ def _seed_seen_from_legacy(state: dict) -> None:
         pass
 
 
-def detect_changes(state: dict | None = None) -> list[dict]:
-    """하이코리아 첨부 목록을 받아 seen_timestamps 대비 변경된 항목만 반환.
+# ── HTTP (간헐 ConnectionReset 대응 retry/backoff) ───────────────────────────
+# 우리는 NTCCTT_SEQ=1062 고정 상세 게시물만 추적한다. 메인/목록 페이지는 호출하지 않는다.
+_HIKOREA_DETAIL_URL = (
+    "https://www.hikorea.go.kr/board/BoardNtcDetailR.pt"
+    "?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1"
+)
+_HIKOREA_DL_URL = "https://www.hikorea.go.kr/fileNewExistsChkAjax.pt"
+_HTTP_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+    "Referer": _HIKOREA_DETAIL_URL,
+    "Connection": "close",
+}
+_HTTP_TIMEOUT = 30          # 초 (요청당)
+_DL_TIMEOUT = 180           # 첨부 다운로드는 더 길게
+_RETRY_BACKOFFS = [20, 30, 60, 90, 120]  # 최대 5회 재시도 (초)
 
-    네트워크 읽기만 수행. 다운로드/스테이징/상태저장 없음 (dry-run 안전).
-    반환: [{label, old_ts, new_ts, att}] (att 는 다운로드용 메타)."""
+
+def _log(event: str, **fields) -> None:
+    """단계별 진행 로그(JSON 1줄) — Render 로그에서 stage 추적용."""
+    try:
+        print(json.dumps({"event": event, **fields}, ensure_ascii=False), flush=True)
+    except Exception:
+        print(f"[manual-auto] {event} {fields}", flush=True)
+
+
+def _retryable_excs() -> tuple:
+    from requests import exceptions as rexc
+    excs = [rexc.ConnectionError, rexc.Timeout, rexc.SSLError, rexc.ChunkedEncodingError]
+    try:
+        from urllib3.exceptions import ProtocolError as _U3Protocol
+        excs.append(_U3Protocol)
+    except Exception:
+        pass
+    return tuple(excs)
+
+
+def _http_session():
     import requests
-    # 레거시 watcher 의 '순수' 함수만 재사용 — unlock/COM 은 import 하지 않는다.
-    from backend.services.manual_watcher import (
-        fetch_attachment_list, classify_attachment, HEADERS,
-    )
-    if state is None:
-        state = load_state()
-        _seed_seen_from_legacy(state)
-    seen = state.get("seen_timestamps") or {}
-
     s = requests.Session()
-    s.headers.update(HEADERS)
-    s.verify = False
-    attachments = fetch_attachment_list(s)
+    s.headers.update(_HTTP_HEADERS)
+    s.verify = False  # 하이코리아 인증서 체인 이슈 회피(기존 watcher 와 동일)
+    return s
 
+
+def _request_with_retry(session, method: str, url: str, *, stage: str,
+                        timeout: int = _HTTP_TIMEOUT, **kwargs):
+    """ConnectionReset/Timeout/SSL/ProtocolError 에 한해 backoff 재시도.
+    HTTP 4xx/5xx(raise_for_status) 등 비연결 오류는 즉시 전파(재시도 안 함)."""
+    retryable = _retryable_excs()
+    attempts = 1 + len(_RETRY_BACKOFFS)
+    last_exc = None
+    for i in range(attempts):
+        try:
+            _log(f"{stage}_attempt", attempt=i + 1, url=url)
+            resp = session.request(method, url, timeout=timeout, **kwargs)
+            resp.raise_for_status()
+            return resp
+        except retryable as e:  # 연결성 오류만 재시도
+            last_exc = e
+            _log(f"{stage}_retry", attempt=i + 1, error=f"{type(e).__name__}: {e}")
+            if i < len(_RETRY_BACKOFFS):
+                time.sleep(_RETRY_BACKOFFS[i])
+            continue
+    _log(f"{stage}_failed", error=f"{type(last_exc).__name__}: {last_exc}")
+    raise last_exc if last_exc else RuntimeError(f"{stage}: unknown request failure")
+
+
+def _fetch_detail_html(session) -> str:
+    """고정 상세 URL(NTCCTT_SEQ=1062) GET — retry/backoff 적용."""
+    r = _request_with_retry(session, "GET", _HIKOREA_DETAIL_URL, stage="detail_fetch")
+    _log("detail_fetch_success", bytes=len(r.text or ""))
+    return r.text
+
+
+def _parse_attachments(html: str) -> list[dict]:
+    """상세 HTML 에서 첨부 메타(파일명/timestamp) 파싱. watcher 의 정규식만 재사용."""
+    from backend.services.manual_watcher import _FN_PATTERN, _TS_RE
+    items: list[dict] = []
+    for m in _FN_PATTERN.finditer(html or ""):
+        d = m.groupdict()
+        ts = _TS_RE.search(d.get("apnd", ""))
+        d["timestamp"] = ts.group(1) if ts else None
+        items.append(d)
+    _log("attachment_parse", found=len(items))
+    return items
+
+
+def _compare_attachments(attachments: list[dict], seen: dict) -> list[dict]:
+    """추적 라벨만 골라 seen_timestamps 대비 변경분 반환."""
+    from backend.services.manual_watcher import classify_attachment
     changed: list[dict] = []
     for att in attachments:
         label = classify_attachment(att.get("ori", ""))
@@ -200,11 +273,49 @@ def detect_changes(state: dict | None = None) -> list[dict]:
         new_ts = att.get("timestamp")
         if not new_ts:
             continue
-        old_ts = seen.get(label)
-        if old_ts == new_ts:
+        if seen.get(label) == new_ts:
             continue
-        changed.append({"label": label, "old_ts": old_ts, "new_ts": new_ts, "att": att})
+        changed.append({"label": label, "old_ts": seen.get(label), "new_ts": new_ts, "att": att})
+    _log("timestamp_compare", changed=len(changed))
     return changed
+
+
+def _download_with_retry(session, att: dict, dst: Path) -> Path:
+    """첨부 1개 다운로드 — retry/backoff, Referer=상세URL, OLE 시그니처 검증."""
+    data = {
+        "spec": att.get("spec"), "dir": att.get("dir"),
+        "apndFileNm": att.get("apnd"), "oriFileNm": att.get("ori"),
+        "BBS_GB_CD": att.get("bbsGbCd"), "BBS_SEQ": att.get("bbsSeq"),
+        "NTCCTT_SEQ": att.get("comcttSeq"), "APND_SEQ": att.get("apndSeq"),
+        "BBS_SKIN": att.get("bbsSkin"),
+    }
+    _log("download_attempt", file=att.get("ori"))
+    r = _request_with_retry(
+        session, "POST", _HIKOREA_DL_URL, stage="attachment_download",
+        timeout=_DL_TIMEOUT, data=data,
+        headers={"Referer": _HIKOREA_DETAIL_URL}, allow_redirects=True,
+    )
+    if not r.content.startswith(b"\xd0\xcf\x11\xe0"):
+        raise RuntimeError(f"downloaded content is not OLE/HWP: first8={r.content[:8].hex()}")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(r.content)
+    _log("download_success", file=att.get("ori"), bytes=len(r.content))
+    return dst
+
+
+def detect_changes(state: dict | None = None) -> list[dict]:
+    """하이코리아 고정 상세 게시물에서 변경 첨부만 반환 (retry/backoff 적용).
+
+    네트워크 읽기만 수행. 다운로드/스테이징/상태저장 없음 (dry-run 안전).
+    반환: [{label, old_ts, new_ts, att}] (att 는 다운로드용 메타)."""
+    if state is None:
+        state = load_state()
+        _seed_seen_from_legacy(state)
+    seen = state.get("seen_timestamps") or {}
+    session = _http_session()
+    html = _fetch_detail_html(session)
+    attachments = _parse_attachments(html)
+    return _compare_attachments(attachments, seen)
 
 
 def _version_from_changes(changed: list[dict]) -> str:
@@ -219,22 +330,16 @@ def _version_from_changes(changed: list[dict]) -> str:
 
 # ── 다운로드 ─────────────────────────────────────────────────────────────────
 def _download_changed(changed: list[dict], version: str) -> list[Path]:
-    """변경된 원본 HWP/HWPX 를 incoming/{version}/ 에 원본 파일명으로 저장.
+    """변경된 원본 HWP/HWPX 를 incoming/{version}/ 에 원본 파일명으로 저장(retry 적용).
     unlock/PDF 변환은 하지 않는다. 운영 unlocked_*.pdf 는 절대 건드리지 않는다."""
-    import requests
-    from backend.services.manual_watcher import download_attachment, HEADERS
     inc = _incoming_dir(version)
     inc.mkdir(parents=True, exist_ok=True)
-    s = requests.Session()
-    s.headers.update(HEADERS)
-    s.verify = False
+    session = _http_session()
     saved: list[Path] = []
     for c in changed:
         att = c["att"]
         ori = att.get("ori") or f"{c['label']}.hwp"
-        dst = inc / ori
-        download_attachment(s, att, dst)
-        saved.append(dst)
+        saved.append(_download_with_retry(session, att, inc / ori))
     return saved
 
 
@@ -401,21 +506,15 @@ def run_auto_update(*, force: bool = False, detect_only: bool = False,
 
 
 # ── PG 기반 entry (단일 출처 = PostgreSQL) ────────────────────────────────────
-def _download_changed_to(changed: list[dict], dest_dir: Path) -> list[Path]:
-    """변경 원본을 임의 디렉토리(/tmp 등)에 원본 파일명으로 저장. unlock/PDF 변환 없음."""
-    import requests
-    from backend.services.manual_watcher import download_attachment, HEADERS
+def _download_changed_to(changed: list[dict], dest_dir: Path, session=None) -> list[Path]:
+    """변경 원본을 임의 디렉토리(/tmp 등)에 원본 파일명으로 저장(retry 적용). unlock/PDF 변환 없음."""
     dest_dir.mkdir(parents=True, exist_ok=True)
-    s = requests.Session()
-    s.headers.update(HEADERS)
-    s.verify = False
+    s = session or _http_session()
     saved: list[Path] = []
     for c in changed:
         att = c["att"]
         ori = att.get("ori") or f"{c['label']}.hwp"
-        dst = dest_dir / ori
-        download_attachment(s, att, dst)
-        saved.append(dst)
+        saved.append(_download_with_retry(s, att, dest_dir / ori))
     return saved
 
 
@@ -451,18 +550,29 @@ def run_auto_update_pg(*, force: bool = False, trigger: str = "manual",
 
     tmpdir: Path | None = None
     version: str | None = None
+    stage = "init"
     try:
+        # 1) 감지 (고정 상세 URL fetch + parse + compare) — 단계별 stage 추적
         seen = _seen_from_pg(svc)
-        changed = detect_changes({"seen_timestamps": seen})
+        session = _http_session()
+        stage = "detail_fetch"
+        html = _fetch_detail_html(session)
+        stage = "attachment_parse"
+        attachments = _parse_attachments(html)
+        stage = "timestamp_compare"
+        changed = _compare_attachments(attachments, seen)
         if not changed:
             svc.finish_no_change(run_id)
             return {"status": "no_change"}
 
         version = _version_from_changes(changed)
         tmpdir = Path(tempfile.gettempdir()) / "manual_update" / version
-        _download_changed_to(changed, tmpdir)
 
-        # rhwp extract → /tmp, diff vs PG baseline (chromium 불필요)
+        # 2) 다운로드 (/tmp, retry) — 같은 session 재사용(Referer=상세URL)
+        stage = "attachment_download"
+        _download_changed_to(changed, tmpdir, session=session)
+
+        # 3) rhwp extract → /tmp, diff vs PG baseline (chromium 불필요)
         from backend.scripts.manual_update_local import (
             NODE_TOOLS, run_node, load_jsonl, classify_label, diff_pages,
         )
@@ -470,6 +580,8 @@ def run_auto_update_pg(*, force: bool = False, trigger: str = "manual",
         all_changed: list[dict] = []
         label_ts: dict[str, str] = {c["label"]: c["new_ts"] for c in changed}
 
+        stage = "extract"
+        _log("extract_start", version=version)
         for p in sorted(tmpdir.iterdir()):
             if not p.is_file() or p.suffix.lower() not in (".hwp", ".hwpx"):
                 continue
@@ -485,17 +597,24 @@ def run_auto_update_pg(*, force: bool = False, trigger: str = "manual",
             new_pages_by_label[label] = pages
             baseline = svc.load_baseline_pages(label)
             if baseline:
+                stage = "diff"
+                _log("diff_start", label=label, baseline_pages=len(baseline), new_pages=len(pages))
                 all_changed.extend(diff_pages(baseline, pages))
             else:
-                print(f"[manual-auto] no PG baseline for {label} — diff skipped")
+                _log("diff_skip_no_baseline", label=label)
 
         non_same = [c for c in all_changed if c.get("change_type") != "same"]
         refs = svc.load_base_refs()
+        stage = "candidates"
+        _log("candidates_start", changed=len(non_same), refs=len(refs))
         candidates = svc.compute_candidates(all_changed, new_pages_by_label, refs)
 
+        stage = "save"
         svc.save_version(version, label_ts, non_same, candidates, run_id)
+        stage = "merge"
         merge = svc.merge_decisions_for_version(version, candidates)
         svc.finish_staged(run_id, version, len(non_same), len(candidates))
+        _log("run_staged", version=version, changed=len(non_same), candidates=len(candidates))
 
         if notify:
             try:
@@ -511,8 +630,10 @@ def run_auto_update_pg(*, force: bool = False, trigger: str = "manual",
                 "changed": len(non_same), "candidates": len(candidates),
                 "decisions": merge}
     except Exception as e:
-        svc.finish_error(run_id, f"{type(e).__name__}: {e}")
-        return {"status": "error", "error": f"{type(e).__name__}: {e}"}
+        err = f"[{stage}] {type(e).__name__}: {e}"
+        _log("run_failed", stage=stage, error=err)
+        svc.finish_error(run_id, err)  # error 문자열에 error_stage 포함
+        return {"status": "error", "error_stage": stage, "error": err}
     finally:
         if tmpdir is not None:
             shutil.rmtree(tmpdir, ignore_errors=True)
