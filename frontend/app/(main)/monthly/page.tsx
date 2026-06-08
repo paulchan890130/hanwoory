@@ -410,8 +410,20 @@ function num(v: unknown): number {
   const n = parseInt(String(v ?? "").replace(/,/g, "").trim() || "0", 10);
   return Number.isFinite(n) ? n : 0;
 }
-function prevYM(y: number, m: number): string {
-  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+function ymInt(s: string | undefined): number | null {
+  const t = String(s || "").trim();
+  if (t.length < 7) return null;
+  const y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7));
+  return y && m ? y * 12 + m : null;
+}
+function isEffective(r: FixedExpense, y: number, m: number): boolean {
+  const target = y * 12 + m;
+  if (r.is_recurring) {
+    const start = ymInt(r.start_month) || ymInt(r.year_month);
+    const end = ymInt(r.end_month);
+    return start != null && start <= target && (end == null || target <= end);
+  }
+  return ymInt(r.year_month) === target;
 }
 function PgNeeded() {
   return (
@@ -424,9 +436,16 @@ function PgNeeded() {
 function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number; pgOn: boolean }) {
   const qc = useQueryClient();
   const ym = `${year}-${String(month).padStart(2, "0")}`;
-  const { data: rows = [] } = useQuery({
-    queryKey: ["fixed-expenses", year],
-    queryFn: () => dailyApi.listFixedExpenses({ year: String(year) }).then((r) => r.data),
+  // 선택월 유효 규칙(매월 자동 반영) — effective_month 기준
+  const { data: monthRows = [] } = useQuery({
+    queryKey: ["fixed-expenses", "effective", ym],
+    queryFn: () => dailyApi.listFixedExpenses({ effective_month: ym }).then((r) => r.data),
+    enabled: pgOn,
+  });
+  // 연 합계 계산용 전체 규칙
+  const { data: allRules = [] } = useQuery({
+    queryKey: ["fixed-expenses", "all"],
+    queryFn: () => dailyApi.listFixedExpenses({}).then((r) => r.data),
     enabled: pgOn,
   });
   const [form, setForm] = useState<Partial<FixedExpense>>({ category: "임대료", payment_method: "계좌" });
@@ -438,33 +457,36 @@ function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number;
   };
   const saveMut = useMutation({
     mutationFn: () => {
+      // year_month=선택월. 신규=반복 규칙으로 생성, 수정=선택월 기준(금액 변경 시 백엔드 term-out)
       const payload: Partial<FixedExpense> = { ...form, year_month: ym, amount: num(form.amount) };
       return editingId ? dailyApi.updateFixedExpense(editingId, payload) : dailyApi.createFixedExpense(payload);
     },
     onSuccess: () => { toast.success("저장됨"); reset(); invalidate(); },
     onError: () => toast.error("저장 실패"),
   });
+  // 삭제 = 선택월부터 중단(과거 보존). effective_month 전달.
   const delMut = useMutation({
-    mutationFn: (id: string) => dailyApi.deleteFixedExpense(id),
-    onSuccess: () => { toast.success("삭제됨"); invalidate(); },
-    onError: () => toast.error("삭제 실패"),
-  });
-  const copyMut = useMutation({
-    mutationFn: () => dailyApi.copyFixedExpenses(prevYM(year, month), ym),
-    onSuccess: (r) => { toast.success(`전월 ${(r.data as { copied: number }).copied}건 복사`); invalidate(); },
-    onError: () => toast.error("복사 실패"),
+    mutationFn: (id: string) => dailyApi.deleteFixedExpense(id, ym),
+    onSuccess: () => { toast.success("이 달부터 중단됨"); invalidate(); },
+    onError: () => toast.error("중단 실패"),
   });
 
   if (!pgOn) return <Card title="💼 고정지출 관리"><PgNeeded /></Card>;
 
-  const monthRows = rows.filter((r) => r.year_month === ym);
   const monthTotal = monthRows.reduce((s, r) => s + (r.amount || 0), 0);
-  const yearTotal = rows.reduce((s, r) => s + (r.amount || 0), 0);
+  // 연 합계 = 1~12월 각 월 유효 규칙 금액의 합
+  let yearTotal = 0;
+  for (let m = 1; m <= 12; m++) {
+    yearTotal += allRules.filter((r) => isEffective(r, year, m)).reduce((s, r) => s + (r.amount || 0), 0);
+  }
   const byCat: Record<string, number> = {};
   monthRows.forEach((r) => { byCat[r.category || "기타"] = (byCat[r.category || "기타"] || 0) + (r.amount || 0); });
 
   return (
-    <Card title={`💼 고정지출 관리 (${ym})`}>
+    <Card title={`💼 고정지출 관리 (${ym} · 매월 자동 반영)`}>
+      <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 10 }}>
+        ※ 한 번 입력하면 이후 모든 달에 자동 반영됩니다. 특정 월부터 금액을 바꾸면 그 달부터 새 금액이 적용되고 과거 월은 유지됩니다. ‘삭제’는 이 달부터 중단입니다.
+      </div>
       {/* 입력 폼 */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 0.8fr 1.4fr auto", gap: 6, alignItems: "center", marginBottom: 12 }}>
         <input style={fieldStyle} placeholder="항목 (예: 사무실 월세)" value={form.name ?? ""} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
@@ -499,7 +521,7 @@ function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number;
           </thead>
           <tbody>
             {monthRows.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 16, color: "#A0AEC0" }}>이 달 고정지출이 없습니다.</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: 16, color: "#A0AEC0" }}>이 달 유효한 고정지출이 없습니다.</td></tr>
             ) : monthRows.map((r) => (
               <tr key={r.id}>
                 <td style={{ padding: "6px 8px", borderBottom: `1px solid ${BORDER}` }}>{r.name}</td>
@@ -510,7 +532,7 @@ function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number;
                 <td style={{ padding: "6px 8px", borderBottom: `1px solid ${BORDER}`, color: "#718096" }}>{r.memo}</td>
                 <td style={{ padding: "6px 8px", borderBottom: `1px solid ${BORDER}`, whiteSpace: "nowrap" }}>
                   <button onClick={() => { setEditingId(r.id); setForm(r); }} style={{ fontSize: 11, marginRight: 6, border: "none", background: "none", color: "#3182CE", cursor: "pointer" }}>수정</button>
-                  <button onClick={() => { if (confirm("삭제하시겠습니까?")) delMut.mutate(r.id); }} style={{ fontSize: 11, border: "none", background: "none", color: "#C53030", cursor: "pointer" }}>삭제</button>
+                  <button onClick={() => { if (confirm(`${ym}부터 이 고정지출을 중단합니다. (과거 월은 유지)`)) delMut.mutate(r.id); }} style={{ fontSize: 11, border: "none", background: "none", color: "#C53030", cursor: "pointer" }}>중단</button>
                 </td>
               </tr>
             ))}
@@ -518,13 +540,10 @@ function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number;
         </table>
       </div>
 
-      {/* 합계 + 전월복사 */}
+      {/* 합계 */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", marginTop: 12, fontSize: 13 }}>
         <span><b>선택월 합계</b> <span style={{ color: "#C53030", fontWeight: 700 }}>{man(monthTotal)}</span></span>
         <span><b>{year}년 합계</b> <span style={{ color: "#C53030", fontWeight: 700 }}>{man(yearTotal)}</span></span>
-        <button onClick={() => copyMut.mutate()} disabled={copyMut.isPending} style={{ fontSize: 12, padding: "5px 12px", border: `1px solid ${GOLD}`, borderRadius: 6, background: "#FFF9E6", color: "#6B5314", cursor: "pointer", fontWeight: 600 }}>
-          ⧉ 전월({prevYM(year, month)}) 복사
-        </button>
         <span style={{ display: "flex", gap: 8, flexWrap: "wrap", color: "#718096", fontSize: 12 }}>
           {Object.entries(byCat).map(([c, v]) => <span key={c}>{c} {man(v)}</span>)}
         </span>
@@ -533,7 +552,7 @@ function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number;
   );
 }
 
-function TaxReportPanel({ year, month, pgOn }: { year: number; month: number; pgOn: boolean }) {
+function TaxReportPanel({ year, month, pgOn, autoReportedSales = 0 }: { year: number; month: number; pgOn: boolean; autoReportedSales?: number }) {
   const qc = useQueryClient();
   const ym = `${year}-${String(month).padStart(2, "0")}`;
   const { data } = useQuery({
@@ -555,16 +574,36 @@ function TaxReportPanel({ year, month, pgOn }: { year: number; month: number; pg
   if (!pgOn) return <Card title="🧾 신고 기준 / 부가세"><PgNeeded /></Card>;
 
   const basis = f.vat_basis || "tax_included";
-  const split = (amt: number) => basis === "supply_price" ? Math.round(amt * 0.1) : amt - Math.round(amt / 1.1);
-  const outVat = num(f.reported_output_vat) || split(num(f.reported_revenue));
-  const inVat = num(f.reported_input_vat) || split(num(f.reported_expense));
+  // 자동(카드수입+세금계산서) + 수동 조정 = 합계 신고매출. 부가세는 합계 기준.
+  const manualSales = num(f.reported_revenue);
+  const totalSales = autoReportedSales + manualSales;
+  const vatOf = (amt: number) => basis === "supply_price" ? Math.round(amt * 0.1) : amt - Math.round(amt / 1.1);
+  const supplyOf = (amt: number) => basis === "supply_price" ? amt : Math.round(amt / 1.1);
+  const outVat = num(f.reported_output_vat) || vatOf(totalSales);
+  const inVat = num(f.reported_input_vat) || vatOf(num(f.reported_expense));
+  const supply = supplyOf(totalSales);
   const expected = outVat - inVat;
   const cell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
   const lbl: React.CSSProperties = { fontSize: 11, color: "#718096" };
 
   return (
     <Card title="🧾 신고 기준 / 부가세">
-      <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 12 }}>※ 일반과세 10% 기준 관리용 예상 계산입니다. 실제 신고 확정값과 다를 수 있습니다.</div>
+      <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 12 }}>
+        ※ 일반과세 10% 기준 <b>관리용 예상 계산</b>입니다. 실제 신고 확정값과 다를 수 있습니다.
+        자동 신고매출 = 일일결산의 <b>카드수입 + 세금계산서 발행 체크 수입</b> (행당 1회).
+      </div>
+
+      {/* 신고매출 구성 요약 */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", marginBottom: 12, padding: "10px 14px", background: "#EBF8FF", border: "1px solid #BEE3F8", borderRadius: 8, fontSize: 13 }}>
+        <span>① 자동 신고매출 <b title={`${fmt(autoReportedSales)}원`}>{man(autoReportedSales)}</b></span>
+        <span style={{ color: "#CBD5E0" }}>+</span>
+        <span>② 수동 추가/조정 <b title={`${fmt(manualSales)}원`}>{man(manualSales)}</b></span>
+        <span style={{ color: "#CBD5E0" }}>=</span>
+        <span>③ 합계 신고매출 <b style={{ color: "#2B6CB0" }} title={`${fmt(totalSales)}원`}>{man(totalSales)}</b></span>
+        <span style={{ color: "#CBD5E0" }}>·</span>
+        <span>예상 공급가액 <b title={`${fmt(supply)}원`}>{man(supply)}</b></span>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         <div style={cell}>
           <span style={lbl}>부가세 기준</span>
@@ -574,7 +613,7 @@ function TaxReportPanel({ year, month, pgOn }: { year: number; month: number; pg
           </select>
         </div>
         <div style={cell}>
-          <span style={lbl}>신고 매출액 (원)</span>
+          <span style={lbl}>수동 추가/조정 신고매출 (원)</span>
           <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.reported_revenue ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_revenue: num(e.target.value) }))} />
         </div>
         <div style={cell}>
@@ -582,12 +621,12 @@ function TaxReportPanel({ year, month, pgOn }: { year: number; month: number; pg
           <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.reported_expense ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_expense: num(e.target.value) }))} />
         </div>
         <div style={cell}>
-          <span style={lbl}>매출세액 (비우면 자동)</span>
-          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" placeholder={`자동 ${fmt(split(num(f.reported_revenue)))}`} value={f.reported_output_vat ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_output_vat: num(e.target.value) }))} />
+          <span style={lbl}>매출세액 (비우면 합계 기준 자동)</span>
+          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" placeholder={`자동 ${fmt(vatOf(totalSales))}`} value={f.reported_output_vat ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_output_vat: num(e.target.value) }))} />
         </div>
         <div style={cell}>
           <span style={lbl}>매입세액 (비우면 자동)</span>
-          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" placeholder={`자동 ${fmt(split(num(f.reported_expense)))}`} value={f.reported_input_vat ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_input_vat: num(e.target.value) }))} />
+          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" placeholder={`자동 ${fmt(vatOf(num(f.reported_expense)))}`} value={f.reported_input_vat ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_input_vat: num(e.target.value) }))} />
         </div>
         <div style={cell}>
           <span style={lbl}>신고 메모</span>
@@ -820,7 +859,7 @@ export default function MonthlyPage() {
 
             {/* 고정지출 관리 + 신고/부가세 (PG 전용) */}
             <FixedExpensePanel year={year} month={month} pgOn={!!overview.pg_daily} />
-            <TaxReportPanel year={year} month={month} pgOn={!!overview.pg_daily} />
+            <TaxReportPanel year={year} month={month} pgOn={!!overview.pg_daily} autoReportedSales={overview.tax?.auto_reported_sales ?? 0} />
           </div>
         );
       })()}

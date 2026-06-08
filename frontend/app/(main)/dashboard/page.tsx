@@ -429,6 +429,12 @@ export default function DashboardPage() {
     queryFn: () => dailyApi.getCardExpenseSummary().then((r) => r.data),
     staleTime: 30_000,
   });
+  // 일일결산 수입 합계 (오늘/이번 달) — 카드수입 포함(income_cash+income_etc 기준). active_task 무관.
+  const { data: incomeSummary } = useQuery({
+    queryKey: ["daily", "income-summary"],
+    queryFn: () => dailyApi.getIncomeSummary().then((r) => r.data),
+    staleTime: 30_000,
+  });
   const { data: plannedTasks = [] } = useQuery({
     queryKey: ["tasks", "planned"],
     queryFn: () => tasksApi.getPlanned().then((r) => r.data),
@@ -1106,8 +1112,17 @@ export default function DashboardPage() {
           <>
             {/* 헤더 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
+                {incomeSummary && (incomeSummary.today > 0 || incomeSummary.month > 0) && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, color: "#276749",
+                    background: "#F0FFF4", border: "1px solid #9AE6B4",
+                    borderRadius: 999, padding: "2px 10px", whiteSpace: "nowrap",
+                  }}>
+                    💰 수입 합계 오늘 {formatNumber(incomeSummary.today)}원 / 이번 달 {formatNumber(incomeSummary.month)}원
+                  </span>
+                )}
                 {cardExpense && (cardExpense.today > 0 || cardExpense.month > 0) && (
                   <span style={{
                     fontSize: 11, fontWeight: 600, color: "#9C4221",

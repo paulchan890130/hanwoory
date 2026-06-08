@@ -73,6 +73,62 @@ def _entry_expense(rec: dict) -> int:
     return _safe_int(rec.get("exp_cash")) + _safe_int(rec.get("exp_etc"))
 
 
+def _entry_kid_parts(rec: dict) -> dict:
+    """memo 의 [KID] 메타(inc/e1/e1a/e2/e2a/tax) 를 dict 로 파싱. 없으면 {}."""
+    memo = str(rec.get("memo", "") or "")
+    m = _KID_RE.search(memo)
+    if not m:
+        return {}
+    try:
+        return dict(p.split("=", 1) for p in m.group(1).split(";") if "=" in p)
+    except Exception:
+        return {}
+
+
+def _entry_reported_sales(rec: dict) -> int:
+    """세무 자동 신고매출 대상 금액(원). 수입 결제수단이 카드(inc=카드)이거나
+    세금계산서 발행 체크(tax=1)면 그 행의 수입(income_cash+income_etc)을 **1회** 반환.
+    카드+세금계산서 동시 true여도 중복 없이 1회. 일반 매출에는 그대로 포함되며,
+    여기 합계는 순이익에 다시 더하지 않는 '세무 표시용' 별도 집계다."""
+    parts = _entry_kid_parts(rec)
+    is_card = parts.get("inc", "") == "카드"
+    is_tax = str(parts.get("tax", "")).strip() in ("1", "true", "True")
+    return _entry_sales(rec) if (is_card or is_tax) else 0
+
+
+def _ym_to_int(s) -> Optional[int]:
+    """'YYYY-MM' → 정렬/비교용 정수(year*12+month). 형식 불량이면 None."""
+    s = str(s or "").strip()
+    if len(s) < 7:
+        return None
+    try:
+        return int(s[:4]) * 12 + int(s[5:7])
+    except Exception:
+        return None
+
+
+def _fixed_amount_for_month(fixed_records: list, y: int, m: int) -> int:
+    """선택월(y,m)에 유효한 고정지출 합계.
+    - 반복(is_recurring): start_month ≤ 선택월 ≤ end_month(없으면 무기한).
+    - 비반복(레거시): year_month == 선택월.
+    매월 row 복사 없이 규칙 1건으로 모든 유효월에 자동 반영된다."""
+    target = y * 12 + m
+    total = 0
+    for fx in fixed_records or []:
+        amt = _safe_int(fx.get("amount", 0))
+        if fx.get("is_recurring"):
+            start = _ym_to_int(fx.get("start_month")) or _ym_to_int(fx.get("year_month"))
+            end = _ym_to_int(fx.get("end_month"))
+            if start is None:
+                continue
+            if start <= target and (end is None or target <= end):
+                total += amt
+        else:
+            if _ym_to_int(fx.get("year_month")) == target:
+                total += amt
+    return total
+
+
 _FIXED_RATIO_WARN = 35.0   # 고정지출 / 매출 경고 임계(%)
 _REPORTED_DIFF_WARN = 20.0  # |신고매출 - 일일매출| / 일일매출 경고 임계(%)
 
@@ -209,25 +265,21 @@ def _build_yearly_overview(records: list, year: int, month: int,
         cell["count"] += 1
         cat_by_ym[(y, m)][cat] += sales
 
-    # 고정지출 월별 합계 (year_month "YYYY-MM" → 합계)
-    fixed_by_ym: dict = defaultdict(int)
-    for fx in (fixed_records or []):
-        ym = str(fx.get("year_month", "") or "")
-        if len(ym) < 7:
-            continue
-        try:
-            fy = int(ym[:4]); fm = int(ym[5:7])
-        except Exception:
-            continue
-        years.add(fy)
-        fixed_by_ym[(fy, fm)] += _safe_int(fx.get("amount", 0))
+    # 고정지출: 반복 규칙(start~end) 기준 — 매월 row 복사 없이 유효월에 자동 반영.
+    # 규칙의 start/end 연도도 overlay 표시 대상에 포함시킨다.
+    fixed_list = fixed_records or []
+    for fx in fixed_list:
+        for key in ("start_month", "year_month", "end_month"):
+            v = _ym_to_int(fx.get(key))
+            if v is not None:
+                years.add(v // 12)
 
     years_sorted = sorted(years)
 
     def month_cell(y, m):
         c = by_ym.get((y, m))
         base = dict(c) if c else {"sales": 0, "expense": 0, "net": 0, "card": 0, "count": 0}
-        base["fixed"] = fixed_by_ym.get((y, m), 0)
+        base["fixed"] = _fixed_amount_for_month(fixed_list, y, m)
         base["net_after_fixed"] = base["net"] - base["fixed"]
         return base
 
@@ -261,6 +313,13 @@ def _build_yearly_overview(records: list, year: int, month: int,
         key=lambda x: -x["cur"],
     )
 
+    # 세무 자동 신고매출(선택월): 카드수입 + 세금계산서 발행 체크 수입 (행당 1회)
+    sel_prefix = f"{year}-{month:02d}"
+    auto_reported_sales = sum(
+        _entry_reported_sales(r) for r in records
+        if str(r.get("date", "")).startswith(sel_prefix)
+    )
+
     return {
         "years": years_sorted,
         "selected": {"year": year, "month": month, "quarter": q},
@@ -270,7 +329,11 @@ def _build_yearly_overview(records: list, year: int, month: int,
         "same_quarter": same_quarter,
         "ytd": ytd,
         "category_compare": category_compare,
-        "tax": {"current": tax_cur or None, "prev": tax_prev or None},
+        "tax": {
+            "current": tax_cur or None,
+            "prev": tax_prev or None,
+            "auto_reported_sales": auto_reported_sales,
+        },
         "diagnosis": _diagnose(same_month, same_quarter, ytd, category_compare, year, month, q,
                                tax_cur=tax_cur, tax_prev=tax_prev),
     }
@@ -1047,6 +1110,30 @@ def get_card_expense_summary(user: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/income-summary")
+def get_income_summary(user: dict = Depends(get_current_user)):
+    """진행업무/업무관리 화면용 '수입 합계' — 오늘 / 이번 달.
+
+    daily_entries 의 수입(income_cash + income_etc) 합계. 카드수입도 income_etc 로
+    자연 포함된다. active_task 와 무관한 일일결산 기준 집계(읽기 전용). 단일 API.
+    """
+    import datetime
+    records = _fetch_daily_records(user["tenant_id"])
+    today = datetime.date.today()
+    today_str = today.isoformat()
+    month_prefix = today.strftime("%Y-%m")
+    today_total = sum(_entry_sales(r) for r in records
+                      if str(r.get("date", "")).strip() == today_str)
+    month_total = sum(_entry_sales(r) for r in records
+                      if str(r.get("date", "")).startswith(month_prefix))
+    return {
+        "today": today_total,
+        "month": month_total,
+        "today_date": today_str,
+        "month_prefix": month_prefix,
+    }
+
+
 @router.get("/yearly-overview")
 def get_yearly_overview(
     year: int = Query(...),
@@ -1089,35 +1176,57 @@ def _require_pg_daily():
 
 @router.get("/fixed-expenses")
 def list_fixed_expenses_ep(
+    effective_month: Optional[str] = Query(None, description="YYYY-MM (해당 월 유효 규칙)"),
     year_month: Optional[str] = Query(None, description="YYYY-MM"),
     year: Optional[str] = Query(None, description="YYYY"),
     user: dict = Depends(get_current_user),
 ):
     _require_pg_daily()
     from backend.services.fixed_expense_pg_service import list_fixed_expenses
-    return list_fixed_expenses(user["tenant_id"], year_month=year_month, year=year)
+    return list_fixed_expenses(user["tenant_id"], year_month=year_month, year=year,
+                               effective_month=effective_month)
 
 
 @router.post("/fixed-expenses")
 def create_fixed_expense_ep(data: dict, user: dict = Depends(get_current_user)):
+    """고정지출 신규 — 기본은 매월 자동 반영(반복) 규칙. start_month=선택월부터 무기한(end 없음)."""
     _require_pg_daily()
-    if not str(data.get("year_month", "")).strip():
+    ym = str(data.get("year_month", "")).strip()
+    if not ym:
         raise HTTPException(status_code=400, detail="year_month는 필수입니다.")
+    if not str(data.get("start_month", "")).strip():
+        data["start_month"] = ym
+    if "is_recurring" not in data:
+        data["is_recurring"] = True
     from backend.services.fixed_expense_pg_service import upsert_fixed_expense
     return upsert_fixed_expense(user["tenant_id"], data)
 
 
 @router.put("/fixed-expenses/{expense_id}")
 def update_fixed_expense_ep(expense_id: str, data: dict, user: dict = Depends(get_current_user)):
+    """선택월(data.year_month) 기준 수정. 금액 변경 시 term-out(과거 월 금액 보존)."""
     _require_pg_daily()
-    data["id"] = expense_id
-    from backend.services.fixed_expense_pg_service import upsert_fixed_expense
-    return upsert_fixed_expense(user["tenant_id"], data)
+    eff = str(data.get("year_month", "")).strip()
+    if not eff:
+        raise HTTPException(status_code=400, detail="year_month(선택월)는 필수입니다.")
+    from backend.services.fixed_expense_pg_service import update_fixed_expense
+    try:
+        return update_fixed_expense(user["tenant_id"], expense_id, data, eff)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="해당 고정지출을 찾을 수 없습니다.")
 
 
 @router.delete("/fixed-expenses/{expense_id}")
-def delete_fixed_expense_ep(expense_id: str, user: dict = Depends(get_current_user)):
+def delete_fixed_expense_ep(
+    expense_id: str,
+    effective_month: Optional[str] = Query(None, description="YYYY-MM (이 달부터 중단)"),
+    user: dict = Depends(get_current_user),
+):
+    """effective_month 지정 시 그 달부터 중단(과거 보존), 없으면 행 완전 삭제."""
     _require_pg_daily()
+    if effective_month:
+        from backend.services.fixed_expense_pg_service import end_fixed_expense
+        return end_fixed_expense(user["tenant_id"], expense_id, effective_month)
     from backend.services.fixed_expense_pg_service import delete_fixed_expense
     ok = delete_fixed_expense(user["tenant_id"], expense_id)
     return {"deleted": expense_id, "ok": ok}

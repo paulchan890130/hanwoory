@@ -298,14 +298,17 @@ export const dailyApi = {
     api.get("/api/daily/monthly-analysis", { params: { year, month } }),
   getCardExpenseSummary: () =>
     api.get<CardExpenseSummary>("/api/daily/card-expense-summary"),
+  getIncomeSummary: () =>
+    api.get<CardExpenseSummary>("/api/daily/income-summary"),
   getYearlyOverview: (year: number, month: number) =>
     api.get<YearlyOverview>("/api/daily/yearly-overview", { params: { year, month } }),
-  // 고정지출 (PG 전용 — FEATURE_PG_DAILY)
-  listFixedExpenses: (params: { year_month?: string; year?: string }) =>
+  // 고정지출 (PG 전용 — FEATURE_PG_DAILY). effective_month = 해당 월 유효 규칙(매월 자동 반영).
+  listFixedExpenses: (params: { effective_month?: string; year_month?: string; year?: string }) =>
     api.get<FixedExpense[]>("/api/daily/fixed-expenses", { params }),
   createFixedExpense: (data: Partial<FixedExpense>) => api.post("/api/daily/fixed-expenses", data),
   updateFixedExpense: (id: string, data: Partial<FixedExpense>) => api.put(`/api/daily/fixed-expenses/${id}`, data),
-  deleteFixedExpense: (id: string) => api.delete(`/api/daily/fixed-expenses/${id}`),
+  deleteFixedExpense: (id: string, effective_month?: string) =>
+    api.delete(`/api/daily/fixed-expenses/${id}`, { params: effective_month ? { effective_month } : {} }),
   copyFixedExpenses: (from_ym: string, to_ym: string) =>
     api.post("/api/daily/fixed-expenses/copy", null, { params: { from_ym, to_ym } }),
   // 신고/부가세 (PG 전용)
@@ -378,7 +381,7 @@ export interface YearlyOverview {
   same_quarter: YearlyAggRow[];
   ytd: YearlyAggRow[];
   category_compare: { name: string; cur: number; prev: number; delta: number }[];
-  tax?: { current: TaxSummary | null; prev: TaxSummary | null };
+  tax?: { current: TaxSummary | null; prev: TaxSummary | null; auto_reported_sales?: number };
   diagnosis: { good: string[]; bad: string[] };
 }
 

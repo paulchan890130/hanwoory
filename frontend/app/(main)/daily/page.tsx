@@ -15,8 +15,8 @@ const EXPENSE_METHODS = ["", "이체", "현금", "카드", "인지"];
 
 // 메모 태그 파싱 (기존 Streamlit _unpack_memo 동일)
 // e1a / e2a = per-slot expense amounts (added to preserve individual amounts)
-function unpackMemo(memo: string): { inc: string; e1: string; e1a: string; e2: string; e2a: string; user: string } {
-  const result: Record<string, string> = { inc: "", e1: "", e1a: "", e2: "", e2a: "", user: memo || "" };
+function unpackMemo(memo: string): { inc: string; e1: string; e1a: string; e2: string; e2a: string; tax: string; user: string } {
+  const result: Record<string, string> = { inc: "", e1: "", e1a: "", e2: "", e2a: "", tax: "", user: memo || "" };
   if (!memo) return result as ReturnType<typeof unpackMemo>;
   const start = memo.indexOf("[KID]");
   const end = memo.indexOf("[/KID]");
@@ -31,9 +31,11 @@ function unpackMemo(memo: string): { inc: string; e1: string; e1a: string; e2: s
   return result as ReturnType<typeof unpackMemo>;
 }
 
-// e1a / e2a carry per-slot amounts so they survive the exp_etc aggregation
-function packMemo(inc: string, e1: string, e1a: string, e2: string, e2a: string, userMemo: string): string {
-  const tag = `[KID]inc=${inc};e1=${e1};e1a=${e1a};e2=${e2};e2a=${e2a}[/KID]`;
+// e1a / e2a carry per-slot amounts so they survive the exp_etc aggregation.
+// tax = 세금계산서 발행 체크(1) → 월간결산 자동 신고매출 집계 대상.
+function packMemo(inc: string, e1: string, e1a: string, e2: string, e2a: string, userMemo: string, tax?: boolean): string {
+  const taxPart = tax ? ";tax=1" : "";
+  const tag = `[KID]inc=${inc};e1=${e1};e1a=${e1a};e2=${e2};e2a=${e2a}${taxPart}[/KID]`;
   return userMemo ? `${tag} ${userMemo}` : tag;
 }
 
@@ -63,7 +65,7 @@ export default function DailyPage() {
   const [showMonthly, setShowMonthly] = useState(false);
   const [editId, setEditId] = useState<string | null>(null); // 수정 중인 행 id
   const [deletingId, setDeletingId] = useState<string | null>(null); // 삭제 중인 행 id
-  const [editValues, setEditValues] = useState<Partial<DailyEntry & { inc_type: string; e1_type: string; e2_type: string; user_memo: string }>>({});
+  const [editValues, setEditValues] = useState<Partial<DailyEntry & { inc_type: string; e1_type: string; e2_type: string; user_memo: string; tax_invoice: boolean }>>({});
 
   // 현재 날짜에서 연/월 추출
   const [viewYear, viewMonth] = useMemo(() => {
@@ -181,6 +183,8 @@ export default function DailyPage() {
   const [newE2Amt, setNewE2Amt] = useState("");
   const [newCashOut, setNewCashOut] = useState("");
   const [newMemo, setNewMemo] = useState("");
+  // 세금계산서 발행 체크(비카드 수입 → 월간결산 자동 신고매출)
+  const [newTaxInvoice, setNewTaxInvoice] = useState(false);
   // 일일결산 저장 + 진행업무 반영 중 상태 (중복 클릭 방지 + 사용자 피드백)
   const [isSavingDaily, setIsSavingDaily] = useState(false);
 
@@ -224,7 +228,7 @@ export default function DailyPage() {
       // 입력 초기화
       setNewCategory(""); setNewName(""); setNewTask(""); setNewTime("");
       setNewIncType(""); setNewE1Type(""); setNewE2Type("");
-      setNewIncAmt(""); setNewE1Amt(""); setNewE2Amt(""); setNewCashOut(""); setNewMemo("");
+      setNewIncAmt(""); setNewE1Amt(""); setNewE2Amt(""); setNewCashOut(""); setNewMemo(""); setNewTaxInvoice(false);
       setSelectedCustomerId(null); setCustomerSuggestions([]); setShowSuggestions(false);
     },
     onError: () => {
@@ -328,7 +332,9 @@ export default function DailyPage() {
       else if (newE2Type) exp_etc += e2Amt;
     }
 
-    const memo = isCashOut ? newMemo : packMemo(newIncType, newE1Type, String(e1Amt), newE2Type, String(e2Amt), newMemo);
+    // 세금계산서 발행: 비카드 수입 + 수입금액>0 일 때만 의미. (카드는 inc=카드로 이미 자동 신고매출)
+    const taxFlag = !isCashOut && newIncType !== "카드" && incAmt > 0 && newTaxInvoice;
+    const memo = isCashOut ? newMemo : packMemo(newIncType, newE1Type, String(e1Amt), newE2Type, String(e2Amt), newMemo, taxFlag);
 
     setIsSavingDaily(true);  // 진행업무 반영 포함 전체 처리 시작 — 완료까지 버튼 비활성화
     addMut.mutate({
@@ -345,7 +351,7 @@ export default function DailyPage() {
       memo,
       customer_id: selectedCustomerId ?? "",
     });
-  }, [isSavingDaily, newCategory, newName, newTask, newTime, newIncType, newE1Type, newE2Type, newIncAmt, newE1Amt, newE2Amt, newCashOut, newMemo, date, addMut, selectedCustomerId]);
+  }, [isSavingDaily, newCategory, newName, newTask, newTime, newIncType, newE1Type, newE2Type, newIncAmt, newE1Amt, newE2Amt, newCashOut, newMemo, newTaxInvoice, date, addMut, selectedCustomerId]);
 
   // 수정 시작
   const startEdit = useCallback((entry: DailyEntry) => {
@@ -376,6 +382,7 @@ export default function DailyPage() {
       e1_type: meta.e1,
       e2_type: meta.e2,
       user_memo: meta.user,
+      tax_invoice: meta.tax === "1" || meta.tax === "true",
       // income_cash holds the single display amount for income (type-resolved)
       income_cash: incDisplay,
       income_etc: 0,
@@ -409,9 +416,10 @@ export default function DailyPage() {
       else if (editValues.e2_type) exp_etc += e2Amt;
     }
 
+    const taxFlag = !isCashOut && editValues.inc_type !== "카드" && incAmt > 0 && !!editValues.tax_invoice;
     const memo = isCashOut
       ? (editValues.user_memo || "")
-      : packMemo(editValues.inc_type || "", editValues.e1_type || "", String(e1Amt), editValues.e2_type || "", String(e2Amt), editValues.user_memo || "");
+      : packMemo(editValues.inc_type || "", editValues.e1_type || "", String(e1Amt), editValues.e2_type || "", String(e2Amt), editValues.user_memo || "", taxFlag);
 
     updateMut.mutate({
       id: editId,
@@ -608,9 +616,18 @@ export default function DailyPage() {
               </div>
             )}
           </div>
-          {/* 세부내용 및 비고 (flex) */}
+          {/* 세부내용 및 비고 (flex) — 비고 칸 위 빈 공간에 세금계산서 발행 체크 */}
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, color: "#718096", marginBottom: 2 }}>세부내용</div>
+            <div style={{ fontSize: 10, color: "#718096", marginBottom: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>세부내용</span>
+              {newCategory !== "현금출금" && newIncType !== "카드" && safeInt(newIncAmt) > 0 && (
+                <label style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer", color: "#4A5568", fontWeight: 600 }}
+                  title="체크 시 월간결산 세무란 '자동 신고매출'에 포함됩니다. (카드수입은 자동 포함)">
+                  <input type="checkbox" checked={newTaxInvoice} onChange={(e) => setNewTaxInvoice(e.target.checked)} />
+                  세금계산서 발행
+                </label>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 4 }}>
               <input style={{ ...inputSm, flex: 1 }} placeholder="세부내용" value={newTask} onChange={(e) => setNewTask(e.target.value)} />
               <input style={{ ...inputSm, width: 127, flexShrink: 0 }} placeholder="비고" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} />
@@ -739,6 +756,13 @@ export default function DailyPage() {
                       </td>
                       <td>
                         <input style={{ ...cellStyle }} value={ev.user_memo || ""} onChange={(e) => setEditValues((p) => ({ ...p, user_memo: e.target.value }))} placeholder="비고" />
+                        {!editIsCashOut && ev.inc_type !== "카드" && (safeInt(ev.income_cash) + safeInt(ev.income_etc)) > 0 && (
+                          <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#4A5568", marginTop: 2, cursor: "pointer" }}
+                            title="체크 시 월간결산 자동 신고매출 포함">
+                            <input type="checkbox" checked={!!ev.tax_invoice} onChange={(e) => setEditValues((p) => ({ ...p, tax_invoice: e.target.checked }))} />
+                            세금계산서
+                          </label>
+                        )}
                       </td>
                       {editIsCashOut ? (
                         <>

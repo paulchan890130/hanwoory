@@ -280,6 +280,12 @@ export default function TasksPage() {
     queryFn: () => dailyApi.getCardExpenseSummary().then((r) => r.data),
     staleTime: 30_000,
   });
+  // 일일결산 수입 합계(오늘/이번 달) — 카드수입 포함(income 기준). active_task 무관.
+  const { data: incomeSummary } = useQuery({
+    queryKey: ["daily", "income-summary"],
+    queryFn: () => dailyApi.getIncomeSummary().then((r) => r.data),
+    staleTime: 30_000,
+  });
 
   // Seed progressPending from server on every refetch
   useEffect(() => {
@@ -554,6 +560,21 @@ export default function TasksPage() {
 
         return (
           <>
+            {/* 수입 합계 (일일결산 기준, 카드수입 포함) */}
+            {incomeSummary && (incomeSummary.today > 0 || incomeSummary.month > 0) && (
+              <div style={{
+                marginBottom: 8, display: "flex", alignItems: "center", gap: 8,
+                fontSize: 12, fontWeight: 600, color: "#276749",
+                background: "#F0FFF4", border: "1px solid #9AE6B4",
+                borderRadius: 8, padding: "6px 12px",
+              }}>
+                💰 수입 합계
+                <span>오늘 {formatNumber(incomeSummary.today)}원</span>
+                <span style={{ color: "#CBD5E0" }}>·</span>
+                <span>이번 달 {formatNumber(incomeSummary.month)}원</span>
+              </div>
+            )}
+
             {/* 카드지출 누계 (일일결산 기준) */}
             {cardExpense && (cardExpense.today > 0 || cardExpense.month > 0) && (
               <div style={{
