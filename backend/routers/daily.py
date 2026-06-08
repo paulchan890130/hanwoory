@@ -28,6 +28,254 @@ def _safe_int(v):
         return 0
 
 
+import re as _re_mod
+
+_KID_RE = _re_mod.compile(r"\[KID\](.*?)\[/KID\]")
+
+
+def _entry_card_expense(rec: dict) -> int:
+    """일일결산 1건의 '카드' 지출 금액(원).
+
+    결제수단/슬롯별 금액은 memo 의 ``[KID]inc=..;e1=..;e1a=..;e2=..;e2a=..[/KID]`` 블록에
+    보존된다(프론트 packMemo). 신규 형식(e1a/e2a 존재)만 카드 금액을 정확히 분리할 수 있고,
+    레거시(블록 없음)는 카드/이체/인지가 exp_etc 로 합산돼 분리 불가 → 0 으로 처리하여
+    카드지출 과대계상을 막는다. 읽기 전용 계산이며 데이터를 변경하지 않는다."""
+    memo = str(rec.get("memo", "") or "")
+    m = _KID_RE.search(memo)
+    if not m:
+        return 0
+    try:
+        parts = dict(p.split("=", 1) for p in m.group(1).split(";") if "=" in p)
+    except Exception:
+        return 0
+    total = 0
+    for t_key, a_key in (("e1", "e1a"), ("e2", "e2a")):
+        if parts.get(t_key, "") == "카드":
+            total += _safe_int(parts.get(a_key, "0"))
+    return total
+
+
+def _fetch_daily_records(tenant_id: str) -> list:
+    """일일결산 레코드 조회 — FEATURE_PG_DAILY 분기(저장과 동일 저장소). 읽기 전용."""
+    from backend.db.feature_flags import pg_daily_enabled
+    if pg_daily_enabled():
+        from backend.services.daily_pg_service import list_entries
+        return list_entries(tenant_id) or []
+    from config import DAILY_SUMMARY_SHEET_NAME
+    return read_sheet(DAILY_SUMMARY_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+
+
+def _entry_sales(rec: dict) -> int:
+    return _safe_int(rec.get("income_cash")) + _safe_int(rec.get("income_etc"))
+
+
+def _entry_expense(rec: dict) -> int:
+    return _safe_int(rec.get("exp_cash")) + _safe_int(rec.get("exp_etc"))
+
+
+_FIXED_RATIO_WARN = 35.0   # 고정지출 / 매출 경고 임계(%)
+_REPORTED_DIFF_WARN = 20.0  # |신고매출 - 일일매출| / 일일매출 경고 임계(%)
+
+
+def _diagnose(same_month, same_quarter, ytd, category_compare, year, month, quarter,
+              tax_cur=None, tax_prev=None) -> dict:
+    """전년 동월/동분기/YTD + 업무군 증감 + 고정지출/신고·부가세 기반 자동 진단(만원 표기)."""
+    good, bad = [], []
+
+    def find(rows, y):
+        return next((r for r in rows if r["year"] == y), None)
+
+    def pct(cur, prev):
+        return None if prev == 0 else round((cur - prev) / prev * 100, 1)
+
+    def won(n):
+        return f"{round(n / 10000, 1)}만원"
+
+    cm, pm = find(same_month, year), find(same_month, year - 1)
+    if cm and pm:
+        p = pct(cm["sales"], pm["sales"])
+        if p is not None:
+            (good if p >= 0 else bad).append(f"전년 동월 대비 매출 {'+' if p >= 0 else ''}{p}%")
+        pn = pct(cm["net"], pm["net"])
+        if pn is not None:
+            (good if pn >= 0 else bad).append(f"전년 동월 대비 순이익 {'+' if pn >= 0 else ''}{pn}%")
+        if cm["avg"] and pm["avg"]:
+            da = cm["avg"] - pm["avg"]
+            (good if da >= 0 else bad).append(f"평균 객단가 {'+' if da >= 0 else ''}{won(da)}")
+        if cm["sales"] and pm["sales"]:
+            d = round(cm["expense"] / cm["sales"] * 100 - pm["expense"] / pm["sales"] * 100, 1)
+            (good if d <= 0 else bad).append(f"지출률 {'+' if d > 0 else ''}{d}%p")
+
+    cq, pq = find(same_quarter, year), find(same_quarter, year - 1)
+    if cq and pq:
+        p = pct(cq["sales"], pq["sales"])
+        if p is not None:
+            (good if p >= 0 else bad).append(f"전년 동분기(Q{quarter}) 대비 매출 {'+' if p >= 0 else ''}{p}%")
+        pn = pct(cq["net"], pq["net"])
+        if pn is not None:
+            (good if pn >= 0 else bad).append(f"전년 동분기(Q{quarter}) 대비 순이익 {'+' if pn >= 0 else ''}{pn}%")
+
+    cy, py = find(ytd, year), find(ytd, year - 1)
+    if cy and py:
+        p = pct(cy["sales"], py["sales"])
+        if p is not None:
+            (good if p >= 0 else bad).append(f"YTD 누적 매출 {'+' if p >= 0 else ''}{p}%")
+        pn = pct(cy["net"], py["net"])
+        if pn is not None:
+            (good if pn >= 0 else bad).append(f"YTD 누적 순이익 {'+' if pn >= 0 else ''}{pn}%")
+
+    ups = [c for c in category_compare if c["delta"] > 0][:3]
+    downs = sorted([c for c in category_compare if c["delta"] < 0], key=lambda x: x["delta"])[:3]
+    for c in ups:
+        good.append(f"{c['name']} 매출 +{won(c['delta'])}")
+    for c in downs:
+        bad.append(f"{c['name']} 매출 {won(c['delta'])}")
+
+    # ── 고정지출 / 고정차감후 순이익 (same_month 행에 fixed/net_after_fixed 존재 시) ──
+    if cm and pm and ("fixed" in cm):
+        # 고정지출률 증감 (전년 동월 대비)
+        if cm["sales"] and pm["sales"]:
+            cur_rate = cm["fixed"] / cm["sales"] * 100
+            prev_rate = pm["fixed"] / pm["sales"] * 100
+            d = round(cur_rate - prev_rate, 1)
+            (good if d <= 0 else bad).append(f"고정지출률 {'+' if d > 0 else ''}{d}%p")
+            # 고정지출이 매출의 일정 비율 초과 경고
+            if cur_rate > _FIXED_RATIO_WARN:
+                bad.append(f"고정지출이 월 매출의 {round(cur_rate, 1)}% (>{_FIXED_RATIO_WARN:.0f}%)")
+        # 고정차감 후 순이익 증감
+        pf = pct(cm.get("net_after_fixed", 0), pm.get("net_after_fixed", 0))
+        if pf is not None:
+            (good if pf >= 0 else bad).append(f"고정차감 후 순이익 {'+' if pf >= 0 else ''}{pf}%")
+        # 매출은 늘었지만 고정지출 때문에 실제 순이익이 감소
+        sales_up = (cm["sales"] - pm["sales"]) > 0
+        naf_down = cm.get("net_after_fixed", 0) - pm.get("net_after_fixed", 0) < 0
+        if sales_up and naf_down:
+            bad.append("매출은 증가했지만 고정지출 증가로 실제 순이익은 감소했습니다")
+
+    # ── 신고 기준 / 부가세 ──
+    if tax_cur:
+        # 신고 매출과 일일결산 매출 차이
+        if cm and cm["sales"]:
+            diff = abs(tax_cur.get("reported_revenue", 0) - cm["sales"]) / cm["sales"] * 100
+            if diff > _REPORTED_DIFF_WARN:
+                bad.append(f"신고 매출과 일일결산 매출 차이가 큽니다 ({round(diff, 1)}%)")
+        if tax_prev:
+            pr = pct(tax_cur.get("reported_revenue", 0), tax_prev.get("reported_revenue", 0))
+            if pr is not None:
+                (good if pr >= 0 else bad).append(f"신고 매출 전년 동월 대비 {'+' if pr >= 0 else ''}{pr}%")
+            pv = pct(tax_cur.get("expected_vat_payable", 0), tax_prev.get("expected_vat_payable", 0))
+            if pv is not None:
+                # 부가세 부담은 감소가 good
+                (good if pv <= 0 else bad).append(f"예상 부가세 부담 {'+' if pv > 0 else ''}{pv}%")
+
+    return {"good": good, "bad": bad}
+
+
+def _build_yearly_overview(records: list, year: int, month: int,
+                           fixed_records: Optional[list] = None,
+                           pg_daily: bool = False,
+                           tax_cur: Optional[dict] = None,
+                           tax_prev: Optional[dict] = None) -> dict:
+    """연도별 월간추이 overlay + 동월/동분기/YTD 비교 + 카테고리 증감 + 자동진단 (읽기 전용).
+
+    현금출금 카테고리는 매출/건수 집계에서 제외(진행업무 매핑 기준과 동일).
+    fixed_records(고정지출, PG 전용)가 주어지면 월별 고정지출/고정차감후 순이익을 반영한다.
+    """
+    from collections import defaultdict
+
+    by_ym = defaultdict(lambda: {"sales": 0, "expense": 0, "net": 0, "card": 0, "count": 0})
+    cat_by_ym: dict = defaultdict(lambda: defaultdict(int))
+    years: set = set()
+
+    for r in records:
+        date_str = str(r.get("date", "") or "")
+        if len(date_str) < 7:
+            continue
+        try:
+            y = int(date_str[:4]); m = int(date_str[5:7])
+        except Exception:
+            continue
+        cat = str(r.get("category", "") or "").strip() or "기타"
+        if cat == "현금출금":
+            continue
+        years.add(y)
+        sales = _entry_sales(r)
+        expense = _entry_expense(r)
+        cell = by_ym[(y, m)]
+        cell["sales"] += sales
+        cell["expense"] += expense
+        cell["net"] += sales - expense
+        cell["card"] += _entry_card_expense(r)
+        cell["count"] += 1
+        cat_by_ym[(y, m)][cat] += sales
+
+    # 고정지출 월별 합계 (year_month "YYYY-MM" → 합계)
+    fixed_by_ym: dict = defaultdict(int)
+    for fx in (fixed_records or []):
+        ym = str(fx.get("year_month", "") or "")
+        if len(ym) < 7:
+            continue
+        try:
+            fy = int(ym[:4]); fm = int(ym[5:7])
+        except Exception:
+            continue
+        years.add(fy)
+        fixed_by_ym[(fy, fm)] += _safe_int(fx.get("amount", 0))
+
+    years_sorted = sorted(years)
+
+    def month_cell(y, m):
+        c = by_ym.get((y, m))
+        base = dict(c) if c else {"sales": 0, "expense": 0, "net": 0, "card": 0, "count": 0}
+        base["fixed"] = fixed_by_ym.get((y, m), 0)
+        base["net_after_fixed"] = base["net"] - base["fixed"]
+        return base
+
+    def agg_range(y, m_from, m_to):
+        s = {"sales": 0, "expense": 0, "net": 0, "card": 0, "fixed": 0, "count": 0}
+        for m in range(m_from, m_to + 1):
+            c = month_cell(y, m)
+            for k in s:
+                s[k] += c[k]
+        s["net_after_fixed"] = s["net"] - s["fixed"]
+        s["avg"] = round(s["sales"] / s["count"]) if s["count"] else 0
+        return s
+
+    monthly_by_year = {
+        str(y): [{"month": m, **month_cell(y, m)} for m in range(1, 13)]
+        for y in years_sorted
+    }
+
+    q = (month - 1) // 3 + 1
+    q_from, q_to = (q - 1) * 3 + 1, (q - 1) * 3 + 3
+    same_month   = [{"year": y, **agg_range(y, month, month)} for y in years_sorted]
+    same_quarter = [{"year": y, "quarter": q, **agg_range(y, q_from, q_to)} for y in years_sorted]
+    ytd          = [{"year": y, **agg_range(y, 1, month)} for y in years_sorted]
+
+    cur = cat_by_ym.get((year, month), {})
+    prev = cat_by_ym.get((year - 1, month), {})
+    cat_names = sorted(set(cur) | set(prev))
+    category_compare = sorted(
+        [{"name": c, "cur": cur.get(c, 0), "prev": prev.get(c, 0),
+          "delta": cur.get(c, 0) - prev.get(c, 0)} for c in cat_names],
+        key=lambda x: -x["cur"],
+    )
+
+    return {
+        "years": years_sorted,
+        "selected": {"year": year, "month": month, "quarter": q},
+        "pg_daily": pg_daily,
+        "monthly_by_year": monthly_by_year,
+        "same_month": same_month,
+        "same_quarter": same_quarter,
+        "ytd": ytd,
+        "category_compare": category_compare,
+        "tax": {"current": tax_cur or None, "prev": tax_prev or None},
+        "diagnosis": _diagnose(same_month, same_quarter, ytd, category_compare, year, month, q,
+                               tax_cur=tax_cur, tax_prev=tax_prev),
+    }
+
+
 @router.get("/entries")
 def get_entries(
     date: Optional[str] = Query(None, description="YYYY-MM-DD"),
@@ -773,3 +1021,134 @@ def get_monthly_analysis(
             for h in sorted(hour_data.keys())
         ],
     }
+
+
+@router.get("/card-expense-summary")
+def get_card_expense_summary(user: dict = Depends(get_current_user)):
+    """진행업무 화면용 카드지출 누계 — 오늘 / 이번 달.
+
+    일일결산의 '카드' 결제수단 지출 합계(읽기 전용). 진행업무 active_task.card 와 동일한
+    원천(일일결산 카드지출)을 날짜 기준으로 집계한다. 단일 API → 프론트 중복계산 방지.
+    """
+    import datetime
+    records = _fetch_daily_records(user["tenant_id"])
+    today = datetime.date.today()
+    today_str = today.isoformat()
+    month_prefix = today.strftime("%Y-%m")
+    today_total = sum(_entry_card_expense(r) for r in records
+                      if str(r.get("date", "")).strip() == today_str)
+    month_total = sum(_entry_card_expense(r) for r in records
+                      if str(r.get("date", "")).startswith(month_prefix))
+    return {
+        "today": today_total,
+        "month": month_total,
+        "today_date": today_str,
+        "month_prefix": month_prefix,
+    }
+
+
+@router.get("/yearly-overview")
+def get_yearly_overview(
+    year: int = Query(...),
+    month: int = Query(...),
+    user: dict = Depends(get_current_user),
+):
+    """월간결산 고도화 — 연도별 월간추이 overlay + 동월/동분기/YTD 비교 + 카테고리 증감 + 자동진단.
+
+    FEATURE_PG_DAILY on이면 고정지출(fixed_expenses)·신고/부가세(monthly_tax_summaries)도
+    PG에서 읽어 고정차감후 순이익·세무 진단까지 반영한다. off면 일일 기준만(PG 전용 섹션 비표시).
+    """
+    from backend.db.feature_flags import pg_daily_enabled
+    tenant_id = user["tenant_id"]
+    records = _fetch_daily_records(tenant_id)
+
+    pg = pg_daily_enabled()
+    fixed_records = None
+    tax_cur = tax_prev = None
+    if pg:
+        from backend.services.fixed_expense_pg_service import list_fixed_expenses
+        from backend.services.monthly_tax_pg_service import get_tax_summary
+        fixed_records = list_fixed_expenses(tenant_id) or []
+        tax_cur = get_tax_summary(tenant_id, f"{year}-{month:02d}")
+        tax_prev = get_tax_summary(tenant_id, f"{year - 1}-{month:02d}")
+
+    return _build_yearly_overview(records, year, month, fixed_records=fixed_records,
+                                  pg_daily=pg, tax_cur=tax_cur, tax_prev=tax_prev)
+
+
+# ── 고정지출 / 신고·부가세 (PostgreSQL 전용 — FEATURE_PG_DAILY) ────────────────
+
+def _require_pg_daily():
+    from backend.db.feature_flags import pg_daily_enabled
+    if not pg_daily_enabled():
+        raise HTTPException(
+            status_code=409,
+            detail="고정지출/신고 기능은 PG 모드(FEATURE_PG_DAILY=true)에서만 사용할 수 있습니다.",
+        )
+
+
+@router.get("/fixed-expenses")
+def list_fixed_expenses_ep(
+    year_month: Optional[str] = Query(None, description="YYYY-MM"),
+    year: Optional[str] = Query(None, description="YYYY"),
+    user: dict = Depends(get_current_user),
+):
+    _require_pg_daily()
+    from backend.services.fixed_expense_pg_service import list_fixed_expenses
+    return list_fixed_expenses(user["tenant_id"], year_month=year_month, year=year)
+
+
+@router.post("/fixed-expenses")
+def create_fixed_expense_ep(data: dict, user: dict = Depends(get_current_user)):
+    _require_pg_daily()
+    if not str(data.get("year_month", "")).strip():
+        raise HTTPException(status_code=400, detail="year_month는 필수입니다.")
+    from backend.services.fixed_expense_pg_service import upsert_fixed_expense
+    return upsert_fixed_expense(user["tenant_id"], data)
+
+
+@router.put("/fixed-expenses/{expense_id}")
+def update_fixed_expense_ep(expense_id: str, data: dict, user: dict = Depends(get_current_user)):
+    _require_pg_daily()
+    data["id"] = expense_id
+    from backend.services.fixed_expense_pg_service import upsert_fixed_expense
+    return upsert_fixed_expense(user["tenant_id"], data)
+
+
+@router.delete("/fixed-expenses/{expense_id}")
+def delete_fixed_expense_ep(expense_id: str, user: dict = Depends(get_current_user)):
+    _require_pg_daily()
+    from backend.services.fixed_expense_pg_service import delete_fixed_expense
+    ok = delete_fixed_expense(user["tenant_id"], expense_id)
+    return {"deleted": expense_id, "ok": ok}
+
+
+@router.post("/fixed-expenses/copy")
+def copy_fixed_expenses_ep(
+    from_ym: str = Query(..., description="복사 원본 YYYY-MM"),
+    to_ym: str = Query(..., description="복사 대상 YYYY-MM"),
+    user: dict = Depends(get_current_user),
+):
+    _require_pg_daily()
+    from backend.services.fixed_expense_pg_service import copy_fixed_expenses
+    n = copy_fixed_expenses(user["tenant_id"], from_ym, to_ym)
+    return {"copied": n, "from": from_ym, "to": to_ym}
+
+
+@router.get("/tax-summary")
+def get_tax_summary_ep(
+    year_month: str = Query(..., description="YYYY-MM"),
+    user: dict = Depends(get_current_user),
+):
+    _require_pg_daily()
+    from backend.services.monthly_tax_pg_service import get_tax_summary
+    return get_tax_summary(user["tenant_id"], year_month) or {}
+
+
+@router.put("/tax-summary")
+def upsert_tax_summary_ep(data: dict, user: dict = Depends(get_current_user)):
+    _require_pg_daily()
+    if not str(data.get("year_month", "")).strip():
+        raise HTTPException(status_code=400, detail="year_month는 필수입니다.")
+    from backend.services.monthly_tax_pg_service import upsert_tax_summary
+    return upsert_tax_summary(user["tenant_id"], data)

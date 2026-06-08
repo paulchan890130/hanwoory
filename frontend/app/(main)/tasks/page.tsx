@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { tasksApi, type ActiveTask, type PlannedTask, type CompletedTask } from "@/lib/api";
+import { tasksApi, dailyApi, type ActiveTask, type PlannedTask, type CompletedTask } from "@/lib/api";
 import TaskCardView from "@/components/tasks/TaskCardView";
 import TaskTableView from "@/components/tasks/TaskTableView";
 import TaskSummaryCards from "@/components/tasks/TaskSummaryCards";
@@ -273,6 +273,12 @@ export default function TasksPage() {
   const { data: active = [] } = useQuery({
     queryKey: ["tasks", "active"],
     queryFn: () => tasksApi.getActive().then((r) => r.data),
+  });
+  // 일일결산 카드지출 누계(오늘/이번 달) — 진행업무 상단 표시용. 단일 API(중복계산 방지).
+  const { data: cardExpense } = useQuery({
+    queryKey: ["daily", "card-expense-summary"],
+    queryFn: () => dailyApi.getCardExpenseSummary().then((r) => r.data),
+    staleTime: 30_000,
   });
 
   // Seed progressPending from server on every refetch
@@ -548,6 +554,21 @@ export default function TasksPage() {
 
         return (
           <>
+            {/* 카드지출 누계 (일일결산 기준) */}
+            {cardExpense && (cardExpense.today > 0 || cardExpense.month > 0) && (
+              <div style={{
+                marginBottom: 8, display: "flex", alignItems: "center", gap: 8,
+                fontSize: 12, fontWeight: 600, color: "#9C4221",
+                background: "#FFFAF0", border: "1px solid #FBD38D",
+                borderRadius: 8, padding: "6px 12px",
+              }}>
+                💳 카드지출 누계
+                <span>오늘 {formatNumber(cardExpense.today)}원</span>
+                <span style={{ color: "#CBD5E0" }}>·</span>
+                <span>이번 달 {formatNumber(cardExpense.month)}원</span>
+              </div>
+            )}
+
             {/* 요약 카드 */}
             <TaskSummaryCards
               totalCount={filteredActive.length}

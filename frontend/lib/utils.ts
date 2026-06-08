@@ -19,6 +19,19 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat("ko-KR").format(n);
 }
 
+/**
+ * 원 단위 금액을 "만원" 단위 문자열로 변환 (소수 1자리까지).
+ * 예: 1,250,000 → "125만원", 35,000 → "3.5만원", 0 → "0만원".
+ * 음수도 안전 처리. 상세 원 단위는 tooltip/상세표에서만 사용.
+ */
+export function formatManwon(n: number): string {
+  const man = (n || 0) / 10000;
+  // 소수 1자리, 단 정수면 소수점 제거 (125.0 → 125)
+  const rounded = Math.round(man * 10) / 10;
+  const s = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${new Intl.NumberFormat("ko-KR").format(Number(s))}만원`;
+}
+
 export function formatDate(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleDateString("ko-KR", {

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  tasksApi, memosApi, eventsApi, customersApi, boardApi,
+  tasksApi, memosApi, eventsApi, customersApi, boardApi, dailyApi,
   type ActiveTask, type PlannedTask, type ExpiryAlert, type BoardPost,
 } from "@/lib/api";
 import { getUser } from "@/lib/auth";
@@ -422,6 +422,12 @@ export default function DashboardPage() {
     queryKey: ["tasks", "active"],
     queryFn: () => tasksApi.getActive().then((r) => r.data),
     staleTime: 2_000,
+  });
+  // 일일결산 카드지출 누계 (오늘/이번 달) — 진행업무 영역 표시용. 단일 API(중복계산 방지).
+  const { data: cardExpense } = useQuery({
+    queryKey: ["daily", "card-expense-summary"],
+    queryFn: () => dailyApi.getCardExpenseSummary().then((r) => r.data),
+    staleTime: 30_000,
   });
   const { data: plannedTasks = [] } = useQuery({
     queryKey: ["tasks", "planned"],
@@ -1100,7 +1106,18 @@ export default function DashboardPage() {
           <>
             {/* 헤더 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
+                {cardExpense && (cardExpense.today > 0 || cardExpense.month > 0) && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, color: "#9C4221",
+                    background: "#FFFAF0", border: "1px solid #FBD38D",
+                    borderRadius: 999, padding: "2px 10px", whiteSpace: "nowrap",
+                  }}>
+                    💳 카드지출 오늘 {formatNumber(cardExpense.today)}원 / 이번 달 {formatNumber(cardExpense.month)}원
+                  </span>
+                )}
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 11, color: "#A0AEC0" }}>완료/삭제 체크 후 →</span>
                 <button onClick={handleBatchSave} disabled={isBatchPending}

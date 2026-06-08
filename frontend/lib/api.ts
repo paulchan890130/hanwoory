@@ -296,7 +296,91 @@ export const dailyApi = {
     api.get("/api/daily/summary", { params: { year, month } }),
   getMonthlyAnalysis: (year: number, month: number) =>
     api.get("/api/daily/monthly-analysis", { params: { year, month } }),
+  getCardExpenseSummary: () =>
+    api.get<CardExpenseSummary>("/api/daily/card-expense-summary"),
+  getYearlyOverview: (year: number, month: number) =>
+    api.get<YearlyOverview>("/api/daily/yearly-overview", { params: { year, month } }),
+  // 고정지출 (PG 전용 — FEATURE_PG_DAILY)
+  listFixedExpenses: (params: { year_month?: string; year?: string }) =>
+    api.get<FixedExpense[]>("/api/daily/fixed-expenses", { params }),
+  createFixedExpense: (data: Partial<FixedExpense>) => api.post("/api/daily/fixed-expenses", data),
+  updateFixedExpense: (id: string, data: Partial<FixedExpense>) => api.put(`/api/daily/fixed-expenses/${id}`, data),
+  deleteFixedExpense: (id: string) => api.delete(`/api/daily/fixed-expenses/${id}`),
+  copyFixedExpenses: (from_ym: string, to_ym: string) =>
+    api.post("/api/daily/fixed-expenses/copy", null, { params: { from_ym, to_ym } }),
+  // 신고/부가세 (PG 전용)
+  getTaxSummary: (year_month: string) =>
+    api.get<TaxSummary | Record<string, never>>("/api/daily/tax-summary", { params: { year_month } }),
+  saveTaxSummary: (data: Partial<TaxSummary>) => api.put("/api/daily/tax-summary", data),
 };
+
+export interface FixedExpense {
+  id: string;
+  year_month: string;
+  name: string;
+  amount: number;
+  category: string;
+  payment_method: string;
+  vat_included: boolean;
+  vat_amount: number;
+  memo: string;
+  is_recurring: boolean;
+  start_month: string;
+  end_month: string;
+}
+
+export interface TaxSummary {
+  year_month: string;
+  reported_revenue: number;
+  reported_expense: number;
+  reported_output_vat: number;
+  reported_input_vat: number;
+  expected_vat_payable: number;
+  vat_basis: "supply_price" | "tax_included";
+  memo: string;
+}
+
+export interface CardExpenseSummary {
+  today: number;
+  month: number;
+  today_date: string;
+  month_prefix: string;
+}
+
+export interface YearlyMonthCell {
+  month: number;
+  sales: number;
+  expense: number;
+  net: number;
+  card: number;
+  count: number;
+  fixed?: number;
+  net_after_fixed?: number;
+}
+export interface YearlyAggRow {
+  year: number;
+  quarter?: number;
+  sales: number;
+  expense: number;
+  net: number;
+  card: number;
+  count: number;
+  avg: number;
+  fixed?: number;
+  net_after_fixed?: number;
+}
+export interface YearlyOverview {
+  years: number[];
+  selected: { year: number; month: number; quarter: number };
+  pg_daily?: boolean;
+  monthly_by_year: Record<string, YearlyMonthCell[]>;
+  same_month: YearlyAggRow[];
+  same_quarter: YearlyAggRow[];
+  ytd: YearlyAggRow[];
+  category_compare: { name: string; cur: number; prev: number; delta: number }[];
+  tax?: { current: TaxSummary | null; prev: TaxSummary | null };
+  diagnosis: { good: string[]; bad: string[] };
+}
 
 // 메모
 export const memosApi = {

@@ -32,6 +32,7 @@ from backend.db.models.manual_update import (  # noqa: F401
     ManualUpdateCandidate, ManualReviewDecision, ManualReviewDecisionArchive,
     ManualUpdateState,
 )
+from backend.db.models.finance import FixedExpense, MonthlyTaxSummary  # noqa: F401
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -49,4 +50,5 @@ __all__ = [
     "ManualUpdateRun", "ManualUpdateVersion", "ManualUpdateChangedPage",
     "ManualUpdateCandidate", "ManualReviewDecision", "ManualReviewDecisionArchive",
     "ManualUpdateState",
+    "FixedExpense", "MonthlyTaxSummary",
 ]
