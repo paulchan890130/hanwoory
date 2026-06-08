@@ -804,6 +804,45 @@ export const guidelinesApi = {
     api.get<{ total: number; countries: string[] }>("/api/guidelines/tb/high-risk-countries"),
 };
 
+// ── 실무지침 분류 오버레이 (A+ 방식, PG 전용) ───────────────────────────────
+export interface GuidelineCategory {
+  id: number;
+  parent_id: number | null;
+  level: "major" | "middle" | "minor" | string;
+  source_key: string;
+  display_name: string;
+  sort_order: number;
+  is_active: boolean;
+  is_custom: boolean;
+}
+export interface GuidelineCategoryOverlay {
+  categories: GuidelineCategory[];
+  overrides: Record<string, number>; // row_id → category_id
+}
+
+export const guidelineCategoriesApi = {
+  // 조회(로그인 사용자). 관리자만 include_inactive 효과. 플래그 off면 409.
+  list: (includeInactive = false) =>
+    api.get<GuidelineCategoryOverlay>("/api/guideline-categories", {
+      params: { include_inactive: includeInactive },
+      headers: { "X-Skip-Auth-Redirect": "1" },
+    }),
+  create: (data: { level: string; parent_id?: number | null; display_name: string; sort_order?: number; is_active?: boolean }) =>
+    api.post<GuidelineCategory>("/api/guideline-categories", data),
+  update: (id: number, data: { display_name?: string; sort_order?: number; is_active?: boolean; parent_id?: number | null }) =>
+    api.put<GuidelineCategory>(`/api/guideline-categories/${id}`, data),
+  deactivate: (id: number) =>
+    api.patch<GuidelineCategory>(`/api/guideline-categories/${id}/deactivate`),
+  move: (id: number, parent_id: number | null, sort_order?: number) =>
+    api.put<GuidelineCategory>(`/api/guideline-categories/${id}/move`, { parent_id, sort_order }),
+  setOverride: (row_id: string, category_id: number) =>
+    api.post("/api/guideline-categories/overrides", { row_id, category_id }),
+  clearOverride: (row_id: string) =>
+    api.delete(`/api/guideline-categories/overrides/${encodeURIComponent(row_id)}`),
+  seedFromJson: () =>
+    api.post<{ created: number; total_source_keys: number }>("/api/guideline-categories/seed-from-json"),
+};
+
 // ── 각종공인증 ──────────────────────────────────────────────────────────────────
 
 export interface CertVendor {

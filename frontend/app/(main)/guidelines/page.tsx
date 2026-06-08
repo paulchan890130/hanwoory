@@ -9,7 +9,7 @@ import {
   Pencil, Plus, Trash2, Check, Trees, Download,
 } from "lucide-react";
 import { GuidelineSubType, ManualRef } from "@/lib/api";
-import { guidelinesApi, GuidelineRow, GuidelineEntryPoint, api } from "@/lib/api";
+import { guidelinesApi, guidelineCategoriesApi, GuidelineRow, GuidelineEntryPoint, api } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -311,14 +311,58 @@ interface TreeNode {
   rows: GuidelineRow[];
 }
 
-function buildTree(rows: GuidelineRow[]): Map<string, Map<string, Map<string, GuidelineRow[]>>> {
+// ── 분류 오버레이(A+) — source_key 는 backend seed 로직과 동일 ────────────────
+// major = "M|{action}" / middle = "m|{action}|{family}" / minor = "s|{action}|{family}|{mid}"
+type GLCat = import("@/lib/api").GuidelineCategory;
+export interface GLOverlay {
+  byId: Map<number, GLCat>;
+  bySourceKey: Map<string, GLCat>;
+  overrides: Record<string, number>;
+}
+function skMajor(action: string): string { return `M|${action || "_OTHER"}`; }
+function skMiddle(action: string, code: string): string { return `m|${action || "_OTHER"}|${getFamily(code)}`; }
+function skMinor(action: string, code: string): string { return `s|${action || "_OTHER"}|${getFamily(code)}|${getMidCode(code)}`; }
+function parseSk(sk: string): { action: string; family: string; mid: string } | null {
+  const p = (sk || "").split("|");
+  if (p[0] === "M" && p.length >= 2) return { action: p[1], family: "", mid: "" };
+  if (p[0] === "m" && p.length >= 3) return { action: p[1], family: p[2], mid: "" };
+  if (p[0] === "s" && p.length >= 4) return { action: p[1], family: p[2], mid: p[3] };
+  return null;
+}
+// override 대상 category → 트리 좌표(action/family/mid). source_key 없으면 부모 체인으로 해석.
+function resolveCatCoords(cat: GLCat | undefined, ov: GLOverlay): { action: string; family: string; mid: string } | null {
+  if (!cat || cat.level !== "minor" || !cat.is_active) return null;
+  const minorKey = cat.source_key ? (parseSk(cat.source_key)?.mid || `__C${cat.id}`) : `__C${cat.id}`;
+  const middle = cat.parent_id != null ? ov.byId.get(cat.parent_id) : undefined;
+  const famKey = middle?.source_key ? (parseSk(middle.source_key)?.family || `__C${middle.id}`) : (middle ? `__C${middle.id}` : "_BLANK");
+  const major = middle?.parent_id != null ? ov.byId.get(middle.parent_id) : undefined;
+  const actKey = major?.source_key ? (parseSk(major.source_key)?.action || `__C${major.id}`) : (major ? `__C${major.id}` : (cat.source_key ? (parseSk(cat.source_key)?.action || "_OTHER") : "_OTHER"));
+  return { action: actKey, family: famKey, mid: minorKey };
+}
+
+function buildTree(rows: GuidelineRow[], overlay?: GLOverlay | null): Map<string, Map<string, Map<string, GuidelineRow[]>>> {
   // action → family → mid → rows
   const tree = new Map<string, Map<string, Map<string, GuidelineRow[]>>>();
   for (const row of rows) {
-    const action = row.action_type || "_OTHER";
+    const action0 = row.action_type || "_OTHER";
     const code = row.detailed_code || "";
-    const fam = getFamily(code);
-    const mid = getMidCode(code);
+    let action = action0, fam = getFamily(code), mid = getMidCode(code);
+
+    // override: row_id → category. 대상이 active minor면 그 좌표로 재배치, 아니면 원래 JSON 분류로 fallback.
+    if (overlay) {
+      const ovId = overlay.overrides[row.row_id];
+      if (ovId != null) {
+        const coords = resolveCatCoords(overlay.byId.get(ovId), overlay);
+        if (coords) { action = coords.action; fam = coords.family; mid = coords.mid; }
+        // 대상이 없거나 비활성/비-minor면 coords=null → 아래 비활성 검사 후 자연 분류/미분류
+      } else {
+        // override 없는 row: JSON 파생 분류 중 하나라도 비활성이면 '미분류' 버킷으로 보존(숨김+유실방지)
+        const inact = (k: string): boolean => { const c = overlay.bySourceKey.get(k); return !!c && c.is_active === false; };
+        if (inact(skMajor(action0)) || inact(skMiddle(action0, code)) || inact(skMinor(action0, code))) {
+          action = "__UNCLASSIFIED__"; fam = "_ALL"; mid = "_ALL";
+        }
+      }
+    }
 
     if (!tree.has(action)) tree.set(action, new Map());
     const famMap = tree.get(action)!;
@@ -328,6 +372,33 @@ function buildTree(rows: GuidelineRow[]): Map<string, Map<string, Map<string, Gu
     midMap.get(mid)!.push(row);
   }
   return tree;
+}
+
+// 분류 표시명: overlay 의 display_name 우선, 없으면 기존 상수/원본. (커스텀 __C{id} 는 byId 로)
+function glLabel(level: "major" | "middle" | "minor", action: string, family: string, mid: string,
+                 overlay: GLOverlay | null | undefined, fallback: string): string {
+  if (action === "__UNCLASSIFIED__") return level === "major" ? "미분류(비활성 분류 항목)" : "전체";
+  if (family === "_ALL" || mid === "_ALL") return "전체";
+  if (!overlay) return fallback;
+  const synthMatch = (level === "major" ? action : level === "middle" ? family : mid);
+  if (typeof synthMatch === "string" && synthMatch.startsWith("__C")) {
+    const c = overlay.byId.get(Number(synthMatch.slice(3)));
+    if (c) return c.display_name;
+  }
+  const sk = level === "major" ? skMajor(action) : level === "middle" ? `m|${action || "_OTHER"}|${family}` : `s|${action || "_OTHER"}|${family}|${mid}`;
+  const cat = overlay.bySourceKey.get(sk);
+  return cat?.display_name || fallback;
+}
+function glSortKeys(level: "major" | "middle" | "minor", action: string, family: string, keys: string[],
+                    overlay: GLOverlay | null | undefined): string[] {
+  if (!overlay) return [...keys].sort();
+  const orderOf = (k: string): number => {
+    if (k.startsWith("__C")) return overlay.byId.get(Number(k.slice(3)))?.sort_order ?? 9999;
+    const sk = level === "major" ? skMajor(k) : level === "middle" ? `m|${action || "_OTHER"}|${k}` : `s|${action || "_OTHER"}|${family}|${k}`;
+    const c = overlay.bySourceKey.get(sk);
+    return c ? c.sort_order : 9999;
+  };
+  return [...keys].sort((a, b) => (orderOf(a) - orderOf(b)) || a.localeCompare(b));
 }
 
 // ── 트리 헬퍼 ──────────────────────────────────────────────────────────────────
@@ -650,6 +721,78 @@ function ManualPdfViewer({ refs, onClose }: { refs: ManualRef[]; onClose: () => 
 }
 
 // ── 상세 패널 ──────────────────────────────────────────────────────────────────
+// ── 관리자 전용: row 분류 이동 / override 해제 (대→주→소 선택) ─────────────────
+function CategoryMoveControl({ rowId, overlay, onChanged }: {
+  rowId: string; overlay: GLOverlay | null; onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [maj, setMaj] = useState<number | "">("");
+  const [mid, setMid] = useState<number | "">("");
+  const [minor, setMinor] = useState<number | "">("");
+  const [busy, setBusy] = useState(false);
+  if (!overlay) return null;
+
+  const cats = Array.from(overlay.byId.values());
+  const byOrder = (a: GLCat, b: GLCat) => (a.sort_order - b.sort_order) || a.display_name.localeCompare(b.display_name);
+  const majors = cats.filter((c) => c.level === "major" && c.is_active).sort(byOrder);
+  const middles = cats.filter((c) => c.level === "middle" && c.is_active && c.parent_id === maj).sort(byOrder);
+  const minors = cats.filter((c) => c.level === "minor" && c.is_active && c.parent_id === mid).sort(byOrder);
+  const hasOverride = !!overlay.overrides[rowId];
+
+  const sel: React.CSSProperties = { width: "100%", padding: "5px 8px", border: "1px solid #CBD5E0", borderRadius: 6, fontSize: 12 };
+
+  const save = async () => {
+    if (typeof minor !== "number") { toast.error("이동할 소분류를 선택하세요."); return; }
+    setBusy(true);
+    try { await guidelineCategoriesApi.setOverride(rowId, minor); toast.success("분류 이동됨"); setOpen(false); onChanged(); }
+    catch { toast.error("분류 이동 실패"); }
+    finally { setBusy(false); }
+  };
+  const clear = async () => {
+    setBusy(true);
+    try { await guidelineCategoriesApi.clearOverride(rowId); toast.success("원래 분류로 복귀"); onChanged(); }
+    catch { toast.error("복귀 실패"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => setOpen((v) => !v)}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", borderRadius: 8, background: "rgba(159,122,234,0.10)", border: "1px solid #9F7AEA", color: "#553C9A", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+          <GitBranch size={13} /> 분류 이동{hasOverride ? " (이동됨)" : ""}
+        </button>
+        {hasOverride && (
+          <button onClick={clear} disabled={busy}
+            style={{ padding: "8px 12px", borderRadius: 8, background: "#fff", border: "1px solid #CBD5E0", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            원래 분류로
+          </button>
+        )}
+      </div>
+      {open && (
+        <div style={{ marginTop: 8, padding: 10, border: "1px solid #E2E8F0", borderRadius: 8, background: "#FAFBFC", display: "flex", flexDirection: "column", gap: 6 }}>
+          {majors.length === 0 && <div style={{ fontSize: 11, color: "#A0AEC0" }}>활성 분류가 없습니다. 관리자 화면에서 “기본 분류 생성”을 먼저 실행하세요.</div>}
+          <select style={sel} value={maj} onChange={(e) => { setMaj(e.target.value ? Number(e.target.value) : ""); setMid(""); setMinor(""); }}>
+            <option value="">대분류 선택</option>
+            {majors.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
+          </select>
+          <select style={sel} value={mid} disabled={!maj} onChange={(e) => { setMid(e.target.value ? Number(e.target.value) : ""); setMinor(""); }}>
+            <option value="">주분류 선택</option>
+            {middles.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
+          </select>
+          <select style={sel} value={minor} disabled={!mid} onChange={(e) => setMinor(e.target.value ? Number(e.target.value) : "")}>
+            <option value="">소분류 선택</option>
+            {minors.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
+          </select>
+          <button onClick={save} disabled={busy || typeof minor !== "number"} className="btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}>
+            {busy ? "저장 중..." : "이 소분류로 이동"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailPanel({
   row,
   onClose,
@@ -657,6 +800,8 @@ function DetailPanel({
   manualOpen,
   isAdmin,
   onRowUpdate,
+  overlay,
+  onOverlayChange,
 }: {
   row: GuidelineRow;
   onClose: () => void;
@@ -664,6 +809,8 @@ function DetailPanel({
   manualOpen: boolean;
   isAdmin: boolean;
   onRowUpdate: (rowId: string, field: string, value: string) => void;
+  overlay: GLOverlay | null;
+  onOverlayChange: () => void;
 }) {
   const router = useRouter();
   const [relatedExceptions, setRelatedExceptions] = useState<{ exc_id: string; trigger_condition?: string; add_supporting_docs?: string; add_form_docs?: string }[]>([]);
@@ -777,6 +924,9 @@ function DetailPanel({
               onMouseLeave={e=>(e.currentTarget as HTMLButtonElement).style.background="rgba(212,168,67,0.10)"}>
               <FileText size={13} /> 문서 자동작성으로 이동 <ArrowRight size={13} />
             </button>
+          )}
+          {isAdmin && (
+            <CategoryMoveControl rowId={row.row_id} overlay={overlay} onChanged={onOverlayChange} />
           )}
         </div>
       </div>
@@ -1127,6 +1277,7 @@ function TreeSelectButton({ label, subtitle, color, selected, onClick }: { label
 export default function GuidelinesPage() {
   const user = useMemo(() => getUser(), []);
   const isAdmin = !!user?.is_admin;
+  const pageRouter = useRouter();
 
   const [entryPoints, setEntryPoints]       = useState<GuidelineEntryPoint[]>(ENTRY_POINTS);
   const [allRows, setAllRows]               = useState<GuidelineRow[]>([]);
@@ -1194,15 +1345,39 @@ export default function GuidelinesPage() {
   }, []);
 
   // 새 트리 구조 (buildTree 결과)
-  const tree = useMemo(() => buildTree(allRows), [allRows]);
+  // 분류 오버레이(A+) — best-effort. 실패/플래그off(409)면 null → 기존 JSON 트리 그대로.
+  const [overlay, setOverlay] = useState<GLOverlay | null>(null);
+  const reloadOverlay = useCallback(() => {
+    guidelineCategoriesApi.list(true)
+      .then((r) => {
+        const cats = r.data.categories || [];
+        const byId = new Map<number, typeof cats[number]>(cats.map((c) => [c.id, c]));
+        const bySourceKey = new Map<string, typeof cats[number]>(
+          cats.filter((c) => c.source_key).map((c) => [c.source_key, c]));
+        setOverlay({ byId, bySourceKey, overrides: r.data.overrides || {} });
+      })
+      .catch((e) => { console.warn("[guidelines] 분류 오버레이 로드 실패 — 기본 분류로 표시", e); setOverlay(null); });
+  }, []);
+  useEffect(() => { reloadOverlay(); }, [reloadOverlay]);
+
+  const tree = useMemo(() => buildTree(allRows, overlay), [allRows, overlay]);
+
+  // L1(대분류) 표시 순서: 기존 ACTION_TYPE_ORDER 유지 + overlay/custom/미분류는 뒤에 추가.
+  const treeActions = useMemo(() => {
+    const known = ACTION_TYPE_ORDER.filter((a) => tree.has(a));
+    const extras = Array.from(tree.keys()).filter((a) => !ACTION_TYPE_ORDER.includes(a) && a !== "__UNCLASSIFIED__");
+    const sortedExtras = glSortKeys("major", "", "", extras, overlay);
+    const unclassified = tree.has("__UNCLASSIFIED__") ? ["__UNCLASSIFIED__"] : [];
+    return [...known, ...sortedExtras, ...unclassified];
+  }, [tree, overlay]);
 
   // 새 트리: selAction → family 목록
   const treeActionFamilies = useMemo(() => {
     if (!selAction) return [];
     const famMap = tree.get(selAction);
     if (!famMap) return [];
-    return Array.from(famMap.keys()).sort();
-  }, [tree, selAction]);
+    return glSortKeys("middle", selAction, "", Array.from(famMap.keys()), overlay);
+  }, [tree, selAction, overlay]);
 
   // 새 트리: selAction + selFamily → mid 목록
   const treeActionMids = useMemo(() => {
@@ -1211,8 +1386,8 @@ export default function GuidelinesPage() {
     if (!famMap) return [];
     const midMap = famMap.get(selFamily);
     if (!midMap) return [];
-    return Array.from(midMap.keys()).sort();
-  }, [tree, selAction, selFamily]);
+    return glSortKeys("minor", selAction, selFamily, Array.from(midMap.keys()), overlay);
+  }, [tree, selAction, selFamily, overlay]);
 
   // 새 트리: 선택된 mid의 row들
   const treeSelectedRows = useMemo(() => {
@@ -1426,6 +1601,13 @@ export default function GuidelinesPage() {
         <h1 className="hw-page-title" style={{margin:0}}>실무지침</h1>
         {loadingAll && <Loader2 size={13} className="animate-spin" style={{color:"#A0AEC0"}}/>}
         {hasSearched && !isSearching && <span style={{fontSize:13,color:"#A0AEC0"}}>{searchTotal}건</span>}
+        {user?.is_admin && (
+          <button onClick={() => pageRouter.push("/admin/guideline-categories")}
+            title="관리자 전용 — 실무지침 대/주/소분류 편집"
+            style={{ fontSize:12, fontWeight:600, color:"#6B5314", background:"#FFF9E6", border:"1px solid #D4A843", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>
+            🗂 분류 관리
+          </button>
+        )}
         {hasSearched && (
           <button onClick={handleClearSearch}
             style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, fontSize:12, color:"#A0AEC0", background:"none", border:"none", cursor:"pointer", padding:"4px 8px" }}>
@@ -1640,14 +1822,14 @@ export default function GuidelinesPage() {
                 <div>
                   <div style={{ fontSize:12, color:"#718096", marginBottom:12 }}>업무 유형을 선택하세요</div>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:8 }}>
-                    {ACTION_TYPE_ORDER.map(action => {
+                    {treeActions.map(action => {
                       const famMap = tree.get(action);
                       if (!famMap || famMap.size === 0) return null;
                       const color = ACTION_TYPE_COLORS[action] || "#A0AEC0";
                       return (
                         <TreeSelectButton
                           key={action}
-                          label={ACTION_LABELS[action] ?? action}
+                          label={glLabel("major", action, "", "", overlay, ACTION_LABELS[action] ?? action)}
                           color={color}
                           selected={false}
                           onClick={() => { setSelAction(action); setSelFamily(null); setSelMid(null); setSelSub(null); setSelApplicant(null); setSelectedRow(null); }}
@@ -1689,7 +1871,7 @@ export default function GuidelinesPage() {
                     {treeActionFamilies.map(fam => (
                       <TreeSelectButton
                         key={fam}
-                        label={FAMILY_LABELS[fam] ?? fam}
+                        label={glLabel("middle", selAction!, fam, "", overlay, FAMILY_LABELS[fam] ?? fam)}
                         color={actionColor}
                         selected={false}
                         onClick={() => { setSelFamily(fam); setSelMid(null); setSelSub(null); }}
@@ -1709,7 +1891,7 @@ export default function GuidelinesPage() {
                     {treeActionMids.map(mid => (
                       <TreeSelectButton
                         key={mid}
-                        label={mid}
+                        label={glLabel("minor", selAction!, selFamily!, mid, overlay, mid)}
                         subtitle={MID_LABELS[mid]}
                         color={actionColor}
                         selected={false}
@@ -1898,6 +2080,8 @@ export default function GuidelinesPage() {
       {selectedRow && (
         <DetailPanel
           row={selectedRow}
+          overlay={overlay}
+          onOverlayChange={reloadOverlay}
           onClose={() => { setSelectedRow(null); setManualPdfRefs(null); }}
           onShowManual={(refs) => setManualPdfRefs(prev => prev ? null : refs)}
           manualOpen={!!manualPdfRefs}

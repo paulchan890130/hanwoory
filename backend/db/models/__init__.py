@@ -33,6 +33,7 @@ from backend.db.models.manual_update import (  # noqa: F401
     ManualUpdateState,
 )
 from backend.db.models.finance import FixedExpense, MonthlyTaxSummary  # noqa: F401
+from backend.db.models.guideline_category import GuidelineCategory, GuidelineCategoryOverride  # noqa: F401
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -51,4 +52,5 @@ __all__ = [
     "ManualUpdateCandidate", "ManualReviewDecision", "ManualReviewDecisionArchive",
     "ManualUpdateState",
     "FixedExpense", "MonthlyTaxSummary",
+    "GuidelineCategory", "GuidelineCategoryOverride",
 ]

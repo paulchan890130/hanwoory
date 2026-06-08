@@ -92,6 +92,12 @@ def local_drive_mock_enabled() -> bool:
     return _bool("FEATURE_LOCAL_DRIVE_MOCK")
 
 
+def pg_guidelines_enabled() -> bool:
+    """If true, 실무지침 분류 오버레이(편집형 카테고리/override)를 PG로 제공.
+    Off → 분류 편집 API 비활성(409), 조회 트리는 기존 JSON 파생 그대로."""
+    return _bool("FEATURE_PG_GUIDELINES")
+
+
 def pg_manual_update_enabled() -> bool:
     """If true, manual-update (baseline/staging/decisions/state) uses PostgreSQL
     as the single source of truth. Off → file-based fallback (legacy JSON/staging).
@@ -118,4 +124,5 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_PG_TENANT_PROVISIONING": pg_tenant_provisioning_enabled(),
         "FEATURE_LOCAL_DRIVE_MOCK": local_drive_mock_enabled(),
         "FEATURE_PG_MANUAL_UPDATE": pg_manual_update_enabled(),
+        "FEATURE_PG_GUIDELINES": pg_guidelines_enabled(),
     }
