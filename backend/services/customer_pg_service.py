@@ -33,11 +33,17 @@ SHEET_TO_PG = {
     "V": "v_status",
     "체류자격": "visa_status",
     "비자종류": "visa_type",
+    # frontend(고객카드)와 레거시 시트는 비고 컬럼을 "비고" 키로 사용한다.
+    # 입력 alias로 "메모"도 받아주되(과거/외부 payload 호환), PG 컬럼은 memo 하나만 쓴다.
     "메모": "memo",
+    "비고": "memo",
     "폴더": "folder_id",
     "위임내역": "delegation_history",
 }
+# 역매핑: 단순 comprehension 이면 memo 의 출력 키가 "메모"/"비고" 중 입력 순서에 좌우되므로,
+# API/프론트로 나가는 키를 "비고"로 명시 고정한다(form["비고"]와 정합).
 PG_TO_SHEET = {v: k for k, v in SHEET_TO_PG.items()}
+PG_TO_SHEET["memo"] = "비고"
 
 
 def _row_to_dict(row) -> dict:

@@ -68,7 +68,7 @@ _DEFAULT_CUSTOMER_HEADERS = [
     "V",           # 비고/체류자격 등
     "체류자격",
     "비자종류",
-    "메모",
+    "비고",        # PG memo 컬럼과 매핑(customer_pg_service); frontend 고객카드 "비고" 키와 일치
     "폴더",
 ]
 
