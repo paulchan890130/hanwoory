@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -11,6 +11,8 @@ import QuickDocPanel from "@/components/QuickDocPanel";
 import QuickPoaPanel from "@/components/QuickPoaPanel";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
+import VisaStatusSelect from "@/components/VisaStatusSelect";
+import { visaToExtensionWorktype, type ExtensionWorktype } from "@/lib/visa";
 
 // ── 만기 D-Day 계산 ────────────────────────────────────────────────────────────
 function parseDateStr(s: string): Date | null {
@@ -950,7 +952,7 @@ function AccommodationProviderModal({
 // ── 우측 드로어 ────────────────────────────────────────────────────────────────
 function CustomerDrawer({
   customer, isNew, onClose, onSave, onDelete, isSaving,
-  onOpenDocOverlay, onOpenQuickPoaOverlay,
+  onOpenDocOverlay, onOpenQuickPoaOverlay, onOpenDocExtension,
 }: {
   customer: Record<string, string> | null;
   isNew: boolean;
@@ -960,6 +962,7 @@ function CustomerDrawer({
   isSaving: boolean;
   onOpenDocOverlay?: () => void;
   onOpenQuickPoaOverlay?: () => void;
+  onOpenDocExtension?: (visaRaw: string) => void;
 }) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
@@ -1278,6 +1281,39 @@ function CustomerDrawer({
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                 {grp.fields.map((f) => {
                   const wide = (f as { wide?: boolean }).wide;
+                  // 체류자격(V): 문서자동작성과 동일한 코드 체계 select + 오른쪽 빈칸에 "연장" 버튼
+                  if (f.key === "V") {
+                    return (
+                      <Fragment key={f.key}>
+                        <div style={{ minWidth:0, overflow:"hidden" }}>
+                          <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>{f.label}</label>
+                          <VisaStatusSelect
+                            className="hw-input"
+                            style={{ width:"100%", boxSizing:"border-box" }}
+                            value={form[f.key] ?? ""}
+                            onChange={(v) => change(f.key, v)}
+                          />
+                        </div>
+                        {!isNew && onOpenDocExtension && (
+                          <div style={{ minWidth:0, display:"flex", alignItems:"flex-end" }}>
+                            <button
+                              type="button"
+                              onClick={() => onOpenDocExtension(form["V"] ?? "")}
+                              title="체류기간 연장 문서 작성으로 이동"
+                              style={{
+                                height:32, padding:"0 16px", borderRadius:6,
+                                border:"1px solid #9AE6B4", background:"#F0FFF4",
+                                color:"#276749", fontSize:12, fontWeight:700,
+                                cursor:"pointer", whiteSpace:"nowrap",
+                              }}
+                            >
+                              연장
+                            </button>
+                          </div>
+                        )}
+                      </Fragment>
+                    );
+                  }
                   return (
                     <div key={f.key} style={{ minWidth:0, overflow:"hidden", ...(wide ? { gridColumn:"1/-1" } : {}) }}>
                       <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>{f.label}</label>
@@ -1879,6 +1915,8 @@ export default function CustomersPage() {
 
   // 문서자동작성 오버레이
   const [docOverlayOpen, setDocOverlayOpen] = useState(false);
+  // 문서자동작성 사전 선택값(연장 버튼 등). null=일반 진입(선택 없음)
+  const [docPreset, setDocPreset] = useState<ExtensionWorktype | null>(null);
   // 원클릭 작성 오버레이
   const [quickPoaOverlayOpen, setQuickPoaOverlayOpen] = useState(false);
 
@@ -2121,8 +2159,9 @@ export default function CustomersPage() {
           onSave={handleSave}
           onDelete={!isNewMode ? (id) => deleteMut.mutate(id) : undefined}
           isSaving={updateMut.isPending || addMut.isPending}
-          onOpenDocOverlay={!isNewMode ? () => { setQuickPoaOverlayOpen(false); setDocOverlayOpen(true); } : undefined}
+          onOpenDocOverlay={!isNewMode ? () => { setQuickPoaOverlayOpen(false); setDocPreset(null); setDocOverlayOpen(true); } : undefined}
           onOpenQuickPoaOverlay={!isNewMode ? () => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(true); } : undefined}
+          onOpenDocExtension={!isNewMode ? (visaRaw) => { setQuickPoaOverlayOpen(false); setDocPreset(visaToExtensionWorktype(visaRaw)); setDocOverlayOpen(true); } : undefined}
         />
       )}
 
@@ -2171,6 +2210,7 @@ export default function CustomersPage() {
                   label:   selectedCustomer["한글"] || selectedCustomer["고객ID"] || "",
                   reg_no:  [selectedCustomer["등록증"], selectedCustomer["번호"]].filter(Boolean).join("-"),
                 }}
+                presetWorktype={docPreset}
                 embedded
                 onClose={() => setDocOverlayOpen(false)}
               />

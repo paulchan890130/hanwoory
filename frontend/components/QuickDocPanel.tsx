@@ -246,8 +246,17 @@ function RoleSelector({
 // ─────────────────────────────────────────────────────────────────────────
 // Props
 // ─────────────────────────────────────────────────────────────────────────
+export interface PresetWorktype {
+  category: string;
+  minwon: string;
+  kind: string;
+  detail: string;
+  matched: boolean;
+}
+
 export interface QuickDocPanelProps {
   initialCustomer?: CustomerSearchResult;
+  presetWorktype?: PresetWorktype | null;
   embedded?: boolean;
   onClose?: () => void;
 }
@@ -255,13 +264,14 @@ export interface QuickDocPanelProps {
 // ─────────────────────────────────────────────────────────────────────────
 // Inner component (needs useSearchParams → Suspense boundary required)
 // ─────────────────────────────────────────────────────────────────────────
-function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPanelProps) {
+function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose }: QuickDocPanelProps) {
   const searchParams = useSearchParams();
 
   const [category, setCategory] = useState("");
   const [minwon, setMinwon]     = useState("");
   const [kind, setKind]         = useState("");
   const [detail, setDetail]     = useState("");
+  const [presetNotice, setPresetNotice] = useState<string | null>(null);
   const [checkedDocs, setCheckedDocs]   = useState<Set<string>>(new Set());
   const [applicant, setApplicant]       = useState<RoleState>(emptyRole(true));
   const [accommodation, setAccommodation] = useState<RoleState>(emptyRole(true));
@@ -450,6 +460,33 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
 
   const typeOptions    = tree?.types[`${category}|${minwon}`] ?? [];
   const subtypeOptions = tree?.subtypes[`${category}|${minwon}|${kind}`] ?? [];
+
+  // presetWorktype(연장 버튼 등) 자동 선택. 구분·민원은 즉시 세팅하고,
+  // 종류·세부는 서버 tree 로 유효성 검증 후 세팅한다(매칭 실패 시 안내만, 절대 자동 생성 X).
+  const presetAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!presetWorktype) return;
+    if (presetAppliedRef.current) return;
+    const { category: pc, minwon: pm, kind: pk, detail: pd, matched } = presetWorktype;
+    if (pc) setCategory(pc);
+    if (pm) setMinwon(pm);
+    if (pk) {
+      if (!tree) return; // tree 로드 후 재실행 (applied 표시 보류)
+      const opts: string[] = tree.types[`${pc}|${pm}`] ?? [];
+      if (opts.includes(pk)) {
+        setKind(pk);
+        if (pd) {
+          const sopts: string[] = tree.subtypes[`${pc}|${pm}|${pk}`] ?? [];
+          if (sopts.includes(pd)) setDetail(pd);
+        }
+      } else {
+        setPresetNotice("체류자격을 자동 매칭하지 못했습니다. 종류·세부를 직접 선택하세요.");
+      }
+    } else if (!matched) {
+      setPresetNotice("체류자격을 자동 매칭하지 못했습니다. 종류·세부를 직접 선택하세요.");
+    }
+    presetAppliedRef.current = true;
+  }, [presetWorktype, tree]);
 
   const selectionComplete =
     !!category && !!minwon &&
@@ -681,6 +718,16 @@ function QuickDocPanelInner({ initialCustomer, embedded, onClose }: QuickDocPane
             </span>
           ))}
           {selectionComplete && <span style={{ marginLeft: "auto", color: "#276749", fontWeight: 600 }}>✓ 업무 선택 완료</span>}
+        </div>
+      )}
+
+      {presetNotice && (
+        <div style={{
+          marginBottom: 12, padding: "8px 12px", borderRadius: 8,
+          background: "#FFFAF0", border: "1px solid #F6E05E", color: "#975A16",
+          fontSize: 12, fontWeight: 600,
+        }}>
+          ⚠ {presetNotice}
         </div>
       )}
 

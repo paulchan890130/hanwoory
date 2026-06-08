@@ -10,6 +10,7 @@ import { wsTfToTransform, transformToWsTf } from "@/lib/types/roiPreset";
 import { fetchRoiPresets, saveRoiPreset, renameRoiPreset } from "@/lib/api/roiPreset";
 import RoiPresetBar from "@/components/scan/RoiPresetBar";
 import SignatureModal from "@/components/SignatureModal";
+import VisaStatusSelect from "@/components/VisaStatusSelect";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1573,8 +1574,8 @@ export default function ScanPage() {
                 <input style={inputStyle} value={처} onChange={(e) => set처(e.target.value)} />
               </div>
               <div>
-                <label style={labelStyle}>V</label>
-                <input style={inputStyle} value={V} onChange={(e) => setV(e.target.value)} />
+                <label style={labelStyle}>체류자격(V)</label>
+                <VisaStatusSelect style={inputStyle} value={V} onChange={setV} />
               </div>
             </div>
           </div>

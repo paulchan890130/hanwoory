@@ -29,7 +29,7 @@ MINWON_OPTIONS: dict = {
 
 TYPE_OPTIONS: dict = {
     ("체류", "등록"): ["F", "H2", "E7"],
-    ("체류", "연장"): ["F", "H2", "E7"],
+    ("체류", "연장"): ["F", "H2", "E7", "D"],
     ("체류", "변경"): ["F", "H2", "E7", "국적", "D"],
     ("체류", "부여"): ["F"],
     ("체류", "신고"): ["주소", "등록사항"],
@@ -44,6 +44,7 @@ SUBTYPE_OPTIONS: dict = {
     ("체류", "연장", "F"): ["1", "2", "3", "4", "5", "6"],
     ("체류", "연장", "H2"): [],
     ("체류", "연장", "E7"): [],
+    ("체류", "연장", "D"): ["2", "4", "8", "10"],
     ("체류", "변경", "F"): ["1", "2", "3", "4", "5", "6"],
     ("체류", "변경", "H2"): [],
     ("체류", "변경", "E7"): [],
@@ -73,6 +74,11 @@ REQUIRED_DOCS: dict = {
     ("체류", "연장", "F", "6"): {"main": ["통합신청서", "직업신고서", "신원보증서", "거주숙소 제공 확인서"], "agent": ["위임장", "대행업무수행확인서"]},
     ("체류", "연장", "H2", ""): {"main": ["통합신청서", "직업신고서", "한글성명 병기 신청서", "거주숙소 제공 확인서", "치료예정 서약서", "법령준수 확인서", "비취업 확인서"], "agent": ["위임장", "대행업무수행확인서"]},
     ("체류", "연장", "E7", ""): {"main": ["준비중"], "agent": ["위임장", "대행업무수행확인서"]},
+    # 체류-연장-D (서류 정의 미확정 → "준비중", 자동 선택 흐름만 보장)
+    ("체류", "연장", "D", "2"): {"main": ["준비중"], "agent": ["위임장", "대행업무수행확인서"]},
+    ("체류", "연장", "D", "4"): {"main": ["준비중"], "agent": ["위임장", "대행업무수행확인서"]},
+    ("체류", "연장", "D", "8"): {"main": ["준비중"], "agent": ["위임장", "대행업무수행확인서"]},
+    ("체류", "연장", "D", "10"): {"main": ["준비중"], "agent": ["위임장", "대행업무수행확인서"]},
     # 체류-변경
     ("체류", "변경", "F", "1"): {"main": ["통합신청서", "비취업 서약서", "신원보증서", "거주숙소 제공 확인서", "재학신고서"], "agent": ["위임장", "대행업무수행확인서"]},
     ("체류", "변경", "F", "2"): {"main": ["통합신청서", "직업신고서", "결혼배경진술서", "초청장", "직업 및 연간 소득금액 신고서", "신원보증서", "거주숙소 제공 확인서", "재학신고서"], "agent": ["위임장", "대행업무수행확인서"]},
@@ -292,6 +298,18 @@ def _parse_gender(id_no: str) -> tuple:
     return "", "", ""
 
 
+def _customer_address(row: Optional[dict]) -> str:
+    """고객 dict 에서 주소를 가져온다. 표준 키는 '주소'이며, 과거/타 경로에서
+    들어온 별칭(체류지/address)도 흡수한다. 파괴적 변경 없음 — 읽기 전용 normalize."""
+    if not row:
+        return ""
+    for key in ("주소", "체류지", "address", "adress"):
+        v = row.get(key)
+        if v is not None and str(v).strip():
+            return str(v).strip()
+    return ""
+
+
 def build_field_values(
     row: dict,
     prov: Optional[dict] = None,
@@ -328,7 +346,7 @@ def build_field_values(
         "issue":          row.get("발급", ""),
         "expiry":         row.get("만기", ""),
         "nation":         row.get("국적", ""),
-        "adress":         row.get("주소", ""),
+        "adress":         _customer_address(row),
         "phone1":         row.get("연", ""),
         "phone2":         row.get("락", ""),
         "phone3":         row.get("처", ""),
@@ -770,13 +788,20 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     tenant_id = user.get("tenant_id") or user.get("sub", "")
 
     # ── 고객 데이터 조회 ──
-    from backend.services.tenant_service import read_sheet
-    CUSTOMER_SHEET_NAME = "고객 데이터"
-
-    try:
-        customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id) or []
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"고객 데이터 조회 실패: {e}")
+    # 저장 경로(고객관리)와 동일한 저장소를 읽어야 한다. FEATURE_PG_CUSTOMERS=true 이면
+    # 주소 등 최신 편집분이 PG 에만 있고 Sheets 에는 옛 값(빈칸)이 남아 있으므로,
+    # read_sheet 만 쓰면 문서에 옛 주소(빈칸)가 박힌다. 검색 엔드포인트와 동일 분기.
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import list_customers
+        customers = list_customers(tenant_id) or []
+    else:
+        from backend.services.tenant_service import read_sheet
+        CUSTOMER_SHEET_NAME = "고객 데이터"
+        try:
+            customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id) or []
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"고객 데이터 조회 실패: {e}")
 
     def find_customer(cid: Optional[str]) -> Optional[dict]:
         if not cid:
