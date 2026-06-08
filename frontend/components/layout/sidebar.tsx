@@ -124,7 +124,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
                 lineHeight: 1.2, letterSpacing: "-0.01em",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               }}>
-                한우리행정사사무소
+                한우리 소프트
               </div>
               <div style={{ fontSize: 10, color: "#718096", lineHeight: 1.4, marginTop: 3 }}>
                 출입국 업무관리

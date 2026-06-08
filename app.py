@@ -829,7 +829,7 @@ if st:
                         st.session_state["signup_message"] = (
                             "가입신청이 완료되었습니다. 본 프로그램은 정식 영업중인 행정사를 위한 프로그램으로 "
                             "사업자등록증, 행정사업무신고확인증, 사업장 사진(3장 이상)을 "
-                            "chan@hanwoory.world 로 보내주시면 확인 후 승인해 드리겠습니다."
+                            "chan@hanwory.com 로 보내주시면 확인 후 승인해 드리겠습니다."
                         )
                         st.rerun()
                     except ValueError as e:

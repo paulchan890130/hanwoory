@@ -96,7 +96,7 @@ export default function LoginPage() {
     try {
       await authApi.signup(data as unknown as Record<string, string>);
       toast.success(
-        "가입신청이 완료되었습니다. 사업자등록증, 행정사업무신고확인증, 사업장 사진(3장 이상)을 chan@hanwoory.world 로 보내주시면 승인해 드리겠습니다.",
+        "가입신청이 완료되었습니다. 사업자등록증, 행정사업무신고확인증, 사업장 사진(3장 이상)을 chan@hanwory.com 로 보내주시면 승인해 드리겠습니다.",
         { duration: 8000 }
       );
       setTab("login");
@@ -342,7 +342,7 @@ export default function LoginPage() {
               >
                 가입 후 관리자 승인이 필요합니다.<br />
                 사업자등록증, 행정사업무신고확인증, 사업장 사진(3장 이상)을<br />
-                <span style={{ color: GOLD, fontWeight: 700 }}>chan@hanwoory.world</span>로 보내주세요.
+                <span style={{ color: GOLD, fontWeight: 700 }}>chan@hanwory.com</span>로 보내주세요.
               </div>
               {[
                 { name: "office_name", label: "대행기관명 *", placeholder: "사무실명" },
