@@ -374,20 +374,37 @@ function buildTree(rows: GuidelineRow[], overlay?: GLOverlay | null): Map<string
   return tree;
 }
 
-// 분류 표시명: overlay 의 display_name 우선, 없으면 기존 상수/원본. (커스텀 __C{id} 는 byId 로)
+// 대분류(action_type) 한글 라벨 — backend ACTION_KO 와 동일. (2차 안전장치)
+const MAJOR_KO: Record<string, string> = {
+  CHANGE: "체류자격 변경", EXTEND: "체류기간 연장", REGISTRATION: "외국인등록",
+  EXTRA_WORK: "체류자격외활동", WORKPLACE: "근무처 변경·추가", GRANT: "체류자격 부여",
+  REENTRY: "재입국허가", VISA_CONFIRM: "사증발급인정", APPLICATION_CLAIM: "각종 신청·신고",
+  DOMESTIC_RESIDENCE_REPORT: "국내거소신고", ACTIVITY_EXTRA: "활동범위 추가",
+};
+// display_name 이 비었거나 영문코드와 같을 때 쓸 한글 기본 표시명.
+function glDefaultLabel(level: "major" | "middle" | "minor", action: string, family: string, fallback: string): string {
+  if (level === "major") return MAJOR_KO[action] ?? ACTION_LABELS[action] ?? fallback;
+  if (level === "middle") return FAMILY_LABELS[family] ?? fallback;
+  return fallback; // minor: 코드 그대로(fallback=mid)
+}
+// 분류 표시명: overlay display_name 우선(사용자 수정값/한글). 비었거나 raw 코드와 같으면 한글 기본 라벨.
 function glLabel(level: "major" | "middle" | "minor", action: string, family: string, mid: string,
                  overlay: GLOverlay | null | undefined, fallback: string): string {
   if (action === "__UNCLASSIFIED__") return level === "major" ? "미분류(비활성 분류 항목)" : "전체";
   if (family === "_ALL" || mid === "_ALL") return "전체";
-  if (!overlay) return fallback;
-  const synthMatch = (level === "major" ? action : level === "middle" ? family : mid);
-  if (typeof synthMatch === "string" && synthMatch.startsWith("__C")) {
-    const c = overlay.byId.get(Number(synthMatch.slice(3)));
-    if (c) return c.display_name;
+  const rawCode = level === "major" ? action : level === "middle" ? family : mid;
+  let dn: string | undefined;
+  if (overlay) {
+    if (typeof rawCode === "string" && rawCode.startsWith("__C")) {
+      dn = overlay.byId.get(Number(rawCode.slice(3)))?.display_name;
+    } else {
+      const sk = level === "major" ? skMajor(action) : level === "middle" ? `m|${action || "_OTHER"}|${family}` : `s|${action || "_OTHER"}|${family}|${mid}`;
+      dn = overlay.bySourceKey.get(sk)?.display_name;
+    }
   }
-  const sk = level === "major" ? skMajor(action) : level === "middle" ? `m|${action || "_OTHER"}|${family}` : `s|${action || "_OTHER"}|${family}|${mid}`;
-  const cat = overlay.bySourceKey.get(sk);
-  return cat?.display_name || fallback;
+  // 사용자 수정/한글 값이면 그대로. 비었거나 영문코드(rawCode)와 동일하면 한글 기본 라벨로 대체.
+  if (dn && dn.trim() && dn !== rawCode) return dn;
+  return glDefaultLabel(level, action, family, fallback);
 }
 function glSortKeys(level: "major" | "middle" | "minor", action: string, family: string, keys: string[],
                     overlay: GLOverlay | null | undefined): string[] {

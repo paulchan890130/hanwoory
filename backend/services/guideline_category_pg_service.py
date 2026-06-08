@@ -32,6 +32,22 @@ def _mid(code: str) -> str:
     return code
 
 
+# 대분류(action_type) → 한글 표시명. source_key 는 영문 유지, display_name 만 한글.
+ACTION_KO: dict = {
+    "CHANGE": "체류자격 변경",
+    "EXTEND": "체류기간 연장",
+    "REGISTRATION": "외국인등록",
+    "EXTRA_WORK": "체류자격외활동",
+    "WORKPLACE": "근무처 변경·추가",
+    "GRANT": "체류자격 부여",
+    "REENTRY": "재입국허가",
+    "VISA_CONFIRM": "사증발급인정",
+    "APPLICATION_CLAIM": "각종 신청·신고",
+    "DOMESTIC_RESIDENCE_REPORT": "국내거소신고",
+    "ACTIVITY_EXTRA": "활동범위 추가",
+}
+
+
 def source_key_major(action_type: str) -> str:
     return f"M|{action_type or '_OTHER'}"
 
@@ -229,7 +245,12 @@ def seed_from_rows(master_rows: list) -> dict:
             return row
 
         for i, (mk, at) in enumerate(sorted(majors.items())):
-            ensure("major", mk, at, None, i)
+            ko = ACTION_KO.get(at, at)
+            row = ensure("major", mk, ko, None, i)
+            # backfill: 기존 major display_name 이 영문코드(==action_type) 이거나 비어있으면 한글로 보정.
+            #           사용자가 직접 바꾼 값(그 외)은 절대 덮어쓰지 않는다.
+            if (row.display_name or "").strip() in ("", at) and row.display_name != ko:
+                row.display_name = ko
         for i, (midk, (mk, fam)) in enumerate(sorted(middles.items())):
             ensure("middle", midk, fam, mk, i)
         for i, (mnk, (midk, mid)) in enumerate(sorted(minors.items())):
