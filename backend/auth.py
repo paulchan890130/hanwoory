@@ -40,6 +40,36 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     is_admin: bool = payload.get("is_admin", False)
     if not login_id:
         raise HTTPException(status_code=401, detail="인증 정보가 없습니다.")
+
+    # ── 단일 세션(새 로그인 우선) 강제 — FEATURE_SINGLE_SESSION on 일 때만 ──
+    # off면 sid 검사 자체를 건너뛰어 기존 토큰/로그인 동작과 100% 동일.
+    try:
+        from backend.db.feature_flags import single_session_enabled
+        enforce = single_session_enabled()
+    except Exception:
+        enforce = False
+    if enforce:
+        sid = payload.get("sid")
+        if not sid:
+            # 단일세션 도입 전 발급된(sid 없는) 토큰 → 재로그인 필요. (무한루프 방지: 한 번 401 후 프론트가 토큰 제거)
+            raise HTTPException(status_code=401,
+                                detail={"code": "SESSION_EXPIRED", "message": "세션이 만료되었습니다. 다시 로그인해 주세요."},
+                                headers={"WWW-Authenticate": "Bearer"})
+        try:
+            from backend.services.session_pg_service import session_status
+            st = session_status(sid)
+        except Exception:
+            # 세션 저장소 조회 실패 시 인증을 막지 않는다(가용성 우선) — 기존 동작 유지.
+            st = "active"
+        if st == "revoked":
+            raise HTTPException(status_code=401,
+                                detail={"code": "SESSION_REVOKED", "message": "다른 기기에서 로그인되어 로그아웃되었습니다."},
+                                headers={"WWW-Authenticate": "Bearer"})
+        if st != "active":
+            raise HTTPException(status_code=401,
+                                detail={"code": "SESSION_EXPIRED", "message": "세션이 만료되었습니다. 다시 로그인해 주세요."},
+                                headers={"WWW-Authenticate": "Bearer"})
+
     office_name  = str(payload.get("office_name", "")).strip()
     contact_name = str(payload.get("contact_name", "")).strip()
     return {
@@ -48,6 +78,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         "is_admin":     is_admin,
         "office_name":  office_name,
         "contact_name": contact_name,
+        "session_id":   payload.get("sid", ""),
     }
 
 

@@ -2,7 +2,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 from backend.models import LoginRequest, SignupRequest, TokenResponse
@@ -24,7 +24,7 @@ router = APIRouter()
 # /login
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/login", response_model=TokenResponse)
-def login(req: LoginRequest):
+def login(req: LoginRequest, request: Request = None):
     # PG-first when the local-beta flag is on; falls through to Sheets if the
     # user simply doesn't exist in PG yet (so a partial import doesn't lock
     # anyone out). Sheets remains the source of truth when the flag is off.
@@ -79,13 +79,33 @@ def login(req: LoginRequest):
     office_name = str(acc.get("office_name", "")).strip()
     contact_name = str(acc.get("contact_name", "")).strip()
 
-    token = create_access_token({
+    claims = {
         "sub":         req.login_id,
         "tenant_id":   tenant_id,
         "is_admin":    is_admin,
         "office_name": office_name,
         "contact_name": contact_name,
-    })
+    }
+    # 단일 세션(새 로그인 우선): 기존 활성 일반 세션 revoke + 새 sid 발급/저장.
+    # FEATURE_SINGLE_SESSION off면 전혀 동작하지 않음(claims에 sid 없음 → 기존과 동일).
+    try:
+        from backend.db.feature_flags import single_session_enabled
+        if single_session_enabled():
+            from backend.services.session_pg_service import (
+                new_session_id, revoke_active_sessions, create_session,
+            )
+            sid = new_session_id()
+            revoke_active_sessions(req.login_id, reason="new_login", only_non_kiosk=True)
+            ua = request.headers.get("user-agent") if request else None
+            xff = request.headers.get("x-forwarded-for") if request else None
+            ip = (xff.split(",")[0].strip() if xff else (request.client.host if request and request.client else None))
+            create_session(req.login_id, tenant_id, sid, user_agent=ua, ip=ip, is_kiosk=False)
+            claims["sid"] = sid
+    except Exception as e:
+        # 비치명적: 세션 저장 실패해도 로그인 자체는 진행(가용성). 단 flag on 환경은 0007 적용 필수.
+        print(f"[auth.login] single-session setup failed (non-fatal): {e}")
+
+    token = create_access_token(claims)
     return TokenResponse(
         access_token=token,
         login_id=req.login_id,
@@ -94,6 +114,23 @@ def login(req: LoginRequest):
         office_name=office_name,
         contact_name=contact_name,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# /logout — 현재 세션 revoke (단일 세션 모드). off면 토큰 무상태라 no-op 성공.
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/logout")
+def logout(current_user: dict = Depends(get_current_user)):
+    try:
+        from backend.db.feature_flags import single_session_enabled
+        if single_session_enabled():
+            sid = current_user.get("session_id")
+            if sid:
+                from backend.services.session_pg_service import revoke_session
+                revoke_session(sid, reason="logout")
+    except Exception as e:
+        print(f"[auth.logout] {e}")
+    return {"ok": True}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

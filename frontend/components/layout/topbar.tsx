@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Bell, LogOut, Menu, PenLine } from "lucide-react";
 import { getUser, clearUser } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { customersApi, api } from "@/lib/api";
+import { customersApi, api, authApi } from "@/lib/api";
 import TempSlotModal from "@/components/TempSlotModal";
 
 interface TopbarProps {
@@ -59,6 +59,8 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
     (expiryData?.passport_alerts?.length ?? 0);
 
   const handleLogout = () => {
+    // 단일 세션 모드: 현재 세션 revoke (best-effort). off면 서버 no-op.
+    authApi.logout().catch(() => { /* 무시 — 로컬 정리는 계속 */ });
     qc.clear();
     clearUser();
     router.replace("/login");

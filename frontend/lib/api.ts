@@ -47,11 +47,16 @@ api.interceptors.response.use(
       }
       if (typeof window !== "undefined" && !_redirecting401) {
         _redirecting401 = true;
+        // SESSION_REVOKED(다른 기기 로그인) vs 일반 만료 구분
+        const detail = (err.response?.data as { detail?: unknown })?.detail;
+        const code = detail && typeof detail === "object" ? (detail as { code?: string }).code : undefined;
         localStorage.removeItem("access_token");
         localStorage.removeItem("user_info");
         document.cookie = "kid_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        // 만료 경고 플래그 — 로그인 페이지에서 "장시간 미이용으로 로그아웃" 메시지 표시용
-        try { sessionStorage.setItem("auth_expired", "1"); } catch { /* sessionStorage 차단 환경 무시 */ }
+        try {
+          if (code === "SESSION_REVOKED") sessionStorage.setItem("session_revoked", "1");
+          else sessionStorage.setItem("auth_expired", "1");
+        } catch { /* sessionStorage 차단 환경 무시 */ }
         // replace: 히스토리 스택에 만료된 내부 페이지를 남기지 않음
         window.location.replace("/login");
       }
@@ -159,6 +164,7 @@ export const authApi = {
     api.post("/api/auth/login", { login_id, password }),
   signup: (data: Record<string, string>) =>
     api.post("/api/auth/signup", data),
+  logout: () => api.post("/api/auth/logout", null, { headers: { "X-Skip-Auth-Redirect": "1" } }),
 };
 
 // 업무

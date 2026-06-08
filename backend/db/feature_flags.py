@@ -92,6 +92,13 @@ def local_drive_mock_enabled() -> bool:
     return _bool("FEATURE_LOCAL_DRIVE_MOCK")
 
 
+def single_session_enabled() -> bool:
+    """If true, 일반 로그인은 단일 세션(새 로그인 우선)으로 제한된다.
+    Off → 기존 로그인/토큰 동작 그대로(세션 테이블 미사용). user_sessions 테이블
+    (Alembic 0007) 적용 후에만 켜야 한다."""
+    return _bool("FEATURE_SINGLE_SESSION")
+
+
 def pg_guidelines_enabled() -> bool:
     """If true, 실무지침 분류 오버레이(편집형 카테고리/override)를 PG로 제공.
     Off → 분류 편집 API 비활성(409), 조회 트리는 기존 JSON 파생 그대로."""
@@ -125,4 +132,5 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_LOCAL_DRIVE_MOCK": local_drive_mock_enabled(),
         "FEATURE_PG_MANUAL_UPDATE": pg_manual_update_enabled(),
         "FEATURE_PG_GUIDELINES": pg_guidelines_enabled(),
+        "FEATURE_SINGLE_SESSION": single_session_enabled(),
     }
