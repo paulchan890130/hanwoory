@@ -186,7 +186,7 @@ ROLE_SIGN_WIDGETS: dict = {
 
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
-def _load_account(tenant_id: str) -> Optional[dict]:
+def _load_account_sheets(tenant_id: str) -> Optional[dict]:
     """Accounts 시트에서 tenant_id로 계정 조회. get_all_values() 직접 파싱으로 안정성 확보."""
     try:
         from backend.services.accounts_service import _get_ws_readonly
@@ -204,6 +204,36 @@ def _load_account(tenant_id: str) -> Optional[dict]:
         return None
     except Exception:
         return None
+
+
+def _load_account(tenant_id: str) -> Optional[dict]:
+    """행정사/사무소 계정 조회 — 고객 데이터와 동일하게 저장소 일치가 목적.
+
+    FEATURE_PG_USERS/ADMIN 가 켜진 경우 계정(사무소명·주소·사업자번호·담당자·연락처)은
+    PG(tenants+users)가 최신이므로 PG 를 우선 조회하고, 비어있는 필드와 PG 미보관 값
+    (원본 주민번호 ``agent_rrn`` 등)은 Sheets 값으로 보완한다. 플래그 off이거나 PG 에
+    tenant 가 없으면 기존 Sheets 경로(_load_account_sheets)를 그대로 사용한다.
+
+    반환 dict 의 키/shape 는 Sheets 경로와 동일 — build_field_values 의
+    office_name/contact_name/agent_rrn/biz_reg_no/contact_tel/office_adr 매핑 불변.
+    """
+    sheets_acc = _load_account_sheets(tenant_id)
+    try:
+        from backend.db.feature_flags import pg_users_enabled, pg_admin_enabled
+        if not (pg_users_enabled() or pg_admin_enabled()):
+            return sheets_acc
+        from backend.services.auth_pg_service import find_account_by_tenant_pg
+        pg_acc = find_account_by_tenant_pg(tenant_id)
+        if not pg_acc:
+            return sheets_acc  # PG 미존재 → Sheets fallback
+        # Sheets 를 기준선으로 두고(원본 agent_rrn·sheet keys 등 보존),
+        # PG 가 가진 '비어있지 않은' 사무소/담당자 필드만 최신값으로 덮는다.
+        merged = dict(sheets_acc or {})
+        merged.update({k: v for k, v in pg_acc.items() if str(v or "").strip()})
+        return merged
+    except Exception:
+        # PG 경로에서 어떤 문제가 생겨도 문서 생성이 깨지지 않도록 Sheets fallback
+        return sheets_acc
 
 
 def _split_phone(phone: str) -> tuple:

@@ -61,8 +61,15 @@ def _search_customers(q: str, tenant_id: str) -> List[SearchResult]:
     고객 데이터 검색.
     - tenant_id 기반 시트 격리 (tenant_service.read_sheet 사용)
     - 다른 tenant의 데이터는 절대 검색되지 않음
+    - FEATURE_PG_CUSTOMERS=true 이면 PG(고객관리 저장과 동일 저장소)에서 읽어
+      stale Sheets 결과를 방지한다. 플래그 off면 기존 Sheets fallback.
     """
-    rows = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+    from backend.db.feature_flags import pg_customers_enabled
+    if pg_customers_enabled():
+        from backend.services.customer_pg_service import list_customers
+        rows = list_customers(tenant_id) or []
+    else:
+        rows = read_sheet(CUSTOMER_SHEET_NAME, tenant_id, default_if_empty=[]) or []
     results = []
     for r in rows:
         if not _match(r, q):
@@ -88,25 +95,40 @@ def _search_customers(q: str, tenant_id: str) -> List[SearchResult]:
 
 
 def _search_tasks(q: str, tenant_id: str) -> List[SearchResult]:
-    """예정/진행/완료 업무 검색 — tenant 격리"""
+    """예정/진행/완료 업무 검색 — tenant 격리.
+
+    FEATURE_PG_TASKS=true 이면 PG(active/planned/completed_tasks)에서 읽는다.
+    PG dict 는 영문 키(name/work/category)라 기존 한글 키 추출에 영문 fallback을 추가했다
+    (Sheets 행에는 해당 영문 키가 없어 동작 변화 없음). 플래그 off면 기존 Sheets fallback.
+    """
+    from backend.db.feature_flags import pg_tasks_enabled
+    use_pg = pg_tasks_enabled()
+    if use_pg:
+        from backend.services.tasks_pg_service import (
+            list_planned as _pg_planned,
+            list_active as _pg_active,
+            list_completed as _pg_completed,
+        )
     results = []
-    for sheet_name, label in [
-        (PLANNED_TASKS_SHEET_NAME,   "예정"),
-        (ACTIVE_TASKS_SHEET_NAME,    "진행"),
-        (COMPLETED_TASKS_SHEET_NAME, "완료"),
+    for sheet_name, label, pg_getter in [
+        (PLANNED_TASKS_SHEET_NAME,   "예정", (_pg_planned   if use_pg else None)),
+        (ACTIVE_TASKS_SHEET_NAME,    "진행", (_pg_active    if use_pg else None)),
+        (COMPLETED_TASKS_SHEET_NAME, "완료", (_pg_completed if use_pg else None)),
     ]:
-        rows = read_sheet(sheet_name, tenant_id, default_if_empty=[]) or []
+        rows = (pg_getter(tenant_id) if use_pg
+                else (read_sheet(sheet_name, tenant_id, default_if_empty=[]) or [])) or []
         for r in rows:
             if not _match(r, q):
                 continue
-            # 업무 시트의 이름 컬럼: "이름"/"한글"/"고객명" 순으로 fallback
+            # 업무 시트의 이름 컬럼: "이름"/"한글"/"고객명"(Sheets) → "name"(PG) fallback
             name = (
                 str(r.get("이름",   "")).strip() or
                 str(r.get("한글",   "")).strip() or
-                str(r.get("고객명", "")).strip()
+                str(r.get("고객명", "")).strip() or
+                str(r.get("name",   "")).strip()
             )
-            tid = str(r.get("id", "") or r.get("업무ID", "") or r.get("고객ID", "")).strip()
-            minwon = str(r.get("민원", "") or r.get("업무내용", "")).strip()
+            tid = str(r.get("id", "") or r.get("업무ID", "") or r.get("고객ID", "") or r.get("customer_id", "")).strip()
+            minwon = str(r.get("민원", "") or r.get("업무내용", "") or r.get("work", "") or r.get("category", "")).strip()
             status = str(r.get("상태", "")).strip()
             summary_parts = [p for p in [label, minwon, status] if p]
             results.append(SearchResult(
@@ -120,8 +142,17 @@ def _search_tasks(q: str, tenant_id: str) -> List[SearchResult]:
 
 
 def _search_board(q: str, tenant_id: str) -> List[SearchResult]:
-    """게시판 검색 — tenant 격리"""
-    rows = read_sheet(BOARD_SHEET_NAME, tenant_id, default_if_empty=[]) or []
+    """게시판 검색 — tenant 격리.
+
+    FEATURE_PG_BOARD=true 이면 PG(board posts)에서 읽는다. PG dict 는 영문 키지만
+    아래 루프가 title/content/id fallback을 이미 갖고 있어 shape 변화 없음.
+    """
+    from backend.db.feature_flags import pg_board_enabled
+    if pg_board_enabled():
+        from backend.services.board_pg_service import list_posts
+        rows = list_posts() or []
+    else:
+        rows = read_sheet(BOARD_SHEET_NAME, tenant_id, default_if_empty=[]) or []
     results = []
     for r in rows:
         if not _match(r, q):
@@ -141,8 +172,18 @@ def _search_board(q: str, tenant_id: str) -> List[SearchResult]:
 
 
 def _search_reference(q: str, tenant_id: str) -> List[SearchResult]:
-    """업무참고 시트 검색 — tenant 격리 (업무정리 워크북 기준)"""
-    rows = read_sheet("업무참고", tenant_id, default_if_empty=[]) or []
+    """업무참고 시트 검색 — tenant 격리 (업무정리 워크북 기준).
+
+    FEATURE_PG_REFERENCE=true 이면 PG(work_reference_rows)의 행을 읽는다
+    (get_sheet_data 의 'rows' 는 header→값 dict 리스트라 Sheets 행과 동일 shape).
+    주의: reference '편집' 경로는 의도적으로 Sheets 유지(문서화됨) — 여기선 읽기만 분기.
+    """
+    from backend.db.feature_flags import pg_reference_enabled
+    if pg_reference_enabled():
+        from backend.services.reference_pg_service import get_sheet_data
+        rows = (get_sheet_data(tenant_id, "업무참고") or {}).get("rows", []) or []
+    else:
+        rows = read_sheet("업무참고", tenant_id, default_if_empty=[]) or []
     results = []
     for r in rows:
         if not _match(r, q):
@@ -163,14 +204,23 @@ def _search_reference(q: str, tenant_id: str) -> List[SearchResult]:
 
 
 def _search_memo(q: str, tenant_id: str) -> List[SearchResult]:
-    """장기/중기 메모 검색 — tenant 격리"""
+    """장기/중기 메모 검색 — tenant 격리.
+
+    FEATURE_PG_MEMOS=true 이면 PG(memos)에서 읽는다(get_memo 는 본문 문자열 반환).
+    플래그 off면 기존 Sheets(read_memo) fallback.
+    """
+    from backend.db.feature_flags import pg_memos_enabled
+    use_pg = pg_memos_enabled()
+    if use_pg:
+        from backend.services.memos_pg_service import get_memo as _pg_get_memo
     results = []
-    for sheet_name, label in [
-        (MEMO_LONG_SHEET_NAME, "장기"),
-        (MEMO_MID_SHEET_NAME,  "중기"),
+    for sheet_name, label, kind in [
+        (MEMO_LONG_SHEET_NAME, "장기", "long"),
+        (MEMO_MID_SHEET_NAME,  "중기", "mid"),
     ]:
         try:
-            content = read_memo(sheet_name, tenant_id) or ""
+            content = (_pg_get_memo(tenant_id, kind) if use_pg
+                       else read_memo(sheet_name, tenant_id)) or ""
         except Exception:
             content = ""
         if not content or q.lower() not in content.lower():
