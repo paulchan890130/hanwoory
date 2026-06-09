@@ -6,6 +6,7 @@ import { getUser, clearUser } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi, api, authApi } from "@/lib/api";
 import TempSlotModal from "@/components/TempSlotModal";
+import SignPadUrlModal from "@/components/SignPadUrlModal";
 
 interface TopbarProps {
   leftOffset: number;
@@ -34,6 +35,7 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
     { slot: 3, has_data: false, 비고: "" },
   ]);
   const [activeSlot, setActiveSlot] = useState<SlotInfo | null>(null);
+  const [showPadModal, setShowPadModal] = useState(false);
 
   const fetchSlots = () => {
     api.get<SlotInfo[]>("/api/signature/temp-slots")
@@ -139,6 +141,19 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
             </div>
           ))}
 
+          {/* 서명패드 URL/QR 발급 — 로그인 직원 전용 */}
+          <button
+            onClick={() => setShowPadModal(true)}
+            title="서명패드 URL/QR 발급 (태블릿 상시 서명용)"
+            style={{
+              flexShrink: 0, padding: "3px 8px", borderRadius: 5,
+              border: "1px solid #E2E8F0", background: "#F7FAFC", color: "#4A5568",
+              fontSize: 11, fontWeight: 500, cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap",
+            }}
+          >
+            서명패드
+          </button>
+
           {/* 바로가기 버튼 — 원클릭 직접 열기 */}
           {SHORTCUTS.map(({ label, url }) => (
             <button
@@ -218,6 +233,9 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
           onUpdate={() => { fetchSlots(); setActiveSlot(null); }}
         />
       )}
+
+      {/* 서명패드 URL/QR 발급 모달 */}
+      {showPadModal && <SignPadUrlModal onClose={() => setShowPadModal(false)} />}
     </>
   );
 }

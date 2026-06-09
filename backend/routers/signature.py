@@ -64,6 +64,35 @@ def _decode_customer_token(token: str) -> "dict | None":
         return None
 
 
+# ── 상시 서명패드 토큰 (사무실 기기 전용 URL, HMAC, 일반 로그인/세션과 분리) ───
+_PAD_TOKEN_TTL = 60 * 60 * 24 * 30  # 30일
+
+
+def _encode_pad_token(tenant_id: str, office_name: str, ttl: int = _PAD_TOKEN_TTL) -> str:
+    payload = {"t": "p", "tid": tenant_id, "on": office_name, "exp": int(time.time()) + ttl}
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    data_b64 = base64.urlsafe_b64encode(data.encode()).rstrip(b"=").decode()
+    sig = _hmac.new(_SIGN_SECRET.encode(), data_b64.encode(), hashlib.sha256).hexdigest()[:16]
+    return f"{data_b64}.{sig}"
+
+
+def _decode_pad_token(token: str) -> "dict | None":
+    try:
+        data_b64, sig = token.rsplit(".", 1)
+        expected = _hmac.new(_SIGN_SECRET.encode(), data_b64.encode(), hashlib.sha256).hexdigest()[:16]
+        if not _hmac.compare_digest(sig, expected):
+            return None
+        pad = (4 - len(data_b64) % 4) % 4
+        payload = json.loads(base64.urlsafe_b64decode(data_b64 + "=" * pad).decode())
+        if payload.get("t") != "p":
+            return None
+        if payload.get("exp", 0) < time.time():
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 # ── 인메모리 토큰 저장소 (agent/temp 전용 — 고객 직접서명에는 사용 안 함) ──────
 _pending: dict[str, dict] = {}
 
@@ -106,6 +135,10 @@ class TempSlotRequestBody(BaseModel):
 
 class TempMapCustomerBody(BaseModel):
     customer_id: str
+
+
+class PadSaveBody(BaseModel):
+    data: str                              # base64 PNG (투명 배경)
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
@@ -467,6 +500,56 @@ def get_customer_signature(
         raise HTTPException(status_code=400, detail=str(e))
     data = _get(csk, customer_id)
     return {"data": data}
+
+
+# ── 상시 서명패드 (/sign/pad) — 임시서명 빈 슬롯 자동 저장 ─────────────────────
+
+@router.get("/pad/token")
+def get_pad_token(user: dict = Depends(get_current_user)):
+    """사무실 기기용 상시 서명패드 URL/토큰 발급(로그인 필요). 직원이 태블릿에 이 URL을 띄워둔다."""
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    try:
+        from backend.services.accounts_service import get_office_name
+        office_name = get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
+    except Exception:
+        office_name = user.get("office_name", "") or "행정사사무소"
+    token = _encode_pad_token(tenant_id, office_name)
+    return {"token": token, "url": f"https://www.hanwory.com/sign/pad?token={token}"}
+
+
+@router.get("/pad/info")
+def pad_info(token: str = Query(...)):
+    """서명패드 페이지용 토큰 확인 — 인증 불필요. 고객정보는 반환하지 않음."""
+    payload = _decode_pad_token(token)
+    if payload is None:
+        return {"valid": False, "office_name": ""}
+    return {"valid": True, "office_name": payload.get("on", "")}
+
+
+@router.post("/pad/save")
+def pad_save(body: PadSaveBody, token: str = Query(...)):
+    """서명패드 저장 — 비어 있는 가장 앞 임시서명 슬롯(1→2→3)에 저장. 모두 차면 차단.
+    pad 토큰(HMAC)만으로 동작하며 일반 로그인 세션/FEATURE_SINGLE_SESSION 과 무관."""
+    payload = _decode_pad_token(token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="유효하지 않거나 만료된 서명패드 토큰입니다.")
+    tenant_id = payload.get("tid", "")
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="토큰에 사무실 정보가 없습니다.")
+    from backend.services.signature_service import compress_signature, save_temp_slot_first_empty
+    try:
+        compressed = compress_signature(body.data)   # 투명 배경 유지 + 압축
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"서명 처리 실패: {e}")
+    try:
+        slot = save_temp_slot_first_empty(tenant_id, compressed, memo="서명패드")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"저장 실패: {e}")
+    if slot is None:
+        return {"status": "full"}
+    return {"status": "ok", "slot": slot}
 
 
 # ── 임시저장 슬롯 엔드포인트 ──────────────────────────────────────────────────

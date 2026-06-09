@@ -266,6 +266,23 @@ def has_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
 
 # ── 임시저장 슬롯 ─────────────────────────────────────────────────────────────
 
+# pending 임시서명 자동 만료(조회 시 lazy). 적용 완료분은 '고객서명' 시트로 이동·여기서 clear 되므로
+# 만료 대상은 항상 미적용(pending) 임시서명뿐이다.
+_TEMP_EXPIRY_SECONDS = 2 * 60 * 60  # 2시간
+
+
+def _temp_is_expired(saved_at: str) -> bool:
+    """저장일시('YYYY-MM-DD HH:MM:SS')가 2시간 초과면 True. 형식 불량/빈값은 만료 아님(보수적)."""
+    s = (saved_at or "").strip()
+    if not s:
+        return False
+    try:
+        dt = datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return False
+    return (datetime.datetime.now() - dt).total_seconds() > _TEMP_EXPIRY_SECONDS
+
+
 def _find_temp_row(ws, tenant_id: str, slot: int):
     """(slot, tenant_id) 복합키로 행 탐색."""
     values = ws.get_all_values()
@@ -321,8 +338,13 @@ def get_temp_slots(tenant_id: str) -> list:
         for slot in (1, 2, 3):
             record = row_map.get(slot)
             if record:
-                has_data = bool(record.get("서명데이터", "").strip())
-                memo = record.get("비고", "").strip()
+                raw = record.get("서명데이터", "").strip()
+                # 2시간 초과 pending 임시서명은 빈 칸으로 취급(자동 만료)
+                if raw and _temp_is_expired(record.get("저장일시", "")):
+                    has_data, memo = False, ""
+                else:
+                    has_data = bool(raw)
+                    memo = record.get("비고", "").strip()
             else:
                 has_data, memo = False, ""
             result.append({"slot": slot, "has_data": has_data, "비고": memo})
@@ -353,6 +375,17 @@ def save_temp_slot(tenant_id: str, slot: int, b64: str, memo: str) -> None:
     _temp_slots_cache.pop(tenant_id, None)
 
 
+def save_temp_slot_first_empty(tenant_id: str, b64: str, memo: str = "") -> "int | None":
+    """비어 있는(만료 포함) 가장 앞 임시서명 슬롯(1→2→3)에 저장. 반환: 저장된 slot 번호.
+    1·2·3 모두 차 있으면 None(저장 안 함, 덮어쓰기 금지). 서명패드(/sign/pad) 전용."""
+    slots = get_temp_slots(tenant_id)  # 만료 반영된 has_data
+    target = next((s["slot"] for s in slots if not s["has_data"]), None)
+    if target is None:
+        return None
+    save_temp_slot(tenant_id, target, b64, memo)
+    return target
+
+
 def get_temp_slot_data(tenant_id: str, slot: int) -> str | None:
     from backend.db.feature_flags import pg_signatures_enabled
     if pg_signatures_enabled():
@@ -369,7 +402,12 @@ def get_temp_slot_data(tenant_id: str, slot: int) -> str | None:
         if record is None:
             return None
         data = record.get("서명데이터", "").strip()
-        return data if data else None
+        if not data:
+            return None
+        # 만료된 pending 임시서명은 없는 것으로 취급(적용 차단)
+        if _temp_is_expired(record.get("저장일시", "")):
+            return None
+        return data
     except Exception as e:
         print(f"[signature_service.get_temp_slot_data] 오류: {e}")
         return None
