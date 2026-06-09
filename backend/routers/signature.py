@@ -65,15 +65,25 @@ def _decode_customer_token(token: str) -> "dict | None":
 
 
 # ── 상시 서명패드 토큰 (사무실 기기 전용 URL, HMAC, 일반 로그인/세션과 분리) ───
-_PAD_TOKEN_TTL = 60 * 60 * 24 * 30  # 30일
+# 상태는 PG signature_pad_tokens(테넌트당 active 1행, token_id=UUID4)에 저장한다.
+# payload 의 jti(=token_id) 를 DB active token_id 와 대조해 검증 → 재발급 시 즉시 무효화.
+# exp 는 DB expires_at(1년) 의 epoch 을 그대로 사용 → 유효한 동안 같은 토큰 문자열 재현.
 
-
-def _encode_pad_token(tenant_id: str, office_name: str, ttl: int = _PAD_TOKEN_TTL) -> str:
-    payload = {"t": "p", "tid": tenant_id, "on": office_name, "exp": int(time.time()) + ttl}
+def _encode_pad_token(tenant_id: str, office_name: str, token_id: str, exp: int) -> str:
+    payload = {"t": "p", "tid": tenant_id, "on": office_name,
+               "jti": str(token_id), "exp": int(exp)}
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     data_b64 = base64.urlsafe_b64encode(data.encode()).rstrip(b"=").decode()
     sig = _hmac.new(_SIGN_SECRET.encode(), data_b64.encode(), hashlib.sha256).hexdigest()[:16]
     return f"{data_b64}.{sig}"
+
+
+def _epoch(dt) -> int:
+    """tz-aware/naive datetime → epoch 초(naive 는 UTC 로 간주)."""
+    from datetime import timezone
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp())
 
 
 def _decode_pad_token(token: str) -> "dict | None":
@@ -504,24 +514,68 @@ def get_customer_signature(
 
 # ── 상시 서명패드 (/sign/pad) — 임시서명 빈 슬롯 자동 저장 ─────────────────────
 
-@router.get("/pad/token")
-def get_pad_token(user: dict = Depends(get_current_user)):
-    """사무실 기기용 상시 서명패드 URL/토큰 발급(로그인 필요). 직원이 태블릿에 이 URL을 띄워둔다."""
-    tenant_id = user.get("tenant_id") or user.get("sub", "")
+def _pad_office_name(user: dict, tenant_id: str) -> str:
     try:
         from backend.services.accounts_service import get_office_name
-        office_name = get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
+        return get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
     except Exception:
-        office_name = user.get("office_name", "") or "행정사사무소"
-    token = _encode_pad_token(tenant_id, office_name)
+        return user.get("office_name", "") or "행정사사무소"
+
+
+_PAD_PG_REQUIRED = "서명패드 기능은 PostgreSQL 설정이 필요합니다. 관리자에게 문의하세요."
+
+
+@router.get("/pad/token")
+def get_pad_token(user: dict = Depends(get_current_user)):
+    """사무실 기기용 상시 서명패드 URL/토큰 (로그인 필요). 계정(테넌트)당 1개.
+    유효한 토큰이 있으면 같은 URL 을 재현해 반환, 없거나 만료면 새 token_id 로 발급(1년)."""
+    from backend.db.session import is_configured
+    if not is_configured():
+        raise HTTPException(status_code=503, detail=_PAD_PG_REQUIRED)
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    issued_by = user.get("sub", "") or user.get("login_id", "")
+    office_name = _pad_office_name(user, tenant_id)
+    from backend.services.signature_pg_service import ensure_pad_token
+    state = ensure_pad_token(tenant_id, issued_by)
+    token = _encode_pad_token(tenant_id, office_name, state["token_id"], _epoch(state["expires_at"]))
+    return {"token": token, "url": f"https://www.hanwory.com/sign/pad?token={token}"}
+
+
+@router.post("/pad/token/regenerate")
+def regenerate_pad_token_endpoint(user: dict = Depends(get_current_user)):
+    """서명패드 URL 재발급 — token_id 를 새 UUID4 로 교체해 기존 URL/QR 을 즉시 무효화."""
+    from backend.db.session import is_configured
+    if not is_configured():
+        raise HTTPException(status_code=503, detail=_PAD_PG_REQUIRED)
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    issued_by = user.get("sub", "") or user.get("login_id", "")
+    office_name = _pad_office_name(user, tenant_id)
+    from backend.services.signature_pg_service import regenerate_pad_token
+    state = regenerate_pad_token(tenant_id, issued_by)
+    token = _encode_pad_token(tenant_id, office_name, state["token_id"], _epoch(state["expires_at"]))
     return {"token": token, "url": f"https://www.hanwory.com/sign/pad?token={token}"}
 
 
 @router.get("/pad/info")
 def pad_info(token: str = Query(...)):
-    """서명패드 페이지용 토큰 확인 — 인증 불필요. 고객정보는 반환하지 않음."""
+    """서명패드 페이지용 토큰 확인 — 인증 불필요. 고객정보는 반환하지 않음.
+    재발급/만료된(token_id 불일치) 토큰은 valid:false."""
     payload = _decode_pad_token(token)
     if payload is None:
+        return {"valid": False, "office_name": ""}
+    from backend.db.session import is_configured
+    if not is_configured():
+        return {"valid": False, "office_name": ""}
+    tid = payload.get("tid", "")
+    jti = payload.get("jti", "")
+    try:
+        from backend.services.signature_pg_service import pad_token_is_active
+        active = pad_token_is_active(tid, jti)
+    except Exception as e:
+        # 저장소 일시 오류는 보수적으로 통과 처리(저장 시 재검증됨)
+        print(f"[signature.pad] info token check failed (treat as active): {e}")
+        active = True
+    if not active:
         return {"valid": False, "office_name": ""}
     return {"valid": True, "office_name": payload.get("on", "")}
 
@@ -533,9 +587,20 @@ def pad_save(body: PadSaveBody, token: str = Query(...)):
     payload = _decode_pad_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="유효하지 않거나 만료된 서명패드 토큰입니다.")
+    # tenant_id 는 토큰 내부 값만 사용(프론트 입력 불신).
     tenant_id = payload.get("tid", "")
     if not tenant_id:
         raise HTTPException(status_code=400, detail="토큰에 사무실 정보가 없습니다.")
+    from backend.db.session import is_configured
+    if not is_configured():
+        raise HTTPException(status_code=503, detail=_PAD_PG_REQUIRED)
+    # 재발급/만료 가드: DB active token_id 와 payload jti 대조.
+    from backend.services.signature_pg_service import pad_token_is_active
+    if not pad_token_is_active(tenant_id, payload.get("jti", "")):
+        raise HTTPException(
+            status_code=401,
+            detail="만료되었거나 재발급된 서명패드 주소입니다. 새 URL을 사용해 주세요.",
+        )
     from backend.services.signature_service import compress_signature, save_temp_slot_first_empty
     try:
         compressed = compress_signature(body.data)   # 투명 배경 유지 + 압축

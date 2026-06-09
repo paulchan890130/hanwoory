@@ -18,7 +18,9 @@ from backend.db.models.memo import Memo  # noqa: F401
 from backend.db.models.daily import DailyEntry, DailyBalance  # noqa: F401
 from backend.db.models.task import ActiveTask, PlannedTask, CompletedTask  # noqa: F401
 from backend.db.models.relationship import AccommodationProvider, GuarantorConnection  # noqa: F401
-from backend.db.models.signature import AgentSignature, CustomerSignature, TempSignatureSlot  # noqa: F401
+from backend.db.models.signature import (  # noqa: F401
+    AgentSignature, CustomerSignature, TempSignatureSlot, SignaturePadToken,
+)
 from backend.db.models.board import BoardPost, BoardComment  # noqa: F401
 from backend.db.models.marketing import MarketingPost  # noqa: F401
 from backend.db.models.certification import (  # noqa: F401
@@ -42,7 +44,7 @@ __all__ = [
     "DailyEntry", "DailyBalance",
     "ActiveTask", "PlannedTask", "CompletedTask",
     "AccommodationProvider", "GuarantorConnection",
-    "AgentSignature", "CustomerSignature", "TempSignatureSlot",
+    "AgentSignature", "CustomerSignature", "TempSignatureSlot", "SignaturePadToken",
     "BoardPost", "BoardComment",
     "MarketingPost",
     "CertVendor", "CertDirection", "CertGroup", "CertRegion", "CertPrice",

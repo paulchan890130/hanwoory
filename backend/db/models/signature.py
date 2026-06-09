@@ -59,6 +59,43 @@ class CustomerSignature(Base):
     )
 
 
+class SignaturePadToken(Base):
+    """상시 서명패드(/sign/pad) URL 토큰 상태 — 테넌트당 active 1행.
+
+    완전 stateless HMAC 만으로는 '재발급 시 기존 URL 폐기'를 보장할 수 없어,
+    테넌트별 active ``token_id``(UUID4) + 만료시각을 PG 에 저장한다. 토큰 문자열
+    자체는 저장하지 않고, payload 의 ``jti`` 를 이 행의 ``token_id`` 와 대조해
+    검증한다. 재발급은 같은 행의 token_id/issued_at/expires_at 을 갱신한다(새 행 X).
+    """
+    __tablename__ = "signature_pad_tokens"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("tenants.tenant_id", onupdate="CASCADE"), nullable=False
+    )
+    token_id: Mapped[str] = mapped_column(Text, nullable=False)  # UUID4 문자열
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    issued_by_login_id: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_pad_token_per_tenant"),
+    )
+
+
 class TempSignatureSlot(Base):
     __tablename__ = "temp_signature_slots"
 
