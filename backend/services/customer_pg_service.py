@@ -89,15 +89,84 @@ def find_customer(tenant_id: str, customer_id: str) -> Optional[dict]:
     return _row_to_dict(row) if row else None
 
 
+def _max_customer_number(tenant_id: str) -> int:
+    """Highest integer-looking ``고객ID`` for this tenant, **including
+    soft-deleted rows**.
+
+    The unique index ``uq_customer_per_tenant (tenant_id, customer_id)`` still
+    holds tombstoned rows, so an auto-numbered id must clear them too —
+    otherwise id re-use can collide with a deleted customer's slot and
+    raise an IntegrityError on insert.
+    """
+    from backend.db.models.customer import Customer
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        ids = session.scalars(
+            select(Customer.customer_id).where(Customer.tenant_id == tenant_id)
+        ).all()
+    nums = [int(x) for x in ids if str(x).strip().isdigit()]
+    return max(nums, default=0)
+
+
 def next_customer_id(tenant_id: str) -> str:
     """Return the next ``고객ID`` value for an auto-numbered insert.
 
-    Matches the Sheets router's logic: take the max of integer-looking IDs
-    and add 1, zero-padded to 4 digits.
+    Max of integer-looking IDs (across all rows incl. soft-deleted) + 1,
+    zero-padded to 4 digits.
     """
-    existing = list_customers(tenant_id)
-    nums = [int(r["고객ID"]) for r in existing if str(r.get("고객ID", "")).isdigit()]
-    return str((max(nums, default=0) + 1)).zfill(4)
+    return str(_max_customer_number(tenant_id) + 1).zfill(4)
+
+
+class CustomerIdConflict(Exception):
+    """Auto-numbered ``고객ID`` kept colliding with the unique index after
+    retries (concurrent inserts / stale id)."""
+
+
+def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict:
+    """Insert a new customer, auto-numbering ``고객ID`` when absent.
+
+    Defends against the check-then-insert race (two concurrent adds compute
+    the same next id) and stale-id reuse by retrying with a freshly computed
+    id when the ``(tenant_id, customer_id)`` unique constraint is violated.
+    When the caller supplies an explicit ``고객ID`` we defer to
+    :func:`upsert_customer` (update-or-restore semantics, unchanged).
+    """
+    explicit_id = str(data.get("고객ID", "")).strip()
+    if explicit_id:
+        return upsert_customer(tenant_id, data)
+
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.db.models.customer import Customer
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    base_payload = {SHEET_TO_PG[k]: v for k, v in data.items() if k in SHEET_TO_PG}
+    last_err: Optional[Exception] = None
+    for _ in range(max(1, max_retries)):
+        cid = next_customer_id(tenant_id)
+        payload = dict(base_payload, tenant_id=tenant_id, customer_id=cid)
+        try:
+            with SessionLocal() as session:
+                row = Customer(**payload)
+                session.add(row)
+                session.commit()
+                session.refresh(row)
+                return _row_to_dict(row)
+        except IntegrityError as e:
+            last_err = e
+            diag = getattr(getattr(e, "orig", None), "diag", None)
+            cname = getattr(diag, "constraint_name", None) or "unknown"
+            print(
+                f"[customer_pg_service.create_customer] IntegrityError "
+                f"tenant={tenant_id!r} customer_id={cid!r} constraint={cname} - retrying"
+            )
+            continue
+    raise CustomerIdConflict(
+        "고객ID 생성 중 중복이 발생했습니다. 다시 시도해 주세요."
+    ) from last_err
 
 
 def upsert_customer(tenant_id: str, data: dict) -> dict:

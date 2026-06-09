@@ -972,6 +972,10 @@ function CustomerDrawer({
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [showSignatureFull, setShowSignatureFull] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
+  // 서명 삭제(2단계 확인: 모달 + 체크박스)
+  const [showDeleteSign, setShowDeleteSign] = useState(false);
+  const [deleteSignConfirm, setDeleteSignConfirm] = useState(false);
+  const { submit: submitDeleteSign, isSubmitting: deletingSign } = useSubmit();
 
   // ── 임시저장 슬롯 ──
   const [tempSlots, setTempSlots] = useState<{ slot: number; has_data: boolean; 비고: string }[]>([]);
@@ -1010,6 +1014,8 @@ function CustomerDrawer({
       setDirty(false);
       setShowSignatureFull(false);
       setShowTempSlots(false);
+      setShowDeleteSign(false);
+      setDeleteSignConfirm(false);
       setShowHikoreaPanel(false);
       setHikoreaExpiry("");
       setShowIdFindPanel(false);
@@ -1754,6 +1760,19 @@ function CustomerDrawer({
                   >
                     {hasSignature ? "서명 재등록" : "서명 등록"}
                   </button>
+                  {/* 서명 삭제 — 적용된 고객서명이 있을 때만 (임시서명 1·2·3은 비접촉) */}
+                  {hasSignature === true && (
+                    <button
+                      onClick={() => { setDeleteSignConfirm(false); setShowDeleteSign(true); }}
+                      style={{
+                        fontSize:11, padding:"5px 12px", borderRadius:6,
+                        border:"1px solid #FEB2B2", color:"#C53030",
+                        background:"#FFF5F5", cursor:"pointer", fontWeight:600,
+                      }}
+                    >
+                      서명 삭제
+                    </button>
+                  )}
                   {/* 임시저장 서명 사용 — 서명 없고 슬롯에 데이터 있을 때만 표시 */}
                   {hasSignature === false && tempSlots.some((s) => s.has_data) && (
                     <button
@@ -1859,6 +1878,61 @@ function CustomerDrawer({
           }}
           onClose={() => setShowSignModal(false)}
         />
+      )}
+
+      {/* 서명 삭제 확인 모달 (2단계: 모달 + 체크박스) */}
+      {showDeleteSign && (
+        <div
+          onClick={() => { if (!deletingSign) setShowDeleteSign(false); }}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center" }}
+        >
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width:"min(380px,92vw)", background:"#fff", borderRadius:12, boxShadow:"0 8px 32px rgba(0,0,0,0.18)", overflow:"hidden" }}>
+            <div style={{ padding:"14px 18px", borderBottom:"1px solid #E2E8F0", fontSize:15, fontWeight:700, color:"#C53030" }}>서명 삭제</div>
+            <div style={{ padding:18, display:"flex", flexDirection:"column", gap:14 }}>
+              <div style={{ fontSize:13, color:"#2D3748", lineHeight:1.6 }}>
+                <strong>{name}</strong> 고객의 저장된 서명을 삭제하시겠습니까?<br />
+                이 작업은 되돌릴 수 없습니다.
+              </div>
+              <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#4A5568", cursor:"pointer" }}>
+                <input type="checkbox" checked={deleteSignConfirm} onChange={(e) => setDeleteSignConfirm(e.target.checked)} />
+                서명 삭제를 확인했습니다
+              </label>
+              <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                <button onClick={() => setShowDeleteSign(false)} disabled={deletingSign} className="btn-secondary text-xs">취소</button>
+                <button
+                  disabled={!deleteSignConfirm || deletingSign}
+                  onClick={() => {
+                    submitDeleteSign(
+                      async () => {
+                        const res = await fetch(`/api/signature/customer/${encodeURIComponent(id)}`, {
+                          method:"DELETE",
+                          headers:{ Authorization:`Bearer ${localStorage.getItem("access_token") || ""}` },
+                        });
+                        if (!res.ok) throw new Error();
+                        setHasSignature(false);
+                        setSignatureData(null);
+                        setShowSignatureFull(false);
+                        setShowDeleteSign(false);
+                        setDeleteSignConfirm(false);
+                      },
+                      { successMessage:"서명이 삭제되었습니다.", errorMessage:"서명 삭제에 실패했습니다." }
+                    );
+                  }}
+                  style={{
+                    fontSize:12, padding:"6px 14px", borderRadius:6, border:"none",
+                    background:(!deleteSignConfirm || deletingSign) ? "#FEB2B2" : "#E53E3E",
+                    color:"#fff", fontWeight:700,
+                    cursor:(!deleteSignConfirm || deletingSign) ? "default" : "pointer",
+                    opacity:(!deleteSignConfirm || deletingSign) ? 0.7 : 1,
+                  }}
+                >
+                  {deletingSign ? "삭제 중..." : "삭제"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 숙소제공자 설정 모달 */}

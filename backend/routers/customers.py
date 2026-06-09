@@ -236,12 +236,13 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
 
     if pg_customers_enabled():
         print(f"[write-path] customers(add): PG tenant={tenant_id!r}")
-        from backend.services.customer_pg_service import next_customer_id, upsert_customer
-        if not data.get("고객ID"):
-            data["고객ID"] = next_customer_id(tenant_id)
-        upsert_customer(tenant_id, data)
+        from backend.services.customer_pg_service import create_customer, CustomerIdConflict
+        try:
+            result = create_customer(tenant_id, data)
+        except CustomerIdConflict as e:
+            raise HTTPException(status_code=409, detail=str(e))
         cache_invalidate(tenant_id, _CACHE_EXPIRY)
-        return {"ok": True, "고객ID": data["고객ID"]}
+        return {"ok": True, "고객ID": result["고객ID"]}
 
     print(f"[write-path] customers(add): SHEETS tenant={tenant_id!r}")
     from backend.services.tenant_service import upsert_sheet

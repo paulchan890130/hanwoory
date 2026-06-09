@@ -69,7 +69,8 @@ export default function SignPadUrlModal({ onClose }: { onClose: () => void }) {
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={copy} className="btn-primary" style={{ flex: 1, fontSize: 13, padding: "8px 0" }}>
+                <button onClick={copy} className="btn-primary"
+                  style={{ flex: 1, fontSize: 13, padding: "8px 0", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, whiteSpace: "nowrap" }}>
                   {copied ? "복사됨 ✓" : "복사"}
                 </button>
                 <button onClick={() => window.open(url, "_blank")}

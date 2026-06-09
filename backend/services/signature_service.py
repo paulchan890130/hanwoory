@@ -227,6 +227,35 @@ def save_customer_signature(customer_sheet_key: str, customer_id: str, b64: str)
     _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
 
 
+def delete_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
+    """고객에게 적용된 고객서명만 삭제. 임시서명 1·2·3 및 고객 기본정보는 비접촉.
+
+    Returns:
+        True  — 서명 행을 삭제함
+        False — 삭제할 서명 행이 없었음 (고객정보는 그대로)
+    """
+    from backend.db.feature_flags import pg_signatures_enabled
+    if pg_signatures_enabled():
+        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
+        from backend.services.signature_pg_service import delete_customer_signature as _pg
+        deleted = _pg(tid, customer_id)
+        _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
+        return deleted
+
+    sh = _tenant_customer_sh(customer_sheet_key)
+    ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
+    rows = _find_cust_rows(ws, customer_sheet_key, customer_id)
+    if not rows:
+        _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
+        return False
+    # 아래에서 위로 삭제 — 위 행 삭제로 인한 인덱스 밀림 방지
+    for row in sorted(rows, reverse=True):
+        ws.delete_rows(row)
+    _cust_col_a_cache.pop(customer_sheet_key, None)
+    _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
+    return True
+
+
 class SignatureLookupError(Exception):
     """Google Sheets 조회 실패 — 서명 없음과 구별되는 오류."""
 

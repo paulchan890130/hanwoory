@@ -700,3 +700,26 @@ def check_customer_signature_exists(
             detail="고객서명 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         ) from e
     return {"exists": exists}
+
+
+@router.delete("/customer/{customer_id}")
+def delete_customer_signature_endpoint(
+    customer_id: str,
+    customer_sheet_key: Optional[str] = Query(None),
+    user: dict = Depends(get_current_user),
+):
+    """고객에게 적용된 고객서명만 삭제. 임시서명 1·2·3 및 고객 기본정보는 비접촉.
+
+    customer_sheet_key 는 항상 로그인 사용자(tenant_id) 기준으로 resolve 하므로
+    다른 tenant 의 고객서명은 삭제할 수 없다."""
+    from backend.services.signature_service import delete_customer_signature as _del
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    try:
+        csk = _resolve_customer_sheet_key(tenant_id, customer_sheet_key)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    try:
+        deleted = _del(csk, customer_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"서명 삭제 실패: {e}")
+    return {"ok": True, "deleted": deleted}

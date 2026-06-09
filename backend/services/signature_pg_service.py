@@ -85,6 +85,24 @@ def has_customer_signature(tenant_id: str, customer_id: str) -> bool:
     return get_customer_signature(tenant_id, customer_id) is not None
 
 
+def delete_customer_signature(tenant_id: str, customer_id: str) -> bool:
+    """Delete the applied customer signature row. Returns True iff a row was
+    removed. Temp slots / customer profile are untouched."""
+    from backend.db.models.signature import CustomerSignature
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        result = session.execute(
+            delete(CustomerSignature).where(
+                CustomerSignature.tenant_id == tenant_id,
+                CustomerSignature.customer_id == customer_id,
+            )
+        )
+        session.commit()
+        return (result.rowcount or 0) > 0
+
+
 # ── temp slots (1 / 2 / 3 per tenant) ─────────────────────────────────────
 
 def get_temp_slots(tenant_id: str) -> list[dict]:
