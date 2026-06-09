@@ -236,9 +236,13 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
 
     if pg_customers_enabled():
         print(f"[write-path] customers(add): PG tenant={tenant_id!r}")
-        from backend.services.customer_pg_service import create_customer, CustomerIdConflict
+        from backend.services.customer_pg_service import (
+            create_customer, CustomerIdConflict, TenantNotProvisioned,
+        )
         try:
             result = create_customer(tenant_id, data)
+        except TenantNotProvisioned as e:
+            raise HTTPException(status_code=409, detail=str(e))
         except CustomerIdConflict as e:
             raise HTTPException(status_code=409, detail=str(e))
         cache_invalidate(tenant_id, _CACHE_EXPIRY)

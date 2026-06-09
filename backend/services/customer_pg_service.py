@@ -124,6 +124,29 @@ class CustomerIdConflict(Exception):
     retries (concurrent inserts / stale id)."""
 
 
+class TenantNotProvisioned(Exception):
+    """The customer insert hit ``customers_tenant_id_fkey`` — the tenant has
+    no row in ``tenants`` yet (PG workspace not provisioned). Retrying the
+    customer-id is pointless; surface a clear, actionable error instead."""
+
+
+def _constraint_name(exc: Exception) -> str:
+    """Best-effort constraint name from an IntegrityError.
+
+    Prefers psycopg's ``orig.diag.constraint_name``; falls back to scraping
+    the DBAPI message (driver-agnostic) so we can still classify the error
+    when diagnostics are unavailable."""
+    diag = getattr(getattr(exc, "orig", None), "diag", None)
+    name = getattr(diag, "constraint_name", None)
+    if name:
+        return name
+    msg = str(getattr(exc, "orig", exc))
+    for known in ("uq_customer_per_tenant", "customers_tenant_id_fkey"):
+        if known in msg:
+            return known
+    return "unknown"
+
+
 def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict:
     """Insert a new customer, auto-numbering ``고객ID`` when absent.
 
@@ -156,14 +179,31 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
                 session.refresh(row)
                 return _row_to_dict(row)
         except IntegrityError as e:
-            last_err = e
-            diag = getattr(getattr(e, "orig", None), "diag", None)
-            cname = getattr(diag, "constraint_name", None) or "unknown"
+            cname = _constraint_name(e)
+            # 고객ID 중복(uq_customer_per_tenant)일 때만 다음 번호로 재시도한다.
+            if cname == "uq_customer_per_tenant":
+                last_err = e
+                print(
+                    f"[customer_pg_service.create_customer] IntegrityError "
+                    f"tenant={tenant_id!r} customer_id={cid!r} constraint={cname} - retrying"
+                )
+                continue
+            # tenant FK 위반: tenants 행이 없음 → 재시도해도 동일하게 실패하므로 즉시 중단.
+            # (with-블록 종료 시 미커밋 트랜잭션은 자동 rollback)
+            if cname == "customers_tenant_id_fkey":
+                print(
+                    f"[customer_pg_service.create_customer] IntegrityError "
+                    f"tenant={tenant_id!r} customer_id={cid!r} constraint={cname} - tenant not provisioned"
+                )
+                raise TenantNotProvisioned(
+                    "테넌트 초기화가 완료되지 않았습니다. 관리자에게 문의하세요."
+                ) from e
+            # 알 수 없는 무결성 오류: 무리하게 재시도하지 않고 그대로 전파.
             print(
                 f"[customer_pg_service.create_customer] IntegrityError "
-                f"tenant={tenant_id!r} customer_id={cid!r} constraint={cname} - retrying"
+                f"tenant={tenant_id!r} customer_id={cid!r} constraint={cname} - not retryable"
             )
-            continue
+            raise
     raise CustomerIdConflict(
         "고객ID 생성 중 중복이 발생했습니다. 다시 시도해 주세요."
     ) from last_err

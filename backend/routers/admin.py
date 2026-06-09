@@ -480,6 +480,21 @@ def create_account(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"계정 생성 실패: {e}")
 
+    # PG tenants 행 멱등 보장 — FEATURE_PG_CUSTOMERS 등 PG 저장을 쓰는 환경에서
+    # Sheets Accounts 에만 계정이 생기고 PG tenant 가 없어 첫 고객 추가가
+    # customers_tenant_id_fkey 로 실패하는 것을 방지. PG 미구성 시 no-op.
+    # 비치명적: 실패해도 계정 생성 자체는 성공 처리(기존 흐름 유지).
+    try:
+        from backend.services.tenant_provisioning_service import ensure_tenant_provisioned
+        created = ensure_tenant_provisioned(
+            str(account.get("tenant_id", "")).strip() or account["login_id"],
+            account.get("office_name", ""),
+        )
+        if created:
+            print(f"[admin.create_account] provisioned PG tenant for {account['login_id']!r}")
+    except Exception as e:
+        print(f"[admin.create_account] tenant provisioning skipped (non-fatal): {e}")
+
     # 캐시 초기화
     try:
         import backend.services.tenant_service as _ts
