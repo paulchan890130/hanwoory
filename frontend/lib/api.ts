@@ -448,6 +448,15 @@ export const adminApi = {
     }>("/api/admin/workspace", { login_id, office_name }),
   deleteAccount: (loginId: string) =>
     api.delete(`/api/admin/accounts/${loginId}`),
+  // 행정사 주민등록번호 — 상태만 조회/저장(원문 미노출). 빈 값 저장 = 삭제.
+  getAgentRrn: (loginId: string) =>
+    api.get<{ has_agent_rrn: boolean; agent_rrn_last4: string }>(
+      `/api/admin/accounts/${loginId}/agent-rrn`
+    ),
+  setAgentRrn: (loginId: string, agent_rrn: string) =>
+    api.put<{ has_agent_rrn: boolean; agent_rrn_last4: string }>(
+      `/api/admin/accounts/${loginId}/agent-rrn`, { agent_rrn }
+    ),
 };
 
 // 업무참고
@@ -524,6 +533,9 @@ export interface FullDocGenRequest {
   include_date?: boolean;
   /** 직접 지정 날짜 YYYY-MM-DD; 미지정 시 오늘 날짜 자동 삽입 */
   custom_date?: string;
+  use_english_stamp?: boolean;  // true=신청인 도장에 영문 이니셜(성+명 첫글자), 기본 false=한글 도장
+  // "acroform"(기본) | "field_ap"(보기안정형: 필드 유지+/AP 통일) | "overlay_legacy"(구 overlay, dev 전용)
+  render_mode?: "acroform" | "field_ap" | "overlay_legacy" | "overlay";
 }
 
 export const quickDocApi = {
@@ -544,6 +556,61 @@ export const quickDocApi = {
     selected_docs: string[];
     customer_id?: string;
   }) => api.post("/api/quick-doc/generate", data, { responseType: "blob" }),
+};
+
+// 문서자동작성 설정(관리자 전용) — 편집형 선택 트리 + 필요서류 (Phase I-1J-6O)
+export type DocNodeLevel = "category" | "petition" | "type" | "subtype";
+
+export interface AdminReqDoc {
+  id: number;
+  name: string;
+  doc_group: "main" | "agent";
+  sort_order: number;
+  is_active: boolean;
+  template_filename: string;
+  template_status: "mapped" | "missing";
+}
+export interface AdminDocNode {
+  id: number;
+  parent_id: number | null;
+  level: DocNodeLevel;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  docs?: AdminReqDoc[];
+  subtypes?: AdminDocNode[];
+  types?: AdminDocNode[];
+  petitions?: AdminDocNode[];
+}
+export interface AdminDocTree {
+  categories: AdminDocNode[];
+}
+export interface TemplateFile {
+  filename: string;
+  display_name: string;
+  exists: boolean;
+}
+
+export const docConfigApi = {
+  getTree: () => api.get<AdminDocTree>("/api/quick-doc/admin/tree"),
+  getTemplates: () =>
+    api.get<{ templates: TemplateFile[] }>("/api/quick-doc/admin/templates"),
+  createNode: (data: { parent_id: number | null; level: DocNodeLevel; name: string; sort_order?: number }) =>
+    api.post<AdminDocNode>("/api/quick-doc/admin/nodes", data),
+  updateNode: (id: number, data: { name?: string; sort_order?: number; is_active?: boolean }) =>
+    api.patch<AdminDocNode>(`/api/quick-doc/admin/nodes/${id}`, data),
+  deleteNode: (id: number) => api.delete(`/api/quick-doc/admin/nodes/${id}`),
+  createDoc: (data: {
+    node_id: number; name: string; doc_group?: "main" | "agent";
+    sort_order?: number; template_filename?: string;
+  }) => api.post<AdminReqDoc>("/api/quick-doc/admin/required-documents", data),
+  updateDoc: (id: number, data: {
+    name?: string; doc_group?: "main" | "agent"; sort_order?: number;
+    is_active?: boolean; template_filename?: string;
+  }) => api.patch<AdminReqDoc>(`/api/quick-doc/admin/required-documents/${id}`, data),
+  deleteDoc: (id: number) => api.delete(`/api/quick-doc/admin/required-documents/${id}`),
+  remapDoc: (id: number) =>
+    api.post<AdminReqDoc>(`/api/quick-doc/admin/required-documents/${id}/auto-map-template`),
 };
 
 // 통합검색
@@ -592,6 +659,9 @@ export interface ManualSearchResult {
 export const manualApi = {
   search: (q: string) =>
     api.get<ManualSearchResult>("/api/manual/search", { params: { q } }),
+  // 사용자 알림용: 최신 매뉴얼 업데이트 식별자(비관리자 허용, 데이터 없으면 version=null)
+  latest: () =>
+    api.get<{ version: string | null; detected_at: string | null }>("/api/manual/latest"),
 };
 
 // ── 원클릭 작성 ──────────────────────────────────────────────────────────────

@@ -132,6 +132,37 @@ def get_watcher_state(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"상태 파일 읽기 실패: {e}")
 
 
+# ── 사용자 알림용: 최신 매뉴얼 업데이트 식별자 ─────────────────────────────────
+@router.get("/latest")
+def latest_manual_update(user: dict = Depends(get_current_user)):
+    """로그인 사용자 알림용(비관리자 허용, 읽기 전용).
+
+    PG ``manual_update_versions`` 최신 1건의 (version, detected_at) 반환.
+    PG 미구성 / 데이터 없음 / 오류 시 ``version=None`` 으로 graceful.
+    프론트는 이 식별자로 '매뉴얼 업데이트' 토스트를 로그인 최초 1회만 띄운다
+    (localStorage marker; DB read-marker 는 정식 개선안으로 유보)."""
+    try:
+        from backend.db.session import get_sessionmaker, is_configured
+        if not is_configured():
+            return {"version": None, "detected_at": None}
+        from backend.db.models.manual_update import ManualUpdateVersion
+        from sqlalchemy import select
+        with get_sessionmaker()() as s:
+            row = s.scalars(
+                select(ManualUpdateVersion)
+                .order_by(ManualUpdateVersion.detected_at.desc())
+                .limit(1)
+            ).first()
+            if row is None:
+                return {"version": None, "detected_at": None}
+            return {
+                "version": row.version,
+                "detected_at": row.detected_at.isoformat() if row.detected_at else None,
+            }
+    except Exception:
+        return {"version": None, "detected_at": None}
+
+
 # ── 페이지 변경 검토 목록 ──────────────────────────────────────────────────────
 @router.get("/update-review")
 def get_update_review(admin: dict = Depends(require_admin)):

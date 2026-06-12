@@ -14,7 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.auth import get_current_user
-from backend.services.roi_preset_sheet import (
+# PG-only(Phase I): ROI 프리셋은 PostgreSQL(roi_preset_pg_service). Google Sheets 제거.
+from backend.services.roi_preset_pg_service import (
     get_all_presets,
     upsert_preset,
     delete_preset,

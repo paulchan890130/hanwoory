@@ -394,9 +394,7 @@ def scan_register(
     import logging
     _log = logging.getLogger("scan.register")
 
-    from backend.services.tenant_service import get_worksheet
     from config import CUSTOMER_SHEET_NAME
-    import pandas as pd
 
     tenant_id = user.get("tenant_id") or user.get("sub", "")
 
@@ -443,8 +441,8 @@ def scan_register(
     # customers 라우터(add_customer/update_customer)와 동일하게 feature flag 를
     # 존중하고 동일 서비스(customer_pg_service)로 라우팅한다. 플래그가 꺼져 있으면
     # 아래 기존 Google Sheets 경로로 폴백(하위호환). row-level INSERT/UPDATE 만 수행.
-    from backend.db.feature_flags import pg_customers_enabled
-    if pg_customers_enabled():
+    # PG-only(Phase C): OCR 고객등록은 항상 PostgreSQL. Google Sheets fallback 제거.
+    if True:
         print(f"[write-path] customers(scan): PG tenant={tenant_id!r}")
         from backend.services.customer_pg_service import (
             list_customers, next_customer_id, upsert_customer,
@@ -503,129 +501,5 @@ def scan_register(
             _log.exception("[SCAN][BE][PG] upsert failed")
             raise HTTPException(status_code=500, detail=f"고객 저장 실패(PG): {e}")
 
-    # ── 시트 데이터 로드 (Google Sheets 경로 — PG 플래그 off) ──────────────
-    print(f"[write-path] customers(scan): SHEETS tenant={tenant_id!r}")
-    try:
-        ws = get_worksheet(CUSTOMER_SHEET_NAME, tenant_id)
-        all_values = ws.get_all_values()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"시트 접근 실패: {str(e)}")
-
-    if not all_values:
-        raise HTTPException(status_code=500, detail="고객 시트가 비어 있습니다.")
-
-    headers = all_values[0]
-    rows    = all_values[1:]
-    df = pd.DataFrame(rows, columns=headers)
-
-    def norm(s): return str(s or "").strip()
-
-    # ── 기존 고객 탐색 ────────────────────────────────────────────
-    key_passport  = norm(data.get("여권", ""))
-    key_reg_front = norm(data.get("등록증", ""))
-    key_reg_back  = norm(data.get("번호", ""))
-
-    hit_idx = None
-    match_reason = None
-
-    if key_passport and "여권" in df.columns:
-        matches = df.index[df["여권"].astype(str).str.strip() == key_passport].tolist()
-        if matches:
-            hit_idx = matches[0]
-            match_reason = f"passport match: 여권={key_passport!r}"
-
-    if hit_idx is None and key_reg_front and key_reg_back:
-        if "등록증" in df.columns and "번호" in df.columns:
-            matches = df.index[
-                (df["등록증"].astype(str).str.strip() == key_reg_front) &
-                (df["번호"].astype(str).str.strip()   == key_reg_back)
-            ].tolist()
-            if matches:
-                hit_idx = matches[0]
-                match_reason = f"reg-number match: 등록증={key_reg_front!r} 번호={key_reg_back!r}"
-
-    # ── [INSTRUMENT] log match result ───────────────────────────────────────
-    if hit_idx is not None:
-        _log.warning("[SCAN][BE] EXISTING CUSTOMER FOUND — hit_idx=%d reason=%s", hit_idx, match_reason)
-    else:
-        _log.warning("[SCAN][BE] NO MATCH — will create new customer")
-        _log.warning("[SCAN][BE] search keys: passport=%r reg_front=%r reg_back=%r",
-                     key_passport, key_reg_front, key_reg_back)
-    # ────────────────────────────────────────────────────────────────────────
-
-    # ── 컬럼 인덱스 헬퍼 ─────────────────────────────────────────
-    def _col_letter(n: int) -> str:
-        s = ""
-        while n > 0:
-            n, r = divmod(n - 1, 26)
-            s = chr(65 + r) + s
-        return s
-
-    # ── 1) 기존 고객 업데이트 ────────────────────────────────────
-    if hit_idx is not None:
-        rownum = hit_idx + 2   # 헤더 1행 + 0-index 보정
-        customer_id = str(df.at[hit_idx, "고객ID"]) if "고객ID" in df.columns else ""
-        existing_만기일 = str(df.at[hit_idx, "만기일"]) if "만기일" in df.columns else "<col missing>"
-
-        # ── [INSTRUMENT] log UPDATE path ──────────────────────────────────────
-        _log.warning("[SCAN][BE] PATH=updated  customer_id=%r  row=%d  match=%s",
-                     customer_id, rownum, match_reason)
-        _log.warning("[SCAN][BE] existing sheet 만기일=%r  incoming normalized 만기일=%r",
-                     existing_만기일,
-                     data.get("만기일", "<absent – NOT being written, old value preserved>"))
-        # ──────────────────────────────────────────────────────────────────────
-
-        batch  = []
-        for col_name, val in data.items():
-            if col_name in headers:
-                col_idx = headers.index(col_name) + 1  # 1-based
-                cell    = f"{_col_letter(col_idx)}{rownum}"
-                batch.append({"range": cell, "values": [[val]]})
-
-        if batch:
-            try:
-                ws.batch_update(batch)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"고객 업데이트 실패: {str(e)}")
-
-        _invalidate_customer_caches()
-        return {
-            "status": "updated",
-            "고객ID": customer_id,
-            "message": f"기존 고객({customer_id}) 정보가 업데이트되었습니다.",
-        }
-
-    # ── 2) 신규 고객 추가 ────────────────────────────────────────
-    today_str = datetime.date.today().strftime("%Y%m%d")
-    if "고객ID" in df.columns:
-        today_ids = df["고객ID"].astype(str).str.strip()
-        today_count = today_ids[today_ids.str.startswith(today_str)].shape[0]
-    else:
-        today_count = 0
-    new_id = today_str + str(today_count + 1).zfill(2)
-
-    base = {h: "" for h in headers}
-    base["고객ID"] = new_id
-    for k, v in data.items():
-        if k in base:
-            base[k] = v
-
-    # ── [INSTRUMENT] log CREATE path ──────────────────────────────────────
-    _log.warning("[SCAN][BE] PATH=created  new_id=%r", new_id)
-    _log.warning("[SCAN][BE] new row 만기일=%r  만기(여권)=%r",
-                 base.get("만기일", ""), base.get("만기", ""))
-    _log.warning("[SCAN][BE] full new row (non-empty only): %s",
-                 {k: v for k, v in base.items() if v})
-    # ──────────────────────────────────────────────────────────────────────
-
-    try:
-        ws.append_row([base.get(h, "") for h in headers])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"고객 추가 실패: {str(e)}")
-
-    _invalidate_customer_caches()
-    return {
-        "status": "created",
-        "고객ID": new_id,
-        "message": f"신규 고객이 추가되었습니다 (고객ID: {new_id}).",
-    }
+    # 도달 불가(PG-only) — 위 if 블록이 항상 반환/예외. Google Sheets 경로 제거됨.
+    raise HTTPException(status_code=500, detail="scan_register misrouted (PG-only)")

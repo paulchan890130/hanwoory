@@ -14,79 +14,46 @@ router = APIRouter()
 @router.post("/bootstrap")
 def bootstrap_admin(body: AccountCreate):
     """
-    최초 관리자 계정 생성 — 인증 불필요.
-    Accounts 시트에 데이터 행이 하나도 없을 때만 동작합니다.
-    계정이 1개라도 있으면 403 반환 (중복 부트스트랩 방지).
-
-    모든 Accounts 읽기·쓰기는 accounts_service 경유 (서비스 계정 사용).
+    최초 관리자 계정 생성 — 인증 불필요. **PG-only.**
+    PG users 에 계정이 하나도 없을 때만 동작(중복 부트스트랩 방지). 1개라도 있으면 403.
+    Google Sheets 미사용.
     """
-    from config import KEY_PATH
-    from backend.services.accounts_service import (
-        ACCOUNTS_SCHEMA,
-        hash_password,
-        build_account_dict,
-        dict_to_row,
-        ensure_header,
-        _get_ws,
-    )
+    from sqlalchemy import select, func
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker, is_configured
+    from backend.services.accounts_service import hash_password, build_account_dict, append_account
 
-    import os as _os
-    if not _os.path.isfile(KEY_PATH):
-        raise HTTPException(status_code=500, detail=f"서비스 계정 키 파일 없음: {KEY_PATH}")
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="PostgreSQL 미구성 — bootstrap 불가.")
 
-    # ── Accounts 워크시트 열기 ─────────────────────────────────────────────
-    try:
-        ws = _get_ws()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Accounts 시트 열기 실패: {e}")
-
-    # ── 기존 데이터 행 확인 → 있으면 차단 ─────────────────────────────────
-    try:
-        existing_values = ws.get_all_values()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Accounts 시트 읽기 실패: {e}")
-
-    # 1행은 헤더이므로 2행 이상에 값이 있으면 계정 존재로 판단
-    data_rows = [r for r in existing_values[1:] if any(c.strip() for c in r)] if len(existing_values) > 1 else []
-    if data_rows:
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        existing = session.scalar(select(func.count(AccountUser.id)))
+    if existing and existing > 0:
         raise HTTPException(
             status_code=403,
             detail="이미 계정이 존재합니다. bootstrap은 최초 1회만 사용 가능합니다. "
                    "계정 추가는 관리자 로그인 후 POST /api/admin/accounts 를 사용하세요.",
         )
 
-    # ── 16컬럼 account dict 생성 ───────────────────────────────────────────
     account = build_account_dict(
         login_id=body.login_id,
         password_hash=hash_password(body.password),
-        tenant_id=body.tenant_id or "",   # 미입력 시 build_account_dict가 login_id로 설정
+        tenant_id=body.tenant_id or "",
         office_name=body.office_name,
         office_adr=body.office_adr or "",
         contact_name=body.contact_name or "",
         contact_tel=body.contact_tel or "",
         biz_reg_no=body.biz_reg_no or "",
         agent_rrn=body.agent_rrn or "",
-        folder_id=body.folder_id or "",
-        work_sheet_key=body.work_sheet_key or "",
-        customer_sheet_key=body.customer_sheet_key or "",
-        sheet_key=body.sheet_key or "",
-        is_admin=True,   # bootstrap = 항상 관리자
+        is_admin=True,    # bootstrap = 항상 관리자
         is_active=True,
     )
-    data_row = dict_to_row(account)
-
     try:
-        if not existing_values:
-            # 완전히 빈 시트: 헤더 + 데이터 한 번에 기록
-            ws.update("A1", [ACCOUNTS_SCHEMA, data_row], value_input_option="USER_ENTERED")
-        else:
-            # 헤더만 있고(또는 헤더가 다르고) 데이터 없음 → 헤더 보정 후 append
-            ensure_header(ws)
-            ws.append_row(data_row, value_input_option="USER_ENTERED")
+        append_account(account)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"계정 생성 실패 — Sheets 쓰기 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"계정 생성 실패: {e}")
 
-    # ── 테넌트 캐시 초기화 ─────────────────────────────────────────────────
     try:
         import backend.services.tenant_service as _ts
         _ts._TENANT_MAP_CACHE = {}
@@ -120,8 +87,9 @@ class WorkspaceCreateRequest(BaseModel):
 
 @router.get("/accounts")
 def list_accounts(user: dict = Depends(require_admin)):
-    from backend.db.feature_flags import pg_admin_enabled, local_drive_mock_enabled
-    if pg_admin_enabled():
+    # PG-only(Phase B): 계정 목록은 항상 PostgreSQL. Google Sheets fallback 제거.
+    from backend.db.feature_flags import local_drive_mock_enabled
+    if True:
         from sqlalchemy import select, func
         from backend.db.models.tenant import Tenant
         from backend.db.models.user import AccountUser
@@ -218,7 +186,9 @@ def list_accounts(user: dict = Depends(require_admin)):
                 "office_name": (t.office_name if t else "") or "",
                 "office_adr": (t.office_adr if t else "") or "",
                 "biz_reg_no": (t.biz_reg_no if t else "") or "",
-                "agent_rrn": "",
+                "agent_rrn": "",  # 원문 절대 미반환(암호문/평문 노출 금지)
+                "has_agent_rrn": bool(t and t.agent_rrn_encrypted),
+                "agent_rrn_last4": (t.agent_rrn_last4 if t else "") or "",
                 "contact_name": u.contact_name or "",
                 "contact_tel": u.contact_tel or "",
                 "is_admin": "TRUE" if u.is_admin else "FALSE",
@@ -245,15 +215,8 @@ def list_accounts(user: dict = Depends(require_admin)):
             })
         return records
 
-    from core.google_sheets import read_data_from_sheet
-    from config import ACCOUNTS_SHEET_NAME
-    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[])
-    # 비밀번호 해시 제거 후 반환
-    safe = []
-    for r in records:
-        r2 = {k: v for k, v in r.items() if k != "password_hash"}
-        safe.append(r2)
-    return safe
+    # 도달 불가(PG-only). 안전장치.
+    raise HTTPException(status_code=500, detail="account listing misrouted")
 
 
 @router.put("/accounts/{login_id}")
@@ -262,8 +225,8 @@ def update_account(
     update: AccountUpdate,
     user: dict = Depends(require_admin),
 ):
-    from backend.db.feature_flags import pg_admin_enabled
-    if pg_admin_enabled():
+    # PG-only(Phase B): 계정 수정은 항상 PostgreSQL. Google Sheets fallback 제거.
+    if True:
         from sqlalchemy import select
         from backend.db.models.tenant import Tenant
         from backend.db.models.user import AccountUser
@@ -293,68 +256,92 @@ def update_account(
                 if update.customer_sheet_key is not None: t.customer_sheet_key = update.customer_sheet_key
                 if update.is_active is not None: t.is_active = bool(update.is_active)
             session.commit()
+        # tenant_service 맵 캐시 초기화
+        try:
+            import backend.services.tenant_service as _ts
+            _ts._TENANT_MAP_CACHE = {}
+            _ts._TENANT_MAP_TIME = 0
+        except Exception:
+            pass
         return {"ok": True}
 
-    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
-    from config import ACCOUNTS_SHEET_NAME
+    raise HTTPException(status_code=500, detail="account update misrouted")  # 도달 불가
 
-    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[])
-    target = None
-    for r in records:
-        if str(r.get("login_id", "")).strip() == login_id.strip():
-            target = r
-            break
 
-    if not target:
-        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+# ── 행정사 주민등록번호(agent_rrn) — 암호화 저장 전용 (Phase I-1J-6E) ──────────────
+# 원문은 절대 응답에 내려주지 않는다. 상태(has/last4)만 노출한다.
+class AgentRrnUpdate(BaseModel):
+    agent_rrn: Optional[str] = ""   # 빈 값/None → 삭제
 
-    # Boolean 필드
-    if update.is_active is not None:
-        target["is_active"] = "TRUE" if update.is_active else "FALSE"
-    if update.is_admin is not None:
-        target["is_admin"] = "TRUE" if update.is_admin else "FALSE"
-    # 문자열 필드 — None 이 아닐 때만 업데이트 (빈 문자열도 덮어씀)
-    for field in (
-        "tenant_id", "work_sheet_key", "customer_sheet_key",
-        "folder_id", "office_name", "office_adr",
-        "contact_name", "contact_tel", "biz_reg_no",
-        "agent_rrn", "sheet_key",
-    ):
-        val = getattr(update, field, None)
-        if val is not None:
-            target[field] = val
 
-    # 표준 스키마 순서로 헤더 정렬 (없는 컬럼은 끝에 추가)
-    from backend.services.accounts_service import ACCOUNTS_SCHEMA
-    header_list = ACCOUNTS_SCHEMA[:]
-    for k in target:
-        if k not in header_list:
-            header_list.append(k)
+def _agent_rrn_status(t) -> dict:
+    return {
+        "has_agent_rrn": bool(t and t.agent_rrn_encrypted),
+        "agent_rrn_last4": (t.agent_rrn_last4 if t else "") or "",
+    }
 
-    ok = upsert_rows_by_id(
-        ACCOUNTS_SHEET_NAME,
-        header_list=header_list,
-        records=[target],
-        id_field="login_id",
+
+@router.get("/accounts/{login_id}/agent-rrn")
+def get_agent_rrn_status(login_id: str, user: dict = Depends(require_admin)):
+    """행정사 주민번호 등록 상태만 반환(원문/암호문 미노출)."""
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
+        return _agent_rrn_status(t)
+
+
+@router.put("/accounts/{login_id}/agent-rrn")
+def set_agent_rrn(login_id: str, body: AgentRrnUpdate, user: dict = Depends(require_admin)):
+    """행정사 주민번호를 **암호화**해 저장하거나(빈 값이면) 삭제. 원문은 응답에 미포함.
+    key 미설정 시 503, 형식 오류 시 400(메시지에 평문 없음)."""
+    from sqlalchemy import select
+    from datetime import datetime, timezone
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    from backend.services.pii_crypto import (
+        encrypt_agent_rrn, rrn_last4, validate_rrn_format,
+        PiiKeyMissing, RrnFormatError,
     )
-    if not ok:
-        raise HTTPException(status_code=500, detail="계정 수정 실패")
 
-    # 테넌트 캐시 초기화
-    try:
-        from core.google_sheets import _load_tenant_sheet_keys
-        _load_tenant_sheet_keys.clear()
-    except Exception:
-        pass
-    # tenant_service 캐시도 초기화
-    try:
-        import backend.services.tenant_service as _ts
-        _ts._TENANT_MAP_CACHE = {}
-        _ts._TENANT_MAP_TIME = 0
-    except Exception:
-        pass
+    raw = (body.agent_rrn or "").strip()
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
+        if t is None:
+            raise HTTPException(status_code=404, detail="테넌트를 찾을 수 없습니다.")
 
-    return {"ok": True}
+        if not raw:
+            # 삭제(빈 값 저장) — 암호문/표시값 제거.
+            t.agent_rrn_encrypted = None
+            t.agent_rrn_last4 = None
+            t.agent_rrn_updated_at = datetime.now(timezone.utc)
+            session.commit()
+            return _agent_rrn_status(t)
+
+        if not validate_rrn_format(raw):
+            raise HTTPException(status_code=400, detail="주민등록번호 형식이 올바르지 않습니다.")
+        try:
+            cipher = encrypt_agent_rrn(raw)
+        except PiiKeyMissing:
+            raise HTTPException(status_code=503, detail="암호화 키가 설정되지 않아 저장할 수 없습니다.")
+        except RrnFormatError:
+            raise HTTPException(status_code=400, detail="주민등록번호 형식이 올바르지 않습니다.")
+        t.agent_rrn_encrypted = cipher
+        t.agent_rrn_last4 = rrn_last4(raw)
+        t.agent_rrn_updated_at = datetime.now(timezone.utc)
+        session.commit()
+        return _agent_rrn_status(t)
 
 
 @router.delete("/accounts/{login_id}")
@@ -363,74 +350,27 @@ def delete_account(
     user: dict = Depends(require_admin),
 ):
     """계정 비활성화 (소프트 삭제). is_active=FALSE → 로그인 즉시 차단."""
-    from backend.db.feature_flags import pg_admin_enabled
     if login_id.strip() == str(user.get("login_id", "")).strip():
         raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다.")
-    if pg_admin_enabled():
-        from sqlalchemy import select
-        from backend.db.models.user import AccountUser
-        from backend.db.session import get_sessionmaker
-        SessionLocal = get_sessionmaker()
-        with SessionLocal() as session:
-            u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
-            if u is None:
-                raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
-            already = not u.is_active
-            u.is_active = False
-            session.commit()
-        return {"ok": True, "login_id": login_id, "already_inactive": already}
-
-    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
-    from config import ACCOUNTS_SHEET_NAME
-    from backend.services.accounts_service import ACCOUNTS_SCHEMA
-
-    if login_id.strip() == str(user.get("login_id", "")).strip():
-        raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다.")
-
-    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[])
-    target = None
-    for r in records:
-        if str(r.get("login_id", "")).strip() == login_id.strip():
-            target = r
-            break
-
-    if not target:
-        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
-
-    # 이미 비활성이면 idempotent 성공 반환
-    if str(target.get("is_active", "")).upper() == "FALSE":
-        return {"ok": True, "login_id": login_id, "already_inactive": True}
-
-    target["is_active"] = "FALSE"
-
-    header_list = ACCOUNTS_SCHEMA[:]
-    for k in target:
-        if k not in header_list:
-            header_list.append(k)
-
-    try:
-        ok = upsert_rows_by_id(
-            ACCOUNTS_SHEET_NAME,
-            header_list=header_list,
-            records=[target],
-            id_field="login_id",
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger("admin.delete").error("upsert_rows_by_id 실패: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"계정 비활성화 실패: {e}")
-
-    if not ok:
-        raise HTTPException(status_code=500, detail="계정 비활성화 실패 (upsert 반환 False)")
-
+    # PG-only(Phase B): 비활성화는 항상 PostgreSQL. Google Sheets fallback 제거.
+    from sqlalchemy import select
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        already = not u.is_active
+        u.is_active = False
+        session.commit()
     try:
         import backend.services.tenant_service as _ts
         _ts._TENANT_MAP_CACHE = {}
         _ts._TENANT_MAP_TIME = 0
     except Exception:
         pass
-
-    return {"ok": True, "login_id": login_id}
+    return {"ok": True, "login_id": login_id, "already_inactive": already}
 
 
 @router.post("/accounts")
@@ -552,7 +492,9 @@ def create_workspace(
         local_drive_mock_enabled,
         pg_tenant_provisioning_enabled,
     )
-    if local_drive_mock_enabled() or pg_tenant_provisioning_enabled():
+    from backend.db.session import is_configured as _pg_configured
+    # PG-only(Phase B): PG 가 구성된 환경은 항상 PG 프로비저닝 경로 사용(Accounts 시트/운영 Drive 미접촉).
+    if local_drive_mock_enabled() or pg_tenant_provisioning_enabled() or _pg_configured():
         from backend.services.local_drive_mock import provision_workspace
         login_id = body.login_id.strip()
         office_name = body.office_name.strip() or login_id

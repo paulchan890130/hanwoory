@@ -51,6 +51,25 @@ def _delete(tenant_id: str, model, eid: str) -> bool:
         return (result.rowcount or 0) > 0
 
 
+# ── 삭제 제약 (Phase G-1) — Sheets certification_service 와 동일 의미를 PG 로 구현 ──
+# price 가 참조하는 vendor/direction/group/region 은 삭제 차단(409) 또는 soft-delete.
+#   vendor : price.vendor_id == vendor.id     → soft-delete(active=false)
+#   group  : price.group_id  == group.id      → 409
+#   dir    : price.direction == direction.name → 409 (price 는 이름으로 참조)
+#   region : price.region    == region.name    → 409 (price 는 이름으로 참조)
+# 충돌 예외는 router 가 catch 하는 certification_service.ReferenceConflictError 를 그대로 사용
+# (예외 클래스 import 만 — Sheets 런타임 호출 없음).
+
+def _all_prices(tenant_id: str) -> list[dict]:
+    from backend.db.models.certification import CertPrice
+    return _list(tenant_id, CertPrice, PRICE_FIELDS)
+
+
+def _conflict(msg: str):
+    from backend.services.certification_service import ReferenceConflictError
+    return ReferenceConflictError(msg)
+
+
 VENDOR_FIELDS = ("id", "name", "contact", "memo", "active", "created_at", "updated_at")
 DIRECTION_FIELDS = ("id", "name", "sort_order", "active", "created_at", "updated_at")
 GROUP_FIELDS = ("id", "group_name", "aliases", "default_direction", "applicable_directions",
@@ -87,8 +106,22 @@ def save_vendor(tenant_id: str, body: dict):
     return _upsert(tenant_id, CertVendor, VENDOR_FIELDS, body)
 
 def delete_vendor(tenant_id: str, vid: str):
+    """가격조건이 연결된 업체 → soft-delete(active=false). 없으면 hard-delete. (Sheets 동일)"""
     from backend.db.models.certification import CertVendor
-    return {"deleted": _delete(tenant_id, CertVendor, vid)}
+    from backend.db.session import get_sessionmaker
+    ref = sum(1 for p in _all_prices(tenant_id) if p.get("vendor_id") == vid)
+    if ref > 0:
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            row = session.scalar(select(CertVendor).where(
+                CertVendor.id == vid, CertVendor.tenant_id == tenant_id))
+            if row is None:
+                return {"action": "not_found", "ref_count": 0}
+            row.active = "false"
+            session.commit()
+        return {"action": "deactivated", "ref_count": ref}
+    _delete(tenant_id, CertVendor, vid)
+    return {"action": "deleted", "ref_count": 0}
 
 
 def get_directions(tenant_id: str):
@@ -101,6 +134,14 @@ def save_direction(tenant_id: str, body: dict):
 
 def delete_direction(tenant_id: str, did: str):
     from backend.db.models.certification import CertDirection
+    d = next((x for x in _list(tenant_id, CertDirection, DIRECTION_FIELDS) if x.get("id") == did), None)
+    if d:
+        ref = sum(1 for p in _all_prices(tenant_id) if p.get("direction") == d.get("name", ""))
+        if ref > 0:
+            raise _conflict(
+                f"이 대분류를 사용하는 가격조건이 {ref}건 있어 삭제할 수 없습니다. "
+                "먼저 가격조건을 수정하거나 비활성 처리하세요."
+            )
     return {"deleted": _delete(tenant_id, CertDirection, did)}
 
 
@@ -114,6 +155,12 @@ def save_group(tenant_id: str, body: dict):
 
 def delete_group(tenant_id: str, gid: str):
     from backend.db.models.certification import CertGroup
+    ref = sum(1 for p in _all_prices(tenant_id) if p.get("group_id") == gid)
+    if ref > 0:
+        raise _conflict(
+            f"이 중분류를 사용하는 가격조건이 {ref}건 있어 삭제할 수 없습니다. "
+            "먼저 해당 가격조건을 수정하거나 삭제하세요."
+        )
     return {"deleted": _delete(tenant_id, CertGroup, gid)}
 
 
@@ -127,6 +174,14 @@ def save_region(tenant_id: str, body: dict):
 
 def delete_region(tenant_id: str, rid: str):
     from backend.db.models.certification import CertRegion
+    r = next((x for x in _list(tenant_id, CertRegion, REGION_FIELDS) if x.get("id") == rid), None)
+    if r:
+        ref = sum(1 for p in _all_prices(tenant_id) if p.get("region") == r.get("name", ""))
+        if ref > 0:
+            raise _conflict(
+                f"이 소분류/지역을 사용하는 가격조건이 {ref}건 있어 삭제할 수 없습니다. "
+                "먼저 해당 가격조건을 수정하거나 삭제하세요."
+            )
     return {"deleted": _delete(tenant_id, CertRegion, rid)}
 
 

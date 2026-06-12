@@ -44,6 +44,8 @@ class WorkReferenceSheet(Base):
     )
     sheet_name: Mapped[str] = mapped_column(Text, nullable=False)
     headers: Mapped[list[str] | None] = mapped_column(JSONB)
+    # PG-only(Phase G) UI 메타: {"col_widths": {col_key: px}, "row_heights": {row_index: px}}
+    meta: Mapped[dict | None] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

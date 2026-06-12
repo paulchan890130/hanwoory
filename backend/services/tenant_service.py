@@ -22,6 +22,11 @@ from typing import Optional
 import gspread
 from google.oauth2.service_account import Credentials
 
+# PG-only(Phase I): Sheets 런타임 차단 가드. read_sheet/upsert_sheet 등은 광범위
+# except 로 예외를 삼키므로, 가드 예외만은 절대 삼키지 말고 그대로 전파해야 한다
+# ("실수로 호출해도 막혀야 한다" 원칙). 베어 default 반환은 silent fallback 이 된다.
+from backend.services.sheets_guard import SheetsRuntimeDisabled
+
 # ── 설정 상수 ──────────────────────────────────────────────────────────────────
 from config import (
     KEY_PATH,
@@ -71,8 +76,14 @@ _GSPREAD_TTL = 600  # 10분
 def _get_gspread_client() -> gspread.Client:
     """
     스레드-세이프 싱글턴 gspread Client.
-    Streamlit 캐시(@st.cache_resource) 대신 모듈 수준 싱글턴 + TTL 사용.
+
+    PG-only(Phase I): 이 함수는 모든 Google Sheets(gspread) 접근의 단일 choke point 다.
+    sheets_guard 로 보호하여, 운영 런타임(ALLOW_GOOGLE_SHEETS_RUNTIME/ALLOW_SHEETS_MIGRATION
+    미설정)에서 호출되면 즉시 SheetsRuntimeDisabled 로 차단한다. 일회성 이관 스크립트만
+    ALLOW_SHEETS_MIGRATION=1 로 허용. (Google Drive 파일 API 는 별도 경로이며 영향 없음.)
     """
+    from backend.services.sheets_guard import assert_sheets_runtime_allowed
+    assert_sheets_runtime_allowed("tenant_service._get_gspread_client")
     global _GSPREAD_CLIENT, _GSPREAD_INIT_TIME
     now = time.time()
     if _GSPREAD_CLIENT is None or (now - _GSPREAD_INIT_TIME) > _GSPREAD_TTL:
@@ -97,8 +108,10 @@ _TENANT_MAP_TTL = 600  # 10분
 
 def _load_tenant_map() -> dict:
     """
-    Accounts 시트에서 tenant_id → {customer, work} 매핑 로드.
-    TTL 캐싱 적용 (Streamlit @st.cache_data 대체).
+    tenant_id → {customer, work} (sheet_key) 매핑 로드 — **PG tenants 전용(PG-only)**.
+    Google Sheets Accounts 탭은 더 이상 읽지 않는다(Phase B). 여기서 반환하는 sheet_key 는
+    아직 PG 전환 안 된 도메인(Phase C~H)의 '데이터 워크북 위치' 라우팅에만 사용된다 —
+    전환 완료 후 라우팅 자체를 제거한다. TTL 캐싱 유지.
     """
     global _TENANT_MAP_CACHE, _TENANT_MAP_TIME
     now = time.time()
@@ -106,26 +119,26 @@ def _load_tenant_map() -> dict:
         return _TENANT_MAP_CACHE
 
     try:
-        client = _get_gspread_client()
-        sh = client.open_by_key(SHEET_KEY)
-        ws = sh.worksheet(ACCOUNTS_SHEET_NAME)
-        records = ws.get_all_records()
+        from sqlalchemy import select
+        from backend.db.models.tenant import Tenant
+        from backend.db.session import get_sessionmaker
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            rows = session.scalars(select(Tenant)).all()
     except Exception as e:
-        print(f"[tenant_service] Accounts 시트 로드 실패: {e}")
-        return _TENANT_MAP_CACHE  # 이전 캐시라도 반환
+        print(f"[tenant_service] PG tenants 로드 실패: {e}")
+        return _TENANT_MAP_CACHE  # 이전 캐시라도 반환(가용성)
 
     mapping: dict = {}
-    for r in records:
-        tid = str(r.get("tenant_id") or r.get("login_id") or "").strip()
+    for t in rows:
+        tid = (t.tenant_id or "").strip()
         if not tid:
             continue
-        # is_active 체크 완화: 빈 값도 허용 (admin이 아직 설정 안 한 경우 포함)
-        is_active = str(r.get("is_active", "")).strip().lower()
-        if is_active and is_active not in ("true", "1", "y", "활성", "active"):
+        if t.is_active is False:  # 비활성 테넌트 제외 (None/True 허용)
             continue
         mapping[tid] = {
-            "customer": str(r.get("customer_sheet_key", "")).strip(),
-            "work": str(r.get("work_sheet_key", "")).strip(),
+            "customer": (t.customer_sheet_key or "").strip(),
+            "work": (t.work_sheet_key or "").strip(),
         }
 
     _TENANT_MAP_CACHE = mapping
@@ -320,6 +333,8 @@ def read_sheet(sheet_name: str, tenant_id: str, default_if_empty=None):
                 f"ws_open={t1-t0:.2f}s data_fetch={t2-t1:.2f}s "
                 f"rows={len(values)} total={t2-t0:.2f}s"
             )
+        except SheetsRuntimeDisabled:
+            raise  # 가드 예외는 삼키지 않는다 — 런타임 Sheets 접근 차단
         except Exception as e:
             print(f"[sheets] read_sheet 실패 ({sheet_name}, {tenant_id}): {e}")
             return default_if_empty
@@ -410,6 +425,8 @@ def upsert_sheet(
 
         _invalidate_read_cache(sheet_name, tenant_id)
         return True
+    except SheetsRuntimeDisabled:
+        raise
     except Exception as e:
         print(f"[tenant_service] upsert_sheet 실패 ({sheet_name}): {e}")
         return False
@@ -451,6 +468,8 @@ def delete_from_sheet(
 
         _invalidate_read_cache(sheet_name, tenant_id)
         return True
+    except SheetsRuntimeDisabled:
+        raise
     except Exception as e:
         print(f"[tenant_service] delete_from_sheet 실패 ({sheet_name}): {e}")
         return False
@@ -462,6 +481,8 @@ def read_memo(sheet_name: str, tenant_id: str) -> str:
         ws = get_worksheet(sheet_name, tenant_id)
         val = ws.acell("A1").value
         return val if val is not None else ""
+    except SheetsRuntimeDisabled:
+        raise
     except Exception as e:
         print(f"[tenant_service] read_memo 실패 ({sheet_name}): {e}")
         return ""
@@ -473,6 +494,8 @@ def save_memo(sheet_name: str, tenant_id: str, content: str) -> bool:
         ws = get_worksheet(sheet_name, tenant_id)
         ws.update("A1", [[content]], value_input_option="RAW")
         return True
+    except SheetsRuntimeDisabled:
+        raise
     except Exception as e:
         print(f"[tenant_service] save_memo 실패 ({sheet_name}): {e}")
         return False

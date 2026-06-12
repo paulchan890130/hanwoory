@@ -1,117 +1,32 @@
-"""서명 데이터 저장/조회 서비스 — Google Sheets 기반"""
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+"""서명 데이터 저장/조회 서비스 — PostgreSQL 전용 (PG-only).
 
+Phase A 전환: 행정사서명 / 고객서명 / 임시서명(1·2·3) 모두 **PostgreSQL 만** 사용한다.
+Google Sheets 서명 탭(행정사서명·고객서명·서명임시저장)은 런타임에서 읽거나 쓰지 않으며,
+이 모듈에는 더 이상 gspread/worksheet 호출이 존재하지 않는다. PG 미구성(DATABASE_URL 없음)
+시 조용한 Sheets fallback 없이 ``get_sessionmaker()`` 가 명확한 RuntimeError 를 낸다.
+
+공개 함수 시그니처/반환 구조는 기존과 100% 동일하게 유지한다(라우터·quick_doc 무변경 호환):
+- 고객 서명 함수의 첫 인자는 과거 ``customer_sheet_key`` 였으나, 이제는 **tenant_id 또는 csk**
+  어느 쪽이 와도 ``_resolve_tenant()`` 가 PG ``tenants`` 로 정규화한다(Sheets 미사용).
+  호출측은 tenant_id 를 직접 넘기는 것을 권장(=Sheets 의 csk 조회 자체를 제거).
+"""
 import base64
 import datetime
-import time as _time
 
-AGENT_SIGN_SHEET    = "행정사서명"
-CUSTOMER_SIGN_SHEET = "고객서명"
-TEMP_SIGN_SHEET     = "서명임시저장"
-
-_AGENT_HEADERS    = ["tenant_id", "서명데이터", "등록일시"]
-_CUSTOMER_HEADERS = ["고객ID",    "서명데이터", "등록일시"]
-_TEMP_HEADERS     = ["slot", "tenant_id", "서명데이터", "비고", "저장일시"]
-
-# process-level set: skip redundant header-check reads after first validation
-_validated_worksheets: set = set()
-
-# TTL caches: (result, monotonic_timestamp)
-_temp_slots_cache: dict = {}      # key: tenant_id
-_TEMP_SLOTS_CACHE_TTL = 60.0     # seconds
-
-_sig_exists_cache: dict = {}      # key: (customer_sheet_key, customer_id)
-_SIG_EXISTS_CACHE_TTL = 30.0     # seconds
-
-# A-column-only cache for 고객서명: avoids reading base64 B column
-# key: customer_sheet_key  value: (col_a_list, monotonic_timestamp)
-_cust_col_a_cache: dict = {}
-_CUST_COL_A_CACHE_TTL = 60.0
-
-# 행정사 서명 TTL cache — avoids cold-Sheets read on every QuickDocPanel open
-# key: tenant_id  value: (data_or_none, monotonic_timestamp)
-_agent_sig_cache: dict = {}
-_AGENT_SIG_CACHE_TTL = 60.0
+# pending 임시서명은 2시간 후 만료(빈 칸 취급). 적용 완료분은 '고객서명' 으로 이동·슬롯 삭제되므로
+# 만료 대상은 항상 미적용 pending 임시서명뿐이다. (서명패드/sign/pad 슬롯 포함)
+_TEMP_EXPIRY_SECONDS = 2 * 60 * 60
 
 
-def _get_gspread_client():
-    from backend.services.tenant_service import _get_gspread_client as _gc
-    return _gc()
+class SignatureLookupError(Exception):
+    """서명 조회 자체가 실패한 경우 — '서명 없음'(정상)과 구별되는 오류."""
 
 
-def _master_sh():
-    from config import SHEET_KEY
-    gc = _get_gspread_client()
-    return gc.open_by_key(SHEET_KEY)
-
-
-def _get_or_create_ws(sh, title: str, headers: list):
-    # use (spreadsheet_id, title) as cache key to avoid repeated header-read API calls
-    key = (sh.id, title)
-    try:
-        ws = sh.worksheet(title)
-    except Exception:
-        ws = sh.add_worksheet(title=title, rows=500, cols=len(headers) + 1)
-        ws.update("A1", [headers], value_input_option="RAW")
-        _validated_worksheets.add(key)
-        return ws
-    if key not in _validated_worksheets:
-        first = ws.row_values(1) if ws.row_count > 0 else []
-        if first != headers:
-            ws.update("A1", [headers], value_input_option="RAW")
-        _validated_worksheets.add(key)
-    return ws
-
-
-def _tenant_customer_sh(customer_sheet_key: str):
-    gc = _get_gspread_client()
-    return gc.open_by_key(customer_sheet_key)
-
-
-def _find_row(ws, id_col_idx: int, id_value: str):
-    """행 전체 값을 반환. 없으면 None. (행정사서명 등 소형 시트용)"""
-    values = ws.get_all_values()
-    if len(values) < 2:
-        return None, None
-    header = values[0]
-    for i, row in enumerate(values[1:], start=2):
-        if len(row) > id_col_idx and row[id_col_idx].strip() == id_value.strip():
-            return i, dict(zip(header, row))
-    return None, None
-
-
-# ── 고객서명 A-column 전용 헬퍼 — base64 B열 읽기 금지 ───────────────────────
-
-def _get_cust_col_a(ws, customer_sheet_key: str) -> list:
-    """고객서명 시트의 A열만 읽어 반환. B열(base64) 비접촉."""
-    cached = _cust_col_a_cache.get(customer_sheet_key)
-    if cached:
-        values, ts = cached
-        if _time.monotonic() - ts < _CUST_COL_A_CACHE_TTL:
-            return values
-    values = ws.col_values(1)  # A열만 — 단일 API 호출
-    _cust_col_a_cache[customer_sheet_key] = (values, _time.monotonic())
-    return values
-
-
-def _find_cust_row(ws, customer_sheet_key: str, customer_id: str) -> "int | None":
-    """첫 번째 matching row 번호. 없으면 None."""
-    rows = _find_cust_rows(ws, customer_sheet_key, customer_id)
-    return rows[0] if rows else None
-
-
-def _find_cust_rows(ws, customer_sheet_key: str, customer_id: str) -> "list[int]":
-    """A열만으로 customer_id와 일치하는 모든 row 번호(1-based) 반환."""
-    col_a = _get_cust_col_a(ws, customer_sheet_key)
-    cid = customer_id.strip()
-    return [i for i, val in enumerate(col_a[1:], start=2) if val.strip() == cid]
-
-
-# ── PG dispatch helpers ──────────────────────────────────────────────────────
+# ── tenant 정규화 (PG only) ────────────────────────────────────────────────────
 
 def _csk_to_tenant_id(customer_sheet_key: str) -> "str | None":
-    """In PG mode, map customer_sheet_key → tenant_id via tenants table."""
+    """customer_sheet_key → tenant_id (PG ``tenants`` 테이블). 매핑 없으면 None.
+    Google Sheets 를 읽지 않는다."""
     try:
         from sqlalchemy import select
         from backend.db.models.tenant import Tenant
@@ -127,285 +42,102 @@ def _csk_to_tenant_id(customer_sheet_key: str) -> "str | None":
         return None
 
 
+def _resolve_tenant(tenant_or_csk: str) -> str:
+    """첫 인자를 tenant_id 로 정규화. tenant_id 가 직접 오면 그대로(매핑 미존재),
+    과거식 csk 가 오면 PG 매핑으로 tenant_id 변환. 둘 다 Sheets 미사용."""
+    return _csk_to_tenant_id(tenant_or_csk) or tenant_or_csk
+
+
 # ── 행정사 서명 ───────────────────────────────────────────────────────────────
 
-def get_agent_signature(tenant_id: str) -> str | None:
-    """행정사 서명 조회. 60초 TTL 캐시 적용.
-    서명 없음(정상): None 반환. 오류 시 예외를 그대로 전파 (None 반환 금지)."""
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        from backend.services.signature_pg_service import get_agent_signature as _pg
-        return _pg(tenant_id)
-
-    now = _time.monotonic()
-    cached = _agent_sig_cache.get(tenant_id)
-    if cached is not None and (now - cached[1]) < _AGENT_SIG_CACHE_TTL:
-        return cached[0]
-    # No cache hit — read from Sheets (exceptions propagate to caller)
-    sh = _master_sh()
-    ws = _get_or_create_ws(sh, AGENT_SIGN_SHEET, _AGENT_HEADERS)
-    _, record = _find_row(ws, 0, tenant_id)
-    data: "str | None" = None
-    if record is not None:
-        raw = record.get("서명데이터", "").strip()
-        data = raw if raw else None
-    _agent_sig_cache[tenant_id] = (data, now)
-    return data
+def get_agent_signature(tenant_id: str) -> "str | None":
+    """행정사 서명 조회. 서명 없음(정상) → None. 조회 오류 → 예외 전파(None 금지)."""
+    from backend.services.signature_pg_service import get_agent_signature as _pg
+    return _pg(tenant_id)
 
 
 def save_agent_signature(tenant_id: str, b64: str) -> None:
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        from backend.services.signature_pg_service import save_agent_signature as _pg
-        _pg(tenant_id, b64)
-        _agent_sig_cache.pop(tenant_id, None)
-        return
-
-    # Invalidate cache so next read reflects the new signature immediately
-    _agent_sig_cache.pop(tenant_id, None)
-    sh = _master_sh()
-    ws = _get_or_create_ws(sh, AGENT_SIGN_SHEET, _AGENT_HEADERS)
-    row_idx, _ = _find_row(ws, 0, tenant_id)
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    new_row = [tenant_id, b64, now]
-    if row_idx:
-        ws.update(f"A{row_idx}", [new_row], value_input_option="RAW")
-    else:
-        ws.append_row(new_row, value_input_option="RAW")
+    from backend.services.signature_pg_service import save_agent_signature as _pg
+    _pg(tenant_id, b64)
 
 
 # ── 고객 서명 ─────────────────────────────────────────────────────────────────
 
-def get_customer_signature(customer_sheet_key: str, customer_id: str) -> str | None:
-    """A열로 행 찾기 → B셀 하나만 읽기. get_all_values() 호출 없음."""
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
-        from backend.services.signature_pg_service import get_customer_signature as _pg
-        return _pg(tid, customer_id)
-    try:
-        sh = _tenant_customer_sh(customer_sheet_key)
-        ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
-        row = _find_cust_row(ws, customer_sheet_key, customer_id)
-        if row is None:
-            return None
-        data = (ws.acell(f"B{row}").value or "").strip()
-        return data if data else None
-    except Exception as e:
-        print(f"[signature_service.get_customer_signature] 오류: {e}")
-        return None
+def get_customer_signature(customer_sheet_key: str, customer_id: str) -> "str | None":
+    from backend.services.signature_pg_service import get_customer_signature as _pg
+    return _pg(_resolve_tenant(customer_sheet_key), customer_id)
 
 
 def save_customer_signature(customer_sheet_key: str, customer_id: str, b64: str) -> None:
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
-        from backend.services.signature_pg_service import save_customer_signature as _pg
-        _pg(tid, customer_id, b64)
-        _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
-        return
-    """A열로 모든 matching 행 찾기 → B:C 전체 업데이트 또는 신규 행 추가.
-    중복 행이 있으면 모두 최신 서명으로 덮어쓴다. get_all_values() 없음."""
-    sh = _tenant_customer_sh(customer_sheet_key)
-    ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    rows = _find_cust_rows(ws, customer_sheet_key, customer_id)
-
-    if rows:
-        if len(rows) > 1:
-            print(f"[signature] duplicate customer_id rows found: "
-                  f"customer_id={customer_id}, rows={rows}, overwritten_all=True")
-        for row in rows:
-            ws.update(f"B{row}:C{row}", [[b64, now]], value_input_option="RAW")
-        # verify first row
-        saved_b = (ws.acell(f"B{rows[0]}").value or "").strip()
-        if not saved_b:
-            raise RuntimeError(f"서명 저장 확인 실패: B{rows[0]} 셀이 비어있습니다")
-    else:
-        ws.append_row([customer_id, b64, now], value_input_option="RAW")
-        _cust_col_a_cache.pop(customer_sheet_key, None)  # new row — invalidate A-col cache
-    _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
-
-
-def delete_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
-    """고객에게 적용된 고객서명만 삭제. 임시서명 1·2·3 및 고객 기본정보는 비접촉.
-
-    Returns:
-        True  — 서명 행을 삭제함
-        False — 삭제할 서명 행이 없었음 (고객정보는 그대로)
-    """
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
-        from backend.services.signature_pg_service import delete_customer_signature as _pg
-        deleted = _pg(tid, customer_id)
-        _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
-        return deleted
-
-    sh = _tenant_customer_sh(customer_sheet_key)
-    ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
-    rows = _find_cust_rows(ws, customer_sheet_key, customer_id)
-    if not rows:
-        _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
-        return False
-    # 아래에서 위로 삭제 — 위 행 삭제로 인한 인덱스 밀림 방지
-    for row in sorted(rows, reverse=True):
-        ws.delete_rows(row)
-    _cust_col_a_cache.pop(customer_sheet_key, None)
-    _sig_exists_cache.pop((customer_sheet_key, customer_id), None)
-    return True
-
-
-class SignatureLookupError(Exception):
-    """Google Sheets 조회 실패 — 서명 없음과 구별되는 오류."""
+    from backend.services.signature_pg_service import save_customer_signature as _pg
+    _pg(_resolve_tenant(customer_sheet_key), customer_id, b64)
 
 
 def has_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
-    """A열만 읽어 존재 여부 확인. B열(base64) 비접촉.
-
-    Returns:
-        True  — 서명 row가 실제로 존재
-        False — 서명 row가 실제로 없음
-    Raises:
-        SignatureLookupError — Sheets 조회 자체가 실패한 경우 (캐시 저장 안 함)
-    """
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        tid = _csk_to_tenant_id(customer_sheet_key) or customer_sheet_key
-        from backend.services.signature_pg_service import has_customer_signature as _pg
-        return _pg(tid, customer_id)
-
-    cache_key = (customer_sheet_key, customer_id)
-    cached = _sig_exists_cache.get(cache_key)
-    if cached:
-        result, ts = cached
-        if _time.monotonic() - ts < _SIG_EXISTS_CACHE_TTL:
-            return result
-    # 조회 성공 시에만 캐시 저장 — 예외는 캐시하지 않음
+    """존재 여부. 조회 실패 시 SignatureLookupError(서명 없음과 구별)."""
     try:
-        sh = _tenant_customer_sh(customer_sheet_key)
-        ws = _get_or_create_ws(sh, CUSTOMER_SIGN_SHEET, _CUSTOMER_HEADERS)
-        row = _find_cust_row(ws, customer_sheet_key, customer_id)
-        result = row is not None
+        from backend.services.signature_pg_service import has_customer_signature as _pg
+        return _pg(_resolve_tenant(customer_sheet_key), customer_id)
     except Exception as e:
         raise SignatureLookupError(f"고객서명 조회 실패: {e}") from e
-    _sig_exists_cache[cache_key] = (result, _time.monotonic())
-    return result
 
 
-# ── 임시저장 슬롯 ─────────────────────────────────────────────────────────────
+def delete_customer_signature(customer_sheet_key: str, customer_id: str) -> bool:
+    """적용된 고객서명만 삭제. 임시서명/고객정보 비접촉. 삭제 행 있으면 True."""
+    from backend.services.signature_pg_service import delete_customer_signature as _pg
+    return _pg(_resolve_tenant(customer_sheet_key), customer_id)
 
-# pending 임시서명 자동 만료(조회 시 lazy). 적용 완료분은 '고객서명' 시트로 이동·여기서 clear 되므로
-# 만료 대상은 항상 미적용(pending) 임시서명뿐이다.
-_TEMP_EXPIRY_SECONDS = 2 * 60 * 60  # 2시간
 
+# ── 임시저장 슬롯 (1·2·3) ──────────────────────────────────────────────────────
 
 def _temp_is_expired(saved_at: str) -> bool:
-    """저장일시('YYYY-MM-DD HH:MM:SS')가 2시간 초과면 True. 형식 불량/빈값은 만료 아님(보수적)."""
+    """saved_at(ISO 문자열, PG)가 2시간 초과면 True. 빈값/파싱불가는 만료 아님(보수적)."""
     s = (saved_at or "").strip()
     if not s:
         return False
     try:
-        dt = datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+        dt = datetime.datetime.fromisoformat(s)
     except Exception:
         return False
-    return (datetime.datetime.now() - dt).total_seconds() > _TEMP_EXPIRY_SECONDS
+    if dt.tzinfo is not None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+    else:
+        now = datetime.datetime.now()
+    return (now - dt).total_seconds() > _TEMP_EXPIRY_SECONDS
 
 
-def _find_temp_row(ws, tenant_id: str, slot: int):
-    """(slot, tenant_id) 복합키로 행 탐색."""
-    values = ws.get_all_values()
-    if len(values) < 2:
-        return None, None
-    header = values[0]
-    for i, row in enumerate(values[1:], start=2):
-        if len(row) >= 2 and row[0].strip() == str(slot) and row[1].strip() == tenant_id.strip():
-            return i, dict(zip(header, row))
-    return None, None
+def _pg_slots(tenant_id: str) -> dict:
+    """{slot: {signature_data, note, saved_at}} (PG)."""
+    from backend.services.signature_pg_service import get_temp_slots as _pg
+    return {s["slot"]: s for s in _pg(tenant_id)}
 
 
 def get_temp_slots(tenant_id: str) -> list:
-    """테넌트의 임시저장 슬롯 1~3 상태 반환. 서명데이터는 제외."""
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        from backend.services.signature_pg_service import get_temp_slots as _pg
-        slots = {s["slot"]: s for s in _pg(tenant_id)}
-        return [
-            {
+    """슬롯 1~3 상태 반환: {slot, has_data, 비고, saved_at}. 만료(2h) pending 은 빈 칸 취급.
+    서명데이터(base64)는 포함하지 않는다."""
+    slots = _pg_slots(tenant_id)
+    result = []
+    for s in (1, 2, 3):
+        rec = slots.get(s)
+        if rec and (rec.get("signature_data") or "").strip() and not _temp_is_expired(rec.get("saved_at", "")):
+            result.append({
                 "slot": s,
-                "has_data": s in slots,
-                "비고": slots.get(s, {}).get("note", ""),
-            }
-            for s in (1, 2, 3)
-        ]
-
-    cached = _temp_slots_cache.get(tenant_id)
-    if cached:
-        result, ts = cached
-        if _time.monotonic() - ts < _TEMP_SLOTS_CACHE_TTL:
-            return result
-
-    try:
-        sh = _master_sh()
-        ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
-        all_values = ws.get_all_values()  # single read — was previously 3× get_all_values
-        if len(all_values) < 2:
-            result = [{"slot": s, "has_data": False, "비고": ""} for s in (1, 2, 3)]
-            _temp_slots_cache[tenant_id] = (result, _time.monotonic())
-            return result
-        header = all_values[0]
-        row_map: dict[int, dict] = {}
-        for row in all_values[1:]:
-            if len(row) >= 2:
-                try:
-                    slot_val = int(row[0].strip())
-                    if row[1].strip() == tenant_id.strip() and slot_val in (1, 2, 3):
-                        row_map.setdefault(slot_val, dict(zip(header, row)))
-                except ValueError:
-                    pass
-        result = []
-        for slot in (1, 2, 3):
-            record = row_map.get(slot)
-            if record:
-                raw = record.get("서명데이터", "").strip()
-                # 2시간 초과 pending 임시서명은 빈 칸으로 취급(자동 만료)
-                if raw and _temp_is_expired(record.get("저장일시", "")):
-                    has_data, memo = False, ""
-                else:
-                    has_data = bool(raw)
-                    memo = record.get("비고", "").strip()
-            else:
-                has_data, memo = False, ""
-            result.append({"slot": slot, "has_data": has_data, "비고": memo})
-        _temp_slots_cache[tenant_id] = (result, _time.monotonic())
-        return result
-    except Exception as e:
-        print(f"[signature_service.get_temp_slots] APIError: {e}")
-        return [{"slot": s, "has_data": False, "비고": ""} for s in (1, 2, 3)]
+                "has_data": True,
+                "비고": rec.get("note", "") or "",
+                "saved_at": rec.get("saved_at", "") or "",
+            })
+        else:
+            result.append({"slot": s, "has_data": False, "비고": "", "saved_at": ""})
+    return result
 
 
 def save_temp_slot(tenant_id: str, slot: int, b64: str, memo: str) -> None:
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        from backend.services.signature_pg_service import save_temp_slot as _pg
-        _pg(tenant_id, slot, b64, memo)
-        _temp_slots_cache.pop(tenant_id, None)
-        return
-
-    sh = _master_sh()
-    ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    new_row = [str(slot), tenant_id, b64, memo, now]
-    row_idx, _ = _find_temp_row(ws, tenant_id, slot)
-    if row_idx:
-        ws.update(f"A{row_idx}", [new_row], value_input_option="RAW")
-    else:
-        ws.append_row(new_row, value_input_option="RAW")
-    _temp_slots_cache.pop(tenant_id, None)
+    from backend.services.signature_pg_service import save_temp_slot as _pg
+    _pg(tenant_id, slot, b64, memo)
 
 
 def save_temp_slot_first_empty(tenant_id: str, b64: str, memo: str = "") -> "int | None":
-    """비어 있는(만료 포함) 가장 앞 임시서명 슬롯(1→2→3)에 저장. 반환: 저장된 slot 번호.
+    """비어 있는(만료 포함) 가장 앞 슬롯(1→2→3)에 저장. 저장된 slot 반환.
     1·2·3 모두 차 있으면 None(저장 안 함, 덮어쓰기 금지). 서명패드(/sign/pad) 전용."""
     slots = get_temp_slots(tenant_id)  # 만료 반영된 has_data
     target = next((s["slot"] for s in slots if not s["has_data"]), None)
@@ -415,48 +147,22 @@ def save_temp_slot_first_empty(tenant_id: str, b64: str, memo: str = "") -> "int
     return target
 
 
-def get_temp_slot_data(tenant_id: str, slot: int) -> str | None:
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        from backend.services.signature_pg_service import get_temp_slots as _pg
-        for s in _pg(tenant_id):
-            if s["slot"] == slot:
-                return s["signature_data"]
+def get_temp_slot_data(tenant_id: str, slot: int) -> "str | None":
+    """슬롯의 서명데이터. 만료된 pending 은 None(적용 차단)."""
+    rec = _pg_slots(tenant_id).get(slot)
+    if not rec:
         return None
-
-    try:
-        sh = _master_sh()
-        ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
-        _, record = _find_temp_row(ws, tenant_id, slot)
-        if record is None:
-            return None
-        data = record.get("서명데이터", "").strip()
-        if not data:
-            return None
-        # 만료된 pending 임시서명은 없는 것으로 취급(적용 차단)
-        if _temp_is_expired(record.get("저장일시", "")):
-            return None
-        return data
-    except Exception as e:
-        print(f"[signature_service.get_temp_slot_data] 오류: {e}")
+    data = (rec.get("signature_data") or "").strip()
+    if not data:
         return None
+    if _temp_is_expired(rec.get("saved_at", "")):
+        return None
+    return data
 
 
 def clear_temp_slot(tenant_id: str, slot: int) -> None:
-    from backend.db.feature_flags import pg_signatures_enabled
-    if pg_signatures_enabled():
-        from backend.services.signature_pg_service import delete_temp_slot as _pg
-        _pg(tenant_id, slot)
-        _temp_slots_cache.pop(tenant_id, None)
-        return
-
-    sh = _master_sh()
-    ws = _get_or_create_ws(sh, TEMP_SIGN_SHEET, _TEMP_HEADERS)
-    row_idx, record = _find_temp_row(ws, tenant_id, slot)
-    if row_idx and record:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ws.update(f"A{row_idx}", [[str(slot), tenant_id, "", "", now]], value_input_option="RAW")
-    _temp_slots_cache.pop(tenant_id, None)
+    from backend.services.signature_pg_service import delete_temp_slot as _pg
+    _pg(tenant_id, slot)
 
 
 # ── 압축 ─────────────────────────────────────────────────────────────────────

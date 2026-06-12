@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
+import DocConfigTab from "@/components/admin/DocConfigTab";
 
 // ── PG 저장소 상태 helper ────────────────────────────────────────────────────
 // Backend returns storage_mode === "pg+local-mock" when FEATURE_LOCAL_DRIVE_MOCK
@@ -380,7 +381,12 @@ function CreateAccountModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               {F("biz_reg_no", "사업자등록번호", "000-00-00000")}
-              {F("agent_rrn", "행정사 주민등록번호", "000000-0000000")}
+              <div>
+                <label className="block text-[11px] font-medium mb-1" style={{ color: "#718096" }}>행정사 주민등록번호</label>
+                <div className="text-[11px] px-2 py-2 rounded" style={{ color: "#A0AEC0", background: "#F7FAFC" }}>
+                  계정 생성 후 ‘수정’에서 암호화 등록
+                </div>
+              </div>
               {F("contact_name", "담당자명", "")}
               {F("contact_tel", "연락처", "010-0000-0000")}
             </div>
@@ -465,6 +471,96 @@ function CreateAccountModal({
 
 
 // ── 계정 행 상세 편집 패널 ────────────────────────────────────────────────────
+// ── 행정사 주민등록번호 — 암호화 저장 전용 컨트롤 (원문 미표시) ──────────────────
+function AgentRrnField({ loginId }: { loginId: string }) {
+  const [status, setStatus] = useState<{ has: boolean; last4: string } | null>(null);
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await adminApi.getAgentRrn(loginId);
+      setStatus({ has: !!r.data.has_agent_rrn, last4: r.data.agent_rrn_last4 || "" });
+    } catch {
+      setStatus({ has: false, last4: "" });
+    }
+  }, [loginId]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const save = async () => {
+    const v = value.trim();
+    if (!v) { toast.error("새 주민등록번호를 입력하세요."); return; }
+    setBusy(true);
+    try {
+      await adminApi.setAgentRrn(loginId, v);
+      setValue("");               // 저장 후 입력칸 비움(메모리에 잔류 최소화)
+      await refresh();
+      toast.success("행정사 주민등록번호 저장됨");
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(msg || "저장 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await adminApi.setAgentRrn(loginId, "");   // 빈 값 = 삭제
+      setValue("");
+      await refresh();
+      toast.success("행정사 주민등록번호 삭제됨");
+    } catch {
+      toast.error("삭제 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="col-span-2">
+      <label className="block text-[11px] font-medium mb-1" style={{ color: "#718096" }}>
+        행정사 주민등록번호 (암호화 저장)
+      </label>
+      <div className="text-xs mb-1" style={{ color: status?.has ? "#276749" : "#A0AEC0" }}>
+        {status === null
+          ? "확인 중…"
+          : status.has
+            ? `등록됨: ******-***${status.last4 || "****"}`
+            : "저장 안 됨"}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          autoComplete="off"
+          className="hw-input flex-1 text-xs font-mono"
+          placeholder="새 번호 입력 후 저장 (000000-0000000)"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <button type="button" onClick={save} disabled={busy}
+          className="text-xs px-3 py-1 rounded"
+          style={{ background: "var(--hw-gold)", color: "#fff", opacity: busy ? 0.6 : 1 }}>
+          저장
+        </button>
+        {status?.has && (
+          <button type="button" onClick={remove} disabled={busy}
+            className="text-xs px-3 py-1 rounded"
+            style={{ background: "#FED7D7", color: "#9B2C2C", opacity: busy ? 0.6 : 1 }}>
+            삭제
+          </button>
+        )}
+      </div>
+      <div className="text-[10px] mt-1" style={{ color: "#A0AEC0" }}>
+        원문은 화면/응답에 표시되지 않으며 암호문으로만 저장됩니다. 변경하려면 새 번호를 입력하세요.
+      </div>
+    </div>
+  );
+}
+
+
 function AccountDetailPanel({
   acc,
   onUpdate,
@@ -526,7 +622,7 @@ function AccountDetailPanel({
             {F("contact_name", "담당자명")}
             {F("contact_tel", "연락처")}
             {F("biz_reg_no", "사업자등록번호")}
-            {F("agent_rrn", "행정사 주민등록번호")}
+            <AgentRrnField loginId={acc.login_id} />
           </div>
 
           {pgMode ? (
@@ -1731,7 +1827,7 @@ export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -1854,6 +1950,13 @@ export default function AdminPage() {
           onClick={() => setActiveTab("accounts")}>
           계정관리
         </button>
+        {/* 문서자동작성 선택 구조/필요서류 편집 */}
+        <button
+          className={`hw-tab ${activeTab === "doc-config" ? "active" : ""}`}
+          onClick={() => setActiveTab("doc-config")}>
+          <FileText size={12} className="inline mr-1" />
+          문서자동작성 설정
+        </button>
         {/* PG 기반 매뉴얼 업데이트 (기본/주) — 먼저 노출 */}
         <button
           className={`hw-tab ${activeTab === "manual-v1" ? "active" : ""}`}
@@ -1869,6 +1972,9 @@ export default function AdminPage() {
           매뉴얼 업데이트 검토 (레거시)
         </button>
       </div>
+
+      {/* 문서자동작성 설정 (편집형 선택 트리 + 필요서류) */}
+      {activeTab === "doc-config" && <DocConfigTab />}
 
       {/* 매뉴얼 업데이트 (PG 단일 출처; PG off 시 파일 staging fallback) */}
       {activeTab === "manual-v1" && <ManualUpdateTab />}
@@ -1948,9 +2054,9 @@ export default function AdminPage() {
                       <td className="text-xs" style={{ color: "#718096" }}>{acc.contact_tel}</td>
                       <td className="text-xs font-mono" style={{ color: "#718096" }}>{acc.biz_reg_no}</td>
                       <td className="text-xs font-mono" style={{ color: "#718096" }}>
-                        {acc.agent_rrn
-                          ? String(acc.agent_rrn).replace(/^(\d{6})-?(\d{7})$/, "$1-*******")
-                          : ""}
+                        {String(acc.has_agent_rrn) === "true"
+                          ? `등록됨 ***${acc.agent_rrn_last4 || ""}`
+                          : "—"}
                       </td>
                       <td className="text-xs" style={{ color: "#A0AEC0" }}>{acc.created_at}</td>
                       <td>

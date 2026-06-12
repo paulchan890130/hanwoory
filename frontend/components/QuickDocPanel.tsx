@@ -295,6 +295,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
   const [guarantorConnection, setGuarantorConnection]   = useState<import("@/lib/api").GuarantorConnection | null>(null);
   const [includeDate, setIncludeDate] = useState(true);
   const [customDate, setCustomDate]   = useState(() => getLocalDateString());
+  // I-1J-6N: 영문도장·보기안정형 토글 제거. render_mode 는 항상 field_ap, 도장은 백엔드 자동판단.
   // Explicit link-status for each related role.
   // "unknown" = before effect fires; "loading" = fetch in-flight;
   // "none" = no fixed person; "linked" = fixed person found and role applied; "error" = fetch/parse failure.
@@ -626,6 +627,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
       sign_aggregator: aggregator.sign, sign_agent: agentSign,
       include_date: includeDate,
       custom_date:  customDate,
+      render_mode: "field_ap",  // I-1J-6N: 보기안정형(필드 유지형) 항상 적용. 도장은 백엔드 자동판단.
     };
     const blob = await _runGenerate(payload);
     if (blob) { setLastPayload(payload); setPdfUrl(URL.createObjectURL(blob)); toast.success("PDF 생성 완료"); }
@@ -909,6 +911,8 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
                 <button onClick={() => setCustomDate("")} style={{ fontSize: 11, color: "#A0AEC0", background: "none", border: "none", cursor: "pointer", padding: 0 }}>비우기</button>
               </>
             )}
+            {/* I-1J-6N: 영문도장·보기안정형 체크박스 제거. 보기안정형(field_ap) 항상 적용,
+                도장은 한글/영문 자동판단(백엔드). 도장 넣기 여부는 역할별 도장/서명 라디오로 선택. */}
           </div>
           <SubmitButton
             isSubmitting={generating}

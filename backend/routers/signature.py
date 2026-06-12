@@ -153,11 +153,17 @@ class PadSaveBody(BaseModel):
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
 
-def _resolve_customer_sheet_key(tenant_id: str, provided: Optional[str]) -> str:
-    if provided and provided.strip():
-        return provided.strip()
-    from backend.services.tenant_service import get_customer_sheet_key
-    return get_customer_sheet_key(tenant_id)
+def _resolve_customer_sheet_key(tenant_id: str, provided: Optional[str] = None) -> str:
+    """PG-only 라우팅 키 반환. 고객서명은 tenant 단위로 PostgreSQL 에 저장되므로 라우팅 키 =
+    JWT tenant_id 이며, 과거의 Google Sheets customer_sheet_key 조회(get_customer_sheet_key)
+    를 더 이상 수행하지 않는다. provided(쿼리 파라미터)는 cross-tenant 방지를 위해 무시한다.
+    (함수명은 호환을 위해 유지 — 반환값은 이제 tenant_id 다.)"""
+    return tenant_id
+
+
+def _office_name(user: dict) -> str:
+    """사무소명 — JWT 토큰값만 사용(Accounts 시트 조회 안 함)."""
+    return (user.get("office_name") or "").strip() or "행정사사무소"
 
 
 @router.post("/request")
@@ -174,18 +180,11 @@ def request_signature(
         raise HTTPException(status_code=400, detail="customer 타입은 customer_id 필수.")
 
     tenant_id = user.get("tenant_id") or user.get("sub", "")
-
-    try:
-        from backend.services.accounts_service import get_office_name
-        office_name = get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
-    except Exception:
-        office_name = user.get("office_name", "") or "행정사사무소"
+    office_name = _office_name(user)
 
     if body.type == "customer":
-        try:
-            customer_sheet_key = _resolve_customer_sheet_key(tenant_id, body.customer_sheet_key)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
+        # PG-only: csk(Sheets 조회) 대신 JWT tenant_id 를 라우팅 키로 사용 → 토큰에 tenant_id 가 실린다.
+        customer_sheet_key = tenant_id
         _cleanup()
         token = _encode_customer_token(body.customer_id, customer_sheet_key, office_name)
         # Extract rid from token and register in _pending to track submission for this request.
@@ -504,22 +503,15 @@ def get_customer_signature(
     """고객 서명 데이터 조회."""
     from backend.services.signature_service import get_customer_signature as _get
     tenant_id = user.get("tenant_id") or user.get("sub", "")
-    try:
-        csk = _resolve_customer_sheet_key(tenant_id, customer_sheet_key)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    data = _get(csk, customer_id)
+    data = _get(tenant_id, customer_id)  # PG-only: tenant_id 라우팅 (csk 쿼리 무시)
     return {"data": data}
 
 
 # ── 상시 서명패드 (/sign/pad) — 임시서명 빈 슬롯 자동 저장 ─────────────────────
 
 def _pad_office_name(user: dict, tenant_id: str) -> str:
-    try:
-        from backend.services.accounts_service import get_office_name
-        return get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
-    except Exception:
-        return user.get("office_name", "") or "행정사사무소"
+    # PG-only: Accounts 시트 조회(get_office_name) 제거 — JWT 토큰의 office_name 사용.
+    return _office_name(user)
 
 
 _PAD_PG_REQUIRED = "서명패드 기능은 PostgreSQL 설정이 필요합니다. 관리자에게 문의하세요."
@@ -617,6 +609,30 @@ def pad_save(body: PadSaveBody, token: str = Query(...)):
     return {"status": "ok", "slot": slot}
 
 
+@router.get("/pad/events")
+def pad_events(user: dict = Depends(get_current_user)):
+    """내부 화면 알림용 — 서명패드(/sign/pad)로 저장된 임시서명 이벤트 폴링.
+
+    현재 비어있지 않은 '서명패드' 출처 임시서명 슬롯의 (slot, saved_at, memo)만 반환한다.
+    프론트는 (slot, saved_at) 키로 중복 알림을 방지한다. 직원이 QR 로 직접 저장한 임시서명
+    (memo != '서명패드')이나 만료/빈 슬롯은 포함하지 않는다. tenant_id 는 JWT 에서만 취한다 →
+    다른 사무소(테넌트)의 서명 이벤트는 노출되지 않는다."""
+    from backend.services.signature_service import get_temp_slots as _get
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+    try:
+        slots = _get(tenant_id)
+    except Exception:
+        slots = []
+    events = [
+        {"slot": s["slot"], "saved_at": s.get("saved_at", ""), "memo": s.get("비고", "")}
+        for s in slots
+        if s.get("has_data")
+        and (s.get("비고") or "").strip() == "서명패드"
+        and s.get("saved_at")
+    ]
+    return {"events": events}
+
+
 # ── 임시저장 슬롯 엔드포인트 ──────────────────────────────────────────────────
 
 @router.get("/temp-slots")
@@ -634,11 +650,7 @@ def request_temp_slot(slot: int, body: TempSlotRequestBody, user: dict = Depends
         raise HTTPException(status_code=400, detail="slot은 1, 2, 3 중 하나여야 합니다.")
     _cleanup()
     tenant_id = user.get("tenant_id") or user.get("sub", "")
-    try:
-        from backend.services.accounts_service import get_office_name
-        office_name = get_office_name(tenant_id) or user.get("office_name", "") or "행정사사무소"
-    except Exception:
-        office_name = user.get("office_name", "") or "행정사사무소"
+    office_name = _office_name(user)
 
     token = secrets.token_urlsafe(6)
     _pending[token] = {
@@ -704,11 +716,7 @@ def map_temp_slot_to_customer(
     if not data:
         raise HTTPException(status_code=404, detail="슬롯에 서명 데이터가 없습니다.")
     try:
-        csk = _resolve_customer_sheet_key(tenant_id, None)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
-    try:
-        save_customer_signature(csk, body.customer_id, data)
+        save_customer_signature(tenant_id, body.customer_id, data)  # PG-only: tenant_id 라우팅
         clear_temp_slot(tenant_id, slot)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"매핑 실패: {e}")
@@ -730,11 +738,7 @@ def map_temp_slot_url(
     if not data:
         raise HTTPException(status_code=404, detail="슬롯에 서명 데이터가 없습니다.")
     try:
-        csk = _resolve_customer_sheet_key(tenant_id, None)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"customer_sheet_key 조회 실패: {e}")
-    try:
-        save_customer_signature(csk, customer_id, data)
+        save_customer_signature(tenant_id, customer_id, data)  # PG-only: tenant_id 라우팅
         clear_temp_slot(tenant_id, slot)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"매핑 실패: {e}")
@@ -754,11 +758,7 @@ def check_customer_signature_exists(
     from backend.services.signature_service import has_customer_signature, SignatureLookupError
     tenant_id = user.get("tenant_id") or user.get("sub", "")
     try:
-        csk = _resolve_customer_sheet_key(tenant_id, customer_sheet_key)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    try:
-        exists = has_customer_signature(csk, customer_id)
+        exists = has_customer_signature(tenant_id, customer_id)  # PG-only: tenant_id 라우팅
     except SignatureLookupError as e:
         raise HTTPException(
             status_code=503,
@@ -780,11 +780,7 @@ def delete_customer_signature_endpoint(
     from backend.services.signature_service import delete_customer_signature as _del
     tenant_id = user.get("tenant_id") or user.get("sub", "")
     try:
-        csk = _resolve_customer_sheet_key(tenant_id, customer_sheet_key)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    try:
-        deleted = _del(csk, customer_id)
+        deleted = _del(tenant_id, customer_id)  # PG-only: tenant_id 라우팅 (csk 쿼리 무시)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"서명 삭제 실패: {e}")
     return {"ok": True, "deleted": deleted}

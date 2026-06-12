@@ -25,44 +25,9 @@ router = APIRouter()
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, request: Request = None):
-    # PG-first when the local-beta flag is on; falls through to Sheets if the
-    # user simply doesn't exist in PG yet (so a partial import doesn't lock
-    # anyone out). Sheets remains the source of truth when the flag is off.
-    from backend.db.feature_flags import pg_users_enabled
-    acc: dict = {}
-    if pg_users_enabled():
-        try:
-            from backend.services.auth_pg_service import find_user_pg
-            pg_info = find_user_pg(req.login_id)
-            if pg_info is not None:
-                acc = {
-                    "login_id":      pg_info["login_id"],
-                    "tenant_id":     pg_info["tenant_id"],
-                    "password_hash": pg_info["password_hash"],
-                    "is_admin":      "TRUE" if pg_info["is_admin"] else "",
-                    "is_active":     "TRUE" if pg_info["is_active"] else "",
-                    "office_name":   "",  # not stored on AccountUser yet
-                    "contact_name":  pg_info["contact_name"],
-                }
-                # Hydrate office_name from tenants table if available
-                try:
-                    from sqlalchemy import select
-                    from backend.db.models.tenant import Tenant
-                    from backend.db.session import get_sessionmaker
-                    SessionLocal = get_sessionmaker()
-                    with SessionLocal() as session:
-                        t = session.scalar(select(Tenant).where(
-                            Tenant.tenant_id == pg_info["tenant_id"]
-                        ))
-                        if t is not None:
-                            acc["office_name"] = t.office_name or ""
-                except Exception as _e:
-                    print(f"[auth.login] tenant lookup failed (non-fatal): {_e}")
-        except Exception as e:
-            print(f"[auth.login] PG path failed, falling back to Sheets: {e}")
-
-    if not acc:
-        acc = _find_account(req.login_id) or {}
+    # PG-only(Phase B): 계정은 PostgreSQL(users + tenants)에서만 조회한다.
+    # Google Sheets Accounts fallback 없음 — PG 미존재 시 그대로 인증 실패.
+    acc = _find_account(req.login_id) or {}
     if not acc:
         raise HTTPException(status_code=401, detail="계정이 존재하지 않습니다.")
 
@@ -147,73 +112,43 @@ def signup(req: SignupRequest):
 
     login_id = req.login_id.strip()
 
-    # ── Local PG branch ──────────────────────────────────────────────────
-    # In local beta with FEATURE_PG_USERS=true, write a pending tenant +
-    # user row directly to PostgreSQL. We do NOT call Google Sheets here
-    # because the Sheets path requires service-account access the local
-    # box does not (and should not) have. The new row appears in the
-    # admin accounts page immediately with is_active=False.
-    from backend.db.feature_flags import pg_users_enabled
-    if pg_users_enabled():
-        from sqlalchemy import select
-        from backend.db.models.tenant import Tenant
-        from backend.db.models.user import AccountUser
-        from backend.db.session import get_sessionmaker
-        SessionLocal = get_sessionmaker()
-        with SessionLocal() as session:
-            if session.scalar(select(AccountUser).where(AccountUser.login_id == login_id)):
-                raise HTTPException(status_code=409, detail="동일한 ID가 존재합니다. 다른 ID로 가입신청해 주십시오.")
-            tenant_id = login_id  # default rule: tenant_id == login_id
-            if not session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)):
-                session.add(Tenant(
-                    tenant_id=tenant_id,
-                    office_name=req.office_name.strip(),
-                    office_adr=(req.office_adr or "").strip() or None,
-                    biz_reg_no=(req.biz_reg_no or "").strip() or None,
-                    is_active=False,
-                ))
-                session.flush()
-            session.add(AccountUser(
-                login_id=login_id,
+    # ── PG-only(Phase B) ─────────────────────────────────────────────────
+    # 가입신청은 PostgreSQL(tenants + users)에만 기록한다. Google Sheets 미사용.
+    # is_active=False → 관리자 승인 후 활성화. agent_rrn 원본은 저장하지 않는다.
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        if session.scalar(select(AccountUser).where(AccountUser.login_id == login_id)):
+            raise HTTPException(status_code=409, detail="동일한 ID가 존재합니다. 다른 ID로 가입신청해 주십시오.")
+        tenant_id = login_id  # default rule: tenant_id == login_id
+        if not session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)):
+            session.add(Tenant(
                 tenant_id=tenant_id,
-                password_hash=_hash_password(req.password),
-                contact_name=(req.contact_name or "").strip() or None,
-                contact_tel=(req.contact_tel or "").strip() or None,
-                is_admin=False,
-                is_active=False,  # admin approval required
+                office_name=req.office_name.strip(),
+                office_adr=(req.office_adr or "").strip() or None,
+                biz_reg_no=(req.biz_reg_no or "").strip() or None,
+                is_active=False,
             ))
-            session.commit()
-        return {
-            "message": "가입신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.",
-            "login_id": login_id,
-            "tenant_id": tenant_id,
-            "status": "pending",
-        }
-
-    # ── Sheets fallback (production) ─────────────────────────────────────
-    existing = _find_account(login_id)
-    if existing:
-        raise HTTPException(status_code=409, detail="동일한 ID가 존재합니다. 다른 ID로 가입신청해 주십시오.")
-
-    account = build_account_dict(
-        login_id=req.login_id,
-        password_hash=_hash_password(req.password),
-        office_name=req.office_name,
-        office_adr=req.office_adr or "",
-        contact_name=req.contact_name or "",
-        contact_tel=req.contact_tel or "",
-        biz_reg_no=req.biz_reg_no or "",
-        agent_rrn=req.agent_rrn or "",
-        is_admin=False,
-        is_active=False,
-    )
-
-    try:
-        append_account(account)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"계정 생성에 실패했습니다: {e}")
-
-    return {"message": "가입신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다."}
+            session.flush()
+        session.add(AccountUser(
+            login_id=login_id,
+            tenant_id=tenant_id,
+            password_hash=_hash_password(req.password),
+            contact_name=(req.contact_name or "").strip() or None,
+            contact_tel=(req.contact_tel or "").strip() or None,
+            is_admin=False,
+            is_active=False,  # admin approval required
+        ))
+        session.commit()
+    return {
+        "message": "가입신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.",
+        "login_id": login_id,
+        "tenant_id": tenant_id,
+        "status": "pending",
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -257,30 +192,32 @@ class PasswordChangeRequest(BaseModel):
 
 @router.patch("/me")
 def update_me(body: MeUpdateRequest, current_user: dict = Depends(get_current_user)):
-    """사무소 정보 수정."""
-    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
-    from backend.services.accounts_service import ACCOUNTS_SCHEMA
-    from config import ACCOUNTS_SHEET_NAME
+    """사무소 정보 수정 — PG-only(tenants.office_name/office_adr + users.contact_name/contact_tel)."""
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
 
     login_id = current_user.get("login_id", "")
-    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
-    target = next((r for r in records if str(r.get("login_id", "")).strip() == login_id), None)
-    if not target:
-        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+    fields = body.model_dump(exclude_none=True)
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        if "contact_name" in fields:
+            u.contact_name = fields["contact_name"]
+        if "contact_tel" in fields:
+            u.contact_tel = fields["contact_tel"]
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
+        if t is not None:
+            if "office_name" in fields:
+                t.office_name = fields["office_name"]
+            if "office_adr" in fields:
+                t.office_adr = fields["office_adr"]
+        session.commit()
 
-    for field, value in body.model_dump(exclude_none=True).items():
-        target[field] = value
-
-    header_list = ACCOUNTS_SCHEMA[:]
-    for k in target:
-        if k not in header_list:
-            header_list.append(k)
-
-    ok = upsert_rows_by_id(ACCOUNTS_SHEET_NAME, header_list=header_list, records=[target], id_field="login_id")
-    if not ok:
-        raise HTTPException(status_code=500, detail="저장 실패")
-
-    # 테넌트 캐시 초기화
+    # 테넌트 맵 캐시 초기화
     try:
         import backend.services.tenant_service as _ts
         _ts._TENANT_MAP_CACHE = {}
@@ -293,34 +230,24 @@ def update_me(body: MeUpdateRequest, current_user: dict = Depends(get_current_us
 
 @router.patch("/me/password")
 def change_password(body: PasswordChangeRequest, current_user: dict = Depends(get_current_user)):
-    """비밀번호 변경."""
-    from core.google_sheets import read_data_from_sheet, upsert_rows_by_id
-    from backend.services.accounts_service import (
-        ACCOUNTS_SCHEMA, verify_password, hash_password,
-    )
-    from config import ACCOUNTS_SHEET_NAME
+    """비밀번호 변경 — PG-only(users.password_hash)."""
+    from sqlalchemy import select
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    from backend.services.accounts_service import verify_password, hash_password
 
     if len(body.new_password) < 6:
         raise HTTPException(status_code=400, detail="새 비밀번호는 6자 이상이어야 합니다.")
 
     login_id = current_user.get("login_id", "")
-    records = read_data_from_sheet(ACCOUNTS_SHEET_NAME, default_if_empty=[]) or []
-    target = next((r for r in records if str(r.get("login_id", "")).strip() == login_id), None)
-    if not target:
-        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
-
-    if not verify_password(body.current_password, str(target.get("password_hash", ""))):
-        raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
-
-    target["password_hash"] = hash_password(body.new_password)
-
-    header_list = ACCOUNTS_SCHEMA[:]
-    for k in target:
-        if k not in header_list:
-            header_list.append(k)
-
-    ok = upsert_rows_by_id(ACCOUNTS_SHEET_NAME, header_list=header_list, records=[target], id_field="login_id")
-    if not ok:
-        raise HTTPException(status_code=500, detail="비밀번호 변경 실패")
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        if not verify_password(body.current_password, u.password_hash or ""):
+            raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
+        u.password_hash = hash_password(body.new_password)
+        session.commit()
 
     return {"ok": True}

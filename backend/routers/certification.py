@@ -4,7 +4,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import get_current_user
-import backend.services.certification_service as svc
+# 각종공인증은 PG-only(Phase G). certification_service(Sheets)는 미사용(dead, sheets_guard 차단).
+# ReferenceConflictError 예외 클래스만 import(런타임 Sheets 호출 없음).
 from backend.services.certification_service import ReferenceConflictError
 
 router = APIRouter()
@@ -15,12 +16,9 @@ def _tenant(user=Depends(get_current_user)) -> str:
 
 
 def _svc():
-    """Dispatch to PG service when FEATURE_PG_REFERENCE is on, else Sheets."""
-    from backend.db.feature_flags import pg_reference_enabled
-    if pg_reference_enabled():
-        import backend.services.certification_pg_service as _pg
-        return _pg
-    return svc
+    """PG-only(Phase G): 각종공인증은 항상 PostgreSQL(certification_pg_service). Sheets fallback 제거."""
+    import backend.services.certification_pg_service as _pg
+    return _pg
 
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────

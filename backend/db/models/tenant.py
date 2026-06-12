@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Text, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.base import Base
@@ -29,6 +29,10 @@ class Tenant(Base):
     office_adr: Mapped[str | None] = mapped_column(Text)
     biz_reg_no: Mapped[str | None] = mapped_column(Text)
     agent_rrn_hash: Mapped[str | None] = mapped_column(Text)
+    # 행정사 주민등록번호 — 복호화 가능한 암호문(PDF 출력 소스). 평문 컬럼은 두지 않는다.
+    agent_rrn_encrypted: Mapped[str | None] = mapped_column(Text)
+    agent_rrn_last4: Mapped[str | None] = mapped_column(String(4))
+    agent_rrn_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     folder_id: Mapped[str | None] = mapped_column(Text)
     customer_sheet_key: Mapped[str | None] = mapped_column(Text)
     work_sheet_key: Mapped[str | None] = mapped_column(Text)

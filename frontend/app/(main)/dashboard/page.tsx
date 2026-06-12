@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  tasksApi, memosApi, eventsApi, customersApi, boardApi, dailyApi,
+  tasksApi, memosApi, eventsApi, customersApi, boardApi, dailyApi, manualApi,
   type ActiveTask, type PlannedTask, type ExpiryAlert, type BoardPost,
 } from "@/lib/api";
 import { getUser } from "@/lib/auth";
@@ -496,6 +496,22 @@ export default function DashboardPage() {
     setPopupDetail(null);
   };
 
+  // ── 매뉴얼 업데이트 알림 (로그인 최초 1회, 새 버전마다 다시 1회) ───────────────
+  // 조회 key 와 저장 key 를 동일하게(manual_update_seen_{login_id}) 사용하고,
+  // marker 값은 version|detected_at → 같은 업데이트면 재표시 안 함, 새 run 이면 1회 표시.
+  // 한계: localStorage 기반(기기/브라우저별) — DB read-marker 는 정식 개선안으로 유보.
+  useEffect(() => {
+    manualApi.latest().then((res) => {
+      const v = res.data?.version;
+      if (!v) return; // 탐지된 업데이트 없음 / PG 미구성 → 무알림
+      const key = `manual_update_seen_${user?.login_id ?? ""}`;
+      const marker = `${v}|${res.data?.detected_at ?? ""}`;
+      if (localStorage.getItem(key) === marker) return; // 이미 확인한 업데이트
+      toast(`실무지침 매뉴얼이 업데이트되었습니다 (버전 ${v}).`, { duration: 6000 });
+      localStorage.setItem(key, marker);
+    }).catch(() => {/* 무시 */});
+  }, []);
+
   // ── 오늘 일정 팝업 (일 1회) ─────────────────────────────────────────────────
   const [showSchedulePopup, setShowSchedulePopup] = useState(false);
   const [todayScheduleLines, setTodayScheduleLines] = useState<string[]>([]);
@@ -784,27 +800,37 @@ export default function DashboardPage() {
     [events]
   );
 
-  const handleCalEventClick = useCallback(
-    (info: { event: { startStr: string } }) => {
-      const dateStr = info.event.startStr;
-      const existing = (events as Record<string, string[]>)[dateStr] || [];
+  // 기존 일정 로드는 항상 **최신 캐시**(qc.getQueryData)에서 읽는다 — FullCalendar 콜백이
+  // 캡처한 events 클로저가 오래되어 '기존 내용 없음 → 신규처럼' 동작하는 문제 방지.
+  const _openCalModalForDate = useCallback(
+    (dateStr: string) => {
+      const map =
+        qc.getQueryData<Record<string, string[]>>(eventsKey) ||
+        (events as Record<string, string[]>) ||
+        {};
+      const existing = map[dateStr] || [];
       setCalendarDate(dateStr);
       setCalendarMemo(existing.join("\n"));
       setCalModalIsEdit(existing.length > 0);
       setShowCalModal(true);
     },
-    [events]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [qc, events]
+  );
+
+  // 이벤트 클릭: startStr(타임존/포맷 영향) 대신 calEvents 에서 부여한 id(=날짜 키)를 사용.
+  const handleCalEventClick = useCallback(
+    (info: { event: { id?: string; startStr: string } }) => {
+      _openCalModalForDate(info.event.id || info.event.startStr);
+    },
+    [_openCalModalForDate]
   );
 
   const handleCalDateClick = useCallback(
     (info: { dateStr: string }) => {
-      const existing = (events as Record<string, string[]>)[info.dateStr] || [];
-      setCalendarDate(info.dateStr);
-      setCalendarMemo(existing.join("\n"));
-      setCalModalIsEdit(existing.length > 0);
-      setShowCalModal(true);
+      _openCalModalForDate(info.dateStr);
     },
-    [events]
+    [_openCalModalForDate]
   );
 
   const handleEventDidMount = useCallback((arg: { el: HTMLElement }) => {

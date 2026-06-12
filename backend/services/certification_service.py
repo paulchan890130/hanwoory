@@ -16,9 +16,19 @@ from typing import List, Dict, Optional
 import uuid
 
 from backend.services.tenant_service import (
-    get_work_sheet_key, get_customer_sheet_key, _get_spreadsheet,
+    get_work_sheet_key, get_customer_sheet_key,
+    _get_spreadsheet as _raw_get_spreadsheet,
 )
 import config as _cfg
+
+
+def _get_spreadsheet(sheet_key):
+    """PG-only(Phase G): 각종공인증은 certification_pg_service 로 전환됨. 이 모듈(Sheets)은
+    dead 이며, 런타임에서 실수로 호출되면 sheets_guard 가 즉시 차단한다(이관 스크립트 제외).
+    모든 시트 접근이 이 단일 choke point 를 거치므로 모듈 전체가 보호된다."""
+    from backend.services.sheets_guard import assert_sheets_runtime_allowed
+    assert_sheets_runtime_allowed("certification_service")
+    return _raw_get_spreadsheet(sheet_key)
 
 # ── 테넌트별 인메모리 캐시 (TTL 120초) ─────────────────────────────────────────
 # 키: work_sheet_key, 값: {"data": {...}, "ts": float}

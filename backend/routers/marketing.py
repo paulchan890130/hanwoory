@@ -50,35 +50,23 @@ def _sheet_name():
     return MARKETING_POSTS_SHEET_NAME
 
 
+# PG-only(Phase H): 마케팅 글 metadata 는 marketing_pg_service. Google Sheets fallback 제거.
+# (이미지 파일은 Google Drive 외부 리소스 — upload_image 별도, DB 데이터와 분리.)
 def _read_posts():
-    from backend.db.feature_flags import pg_marketing_enabled
-    if pg_marketing_enabled():
-        from backend.services.marketing_pg_service import list_admin
-        return list_admin()
-    from core.google_sheets import read_data_from_sheet
-    return read_data_from_sheet(_sheet_name(), default_if_empty=[]) or []
+    from backend.services.marketing_pg_service import list_admin
+    return list_admin()
 
 
 def _upsert(rows):
-    from backend.db.feature_flags import pg_marketing_enabled
-    if pg_marketing_enabled():
-        from backend.services.marketing_pg_service import upsert_post
-        for r in rows:
-            upsert_post(r)
-        return
-    from core.google_sheets import upsert_rows_by_id
-    upsert_rows_by_id(_sheet_name(), MARKETING_HEADER, rows, id_field="id")
+    from backend.services.marketing_pg_service import upsert_post
+    for r in rows:
+        upsert_post(r)
 
 
 def _delete(ids):
-    from backend.db.feature_flags import pg_marketing_enabled
-    if pg_marketing_enabled():
-        from backend.services.marketing_pg_service import delete_post
-        for i in ids:
-            delete_post(i)
-        return
-    from core.google_sheets import delete_rows_by_ids
-    delete_rows_by_ids(_sheet_name(), ids, id_field="id")
+    from backend.services.marketing_pg_service import delete_post
+    for i in ids:
+        delete_post(i)
 
 
 class PostCreate(BaseModel):

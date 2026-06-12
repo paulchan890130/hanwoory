@@ -82,6 +82,8 @@ def find_account_by_tenant_pg(tenant_id: str) -> Optional[dict]:
             "biz_reg_no":   t.biz_reg_no or "",
             "contact_name": (u.contact_name if u else "") or "",
             "contact_tel":  (u.contact_tel if u else "") or "",
+            # 원본 주민번호는 평문 미보관 — 암호문만 전달(호출측이 복호화). 평문/해시는 출력 소스 아님.
+            "agent_rrn_encrypted": t.agent_rrn_encrypted or "",
         }
 
 

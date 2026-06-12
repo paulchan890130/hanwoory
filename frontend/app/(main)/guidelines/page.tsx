@@ -6,7 +6,7 @@ import {
   FileText, Paperclip, AlertCircle, BookMarked,
   ArrowRight, GitBranch, ShieldAlert, ChevronRight,
   Info, CheckCircle2, Layers, ExternalLink as ExtLinkIcon, Maximize2,
-  Pencil, Plus, Trash2, Check, Trees, Download,
+  Pencil, Plus, Trash2, Check, Trees,
 } from "lucide-react";
 import { GuidelineSubType, ManualRef } from "@/lib/api";
 import { guidelinesApi, guidelineCategoriesApi, GuidelineRow, GuidelineEntryPoint, api } from "@/lib/api";
@@ -1310,26 +1310,6 @@ export default function GuidelinesPage() {
   const [treeLoading, setTreeLoading]               = useState(false);
   const [treeError, setTreeError]                   = useState("");
 
-  // ── 매뉴얼 날짜 상태 ──
-  const [manualDates, setManualDates] = useState<{ 체류민원?: string; 사증민원?: string }>({});
-
-  useEffect(() => {
-    api.get("/api/manual/watcher-state")
-      .then(res => {
-        const d = res.data as Record<string, { timestamp?: string }>;
-        setManualDates({
-          체류민원: d["체류민원"]?.timestamp,
-          사증민원: d["사증민원"]?.timestamp,
-        });
-      })
-      .catch(() => {});
-  }, []);
-
-  const formatManualDate = (ts: string | undefined): string => {
-    if (!ts || ts.length < 8) return "";
-    return ts.slice(2, 4) + "." + ts.slice(4, 6) + "." + ts.slice(6, 8);
-  };
-
   // ── 새 트리 모드 상태 ──
   const [treeMode, setTreeMode]         = useState(true);
   const [selAction, setSelAction]       = useState<string | null>(null);
@@ -1727,38 +1707,9 @@ export default function GuidelinesPage() {
                 }}>
                 <Trees size={13} /> 업무별 찾기
               </button>
-              {/* 체류 매뉴얼 다운로드 — 서버 PDF */}
-              <button
-                onClick={() => {
-                  const token = localStorage.getItem("access_token") || "";
-                  window.open(`/api/manual/download/체류민원?token=${encodeURIComponent(token)}`, "_blank");
-                }}
-                style={{
-                  display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
-                  border:"1.5px solid #CBD5E0", background:"#fff", color:"#4A5568",
-                  cursor:"pointer",
-                }}>
-                <Download size={12} />
-                {formatManualDate(manualDates.체류민원)
-                  ? `${formatManualDate(manualDates.체류민원)} 체류 매뉴얼`
-                  : "체류 매뉴얼"} ↓
-              </button>
-              {/* 사증 매뉴얼 다운로드 — 서버 PDF */}
-              <button
-                onClick={() => {
-                  const token = localStorage.getItem("access_token") || "";
-                  window.open(`/api/manual/download/사증민원?token=${encodeURIComponent(token)}`, "_blank");
-                }}
-                style={{
-                  display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
-                  border:"1.5px solid #CBD5E0", background:"#fff", color:"#4A5568",
-                  cursor:"pointer",
-                }}>
-                <Download size={12} />
-                {formatManualDate(manualDates.사증민원)
-                  ? `${formatManualDate(manualDates.사증민원)} 사증 매뉴얼`
-                  : "사증 매뉴얼"} ↓
-              </button>
+              {/* 매뉴얼 PDF 다운로드 버튼 제거(Phase I-1J):
+                  Render(Linux)에서 HWP→전체 PDF 변환 불가(win32com/OpenHwpExe 의존),
+                  legacy unlocked_*.pdf 가 최신화되지 않아 "최신 전체 매뉴얼"로 오인 → 삭제. */}
             </div>
           )}
 

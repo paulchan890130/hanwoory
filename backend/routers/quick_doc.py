@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
-from backend.auth import get_current_user
+from backend.auth import get_current_user, require_admin
 
 router = APIRouter()
 
@@ -17,6 +17,9 @@ _TEMPLATES_DIR = os.path.join(_BASE, "templates")
 _CIRCLE_PATH   = os.path.join(_TEMPLATES_DIR, "원형 배경.png")
 _FONT_PATH     = os.path.join(_BASE, "fonts", "HJ한전서B.ttf")
 _SEAL_SIZE     = 200
+# 영문도장 전용: 라틴 글자는 한글보다 좁아 보이므로 좌우 폭만 넓힌다(가로 x-scale).
+# 한글도장에는 적용하지 않는다. I-1J-6G: 1.45 는 체감이 약해 1.8 로 상향(원형 테두리 미접촉).
+_LATIN_X_SCALE = 1.8
 
 # ── 선택 트리 데이터 ──────────────────────────────────────────────────────────
 
@@ -164,6 +167,56 @@ DOC_TEMPLATES: dict = {
     "준비중":                 None,   # 해당 민원 유형 미구현 (템플릿 없음)
 }
 
+# ── 편집형 DB 설정(Phase I-1J-6O) 우선 사용 여부 / 템플릿 경로 해석 ─────────────
+# 위 CATEGORY_OPTIONS / MINWON_OPTIONS / TYPE_OPTIONS / SUBTYPE_OPTIONS / REQUIRED_DOCS /
+# DOC_TEMPLATES 는 이제 "fallback/seed" 전용이다. FEATURE_PG_QUICK_DOC_CONFIG 가 켜지고
+# PG 가 구성되어 있으며 doc_tree_nodes 에 활성 데이터가 있으면 DB 설정을 우선 사용한다.
+# 테이블 미적용/PG 미구성/예외 시에는 항상 위 하드코딩으로 안전하게 fallback 한다.
+
+def _db_config_active() -> bool:
+    """DB 설정 트리를 사용할 수 있으면 True. 예외/미구성/빈 트리면 False(→ 하드코딩)."""
+    try:
+        from backend.db import feature_flags
+        if not feature_flags.pg_quick_doc_config_enabled():
+            return False
+        from backend.db import session as _dbsession
+        if not _dbsession.is_configured():
+            return False
+        from backend.services import quick_doc_config_pg_service as cfg
+        return cfg.has_active_nodes()
+    except Exception:
+        return False
+
+
+def _resolve_template_path(doc_name: str) -> Optional[str]:
+    """서류명 → templates/ 상대경로. DB 매핑 우선, 없으면 DOC_TEMPLATES, 그래도 없으면
+    자동매핑(파일명 후보) 시도. 반환 ``None`` = 템플릿 없음(missing).
+
+    DOC_TEMPLATES 에 키는 있으나 값이 ``None`` 인 항목(준비중 등)도 None 으로 처리.
+    """
+    # 1) DB 매핑(활성 + template_filename 존재)
+    if _db_config_active():
+        try:
+            from backend.services import quick_doc_config_pg_service as cfg
+            p = cfg.template_for(doc_name)
+            if p:
+                return p
+        except Exception:
+            pass
+    # 2) 하드코딩 DOC_TEMPLATES
+    if doc_name in DOC_TEMPLATES:
+        return DOC_TEMPLATES[doc_name]  # None 일 수 있음(파일 미준비)
+    # 3) 자동매핑(파일명 후보)
+    try:
+        from backend.services import quick_doc_config_pg_service as cfg
+        fn = cfg.auto_map_template(doc_name)
+        if fn:
+            return f"templates/{fn}"
+    except Exception:
+        pass
+    return None
+
+
 # 역할별 도장 필드 이름 (PDF 위젯)
 ROLE_WIDGETS: dict = {
     "applicant":     "yin",   # 신청인 (미성년자면 대리인 이름)
@@ -186,54 +239,33 @@ ROLE_SIGN_WIDGETS: dict = {
 
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
-def _load_account_sheets(tenant_id: str) -> Optional[dict]:
-    """Accounts 시트에서 tenant_id로 계정 조회. get_all_values() 직접 파싱으로 안정성 확보."""
-    try:
-        from backend.services.accounts_service import _get_ws_readonly
-        ws = _get_ws_readonly()
-        values = ws.get_all_values()
-        if not values or len(values) < 2:
-            return None
-        header = values[0]
-        for row in values[1:]:
-            if not any(c.strip() for c in row):
-                continue
-            r = dict(zip(header, row))
-            if r.get("tenant_id", "").strip() == tenant_id:
-                return r
-        return None
-    except Exception:
-        return None
-
-
 def _load_account(tenant_id: str) -> Optional[dict]:
-    """행정사/사무소 계정 조회 — 고객 데이터와 동일하게 저장소 일치가 목적.
+    """행정사/사무소 계정 조회 — **PG-only(Phase B)**. Google Sheets Accounts 미사용.
 
-    FEATURE_PG_USERS/ADMIN 가 켜진 경우 계정(사무소명·주소·사업자번호·담당자·연락처)은
-    PG(tenants+users)가 최신이므로 PG 를 우선 조회하고, 비어있는 필드와 PG 미보관 값
-    (원본 주민번호 ``agent_rrn`` 등)은 Sheets 값으로 보완한다. 플래그 off이거나 PG 에
-    tenant 가 없으면 기존 Sheets 경로(_load_account_sheets)를 그대로 사용한다.
-
-    반환 dict 의 키/shape 는 Sheets 경로와 동일 — build_field_values 의
-    office_name/contact_name/agent_rrn/biz_reg_no/contact_tel/office_adr 매핑 불변.
-    """
-    sheets_acc = _load_account_sheets(tenant_id)
+    PG(tenants + 대표 user)에서 office_name/office_adr/biz_reg_no/contact_name/contact_tel 을
+    조회한다. 행정사 주민번호(``agent_rrn``)는 tenants.agent_rrn_encrypted(암호문)를 **복호화**해
+    채운다(Phase I-1J-6E). 미저장이면 빈 값. key 없음/복호화 실패 시에도 PDF 생성을 막지 않고
+    agent_rrn 만 빈 값으로 둔다(로그에 평문 미기록). 반환 shape 는 build_field_values 매핑과 호환.
+    PG 미존재/오류 시 None(문서는 사무소정보 없이 생성)."""
     try:
-        from backend.db.feature_flags import pg_users_enabled, pg_admin_enabled
-        if not (pg_users_enabled() or pg_admin_enabled()):
-            return sheets_acc
         from backend.services.auth_pg_service import find_account_by_tenant_pg
-        pg_acc = find_account_by_tenant_pg(tenant_id)
-        if not pg_acc:
-            return sheets_acc  # PG 미존재 → Sheets fallback
-        # Sheets 를 기준선으로 두고(원본 agent_rrn·sheet keys 등 보존),
-        # PG 가 가진 '비어있지 않은' 사무소/담당자 필드만 최신값으로 덮는다.
-        merged = dict(sheets_acc or {})
-        merged.update({k: v for k, v in pg_acc.items() if str(v or "").strip()})
-        return merged
+        acc = find_account_by_tenant_pg(tenant_id)
+        if not acc:
+            return None
+        cipher = str(acc.pop("agent_rrn_encrypted", "") or "")
+        agent_rrn = ""
+        if cipher:
+            try:
+                from backend.services.pii_crypto import decrypt_agent_rrn
+                agent_rrn = decrypt_agent_rrn(cipher)
+            except Exception:
+                # 민감정보 없는 경고만(평문/암호문 미기록). PDF 는 agent_rrn 빈 값으로 계속 진행.
+                print("[quick_doc._load_account] agent_rrn decrypt failed → blank")
+                agent_rrn = ""
+        acc["agent_rrn"] = agent_rrn
+        return acc
     except Exception:
-        # PG 경로에서 어떤 문제가 생겨도 문서 생성이 깨지지 않도록 Sheets fallback
-        return sheets_acc
+        return None
 
 
 def _split_phone(phone: str) -> tuple:
@@ -580,9 +612,28 @@ def normalize_seal_name(raw) -> Optional[str]:
     return hangul_only or name
 
 
-def make_seal_bytes(name: Optional[str]) -> Optional[bytes]:
-    """도장 이미지 생성 → PNG bytes. 실패 시 None 반환"""
-    name_norm = normalize_seal_name(name)
+def english_initials(surname, given) -> str:
+    """영문 도장용 이니셜: 성 첫 글자 + 명 첫 글자(대문자, A-Z만). 둘 다 없으면 빈 문자열.
+
+    예) KIM/CHULSOO→KC, ZHANG/MEIYING→ZM, ABDURAHMAN/ALI→AA, PARK/MIN-JUN→PM, ALI/""→A.
+    분리 필드(성/명)가 비면 호출측에서 fallback(여권 영문명 공백분리) 처리."""
+    def _az(s):
+        return "".join(c for c in str(s or "").upper() if "A" <= c <= "Z")
+    su, gi = _az(surname), _az(given)
+    return (su[:1] + gi[:1])
+
+
+def make_seal_bytes(name: Optional[str], english: bool = False) -> Optional[bytes]:
+    """도장 이미지 생성 → PNG bytes. 실패 시 None 반환.
+
+    english=False(기본): 기존 한글 도장(세로 배치) — 동작 100% 보존.
+    english=True: name 을 영문 이니셜(A-Z 대문자)로 보고 한글 도장과 동일한 세로 배치
+                  (1자=중앙, 2자=상하 2칸, 3자 이상=세로 3칸). 한글 fallback 없음.
+    """
+    if english:
+        name_norm = "".join(c for c in str(name or "").upper() if "A" <= c <= "Z")
+    else:
+        name_norm = normalize_seal_name(name)
     if not name_norm:
         return None
     try:
@@ -623,6 +674,8 @@ def make_seal_bytes(name: Optional[str]) -> Optional[bytes]:
         n_chars = len(name_norm)
 
         if n_chars > 0:
+            # 한글·영문 공통 세로 배치(1자=중앙, 2자=상하 2칸, 3자 이상=세로 3칸).
+            # 영문 이니셜도 한글 도장과 동일한 세로 규칙을 사용한다(한글 fallback 없음).
             name_disp = name_norm[:4]
             n_chars = len(name_disp)
 
@@ -654,10 +707,28 @@ def make_seal_bytes(name: Optional[str]) -> Optional[bytes]:
             total_h += line_gap * (n_chars - 1)
 
             current_y = (canvas_size - total_h) / 2
-            for idx, ch in enumerate(name_disp):
-                w, h = char_sizes[idx]
-                draw.text(((canvas_size - w) / 2, current_y), ch, fill=border_color, font=font)
-                current_y += h + line_gap
+            if english:
+                # 라틴 문자: 세로배치/높이는 그대로 두고 좌우 폭만 넓힌다(한글 글자칸 수준).
+                # 각 글자를 타일로 렌더 → 가로로만 x-scale 확대 후 가운데 합성.
+                for idx, ch in enumerate(name_disp):
+                    w, h = char_sizes[idx]
+                    bb = font.getbbox(ch)
+                    gw = max(1, bb[2] - bb[0])
+                    gh = max(1, bb[3] - bb[1])
+                    tile = Image.new("RGBA", (gw, gh), (0, 0, 0, 0))
+                    ImageDraw.Draw(tile).text((-bb[0], -bb[1]), ch, fill=border_color, font=font)
+                    nw = max(1, int(gw * _LATIN_X_SCALE))
+                    if nw != gw:
+                        tile = tile.resize((nw, gh), Image.LANCZOS)
+                    base.alpha_composite(
+                        tile, dest=(int((canvas_size - nw) / 2), int(current_y + bb[1]))
+                    )
+                    current_y += h + line_gap
+            else:
+                for idx, ch in enumerate(name_disp):
+                    w, h = char_sizes[idx]
+                    draw.text(((canvas_size - w) / 2, current_y), ch, fill=border_color, font=font)
+                    current_y += h + line_gap
 
         rotated = base.rotate(5, resample=Image.BICUBIC, expand=True)
         final_img = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
@@ -671,10 +742,186 @@ def make_seal_bytes(name: Optional[str]) -> Optional[bytes]:
         return None
 
 
+def _auto_role_seal(korean_name, surname, given, enabled: bool):
+    """역할별 도장 자동판단(I-1J-6N): 한글이름 우선 → 영문 이니셜 → 생략.
+    반환 (bytes|None, reason). reason ∈ disabled/korean/english/no_name — 개인정보 없음(로그용)."""
+    if not enabled:
+        return None, "disabled"
+    kn = normalize_seal_name(korean_name)
+    if kn:
+        return make_seal_bytes(kn), "korean"            # 한글 우선(영문 있어도 한글)
+    ini = english_initials(surname, given)
+    if ini:
+        return make_seal_bytes(ini, english=True), "english"  # 한글 없고 영문만 → 영문도장(세로)
+    return None, "no_name"                              # 둘 다 없음 → 생략(정상)
+
+
+def _insert_role_images(page, widget, base, seal_bytes_by_role, sign_bytes_by_role):
+    """도장/서명 이미지 삽입 — 기존 ROLE_WIDGETS / ROLE_SIGN_WIDGETS 좌표·로직 그대로(보존)."""
+    for role, widget_name in ROLE_WIDGETS.items():
+        if base == widget_name:
+            img_bytes = seal_bytes_by_role.get(role)
+            if img_bytes:
+                page.insert_image(widget.rect, stream=img_bytes)
+    if sign_bytes_by_role:
+        for role, widget_name in ROLE_SIGN_WIDGETS.items():
+            if base == widget_name:
+                sig_bytes = sign_bytes_by_role.get(role)
+                if sig_bytes:
+                    page.insert_image(widget.rect, stream=sig_bytes)
+
+
+# ── field_ap (필드 유지형 Custom Appearance) PoC 헬퍼 ─────────────────────────────
+# AcroForm Text field 를 살린 채(/T·/V·widget 유지), /AP appearance stream 만 통일 규칙으로
+# 직접 생성한다. flatten/삭제 없음. /V 에는 공백 없는 실제 값만 들어간다(표시 통일은 /AP 에서만).
+_AP_STD_CELL_EM = 1.35          # 표준 칸 폭(통합신청서 yyyy 칸 ≈ 13.4pt @ ~10pt) = font_size * 1.35
+_AP_ADDRESS_FIELDS = {"adress", "address", "hadress", "badress", "gadress", "padress",
+                      "office_adr", "agent_address", "why", "hope", "reason", "details"}
+_AP_MULTILINE_FLAG = 1 << 12    # PDF Text field Multiline 플래그
+
+
+def _ap_is_ascii(value: str) -> bool:
+    """값이 ASCII(영문/숫자/하이픈/공백/기호)만 → 고정칸 /AP 대상. 한글 등 비ASCII면 native."""
+    try:
+        value.encode("ascii")
+        return True
+    except Exception:
+        return False
+
+
+def _ap_esc(c: str) -> str:
+    return c.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _write_fixed_cell_ap(doc, widget, value: str) -> bool:
+    """widget 의 /AP /N content stream 을 '표준 칸 폭·가운데 묶음' 고정칸 레이아웃으로 덮어쓴다.
+    widget.update()로 /V(공백 없는 실제 값)+기본 Helv AP 를 먼저 만든 뒤 stream 만 교체.
+    성공 True. 실패(구조 불일치 등) 시 False(호출측이 native 로 둠)."""
+    import fitz
+    try:
+        widget.field_value = value
+        widget.update()                       # /V 세팅 + /AP /N (Helv) 생성
+        ap = doc.xref_get_key(widget.xref, "AP")
+        if ap[0] != "dict" or "/N" not in ap[1]:
+            return False
+        nx = int(ap[1].split("/N")[1].split("0 R")[0].strip())
+        obj = doc.xref_object(nx)
+        bb = obj.split("/BBox")[1].split("[")[1].split("]")[0].split()
+        W = float(bb[2]) - float(bb[0]); H = float(bb[3]) - float(bb[1])
+        helv = fitz.Font("helv")
+        n = len(value)
+        if n == 0:
+            return False
+        pad = 2.0
+        avail = max(1.0, W - 2 * pad)
+        size = 12.0
+        nonspace = [c for c in value if not c.isspace()]
+        while size >= 5.0:
+            cell = min(size * _AP_STD_CELL_EM, avail / n)
+            maxg = max((helv.text_length(c, size) for c in nonspace), default=0.0)
+            if maxg <= cell and size * 1.2 <= H:
+                break
+            size -= 0.5
+        cell = min(size * _AP_STD_CELL_EM, avail / n)
+        block = cell * n
+        x0 = pad + (avail - block) / 2          # 글자 묶음을 필드 가운데로(과확산 방지)
+        base_y = (H - size) / 2 + size * 0.2
+        parts = ["/Tx BMC", "q", "BT", "/Helv %.2f Tf" % size, "0 g"]
+        for i, ch in enumerate(value):
+            if ch.isspace():
+                continue                        # cell 은 차지하되 그리지 않음
+            gw = helv.text_length(ch, size)
+            x = x0 + i * cell + (cell - gw) / 2
+            parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x, base_y, _ap_esc(ch)))
+        parts += ["ET", "Q", "EMC"]
+        doc.update_stream(nx, ("\n".join(parts) + "\n").encode())
+        return True
+    except Exception:
+        return False
+
+
+def _write_native_ap(doc, widget, value: str, center: bool) -> None:
+    """한글/장문 필드: 고정칸 없이 native AcroForm appearance 로 채운다(필드/V 유지).
+    center=True 면 /Q=1(가운데). 장문은 템플릿 /Q·Multiline 그대로 둬 wrap 유지."""
+    try:
+        if center:
+            try:
+                doc.xref_set_key(widget.xref, "Q", "1")
+            except Exception:
+                pass
+        widget.field_value = value
+        widget.update()
+    except Exception:
+        pass
+
+
+def _set_need_appearances(doc, value: bool) -> None:
+    """AcroForm /NeedAppearances 설정. False 면 뷰어가 우리 /AP 를 그대로 사용(Custom AP 유지)."""
+    try:
+        root = doc.pdf_catalog()
+        af = doc.xref_get_key(root, "AcroForm")
+        if af and af[0] == "xref":
+            afx = int(af[1].split()[0])
+            doc.xref_set_key(afx, "NeedAppearances", "true" if value else "false")
+    except Exception:
+        pass
+
+
+def _looks_space_injected(value: str) -> bool:
+    """/V 에 인위적 자간 공백이 들어갔는지(예: 'P I A O'). 실제 공백 포함 이름('PIAO CHENGJUN')은 정상.
+    판정: 공백 분리 토큰이 3개 이상이면서 전부 1글자면 인위적 삽입으로 본다."""
+    toks = value.split(" ")
+    return len(toks) >= 3 and all(len(t) == 1 for t in toks if t != "")
+
+
+def validate_field_ap_output(pdf_bytes: bytes) -> dict:
+    """field_ap 최종(merged) PDF 자동검사. Text widget 생존·CheckBox·/V 공백삽입 확인.
+    반환 stats. Text widget 0개면 ok=False(호출측에서 실패 처리). 개인정보 원문 로그 금지."""
+    import fitz
+    d = fitz.open("pdf", pdf_bytes)
+    text_count = checkbox_count = 0
+    v_present = 0
+    spaced_fields = []
+    try:
+        for pg in d:
+            for w in (pg.widgets() or []):
+                ft = w.field_type_string
+                if ft == "Text":
+                    text_count += 1
+                    v = w.field_value or ""
+                    if v:
+                        v_present += 1
+                        if _looks_space_injected(v):
+                            spaced_fields.append(w.field_name)
+                elif ft == "CheckBox":
+                    checkbox_count += 1
+    finally:
+        d.close()
+    return {
+        "ok": text_count > 0 and not spaced_fields,
+        "text_count": text_count,
+        "checkbox_count": checkbox_count,
+        "v_present": v_present,
+        "space_injected_fields": spaced_fields,
+    }
+
+
 def fill_and_append_pdf(template_path: str, field_values: dict,
                         seal_bytes_by_role: dict, merged_doc,
-                        sign_bytes_by_role: Optional[dict] = None) -> None:
-    """PyMuPDF로 PDF 필드 채우기 + 도장/서명 삽입 + merged_doc에 추가"""
+                        sign_bytes_by_role: Optional[dict] = None,
+                        render_mode: str = "acroform") -> None:
+    """PyMuPDF로 PDF 필드 채우기 + 도장/서명 삽입 + merged_doc에 추가.
+
+    render_mode="field_ap"(PoC): Text field 를 **유지**한 채 /V=실제값, /AP=통일 appearance.
+      · 짧은 ASCII 값 → 고정칸(표준 칸 폭·가운데) Custom /AP. 한글/장문 → native AcroForm AP.
+      · flatten/삭제 없음, CheckBox·도장/서명은 기존 방식. NeedAppearances=false.
+
+    render_mode="acroform"(기본): 기존 AcroForm field_value 방식 — 동작 100% 보존(rollback 경로).
+    render_mode="overlay": **Text 필드만** 좌표 overlay + 폰트 embed + Text 위젯 flatten.
+      · CheckBox 는 overlay 하지 않고 기존 AcroForm 처리(값 설정 + 위젯 유지) 보존.
+      · 도장/서명(ROLE_WIDGETS/ROLE_SIGN_WIDGETS)은 위치·이미지 삽입 로직 그대로.
+      · style 은 backend.services.pdf_style(GLOBAL_STYLE + STYLE_OVERRIDE), keep_field 예외 지원.
+    """
     if not template_path:
         return
     abs_path = template_path if os.path.isabs(template_path) else os.path.join(_BASE, template_path)
@@ -683,28 +930,99 @@ def fill_and_append_pdf(template_path: str, field_values: dict,
     try:
         import fitz
         doc = fitz.open(abs_path)
-        for page in doc:
-            widgets = list(page.widgets() or [])
-            for widget in widgets:
-                base = normalize_field_name(widget.field_name)
-                if base in field_values:
-                    widget.field_value = str(field_values[base] or "")
-                    widget.update()
-            for widget in widgets:
-                base = normalize_field_name(widget.field_name)
-                # 도장 삽입 (기존 로직 유지)
-                for role, widget_name in ROLE_WIDGETS.items():
-                    if base == widget_name:
-                        img_bytes = seal_bytes_by_role.get(role)
-                        if img_bytes:
-                            page.insert_image(widget.rect, stream=img_bytes)
-                # 서명 삽입 (신규 추가)
-                if sign_bytes_by_role:
-                    for role, widget_name in ROLE_SIGN_WIDGETS.items():
-                        if base == widget_name:
-                            sig_bytes = sign_bytes_by_role.get(role)
-                            if sig_bytes:
-                                page.insert_image(widget.rect, stream=sig_bytes)
+
+        if render_mode in ("overlay", "overlay_legacy"):
+            # legacy 보기안정형: Text widget 제거/flatten(필드 사망). field_ap 로 대체됨 — dev fallback 전용.
+            from backend.services.pdf_style import style_for, draw_overlay_text
+            role_names = set(ROLE_WIDGETS.values()) | set(ROLE_SIGN_WIDGETS.values())
+            # 중복 draw 방지: 같은 page + 같은 normalized field + 거의 같은 rect 면 1회만 그린다.
+            # rounded rect(약 3pt tolerance)로 미세 차이는 같은 칸으로 본다. 단 rect 가 실제로
+            # 다른 위치면(예: 위임장의 agent_name 2곳) 키가 달라 둘 다 그려진다(문서 보존).
+            drawn_cells = set()
+            def _cell_key(pno, base, rect):
+                return (pno, base, round(rect.x0 / 3), round(rect.y0 / 3),
+                        round(rect.x1 / 3), round(rect.y1 / 3))
+            for page in doc:
+                widgets = list(page.widgets() or [])
+                # 1) Text overlay(비-role) / CheckBox 기존 처리 / keep_field 유지
+                for widget in widgets:
+                    base = normalize_field_name(widget.field_name)
+                    ftype = widget.field_type_string
+                    if ftype == "Text" and widget.field_name not in role_names:
+                        if base in field_values:
+                            st = style_for(widget.field_name, getattr(widget, "text_align", 0) or 0)
+                            val = str(field_values[base] or "")
+                            if st.get("keep_field"):
+                                widget.field_value = val
+                                widget.update()  # 예외: AcroForm 위젯 유지(편집 가능)
+                            elif val:
+                                key = _cell_key(page.number, base, widget.rect)
+                                if key in drawn_cells:
+                                    continue  # 같은 칸 중복 draw 방지(글자 겹침 방지)
+                                drawn_cells.add(key)
+                                draw_overlay_text(page, widget.rect, val, st)
+                    elif ftype == "CheckBox":
+                        if base in field_values:
+                            widget.field_value = str(field_values[base] or "")
+                            widget.update()
+                # 2) 도장/서명 이미지 (텍스트 overlay 이후 삽입 → 덮이지 않음)
+                for widget in widgets:
+                    base = normalize_field_name(widget.field_name)
+                    _insert_role_images(page, widget, base, seal_bytes_by_role, sign_bytes_by_role)
+                # 3) flatten: Text 위젯 제거(keep_field 제외). CheckBox/그 외 위젯 유지.
+                for widget in list(page.widgets() or []):
+                    if widget.field_type_string == "Text":
+                        st = style_for(widget.field_name, 0)
+                        if not st.get("keep_field"):
+                            page.delete_widget(widget)
+        elif render_mode == "field_ap":
+            # 필드 유지형 Custom Appearance: Text widget 유지(삭제·flatten 없음).
+            role_names = set(ROLE_WIDGETS.values()) | set(ROLE_SIGN_WIDGETS.values())
+            for page in doc:
+                widgets = list(page.widgets() or [])
+                for widget in widgets:
+                    base = normalize_field_name(widget.field_name)
+                    ftype = widget.field_type_string
+                    if ftype == "Text" and widget.field_name not in role_names:
+                        if base not in field_values:
+                            continue
+                        val = str(field_values[base] or "")
+                        if not val:
+                            continue
+                        ff = getattr(widget, "field_flags", 0) or 0
+                        is_long = (
+                            base in _AP_ADDRESS_FIELDS
+                            or bool(ff & _AP_MULTILINE_FLAG)
+                            or (widget.rect.height > 30)
+                        )
+                        if is_long:
+                            _write_native_ap(doc, widget, val, center=False)   # 장문/주소: native wrap 유지
+                        elif _ap_is_ascii(val):
+                            if not _write_fixed_cell_ap(doc, widget, val):     # 고정칸 실패 → native fallback
+                                _write_native_ap(doc, widget, val, center=True)
+                        else:
+                            _write_native_ap(doc, widget, val, center=True)    # 한글 짧은 값: native 가운데
+                    elif ftype == "CheckBox":
+                        if base in field_values:
+                            widget.field_value = str(field_values[base] or "")
+                            widget.update()
+                # 도장/서명 이미지(기존 방식). Text widget 은 유지(삭제 안 함).
+                for widget in widgets:
+                    base = normalize_field_name(widget.field_name)
+                    _insert_role_images(page, widget, base, seal_bytes_by_role, sign_bytes_by_role)
+            _set_need_appearances(doc, False)   # 뷰어가 우리 /AP 를 그대로 사용
+        else:
+            for page in doc:
+                widgets = list(page.widgets() or [])
+                for widget in widgets:
+                    base = normalize_field_name(widget.field_name)
+                    if base in field_values:
+                        widget.field_value = str(field_values[base] or "")
+                        widget.update()
+                for widget in widgets:
+                    base = normalize_field_name(widget.field_name)
+                    _insert_role_images(page, widget, base, seal_bytes_by_role, sign_bytes_by_role)
+
         merged_doc.insert_pdf(doc)
         doc.close()
     except Exception:
@@ -763,12 +1081,13 @@ class FullDocGenRequest(BaseModel):
     guarantor_connection: Optional[dict] = None    # 신원보증인연결 탭 전체 데이터
     include_date: bool = True                      # 작성년/월/일 삽입 여부
     custom_date: Optional[str] = None              # 직접 지정 날짜 (YYYY-MM-DD); None = 오늘
+    use_english_stamp: bool = False                # True 면 신청인 도장에 영문 이니셜(성+명 첫글자) 사용. 기본 False=한글 도장
+    render_mode: str = "acroform"                  # "acroform"(기본, 기존 방식) | "overlay"(Text 좌표 overlay+flatten, 보기 안정형)
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
 
-@router.get("/tree")
-def get_selection_tree(_: dict = Depends(get_current_user)):
+def _hardcoded_tree() -> dict:
     return {
         "categories": CATEGORY_OPTIONS,
         "minwon": MINWON_OPTIONS,
@@ -777,15 +1096,36 @@ def get_selection_tree(_: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/tree")
+def get_selection_tree(_: dict = Depends(get_current_user)):
+    # DB 설정이 활성(플래그+PG+데이터)이면 DB 트리, 아니면 하드코딩 fallback.
+    if _db_config_active():
+        try:
+            from backend.services import quick_doc_config_pg_service as cfg
+            return cfg.build_tree()
+        except Exception:
+            pass
+    return _hardcoded_tree()
+
+
 @router.post("/required-docs")
 def get_required_docs(req: RequiredDocsRequest, _: dict = Depends(get_current_user)):
     kind = req.kind if req.kind and req.kind != "x" else ""
     detail = req.detail or ""
-    key = (req.category, req.minwon, kind, detail)
-    docs = REQUIRED_DOCS.get(key)
+    docs = None
+    # DB 설정 우선(활성 시). 매칭 실패 시 하드코딩 fallback.
+    if _db_config_active():
+        try:
+            from backend.services import quick_doc_config_pg_service as cfg
+            docs = cfg.required_docs(req.category, req.minwon, req.kind, detail)
+        except Exception:
+            docs = None
     if docs is None:
-        key2 = (req.category, req.minwon, kind, "")
-        docs = REQUIRED_DOCS.get(key2, {"main": [], "agent": []})
+        key = (req.category, req.minwon, kind, detail)
+        docs = REQUIRED_DOCS.get(key)
+        if docs is None:
+            key2 = (req.category, req.minwon, kind, "")
+            docs = REQUIRED_DOCS.get(key2, {"main": [], "agent": []})
 
     main_docs = list(docs.get("main", []))
     agent_docs = list(docs.get("agent", []))
@@ -801,6 +1141,132 @@ def get_required_docs(req: RequiredDocsRequest, _: dict = Depends(get_current_us
         "main_docs": main_docs,
         "agent_docs": agent_docs,
     }
+
+
+# ── 관리자 전용: 문서자동작성 설정(편집형 트리/필요서류) — Phase I-1J-6O ────────
+# require_admin 으로 보호. PG 미구성 시 503. 코드 파일을 고치지 않고 DB 설정만 수정한다.
+
+def _cfg_service():
+    """quick_doc_config_pg_service 반환. PG 미구성/임포트 실패 시 503."""
+    from backend.db import session as _dbsession
+    if not _dbsession.is_configured():
+        raise HTTPException(status_code=503, detail="PostgreSQL 이 구성되지 않았습니다(문서자동작성 설정은 DB 필요).")
+    from backend.services import quick_doc_config_pg_service as cfg
+    return cfg
+
+
+class NodeCreateReq(BaseModel):
+    parent_id: Optional[int] = None
+    level: str                       # category | petition | type | subtype
+    name: str
+    sort_order: Optional[int] = None
+
+
+class NodeUpdateReq(BaseModel):
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class ReqDocCreateReq(BaseModel):
+    node_id: int
+    name: str
+    doc_group: str = "main"          # main | agent
+    sort_order: Optional[int] = None
+    template_filename: Optional[str] = None
+
+
+class ReqDocUpdateReq(BaseModel):
+    name: Optional[str] = None
+    doc_group: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+    template_filename: Optional[str] = None
+
+
+@router.get("/admin/tree")
+def admin_get_tree(_: dict = Depends(require_admin)):
+    """관리자용 전체 트리(비활성 포함 + 필요서류 + 템플릿 상태)."""
+    cfg = _cfg_service()
+    return cfg.admin_tree()
+
+
+@router.get("/admin/templates")
+def admin_list_templates(_: dict = Depends(require_admin)):
+    """templates/ 폴더의 PDF 파일 목록(자동/수동 매핑 선택용)."""
+    cfg = _cfg_service()
+    files = cfg.list_template_files()
+    return {"templates": [{"filename": f, "display_name": f[:-4], "exists": True} for f in files]}
+
+
+@router.post("/admin/nodes")
+def admin_create_node(req: NodeCreateReq, _: dict = Depends(require_admin)):
+    cfg = _cfg_service()
+    try:
+        return cfg.create_node(req.parent_id, req.level, req.name, req.sort_order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/admin/nodes/{node_id}")
+def admin_update_node(node_id: int, req: NodeUpdateReq, _: dict = Depends(require_admin)):
+    cfg = _cfg_service()
+    try:
+        return cfg.update_node(node_id, name=req.name, sort_order=req.sort_order,
+                               is_active=req.is_active)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/admin/nodes/{node_id}")
+def admin_delete_node(node_id: int, _: dict = Depends(require_admin)):
+    """soft delete(is_active=False)."""
+    cfg = _cfg_service()
+    try:
+        return cfg.delete_node(node_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/admin/required-documents")
+def admin_create_required_doc(req: ReqDocCreateReq, _: dict = Depends(require_admin)):
+    cfg = _cfg_service()
+    try:
+        return cfg.create_required_document(req.node_id, req.name, req.doc_group,
+                                            req.sort_order, req.template_filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/admin/required-documents/{doc_id}")
+def admin_update_required_doc(doc_id: int, req: ReqDocUpdateReq, _: dict = Depends(require_admin)):
+    cfg = _cfg_service()
+    try:
+        return cfg.update_required_document(
+            doc_id, name=req.name, doc_group=req.doc_group, sort_order=req.sort_order,
+            is_active=req.is_active, template_filename=req.template_filename)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/admin/required-documents/{doc_id}")
+def admin_delete_required_doc(doc_id: int, _: dict = Depends(require_admin)):
+    """soft delete(is_active=False)."""
+    cfg = _cfg_service()
+    try:
+        return cfg.delete_required_document(doc_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/admin/required-documents/{doc_id}/auto-map-template")
+def admin_remap_required_doc(doc_id: int, _: dict = Depends(require_admin)):
+    """서류명 기준 templates/ PDF 자동매핑 재계산."""
+    cfg = _cfg_service()
+    try:
+        return cfg.remap_required_document(doc_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/generate-full")
@@ -821,17 +1287,9 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     # 저장 경로(고객관리)와 동일한 저장소를 읽어야 한다. FEATURE_PG_CUSTOMERS=true 이면
     # 주소 등 최신 편집분이 PG 에만 있고 Sheets 에는 옛 값(빈칸)이 남아 있으므로,
     # read_sheet 만 쓰면 문서에 옛 주소(빈칸)가 박힌다. 검색 엔드포인트와 동일 분기.
-    from backend.db.feature_flags import pg_customers_enabled
-    if pg_customers_enabled():
-        from backend.services.customer_pg_service import list_customers
-        customers = list_customers(tenant_id) or []
-    else:
-        from backend.services.tenant_service import read_sheet
-        CUSTOMER_SHEET_NAME = "고객 데이터"
-        try:
-            customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id) or []
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"고객 데이터 조회 실패: {e}")
+    # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환). Sheets read 제거.
+    from backend.services.customer_pg_service import list_customers
+    customers = list_customers(tenant_id) or []
 
     def find_customer(cid: Optional[str]) -> Optional[dict]:
         if not cid:
@@ -917,14 +1375,33 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     if req.sign_guarantor and req.seal_guarantor:
         req.seal_guarantor = False
 
-    seal_bytes_by_role = {
-        "applicant":     make_seal_bytes(applicant_seal_name)     if req.seal_applicant     else None,
-        "accommodation": make_seal_bytes(accommodation_seal_name) if req.seal_accommodation else None,
-        "guarantor":     make_seal_bytes(guarantor_seal_name)     if req.seal_guarantor     else None,
-        "guardian":      make_seal_bytes(guardian_seal_name)      if req.seal_guardian      else None,
-        "aggregator":    make_seal_bytes(aggregator_seal_name)    if req.seal_aggregator    else None,
-        "agent":         make_seal_bytes(account.get("contact_name") if account else None) if req.seal_agent    else None,
-    }
+    # 도장 자동판단(I-1J-6N): 역할별로 한글이름 우선 → 영문이니셜 → 생략. use_english_stamp 의존 폐기.
+    # 신청인 영문 소스는 미성년이면 대리인(guardian). 영문 이름은 role dict 의 "성"/"명"(=Surname/Given names).
+    _app_src = guardian if (is_minor and guardian) else applicant
+    def _en_names(d):
+        d = d or {}
+        return d.get("성", ""), d.get("명", "")
+    _seal_reasons: dict = {}
+    seal_bytes_by_role: dict = {}
+    for _role, _korean, _src, _enabled in (
+        ("applicant",     applicant_seal_name,     _app_src,   req.seal_applicant),
+        ("accommodation", accommodation_seal_name, prov,       req.seal_accommodation),
+        ("guarantor",     guarantor_seal_name,     guarantor,  req.seal_guarantor),
+        ("guardian",      guardian_seal_name,      guardian,   req.seal_guardian),
+        ("aggregator",    aggregator_seal_name,    aggregator, req.seal_aggregator),
+    ):
+        _su, _gi = _en_names(_src)
+        _b, _reason = _auto_role_seal(_korean, _su, _gi, _enabled)
+        seal_bytes_by_role[_role] = _b
+        _seal_reasons[_role] = _reason
+    # 행정사(agent): 사무소 담당자 한글명만(영문 도장 없음, 별도 유지).
+    _agent_kn = normalize_seal_name(account.get("contact_name") if account else None)
+    seal_bytes_by_role["agent"] = make_seal_bytes(_agent_kn) if (req.seal_agent and _agent_kn) else None
+    _seal_reasons["agent"] = (
+        "disabled" if not req.seal_agent else ("korean" if _agent_kn else "no_name")
+    )
+    english_stamp_skipped = (_seal_reasons.get("applicant") == "no_name" and req.seal_applicant)
+    print("[seal][auto] " + " ".join(f"{r}={_seal_reasons[r]}" for r in _seal_reasons))  # PII 없음
 
     # ── 서명 이미지 준비 ──
     from backend.services.signature_service import (
@@ -949,9 +1426,8 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         if not cid:
             return None
         try:
-            from backend.services.tenant_service import get_customer_sheet_key
-            csk = get_customer_sheet_key(tenant_id)
-            return _sign_b64_to_bytes(_get_cust_sign(csk, cid))
+            # PG-only: 서명은 tenant 단위로 PG 에 저장 → tenant_id 로 직접 조회(Sheets csk 조회 제거).
+            return _sign_b64_to_bytes(_get_cust_sign(tenant_id, cid))
         except Exception:
             return None
 
@@ -1022,21 +1498,22 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         missing = []   # None으로 명시적 미완성 항목 (파일 준비 필요)
 
         for doc_name in req.selected_docs:
-            # DOC_TEMPLATES에 아예 없는 경우
-            if doc_name not in DOC_TEMPLATES:
-                skipped.append(doc_name)
-                continue
-            rel_path = DOC_TEMPLATES[doc_name]
-            # None: 파일이 아직 준비되지 않은 항목
+            # DB 매핑 → DOC_TEMPLATES → 자동매핑 순으로 템플릿 경로 해석.
+            rel_path = _resolve_template_path(doc_name)
             if rel_path is None:
-                missing.append(doc_name)
+                # 매핑/파일 없음. 이름이 알려진 서류면 missing(템플릿 없음), 완전 미등록이면 skipped.
+                if doc_name in DOC_TEMPLATES:
+                    missing.append(doc_name)
+                else:
+                    skipped.append(doc_name)
                 continue
             # 경로가 있지만 실제 파일이 없는 경우
             abs_path = rel_path if os.path.isabs(rel_path) else os.path.join(_BASE, rel_path)
             if not os.path.exists(abs_path):
                 missing.append(f"{doc_name}(파일없음:{rel_path})")
                 continue
-            fill_and_append_pdf(rel_path, field_values, seal_bytes_by_role, merged, sign_bytes_by_role)
+            fill_and_append_pdf(rel_path, field_values, seal_bytes_by_role, merged, sign_bytes_by_role,
+                                render_mode=req.render_mode)
 
         # 누락 파일이 있으면 422로 명시적 안내 (일부라도 있으면 생성은 계속)
         if missing and merged.page_count == 0:
@@ -1060,6 +1537,20 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         merged.close()
         buf.seek(0)
 
+        # field_ap: 최종 PDF 에서 Text field 생존·/V 공백삽입 자동검사. 실패 시 PDF 반환 안 함.
+        if req.render_mode == "field_ap":
+            stats = validate_field_ap_output(buf.getvalue())
+            print(f"[generate_full][field_ap] text={stats['text_count']} "
+                  f"checkbox={stats['checkbox_count']} v_present={stats['v_present']} "
+                  f"space_injected={stats['space_injected_fields']}")
+            if stats["text_count"] == 0:
+                raise HTTPException(status_code=500,
+                                    detail="field_ap 검증 실패: 최종 PDF 에 Text field 가 없습니다(필드 유실).")
+            if stats["space_injected_fields"]:
+                raise HTTPException(status_code=500,
+                                    detail="field_ap 검증 실패: /V 에 인위적 공백이 삽입되었습니다.")
+            buf.seek(0)
+
         applicant_name = applicant.get("한글", "고객")
         filename = f"{applicant_name}_{req.category}_{req.minwon}_{kind}_{detail or 'x'}.pdf"
         # RFC 5987: filename*=UTF-8''<percent-encoded>
@@ -1077,6 +1568,8 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
                 "Content-Disposition": f"attachment; filename*=UTF-8''{filename_encoded}",
                 "X-Skipped-Docs":  skipped_encoded,
                 "X-Missing-Docs":  missing_encoded,
+                "X-English-Stamp-Skipped": "true" if english_stamp_skipped else "false",
+                "X-Render-Mode": req.render_mode,
             },
         )
     except HTTPException:
@@ -1176,17 +1669,9 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
     if not allowed:
         return []
 
-    from backend.db.feature_flags import pg_customers_enabled
-    if pg_customers_enabled():
-        from backend.services.customer_pg_service import list_customers
-        customers = list_customers(tenant_id) or []
-    else:
-        CUSTOMER_SHEET_NAME = "고객 데이터"
-        try:
-            from backend.services.tenant_service import read_sheet
-            customers = read_sheet(CUSTOMER_SHEET_NAME, tenant_id) or []
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"고객 데이터 조회 실패: {e}")
+    # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환). Sheets read 제거.
+    from backend.services.customer_pg_service import list_customers
+    customers = list_customers(tenant_id) or []
 
     q_stripped = q.strip()
     q_lower = q_stripped.lower()
@@ -1417,8 +1902,7 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
         if req.customer_id:
             try:
                 from backend.services.signature_service import has_customer_signature
-                from backend.services.tenant_service import get_customer_sheet_key as _gcsk
-                _has_cust_sign = has_customer_signature(_gcsk(tenant_id), req.customer_id)
+                _has_cust_sign = has_customer_signature(tenant_id, req.customer_id)  # PG-only
             except Exception:
                 _has_cust_sign = False
         if _has_cust_sign:
@@ -1467,9 +1951,8 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
         # 고객 서명: customer_id가 있으면 DB에서 조회
         if req.apply_applicant_sign and req.customer_id:
             try:
-                from backend.services.tenant_service import get_customer_sheet_key
-                csk = get_customer_sheet_key(tenant_id)
-                _poa_sign_bytes["applicant"] = _b64tobytes(_get_cust_sign(csk, req.customer_id))
+                # PG-only: tenant_id 로 직접 조회(Sheets csk 조회 제거).
+                _poa_sign_bytes["applicant"] = _b64tobytes(_get_cust_sign(tenant_id, req.customer_id))
             except Exception:
                 _poa_sign_bytes["applicant"] = None
         else:

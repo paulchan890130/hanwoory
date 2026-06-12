@@ -37,6 +37,8 @@ from backend.db.models.manual_update import (  # noqa: F401
 from backend.db.models.finance import FixedExpense, MonthlyTaxSummary  # noqa: F401
 from backend.db.models.guideline_category import GuidelineCategory, GuidelineCategoryOverride  # noqa: F401
 from backend.db.models.user_session import UserSession  # noqa: F401
+from backend.db.models.roi_preset import RoiPreset  # noqa: F401
+from backend.db.models.doc_tree import DocTreeNode, DocRequiredDocument  # noqa: F401
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -56,5 +58,6 @@ __all__ = [
     "ManualUpdateState",
     "FixedExpense", "MonthlyTaxSummary",
     "GuidelineCategory", "GuidelineCategoryOverride",
-    "UserSession",
+    "UserSession", "RoiPreset",
+    "DocTreeNode", "DocRequiredDocument",
 ]

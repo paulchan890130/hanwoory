@@ -105,6 +105,16 @@ def pg_guidelines_enabled() -> bool:
     return _bool("FEATURE_PG_GUIDELINES")
 
 
+def pg_quick_doc_config_enabled() -> bool:
+    """If true, 문서자동작성 선택 트리(구분/민원/종류/세부)와 필요서류를 PG 설정
+    테이블(``doc_tree_nodes`` / ``doc_required_documents``, Alembic 0012)에서 읽어
+    렌더링한다. Off 또는 PG 미구성 또는 테이블이 비었을 때 → 기존 하드코딩 상수
+    (CATEGORY_OPTIONS/MINWON_OPTIONS/TYPE_OPTIONS/SUBTYPE_OPTIONS/REQUIRED_DOCS)로
+    fallback(현행 동작 유지). 관리자 편집 API 는 PG 구성 시 플래그와 무관하게 동작
+    (503/require_admin)하되, 공개 /tree·/required-docs 반영은 본 플래그 ON 일 때만."""
+    return _bool("FEATURE_PG_QUICK_DOC_CONFIG")
+
+
 def pg_manual_update_enabled() -> bool:
     """If true, manual-update (baseline/staging/decisions/state) uses PostgreSQL
     as the single source of truth. Off → file-based fallback (legacy JSON/staging).
@@ -132,5 +142,6 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_LOCAL_DRIVE_MOCK": local_drive_mock_enabled(),
         "FEATURE_PG_MANUAL_UPDATE": pg_manual_update_enabled(),
         "FEATURE_PG_GUIDELINES": pg_guidelines_enabled(),
+        "FEATURE_PG_QUICK_DOC_CONFIG": pg_quick_doc_config_enabled(),
         "FEATURE_SINGLE_SESSION": single_session_enabled(),
     }

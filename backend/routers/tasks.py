@@ -1,11 +1,15 @@
-"""업무 라우터 - 예정/진행/완료 업무 CRUD (테넌트 인식)"""
+"""업무 라우터 - 예정/진행/완료 업무 CRUD (테넌트 인식) — PG-only(Phase D).
+
+업무 3종(진행/예정/완료)은 PostgreSQL(tasks_pg_service)만 사용한다. Google Sheets
+(진행업무/예정업무/완료업무 탭) 런타임 read/write 및 work_sheet_key 기반 라우팅은 제거됐다.
+PG 미구성 시 조용한 Sheets fallback 없이 get_sessionmaker()가 RuntimeError를 낸다.
+"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import uuid
-import datetime
 from typing import List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from backend.auth import get_current_user
 from backend.models import (
@@ -13,40 +17,18 @@ from backend.models import (
     CompleteTasksRequest, DeleteTasksRequest,
     BatchProgressRequest, BatchMoneyRequest,
 )
-from backend.services.tenant_service import read_sheet, upsert_sheet, delete_from_sheet
-from backend.services.cache_service import cache_get, cache_set, cache_invalidate
-
-_CACHE_ACTIVE  = "tasks:active"
-_CACHE_PLANNED = "tasks:planned"
-_TTL = 60.0  # seconds — extended from 30
 
 router = APIRouter()
 
 
-def _sheet_names():
-    from config import ACTIVE_TASKS_SHEET_NAME, PLANNED_TASKS_SHEET_NAME, COMPLETED_TASKS_SHEET_NAME
-    return ACTIVE_TASKS_SHEET_NAME, PLANNED_TASKS_SHEET_NAME, COMPLETED_TASKS_SHEET_NAME
-
-
 # ────────────────────────────── 진행업무 ──────────────────────────────────────
 
-ACTIVE_HEADER = [
-    "id", "category", "date", "name", "work", "details",
-    "transfer", "cash", "card", "stamp", "receivable",
-    "planned_expense", "processed", "processed_timestamp",
-    "reception", "processing", "storage", "customer_id",
-    "source_daily_id",
-]
-
-
-_CAT_RANK = {c: i for i, c in enumerate(["출입국","전자민원","공증","여권","초청","영주권","기타"])}
+_CAT_RANK = {c: i for i, c in enumerate(["출입국", "전자민원", "공증", "여권", "초청", "영주권", "기타"])}
 _MAX_NS = 9999999999999999999
 
 
 def _sort_key_active(t: dict):
-    """정렬: 체크 조합 순서 (없음 → 접수 → 접수+처리 → 접수+처리+보관중), 각 그룹 내 날짜 오름차순.
-    독립 체크 가능하므로 체크된 단계의 수와 순서로 rank를 계산.
-    """
+    """정렬: 체크 조합 순서(없음 → 접수 → 접수+처리 → 접수+처리+보관중), 각 그룹 내 날짜 오름차순."""
     import datetime as _dt
 
     cat_rank = _CAT_RANK.get(t.get("category", "기타"), 99)
@@ -55,9 +37,6 @@ def _sort_key_active(t: dict):
     processing = bool((t.get("processing", "") or "").strip())
     storage    = bool((t.get("storage",    "") or "").strip())
 
-    # rank: 높을수록 뒤에 정렬 (진행이 많이 된 것이 아래)
-    # 조합 순서: 없음=0, 접수만=1, 접수+처리=2, 접수+처리+보관중=3
-    # 독립 체크로 순서가 맞지 않더라도 최고 단계로 처리
     if storage:
         status_rank = 3
     elif processing:
@@ -79,357 +58,147 @@ def _sort_key_active(t: dict):
 
 @router.get("/active", response_model=List[dict])
 def get_active_tasks(user: dict = Depends(get_current_user)):
-    import time as _time
-    from backend.db.feature_flags import pg_tasks_enabled
-    tenant_id = user["tenant_id"]
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import list_active
-        tasks = list_active(tenant_id)
-        tasks.sort(key=_sort_key_active)
-        return tasks
-
-    cached = cache_get(tenant_id, _CACHE_ACTIVE)
-    if cached is not None:
-        return cached
-    t0 = _time.time()
-    ACTIVE, *_ = _sheet_names()
-    tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
+    from backend.services.tasks_pg_service import list_active
+    tasks = list_active(user["tenant_id"])
     tasks.sort(key=_sort_key_active)
-    print(f"[tasks/active] tenant={tenant_id} rows={len(tasks)} total={_time.time()-t0:.2f}s")
-    cache_set(tenant_id, _CACHE_ACTIVE, tasks, _TTL)
     return tasks
 
 
 @router.post("/active", response_model=dict)
 def add_active_task(task: ActiveTask, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    ACTIVE, *_ = _sheet_names()
-    tenant_id = user["tenant_id"]
     if not task.id:
         task.id = str(uuid.uuid4())
     rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import upsert_active
-        return upsert_active(tenant_id, rec)
-
-    upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, [rec], id_field="id")
-    cache_invalidate(tenant_id, _CACHE_ACTIVE)
-    return rec
+    from backend.services.tasks_pg_service import upsert_active
+    return upsert_active(user["tenant_id"], rec)
 
 
 @router.put("/active/{task_id}", response_model=dict)
 def update_active_task(task_id: str, task: ActiveTask, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    ACTIVE, *_ = _sheet_names()
-    tenant_id = user["tenant_id"]
     # Partial update: only fields explicitly sent by the client are written.
     changes = {k: ("" if v is None else str(v))
                for k, v in task.model_dump(exclude_unset=True).items()}
     changes["id"] = task_id
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import patch_active, upsert_active
-        result = patch_active(tenant_id, task_id, changes)
-        if result is None:
-            # Create if not exists (matches existing semantics — caller can PUT new)
-            result = upsert_active(tenant_id, changes)
-        return result
-
-    all_tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
-    existing = next((r for r in all_tasks if r.get("id") == task_id), {})
-    merged = {**existing, **changes}
-    upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, [merged], id_field="id")
-    cache_invalidate(tenant_id, _CACHE_ACTIVE)
-    return merged
+    from backend.services.tasks_pg_service import patch_active, upsert_active
+    result = patch_active(user["tenant_id"], task_id, changes)
+    if result is None:
+        result = upsert_active(user["tenant_id"], changes)  # create if not exists
+    return result
 
 
 @router.patch("/active/batch-progress")
 def batch_update_active_progress(req: BatchProgressRequest, user: dict = Depends(get_current_user)):
-    """진행업무 접수/처리/보관중 일괄 업데이트.
-    1회 read + 1회 write로 Google Sheets 429 quota 방어."""
-    from backend.db.feature_flags import pg_tasks_enabled
-    ACTIVE, *_ = _sheet_names()
+    """진행업무 접수/처리/보관중 일괄 업데이트 — PG-only."""
+    from backend.services.tasks_pg_service import patch_active
     tenant_id = user["tenant_id"]
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import patch_active
-        n = 0
-        for upd in req.updates:
-            ok = patch_active(tenant_id, upd.id, {
-                "reception": upd.reception,
-                "processing": upd.processing,
-                "storage": upd.storage,
-            })
-            if ok is not None:
-                n += 1
-        return {"updated": n}
-
-    all_tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
-    by_id = {r.get("id"): r for r in all_tasks if r.get("id")}
-
-    changed = []
+    n = 0
     for upd in req.updates:
-        row = by_id.get(upd.id)
-        if row is None:
-            continue
-        row["reception"]  = upd.reception
-        row["processing"] = upd.processing
-        row["storage"]    = upd.storage
-        changed.append(row)
-
-    if changed:
-        upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, changed, id_field="id")
-        cache_invalidate(tenant_id, _CACHE_ACTIVE)
-
-    return {"updated": len(changed)}
+        ok = patch_active(tenant_id, upd.id, {
+            "reception": upd.reception,
+            "processing": upd.processing,
+            "storage": upd.storage,
+        })
+        if ok is not None:
+            n += 1
+    return {"updated": n}
 
 
 @router.patch("/active/batch-money")
 def batch_update_active_money(req: BatchMoneyRequest, user: dict = Depends(get_current_user)):
-    """진행업무 금액 필드 일괄 부분 업데이트 (1 read + batch write).
-    전체 시트 덮어쓰기 금지 — 지정된 row의 지정된 필드만 변경.
-    중복 id 감지 시 해당 항목은 업데이트하지 않고 오류 반환."""
-    from backend.db.feature_flags import pg_tasks_enabled
-    ACTIVE, *_ = _sheet_names()
+    """진행업무 금액 필드 일괄 부분 업데이트 — PG-only. 지정 row의 지정 필드만 변경.
+    중복/미존재 id 는 409로 fail-fast (어떤 row도 건드리지 않음)."""
+    from backend.services.tasks_pg_service import patch_active, list_active
     tenant_id = user["tenant_id"]
     ALLOWED = {"transfer", "cash", "card", "stamp", "receivable", "planned_expense"}
 
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import patch_active
-        n = 0
-        for upd in req.updates:
-            field_changes = upd.changes.model_dump(exclude_none=True)
-            safe_changes = {k: str(v) for k, v in field_changes.items() if k in ALLOWED}
-            if patch_active(tenant_id, upd.id.strip(), safe_changes) is not None:
-                n += 1
-        return {"updated": n}
-
-    all_tasks = read_sheet(ACTIVE, tenant_id, default_if_empty=[]) or []
-
-    # index: id → list of row-indices (to detect duplicates)
-    id_to_indices: dict = {}
-    for idx, row in enumerate(all_tasks):
+    # 중복/미존재 id 사전 검증 (PG 기준)
+    id_to_count: dict = {}
+    for row in list_active(tenant_id):
         rid = str(row.get("id", "")).strip()
         if rid:
-            id_to_indices.setdefault(rid, []).append(idx)
-
+            id_to_count[rid] = id_to_count.get(rid, 0) + 1
     results: dict = {"updated": [], "not_found": [], "duplicate_id": []}
-    changed: list = []
-
-    # --- Pass 1: validate all ids before touching any row ---
     for upd in req.updates:
         rid = upd.id.strip()
-        indices = id_to_indices.get(rid, [])
-        if len(indices) == 0:
+        c = id_to_count.get(rid, 0)
+        if c == 0:
             results["not_found"].append(rid)
-        elif len(indices) > 1:
+        elif c > 1:
             results["duplicate_id"].append(rid)
-
-    # Fail-fast: reject the whole batch if any id is unsafe to update.
-    # HTTP 409 so Axios/React Query treats it as an error (not 2xx success).
     if results["duplicate_id"] or results["not_found"]:
         raise HTTPException(status_code=409, detail=results)
 
-    # --- Pass 2: apply changes — all ids are confirmed unique and present ---
+    n = 0
     for upd in req.updates:
-        rid = upd.id.strip()
-        row = all_tasks[id_to_indices[rid][0]]
         field_changes = upd.changes.model_dump(exclude_none=True)
-        for field, val in field_changes.items():
-            if field in ALLOWED:
-                row[field] = str(val)
-        changed.append(row)
-        results["updated"].append(rid)
-
-    if changed:
-        upsert_sheet(ACTIVE, tenant_id, ACTIVE_HEADER, changed, id_field="id")
-        cache_invalidate(tenant_id, _CACHE_ACTIVE)
-
-    return {"updated": len(results["updated"])}
+        safe_changes = {k: str(v) for k, v in field_changes.items() if k in ALLOWED}
+        if patch_active(tenant_id, upd.id.strip(), safe_changes) is not None:
+            n += 1
+    return {"updated": n}
 
 
 @router.delete("/active")
 def delete_active_tasks(req: DeleteTasksRequest, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    ACTIVE, *_ = _sheet_names()
-    tenant_id = user["tenant_id"]
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import delete_active as _pg_del
-        n = _pg_del(tenant_id, req.task_ids)
-        return {"deleted": n}
-
-    delete_from_sheet(ACTIVE, tenant_id, req.task_ids, id_field="id")
-    cache_invalidate(tenant_id, _CACHE_ACTIVE)
-    return {"deleted": len(req.task_ids)}
+    from backend.services.tasks_pg_service import delete_active as _pg_del
+    return {"deleted": _pg_del(user["tenant_id"], req.task_ids)}
 
 
 @router.post("/active/complete")
 def complete_tasks(req: CompleteTasksRequest, user: dict = Depends(get_current_user)):
-    """진행업무 → 완료업무 이동"""
-    from backend.db.feature_flags import pg_tasks_enabled
-    ACTIVE, _, COMPLETED = _sheet_names()
-    tenant_id = user["tenant_id"]
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import complete_active
-        n = complete_active(tenant_id, req.task_ids)
-        return {"completed": n}
-
-    all_active = read_sheet(ACTIVE, tenant_id, default_if_empty=[])
-    by_id = {r.get("id"): r for r in all_active if r.get("id")}
-
-    today = datetime.date.today().isoformat()
-    completed_header = ["id", "category", "date", "name", "work", "details", "complete_date",
-                        "reception", "processing", "storage", "customer_id"]
-    completed_records = []
-
-    for tid in req.task_ids:
-        t = by_id.get(tid)
-        if t:
-            base_keys = ["id", "category", "date", "name", "work", "details"]
-            cr = {k: str(t.get(k, "")) for k in base_keys}
-            cr["complete_date"] = today
-            # carry over status timestamps
-            for ts_field in ("reception", "processing", "storage"):
-                cr[ts_field] = str(t.get(ts_field, ""))
-            # customer_id 보존
-            cr["customer_id"] = str(t.get("customer_id", ""))
-            completed_records.append(cr)
-
-    if completed_records:
-        upsert_sheet(COMPLETED, tenant_id, completed_header, completed_records, id_field="id")
-
-    delete_from_sheet(ACTIVE, tenant_id, req.task_ids, id_field="id")
-    cache_invalidate(tenant_id, _CACHE_ACTIVE)
-    return {"completed": len(completed_records)}
+    """진행업무 → 완료업무 이동 — PG-only."""
+    from backend.services.tasks_pg_service import complete_active
+    return {"completed": complete_active(user["tenant_id"], req.task_ids)}
 
 
 # ────────────────────────────── 예정업무 ──────────────────────────────────────
 
-PLANNED_HEADER = ["id", "date", "period", "content", "note"]
-
-
 @router.get("/planned", response_model=List[dict])
 def get_planned_tasks(user: dict = Depends(get_current_user)):
-    import time as _time
-    from backend.db.feature_flags import pg_tasks_enabled
-    tenant_id = user["tenant_id"]
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import list_planned
-        return list_planned(tenant_id)
-
-    cached = cache_get(tenant_id, _CACHE_PLANNED)
-    if cached is not None:
-        return cached
-    t0 = _time.time()
-    _, PLANNED, _ = _sheet_names()
-    result = read_sheet(PLANNED, tenant_id, default_if_empty=[]) or []
-    print(f"[tasks/planned] tenant={tenant_id} rows={len(result)} total={_time.time()-t0:.2f}s")
-    cache_set(tenant_id, _CACHE_PLANNED, result, _TTL)
-    return result
+    from backend.services.tasks_pg_service import list_planned
+    return list_planned(user["tenant_id"])
 
 
 @router.post("/planned", response_model=dict)
 def add_planned_task(task: PlannedTask, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    _, PLANNED, _ = _sheet_names()
-    tenant_id = user["tenant_id"]
     if not task.id:
         task.id = str(uuid.uuid4())
     rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import upsert_planned
-        return upsert_planned(tenant_id, rec)
-
-    upsert_sheet(PLANNED, tenant_id, PLANNED_HEADER, [rec], id_field="id")
-    cache_invalidate(tenant_id, _CACHE_PLANNED)
-    return rec
+    from backend.services.tasks_pg_service import upsert_planned
+    return upsert_planned(user["tenant_id"], rec)
 
 
 @router.put("/planned/{task_id}", response_model=dict)
 def update_planned_task(task_id: str, task: PlannedTask, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    _, PLANNED, _ = _sheet_names()
-    tenant_id = user["tenant_id"]
     changes = {k: ("" if v is None else str(v))
                for k, v in task.model_dump(exclude_unset=True).items()}
     changes["id"] = task_id
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import upsert_planned
-        return upsert_planned(tenant_id, changes)
-
-    all_tasks = read_sheet(PLANNED, tenant_id, default_if_empty=[]) or []
-    existing = next((r for r in all_tasks if r.get("id") == task_id), {})
-    merged = {**existing, **changes}
-    upsert_sheet(PLANNED, tenant_id, PLANNED_HEADER, [merged], id_field="id")
-    cache_invalidate(tenant_id, _CACHE_PLANNED)
-    return merged
+    from backend.services.tasks_pg_service import upsert_planned
+    return upsert_planned(user["tenant_id"], changes)
 
 
 @router.delete("/planned")
 def delete_planned_tasks(req: DeleteTasksRequest, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    _, PLANNED, _ = _sheet_names()
-    tenant_id = user["tenant_id"]
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import delete_planned as _pg_del
-        n = _pg_del(tenant_id, req.task_ids)
-        return {"deleted": n}
-
-    delete_from_sheet(PLANNED, tenant_id, req.task_ids, id_field="id")
-    cache_invalidate(tenant_id, _CACHE_PLANNED)
-    return {"deleted": len(req.task_ids)}
+    from backend.services.tasks_pg_service import delete_planned as _pg_del
+    return {"deleted": _pg_del(user["tenant_id"], req.task_ids)}
 
 
 # ────────────────────────────── 완료업무 ──────────────────────────────────────
 
-COMPLETED_HEADER = ["id", "category", "date", "name", "work", "details", "complete_date",
-                    "reception", "processing", "storage"]
-
-
 @router.get("/completed", response_model=List[dict])
 def get_completed_tasks(user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    _, _, COMPLETED = _sheet_names()
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import list_completed
-        return list_completed(user["tenant_id"])
-
-    return read_sheet(COMPLETED, user["tenant_id"], default_if_empty=[])
+    from backend.services.tasks_pg_service import list_completed
+    return list_completed(user["tenant_id"])
 
 
 @router.put("/completed/{task_id}", response_model=dict)
 def update_completed_task(task_id: str, task: CompletedTask, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    _, _, COMPLETED = _sheet_names()
     task.id = task_id
     rec = {k: ("" if v is None else str(v)) for k, v in task.model_dump().items()}
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import upsert_completed
-        return upsert_completed(user["tenant_id"], rec)
-
-    upsert_sheet(COMPLETED, user["tenant_id"], COMPLETED_HEADER, [rec], id_field="id")
-    return rec
+    from backend.services.tasks_pg_service import upsert_completed
+    return upsert_completed(user["tenant_id"], rec)
 
 
 @router.delete("/completed")
 def delete_completed_tasks(req: DeleteTasksRequest, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_tasks_enabled
-    _, _, COMPLETED = _sheet_names()
-
-    if pg_tasks_enabled():
-        from backend.services.tasks_pg_service import delete_completed as _pg_del
-        n = _pg_del(user["tenant_id"], req.task_ids)
-        return {"deleted": n}
-
-    delete_from_sheet(COMPLETED, user["tenant_id"], req.task_ids, id_field="id")
-    return {"deleted": len(req.task_ids)}
+    from backend.services.tasks_pg_service import delete_completed as _pg_del
+    return {"deleted": _pg_del(user["tenant_id"], req.task_ids)}

@@ -452,9 +452,14 @@ def get_work_sheet_key_for_tenant(tenant_id: str) -> str:
 def get_gspread_client():
     """
     gspread Client 생성.
-    - 서버(Render): 서비스 계정(KEY_PATH) 사용
-    - 로컬: OAuth(user) 사용
+
+    PG-only(Phase I): core/google_sheets 의 모든 Sheets I/O 는 이 함수를 거친다(단일 choke).
+    sheets_guard 로 보호 — 운영 런타임에서 호출되면 SheetsRuntimeDisabled 로 즉시 차단한다
+    (ALLOW_SHEETS_MIGRATION=1 인 일회성 이관 스크립트만 허용). Google Drive(get_user_credentials/
+    get_drive_service)는 별도 경로이며 이 가드의 영향을 받지 않는다.
     """
+    from backend.services.sheets_guard import assert_sheets_runtime_allowed
+    assert_sheets_runtime_allowed("core.google_sheets.get_gspread_client")
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive.file",

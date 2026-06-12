@@ -562,20 +562,25 @@ function CompletedTasksModal({
 
   const BORDER = "#E2E8F0";
   const statusDot = (val: string) => val ? "✅" : "○";
+  // 지불금액(일일결산 수입 연동): 값 없거나 0 이면 '—', 있으면 원화 포맷.
+  const paidWon = (v: unknown): string => {
+    const n = Number(String(v ?? "").replace(/[^0-9.-]/g, ""));
+    return v && Number.isFinite(n) && n > 0 ? n.toLocaleString("ko-KR") + "원" : "—";
+  };
 
   const TaskTable = ({ rows, isLegacy }: { rows: Record<string, string>[]; isLegacy?: boolean }) => (
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
         <thead>
           <tr style={{ background:"#F7FAFC", borderBottom:`2px solid ${BORDER}` }}>
-            {["접수일","구분","업무명","세부내용","완료일","접수","처리","보관"].map(h => (
+            {["접수일","구분","업무명","세부내용","완료일","지불","접수","처리","보관"].map(h => (
               <th key={h} style={{ padding:"6px 8px", textAlign:"left", fontWeight:600, fontSize:11, color:"#718096", whiteSpace:"nowrap" }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={8} style={{ padding:"20px", textAlign:"center", color:"#A0AEC0", fontSize:12 }}>
+            <tr><td colSpan={9} style={{ padding:"20px", textAlign:"center", color:"#A0AEC0", fontSize:12 }}>
               {isLegacy ? "이름 기준 과거 업무 없음" : "완료업무 없음"}
             </td></tr>
           ) : rows.map((t, i) => (
@@ -587,6 +592,7 @@ function CompletedTasksModal({
               <td style={{ padding:"6px 8px", maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.work || ""}</td>
               <td style={{ padding:"6px 8px", maxWidth:150, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:"#718096" }}>{t.details || ""}</td>
               <td style={{ padding:"6px 8px", whiteSpace:"nowrap", color:"#4A5568" }}>{t.complete_date || ""}</td>
+              <td style={{ padding:"6px 8px", whiteSpace:"nowrap", textAlign:"right", fontWeight:600, color: paidWon(t.paid_amount) === "—" ? "#A0AEC0" : "#2D3748" }}>{paidWon(t.paid_amount)}</td>
               <td style={{ padding:"6px 8px", textAlign:"center", fontSize:11 }}>{statusDot(t.reception)}</td>
               <td style={{ padding:"6px 8px", textAlign:"center", fontSize:11 }}>{statusDot(t.processing)}</td>
               <td style={{ padding:"6px 8px", textAlign:"center", fontSize:11 }}>{statusDot(t.storage)}</td>

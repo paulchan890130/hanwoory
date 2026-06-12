@@ -33,45 +33,18 @@ COMMENT_HEADER = [
 ]
 
 
-def _read():
-    from core.google_sheets import read_data_from_sheet
-    return read_data_from_sheet
-
-def _write():
-    from core.google_sheets import upsert_rows_by_id, delete_rows_by_ids
-    return upsert_rows_by_id, delete_rows_by_ids
-
-def _sheet():
-    from config import BOARD_SHEET_NAME, BOARD_COMMENT_SHEET_NAME
-    return BOARD_SHEET_NAME, BOARD_COMMENT_SHEET_NAME
+# PG-only(Phase H): 게시판은 board_pg_service 만 사용. Google Sheets(core.google_sheets) helper 제거.
 
 
 @router.get("/popup")
 def get_popup_notices(user: dict = Depends(get_current_user)):
-    """팝업 표시 공지 목록 (popup_yn=Y)"""
-    from backend.db.feature_flags import pg_board_enabled
-    if pg_board_enabled():
-        from backend.services.board_pg_service import list_posts
-        posts = list_posts(exclude_categories=(_MANUAL_CHECK_CATEGORY,))
-        result = [
-            p for p in posts
-            if str(p.get("popup_yn", "")).strip().upper() == "Y"
-        ]
-        result.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
-        return result
+    """팝업 표시 공지 목록 (popup_yn=Y) — PG-only(Phase H).
 
-    read = _read()
-    BOARD, _ = _sheet()
-    posts = read(BOARD, default_if_empty=[]) or []
-    result = [
-        p for p in posts
-        if str(p.get("popup_yn", "")).strip().upper() == "Y"
-        and p.get("category", "") not in (_MANUAL_CHECK_CATEGORY, "")
-        or (
-            str(p.get("popup_yn", "")).strip().upper() == "Y"
-            and p.get("category", "") == _MANUAL_NOTICE_CATEGORY
-        )
-    ]
+    시스템 자동공지(__manual_check__ / __manual_notice__)는 관리자 검토용이므로
+    popup_yn 값과 무관하게 사용자 팝업 후보에서 항상 제외한다(방어적 차단)."""
+    from backend.services.board_pg_service import list_posts
+    posts = list_posts(exclude_categories=(_MANUAL_CHECK_CATEGORY, _MANUAL_NOTICE_CATEGORY))
+    result = [p for p in posts if str(p.get("popup_yn", "")).strip().upper() == "Y"]
     result.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
     return result
 
@@ -103,10 +76,9 @@ def check_manual_update(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=502, detail="날짜 정보를 찾을 수 없습니다.")
     latest_date = max(d.replace(".", "-") for d in dates)
 
-    read = _read()
-    upsert, _ = _write()
-    BOARD, _ = _sheet()
-    posts = read(BOARD, default_if_empty=[]) or []
+    # PG-only(Phase H): 게시판 읽기/쓰기는 board_pg_service.
+    from backend.services.board_pg_service import list_posts, upsert_post
+    posts = list_posts()  # __system__ 포함 전체
 
     check_post = next((p for p in posts if p.get("category") == _MANUAL_CHECK_CATEGORY), None)
     stored_date = check_post.get("content", "") if check_post else ""
@@ -118,19 +90,19 @@ def check_manual_update(user: dict = Depends(get_current_user)):
 
     # 감지 기록 갱신
     check_id = check_post.get("id") if check_post else str(uuid.uuid4())
-    upsert(BOARD, header_list=POST_HEADER, records=[{
+    upsert_post({
         "id": check_id, "tenant_id": "__system__", "author_login": "__system__",
         "author": "__system__", "office_name": "", "is_notice": "",
         "category": _MANUAL_CHECK_CATEGORY, "title": "",
         "content": latest_date,
         "created_at": check_post.get("created_at", now) if check_post else now,
         "updated_at": now, "popup_yn": "", "link_url": "",
-    }], id_field="id")
+    })
 
     # 공지 등록/갱신
     notice_post = next((p for p in posts if p.get("category") == _MANUAL_NOTICE_CATEGORY), None)
     notice_id = notice_post.get("id") if notice_post else str(uuid.uuid4())
-    upsert(BOARD, header_list=POST_HEADER, records=[{
+    upsert_post({
         "id": notice_id, "tenant_id": "__system__", "author_login": "__system__",
         "author": "__system__", "office_name": "시스템", "is_notice": "Y",
         "category": _MANUAL_NOTICE_CATEGORY,
@@ -138,50 +110,16 @@ def check_manual_update(user: dict = Depends(get_current_user)):
         "content": f"하이코리아 메뉴얼이 {latest_date}에 업데이트되었습니다.\n첨부파일을 확인하세요.",
         "created_at": notice_post.get("created_at", now) if notice_post else now,
         "updated_at": now, "popup_yn": "Y", "link_url": HIKOREA_MANUAL_URL,
-    }], id_field="id")
+    })
 
     return {"updated": True, "date": latest_date, "previous_date": stored_date}
 
 
 @router.get("")
 def get_posts(user: dict = Depends(get_current_user)):
-    """게시판 목록 - 공지 상단, 나머지 최신순. comment_count 컬럼에서 직접 읽음."""
-    from backend.db.feature_flags import pg_board_enabled
-    if pg_board_enabled():
-        from backend.services.board_pg_service import list_posts
-        posts = list_posts(exclude_categories=(_MANUAL_CHECK_CATEGORY,))
-        notices = [p for p in posts if str(p.get("is_notice", "")).strip().upper() == "Y"]
-        normal  = [p for p in posts if str(p.get("is_notice", "")).strip().upper() != "Y"]
-        notices.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        normal.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        return notices + normal
-
-    read = _read()
-    BOARD, COMMENT = _sheet()
-    posts = read(BOARD, default_if_empty=[]) or []
-    posts = [p for p in posts if p.get("category", "") not in (_MANUAL_CHECK_CATEGORY,)]
-
-    # comment_count가 없는 레거시 행이 있으면 댓글 시트에서 일괄 보정 (최초 1회)
-    legacy_ids = [p.get("id") for p in posts if str(p.get("comment_count", "")).strip() == "" and p.get("id")]
-    if legacy_ids:
-        upsert, _ = _write()
-        from collections import Counter
-        comments_all = read(COMMENT, default_if_empty=[]) or []
-        counts = Counter(c.get("post_id") for c in comments_all if c.get("post_id"))
-        to_update = []
-        for p in posts:
-            if str(p.get("comment_count", "")).strip() == "" and p.get("id"):
-                p["comment_count"] = str(counts.get(p["id"], 0))
-                to_update.append({k: str(p.get(k, "")) for k in POST_HEADER})
-        if to_update:
-            upsert(BOARD, header_list=POST_HEADER, records=to_update, id_field="id")
-
-    for p in posts:
-        try:
-            p["comment_count"] = int(p.get("comment_count") or 0)
-        except (ValueError, TypeError):
-            p["comment_count"] = 0
-
+    """게시판 목록 - 공지 상단, 나머지 최신순 — PG-only(Phase H)."""
+    from backend.services.board_pg_service import list_posts
+    posts = list_posts(exclude_categories=(_MANUAL_CHECK_CATEGORY,))
     notices = [p for p in posts if str(p.get("is_notice", "")).strip().upper() == "Y"]
     normal  = [p for p in posts if str(p.get("is_notice", "")).strip().upper() != "Y"]
     notices.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -207,96 +145,59 @@ def create_post(post: BoardPost, user: dict = Depends(get_current_user)):
         post.popup_yn = ""
     rec = {k: ("" if v is None else str(v)) for k, v in post.model_dump().items()}
     rec["comment_count"] = "0"
-
-    if pg_board_enabled():
-        from backend.services.board_pg_service import upsert_post
-        return upsert_post(rec)
-
-    upsert, _ = _write()
-    BOARD, _ = _sheet()
-    try:
-        result = upsert(BOARD, header_list=POST_HEADER, records=[rec], id_field="id")
-        if not result:
-            raise HTTPException(status_code=500, detail="upsert returned False — check server log")
-    except HTTPException:
-        raise
-    except Exception as _e:
-        raise HTTPException(status_code=500, detail=f"upsert error: {_tb.format_exc()}")
-    return rec
+    # PG-only(Phase H).
+    from backend.services.board_pg_service import upsert_post
+    return upsert_post(rec)
 
 
 @router.put("/{post_id}", response_model=dict)
 def update_post(post_id: str, post: BoardPost, user: dict = Depends(get_current_user)):
-    upsert, _ = _write()
-    BOARD, _ = _sheet()
-    # 기존 글 조회해서 작성자 확인 + 서버 필드 보존
-    read = _read()
-    posts = read(BOARD, default_if_empty=[]) or []
-    existing = next((p for p in posts if p.get("id") == post_id), None)
+    # PG-only(Phase H): 기존 글 조회(작성자 확인 + 서버 필드 보존) 후 부분 수정 upsert.
+    from backend.services.board_pg_service import list_posts, upsert_post
+    existing = next((p for p in list_posts() if p.get("id") == post_id), None)
     if not existing:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
     is_own = existing.get("author_login") == user.get("login_id")
     if not (is_own or user.get("is_admin", False)):
         raise HTTPException(status_code=403, detail="수정 권한 없음")
-    # Partial update: start from existing row, only override user-editable fields
+    # 클라이언트가 실제로 보낸 필드만 덮어쓴다(exclude_unset) — 기존 popup_yn/is_notice 등 보존.
+    # (BoardPost 기본값이 ""이라 'is not None' 가드는 미전송 필드를 ""로 덮어쓰는 버그가 있었다.)
+    sent = post.model_dump(exclude_unset=True)
     rec = {k: str(existing.get(k, "")) for k in POST_HEADER}
     for f in ("title", "content", "category"):
-        val = getattr(post, f, None)
-        if val is not None:
-            rec[f] = str(val)
+        if f in sent and sent[f] is not None:
+            rec[f] = str(sent[f])
     rec["id"]         = post_id
     rec["updated_at"] = datetime.datetime.now().isoformat()
     if not user.get("is_admin", False):
         rec["is_notice"] = ""
         rec["popup_yn"] = ""
     else:
-        if post.is_notice is not None:
-            rec["is_notice"] = str(post.is_notice)
-        if post.popup_yn is not None:
-            rec["popup_yn"] = str(post.popup_yn)
-    upsert(BOARD, header_list=POST_HEADER, records=[rec], id_field="id")
-    return rec
+        if "is_notice" in sent and sent["is_notice"] is not None:
+            rec["is_notice"] = str(sent["is_notice"])
+        if "popup_yn" in sent and sent["popup_yn"] is not None:
+            rec["popup_yn"] = str(sent["popup_yn"])
+    return upsert_post(rec)
 
 
 @router.delete("/{post_id}")
 def delete_post(post_id: str, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_board_enabled
-    if pg_board_enabled():
-        from backend.services.board_pg_service import delete_post as _pg
-        _pg(post_id)
-        return {"ok": True}
-
-    _, delete = _write()
-    BOARD, COMMENT = _sheet()
-    # 작성자 또는 관리자만 삭제 가능
-    read = _read()
-    posts = read(BOARD, default_if_empty=[]) or []
-    existing = next((p for p in posts if p.get("id") == post_id), None)
+    # PG-only(Phase H): 권한 확인 후 삭제(댓글 cascade 는 board_pg_service.delete_post 가 처리).
+    from backend.services.board_pg_service import list_posts, delete_post as _pg
+    existing = next((p for p in list_posts() if p.get("id") == post_id), None)
     if existing:
         is_own = existing.get("author_login") == user.get("login_id")
-        is_admin = user.get("is_admin", False)
-        if not (is_own or is_admin):
+        if not (is_own or user.get("is_admin", False)):
             raise HTTPException(status_code=403, detail="삭제 권한 없음")
-    delete(BOARD, [post_id], id_field="id")
-    # 댓글도 삭제
-    comments = read(COMMENT, default_if_empty=[]) or []
-    comment_ids = [c["id"] for c in comments if c.get("post_id") == post_id and c.get("id")]
-    if comment_ids:
-        delete(COMMENT, comment_ids, id_field="id")
+    _pg(post_id)
     return {"ok": True}
 
 
 @router.get("/{post_id}/comments")
 def get_comments(post_id: str, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_board_enabled
-    if pg_board_enabled():
-        from backend.services.board_pg_service import list_comments
-        return list_comments(post_id)
-
-    read = _read()
-    _, COMMENT = _sheet()
-    comments = read(COMMENT, default_if_empty=[]) or []
-    return [c for c in comments if c.get("post_id") == post_id]
+    # PG-only(Phase H).
+    from backend.services.board_pg_service import list_comments
+    return list_comments(post_id)
 
 
 @router.post("/{post_id}/comments", response_model=dict)
@@ -312,52 +213,25 @@ def add_comment(post_id: str, comment: BoardComment, user: dict = Depends(get_cu
     comment.created_at  = now
     comment.updated_at  = now
     rec = {k: ("" if v is None else str(v)) for k, v in comment.model_dump().items()}
-
-    if pg_board_enabled():
-        from backend.services.board_pg_service import add_comment as _pg
-        return _pg(rec)
-
-    upsert, _ = _write()
-    read = _read()
-    BOARD, COMMENT = _sheet()
-    upsert(COMMENT, header_list=COMMENT_HEADER, records=[rec], id_field="id")
-    # comment_count 증가
-    posts = read(BOARD, default_if_empty=[]) or []
-    post = next((p for p in posts if p.get("id") == post_id), None)
-    if post:
-        new_count = str(int(post.get("comment_count") or 0) + 1)
-        post_rec = {k: str(post.get(k, "")) for k in POST_HEADER}
-        post_rec["comment_count"] = new_count
-        upsert(BOARD, header_list=POST_HEADER, records=[post_rec], id_field="id")
-    return rec
+    # PG-only(Phase H): comment_count 증가는 board_pg_service.add_comment 가 처리.
+    from backend.services.board_pg_service import add_comment as _pg
+    return _pg(rec)
 
 
 @router.delete("/{post_id}/comments/{comment_id}")
 def delete_comment(post_id: str, comment_id: str, user: dict = Depends(get_current_user)):
-    from backend.db.feature_flags import pg_board_enabled
-    if pg_board_enabled():
-        from backend.services.board_pg_service import delete_comment as _pg
-        _pg(post_id, comment_id)
-        return {"ok": True}
-
-    upsert, delete = _write()
-    read = _read()
-    BOARD, COMMENT = _sheet()
-    # 작성자 또는 관리자만
-    comments = read(COMMENT, default_if_empty=[]) or []
-    existing = next((c for c in comments if c.get("id") == comment_id), None)
-    if existing:
-        is_own = existing.get("author_login") == user.get("login_id")
-        is_admin = user.get("is_admin", False)
-        if not (is_own or is_admin):
-            raise HTTPException(status_code=403, detail="삭제 권한 없음")
-    delete(COMMENT, [comment_id], id_field="id")
-    # comment_count 감소
-    posts = read(BOARD, default_if_empty=[]) or []
-    post = next((p for p in posts if p.get("id") == post_id), None)
-    if post:
-        new_count = str(max(0, int(post.get("comment_count") or 0) - 1))
-        post_rec = {k: str(post.get(k, "")) for k in POST_HEADER}
-        post_rec["comment_count"] = new_count
-        upsert(BOARD, header_list=POST_HEADER, records=[post_rec], id_field="id")
+    """댓글 삭제 — PG-only(Phase H). 권한(Phase H-1):
+    관리자=전체 / 일반=본인 작성분만 / 작성자 정보 없는 레거시=관리자만. 무인증=401(Depends), 없음=404.
+    comment_count 감소·게시글 삭제 cascade 는 board_pg_service 가 처리."""
+    from backend.services.board_pg_service import list_comments, delete_comment as _pg
+    existing = next((c for c in list_comments(post_id) if c.get("id") == comment_id), None)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다.")
+    is_admin = bool(user.get("is_admin", False))
+    author = str(existing.get("author_login", "")).strip()
+    is_own = bool(author) and author == str(user.get("login_id", "")).strip()
+    if not (is_admin or is_own):
+        # 본인도 관리자도 아니거나, 작성자 정보 없는 레거시 댓글을 일반 사용자가 삭제 시도
+        raise HTTPException(status_code=403, detail="삭제 권한 없음")
+    _pg(post_id, comment_id)
     return {"ok": True}

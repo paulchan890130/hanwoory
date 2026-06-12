@@ -48,7 +48,8 @@ def get_sheet_data(tenant_id: str, sheet_name: str) -> dict:
             )
         )
         if sheet is None:
-            return {"sheet": sheet_name, "headers": [], "rows": []}
+            return {"sheet": sheet_name, "headers": [], "rows": [],
+                    "column_widths": {}, "row_heights": {}}
         rows_orm = session.scalars(
             select(WorkReferenceRow)
             .where(
@@ -57,10 +58,16 @@ def get_sheet_data(tenant_id: str, sheet_name: str) -> dict:
             )
             .order_by(WorkReferenceRow.row_index)
         ).all()
+        meta = sheet.meta or {}
 
     headers = sheet.headers or []
     rows = [r.data or {} for r in rows_orm]
-    return {"sheet": sheet_name, "headers": headers, "rows": rows}
+    # PG-only(Phase G): Sheets dimension 대응 UI 메타(열 너비/행 높이). 추가 필드(하위호환).
+    return {
+        "sheet": sheet_name, "headers": headers, "rows": rows,
+        "column_widths": (meta.get("col_widths") or {}),
+        "row_heights": (meta.get("row_heights") or {}),
+    }
 
 
 def replace_sheet(tenant_id: str, sheet_name: str, headers: list[str], rows: list[dict]) -> int:
