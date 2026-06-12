@@ -1540,6 +1540,16 @@ type PgStateResp = {
     last_detected_version?: string | null;
     last_staging_version?: string | null;
     needs_review?: boolean;
+    needs_review_stored?: boolean;
+    review_reason?: string;
+    candidate_count?: number;
+    changed_count?: number;
+    review_target_count?: number;
+    noop_count?: number;
+    pending_count?: number;
+    reviewed_count?: number;
+    applied_count?: number;
+    approved_pending_apply?: number;
     error?: string | null;
     updated_at?: string | null;
   };
@@ -1569,7 +1579,26 @@ type PgCandidate = {
   candidate_page_from?: number | null; candidate_page_to?: number | null;
   reason?: string; change_type?: string; confidence?: string; action?: string;
   match_text?: string; new_snippet?: string; detailed_code?: string; business_name?: string;
+  change_kind?: "new" | "page_moved" | "text_changed" | "uncertain" | "noop";
+  needs_review?: boolean; similarity?: number | null; page_changed?: boolean; text_changed?: boolean;
+  changed_detail?: { baseline_page?: number; new_page?: number; change_type?: string; similarity?: number | null; baseline_snippet?: string; new_snippet?: string }[];
 };
+type DiffSeg = { op: "equal" | "insert" | "delete"; text: string };
+type PgCandidateDetail = {
+  row_id: string; manual_label?: string; change_kind?: string; similarity?: number | null;
+  existing: { title?: string; code?: string; page_from?: number | null; page_to?: number | null; manual_ref?: string; match_text?: string; text?: string };
+  candidate: { code?: string; page_from?: number | null; page_to?: number | null; staging?: string; text?: string };
+  changed_pages: { baseline_page?: number; new_page?: number; change_type?: string; similarity?: number | null; baseline_snippet?: string; new_snippet?: string; diff_segments?: DiffSeg[]; has_text_change?: boolean }[];
+};
+const CHANGE_KIND: Record<string, { label: string; color: string; bg: string }> = {
+  new: { label: "신규", color: "#22543D", bg: "#C6F6D5" },
+  page_moved: { label: "페이지 변경", color: "#744210", bg: "#FEEBC8" },
+  text_changed: { label: "본문 변경", color: "#822727", bg: "#FED7D7" },
+  uncertain: { label: "매칭 불확실", color: "#553C9A", bg: "#E9D8FD" },
+  noop: { label: "실질 변경 없음", color: "#4A5568", bg: "#EDF2F7" },
+};
+// 검토 우선순위: 매칭불확실 > 본문변경 > 페이지변경 > 신규 > noop
+const KIND_ORDER: Record<string, number> = { uncertain: 0, text_changed: 1, page_moved: 2, new: 3, noop: 9 };
 type PgDecision = {
   row_id: string; decision?: string; decision_note?: string; reviewed?: boolean;
   reviewed_candidate_page?: number | null;
@@ -1577,6 +1606,18 @@ type PgDecision = {
   applied?: boolean; source_version?: string | null; previous_version?: string | null;
   orphaned?: boolean; orphaned_at?: string | null;
   needs_recheck?: boolean; candidate_changed?: boolean; updated_at?: string | null;
+  reviewer_baseline_from?: number | null; reviewer_baseline_to?: number | null;
+  reviewer_candidate_from?: number | null; reviewer_candidate_to?: number | null;
+  reviewer_override_reason?: string | null; reviewer_override_by?: string | null;
+};
+type RecompareResp = { existing_text?: string; candidate_text?: string; candidate_partial?: boolean; diff_segments?: DiffSeg[]; has_text_change?: boolean };
+type PdfStatus = {
+  manual: string; kr_label?: string; viewer_source: string; viewer_file: string; staging_pdf_exists: boolean;
+  deployed: { filename: string; exists: boolean; mtime?: string | null; page_count?: number | null };
+  generator_present: boolean; source_hwp_present: boolean; replace_pipeline_wired: boolean;
+  can_refresh_now: boolean; reason: string;
+  artifacts?: { total?: number; generated?: number; promoted?: number; failed?: number };
+  artifacts_total?: number; full_pdf_artifact?: { id: number } | null;
 };
 
 const PG_STATUS_KR: Record<string, string> = {
@@ -1588,6 +1629,168 @@ const PG_STATUS_KR: Record<string, string> = {
   pg_disabled: "PG 비활성",
 };
 
+// UI 결정 키 → 한글 라벨 (백엔드가 vocabulary 로 매핑)
+const DEC_UI_KR: Record<string, string> = {
+  approve: "승인", keep_existing: "기존 유지", hold: "보류", reject: "제외", manual_page: "직접입력",
+};
+// 저장된 decision(vocabulary) → 배지 표시
+const DEC_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+  "": { label: "미검토", color: "#975A16", bg: "#FEFCBF" },
+  NEW_CANDIDATE: { label: "미검토", color: "#975A16", bg: "#FEFCBF" },
+  UNRESOLVED: { label: "보류", color: "#744210", bg: "#FAF089" },
+  REVIEWED_APPROVE_CANDIDATE: { label: "승인", color: "#22543D", bg: "#C6F6D5" },
+  REVIEWED_KEEP_EXISTING: { label: "기존 유지", color: "#2A4365", bg: "#BEE3F8" },
+  REJECTED_BAD_CANDIDATE: { label: "제외", color: "#822727", bg: "#FED7D7" },
+  NEEDS_MANUAL_PAGE: { label: "직접입력", color: "#22543D", bg: "#C6F6D5" },
+  APPLIED: { label: "운영반영됨", color: "#FFFFFF", bg: "#38A169" },
+};
+const DEC_APPLYABLE = new Set(["REVIEWED_APPROVE_CANDIDATE", "NEEDS_MANUAL_PAGE"]);
+
+// 후보 상세 — 3단 비교(기존 / 차이 / 후보) + 본문 diff + 수동 페이지 지정 + PDF
+function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCandidatePdf, onOverrideChanged }: {
+  d: PgCandidateDetail; version: string; cand: PgCandidate; decision?: PgDecision;
+  onOpenPdf: (manual: string, page: number) => void;
+  onOpenCandidatePdf: (rowId: string, manual: string, fallbackPage: number) => void;
+  onOverrideChanged: () => void;
+}) {
+  const [showFull, setShowFull] = useState(false);
+  const [bf, setBf] = useState(String(decision?.reviewer_baseline_from ?? cand.old_page_from ?? ""));
+  const [bt, setBt] = useState(String(decision?.reviewer_baseline_to ?? cand.old_page_to ?? ""));
+  const [cf, setCf] = useState(String(decision?.reviewer_candidate_from ?? cand.candidate_page_from ?? ""));
+  const [ct, setCt] = useState(String(decision?.reviewer_candidate_to ?? cand.candidate_page_to ?? ""));
+  const [reason, setReason] = useState(decision?.reviewer_override_reason ?? "");
+  const [recmp, setRecmp] = useState<RecompareResp | null>(null);
+  const [busy, setBusy] = useState(false);
+  const hasOverride = decision?.reviewer_baseline_from != null || decision?.reviewer_candidate_from != null;
+  const manual = cand.manual_label || d.manual_label || "visa";
+  const LIMIT = 800;
+  const clip = (t?: string) => { const s = t || ""; return (showFull || s.length <= LIMIT) ? s : s.slice(0, LIMIT) + " …"; };
+  const err = (e: unknown, fb: string) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || fb;
+
+  // 표시 텍스트/diff: 재비교 결과가 있으면 그 값을, 없으면 원본 detail 값.
+  const existingText = recmp ? (recmp.existing_text ?? "") : (d.existing.text ?? "");
+  const candidateText = recmp ? (recmp.candidate_text ?? "") : (d.candidate.text ?? "");
+  const col: React.CSSProperties = { flex: 1, minWidth: 220, background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6, padding: 8 };
+  const head: React.CSSProperties = { fontSize: 11, fontWeight: 700, marginBottom: 4 };
+  const body: React.CSSProperties = { fontSize: 11, color: "#4A5568", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5, maxHeight: 320, overflow: "auto" };
+
+  const doRecompare = async () => {
+    setBusy(true);
+    try {
+      const r = await api.get(`/api/guidelines/manual-update/recompare`, { params: {
+        version, label: manual, baseline_from: Number(bf) || 0, baseline_to: Number(bt) || Number(bf) || 0,
+        candidate_from: Number(cf) || 0, candidate_to: Number(ct) || Number(cf) || 0 } });
+      setRecmp(r.data as RecompareResp);
+      toast.success("재추출·재비교 완료");
+    } catch (e) { toast.error(err(e, "재비교 실패")); }
+    finally { setBusy(false); }
+  };
+  const saveOverride = async () => {
+    setBusy(true);
+    try {
+      await api.post(`/api/guidelines/manual-update/decisions/${encodeURIComponent(cand.row_id)}/override`, {
+        baseline_from: Number(bf) || null, baseline_to: Number(bt) || null,
+        candidate_from: Number(cf) || null, candidate_to: Number(ct) || null, reason });
+      toast.success("관리자 지정 페이지 저장됨");
+      onOverrideChanged();
+    } catch (e) { toast.error(err(e, "저장 실패")); }
+    finally { setBusy(false); }
+  };
+  const clearOverride = async () => {
+    setBusy(true);
+    try {
+      await api.delete(`/api/guidelines/manual-update/decisions/${encodeURIComponent(cand.row_id)}/override`);
+      setBf(String(cand.old_page_from ?? "")); setBt(String(cand.old_page_to ?? ""));
+      setCf(String(cand.candidate_page_from ?? "")); setCt(String(cand.candidate_page_to ?? "")); setReason(""); setRecmp(null);
+      toast.success("override 초기화됨");
+      onOverrideChanged();
+    } catch (e) { toast.error(err(e, "초기화 실패")); }
+    finally { setBusy(false); }
+  };
+
+  const diffSegs = recmp ? (recmp.diff_segments ?? []) : null;
+
+  return (
+    <div>
+      {/* PDF + 자동/관리자 페이지 요약 바 */}
+      <div className="flex items-center gap-2 flex-wrap mb-2 text-[11px]">
+        <span style={{ color: "#718096" }}>자동: 기준 {cand.old_page_from}-{cand.old_page_to} / 후보 {cand.candidate_page_from}-{cand.candidate_page_to}</span>
+        {hasOverride && <span style={{ color: "#C05621", fontWeight: 700 }}>· 관리자 지정: 기준 {decision?.reviewer_baseline_from}-{decision?.reviewer_baseline_to} / 후보 {decision?.reviewer_candidate_from}-{decision?.reviewer_candidate_to}</span>}
+        <span style={{ color: "#CBD5E0" }}>|</span>
+        <button onClick={() => onOpenCandidatePdf(cand.row_id, manual, Number(cf) || cand.candidate_page_from || 1)}
+          title="변경 페이지 PDF artifact 우선, 없으면 배포본 fallback" className="px-2 py-0.5 rounded font-bold" style={{ background: "#C6F6D5", color: "#22543D", border: "1px solid #9AE6B4" }}>변경 페이지 PDF 보기</button>
+        <button onClick={() => onOpenPdf(manual, Number(cf) || cand.candidate_page_from || 1)} className="px-2 py-0.5 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>최신/배포 전체 PDF</button>
+        <button onClick={() => onOpenPdf(manual, cand.candidate_page_from || 1)} className="px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#4A5568" }}>후보 페이지 열기</button>
+        <button onClick={() => onOpenPdf(manual, cand.old_page_from || 1)} className="px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#4A5568" }}>기존 페이지 열기</button>
+      </div>
+
+      {/* 수동 페이지 지정 */}
+      <div className="flex items-center gap-2 flex-wrap mb-2 p-2 rounded" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+        <span className="text-[11px] font-bold" style={{ color: "#92400E" }}>수동 페이지 지정</span>
+        <span className="text-[11px]" style={{ color: "#718096" }}>기준</span>
+        <input value={bf} onChange={(e) => setBf(e.target.value)} className="hw-input" style={{ width: 48 }} />
+        <span>-</span>
+        <input value={bt} onChange={(e) => setBt(e.target.value)} className="hw-input" style={{ width: 48 }} />
+        <span className="text-[11px]" style={{ color: "#718096" }}>후보</span>
+        <input value={cf} onChange={(e) => setCf(e.target.value)} className="hw-input" style={{ width: 48 }} />
+        <span>-</span>
+        <input value={ct} onChange={(e) => setCt(e.target.value)} className="hw-input" style={{ width: 48 }} />
+        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사유 (예: 자동매칭 오류, 실제 p.40)" className="hw-input" style={{ flex: 1, minWidth: 160 }} />
+        <button disabled={busy} onClick={() => void doRecompare()} className="text-[11px] px-2 py-1 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>다시 비교</button>
+        <button disabled={busy} onClick={() => void saveOverride()} className="text-[11px] px-2 py-1 rounded" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>페이지 저장</button>
+        <button disabled={busy} onClick={() => void clearOverride()} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>초기화</button>
+      </div>
+      {recmp?.candidate_partial && <div className="text-[10px] mb-2" style={{ color: "#C05621" }}>※ 후보(신규) 본문은 변경 페이지 스니펫 기반입니다(전체 본문 미보유) — 정확한 페이지는 PDF로 확인하세요.</div>}
+
+      <div className="flex gap-2 flex-wrap" style={{ alignItems: "stretch" }}>
+        {/* 왼쪽: 기존 */}
+        <div style={col}>
+          <div style={{ ...head, color: "#2A4365" }}>기존 기준 항목{recmp ? " (재추출)" : ""}</div>
+          <div style={{ fontSize: 11, color: "#718096" }}>제목: {d.existing.title || "-"}</div>
+          <div style={{ fontSize: 11, color: "#718096" }}>코드: {d.existing.code || "-"} · manual_ref {d.existing.manual_ref}</div>
+          {d.existing.match_text && <div style={{ fontSize: 10, color: "#A0AEC0", marginTop: 2 }}>match_text: {d.existing.match_text}</div>}
+          <div style={{ ...body, marginTop: 6 }}>{clip(existingText) || <span style={{ color: "#CBD5E0" }}>(추출 텍스트 없음)</span>}</div>
+        </div>
+        {/* 가운데: 차이 */}
+        <div style={{ ...col, maxWidth: 360 }}>
+          <div style={{ ...head, color: "#822727" }}>차이{recmp ? " (재계산)" : ""}</div>
+          <div style={body}>
+            {diffSegs ? (
+              diffSegs.length === 0 ? <span style={{ color: "#276749" }}>실질 변경 없음</span> :
+              diffSegs.map((seg, j) => (
+                <span key={j} style={{ background: seg.op === "insert" ? "#C6F6D5" : seg.op === "delete" ? "#FED7D7" : "transparent", color: seg.op === "delete" ? "#822727" : seg.op === "insert" ? "#22543D" : "#4A5568", textDecoration: seg.op === "delete" ? "line-through" : "none" }}>{seg.text}</span>
+              ))
+            ) : (
+              <>
+                {(d.changed_pages || []).map((cp, i) => (
+                  <div key={i} style={{ marginBottom: 6 }}>
+                    <div style={{ color: "#A0AEC0", fontSize: 10 }}>p.{cp.baseline_page}→{cp.new_page} ({cp.change_type}{cp.similarity != null ? `, ${Math.round(cp.similarity * 100)}%` : ""})</div>
+                    <div>{(cp.diff_segments || []).map((seg, j) => (
+                      <span key={j} style={{ background: seg.op === "insert" ? "#C6F6D5" : seg.op === "delete" ? "#FED7D7" : "transparent", color: seg.op === "delete" ? "#822727" : seg.op === "insert" ? "#22543D" : "#4A5568", textDecoration: seg.op === "delete" ? "line-through" : "none" }}>{seg.text}</span>
+                    ))}</div>
+                  </div>
+                ))}
+                {(d.changed_pages || []).length === 0 && <span style={{ color: "#CBD5E0" }}>(변경 페이지 정보 없음)</span>}
+              </>
+            )}
+          </div>
+        </div>
+        {/* 오른쪽: 후보 */}
+        <div style={col}>
+          <div style={{ ...head, color: "#22543D" }}>후보 항목 (staging){recmp ? " (재추출)" : ""}</div>
+          <div style={{ fontSize: 11, color: "#718096" }}>코드: {d.candidate.code || "-"} · staging {d.candidate.staging}</div>
+          <div style={{ ...body, marginTop: 6 }}>{clip(candidateText) || <span style={{ color: "#CBD5E0" }}>(추출 텍스트 없음 — PDF로 확인)</span>}</div>
+        </div>
+      </div>
+      {((existingText || "").length > LIMIT || (candidateText || "").length > LIMIT) && (
+        <button onClick={() => setShowFull((v) => !v)} className="text-[11px] mt-2 px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#2B6CB0", background: "#fff" }}>
+          {showFull ? "접기" : "전체 보기"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [versions, setVersions] = useState<PgVersion[]>([]);
   const [version, setVersion] = useState<string>("");
@@ -1595,6 +1798,79 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [candidates, setCandidates] = useState<PgCandidate[]>([]);
   const [decisions, setDecisions] = useState<PgDecision[]>([]);
   const [loading, setLoading] = useState(false);
+  // 상태 카드는 결정/반영 후 다시 갱신해야 하므로 prop(state)을 로컬로 복제해 둔다.
+  const [liveState, setLiveState] = useState<PgStateResp | null>(state);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);              // 진행 중 row_id 또는 "bulk"
+  const [applyModal, setApplyModal] = useState<{ rowId: string; pf: string; pt: string } | null>(null);
+  const [filter, setFilter] = useState<string>("review");             // 기본: 미검토 + 실질 변경 있음
+  const [expanded, setExpanded] = useState<string | null>(null);      // 펼친 후보 row_id
+  const [detailCache, setDetailCache] = useState<Record<string, PgCandidateDetail>>({});
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
+  const [bulkApply, setBulkApply] = useState(false);                  // 운영 반영 요약 모달
+  const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string } | null>(null);
+  const [pdfStatus, setPdfStatus] = useState<Record<string, PdfStatus>>({});
+  const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; runtime?: string; reason?: string } | null>(null);
+  const [runBusy, setRunBusy] = useState<"diagnose" | "record" | "generate_pdf_artifacts" | null>(null);
+  const [runResult, setRunResult] = useState<{ mode?: string; result?: { status?: string; version?: string; source_deleted?: boolean; wrote_to_pg?: boolean; stages?: Record<string, unknown>; error?: string; error_stage?: string } } | null>(null);
+  // row_id → artifact id (해당 후보에 생성된 변경 페이지 PDF artifact). note "candidate <row_id>" 로 매칭.
+  const [artifactByRow, setArtifactByRow] = useState<Record<string, number>>({});
+
+  const token = (typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "");
+  // PDF 열기: staging 있으면 staging, 없으면 배포본 (백엔드가 자동 선택). 배너용으로 source 조회.
+  const openPdf = useCallback(async (manual: string, page: number) => {
+    let isStaging = false;
+    try {
+      const r = await api.get(`/api/guidelines/manual-update/pdf-source`, { params: { manual, version } });
+      isStaging = !!r.data?.is_staging;
+    } catch { /* 기본 deployed */ }
+    setPdfView({ manual, page: page || 1, isStaging });
+  }, [version]);
+
+  // 후보 상세: 변경 페이지 artifact 우선 → 있으면 artifact PDF, 없으면 배포본 fallback.
+  const openCandidatePdf = useCallback(async (rowId: string, manual: string, fallbackPage: number) => {
+    try {
+      const r = await api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(version)}/candidates/${encodeURIComponent(rowId)}/pdf-artifact`);
+      if (r.data?.artifact_id) {
+        setPdfView({ artifactId: r.data.artifact_id, page: 1, label: `변경 페이지 artifact #${r.data.artifact_id} (p.${r.data.page_from}-${r.data.page_to})` });
+        return;
+      }
+      toast.message("변경 페이지 artifact 없음 — 배포본 PDF로 엽니다.");
+    } catch { toast.message("artifact 조회 실패 — 배포본 PDF로 엽니다."); }
+    void openPdf(manual, fallbackPage);
+  }, [version, openPdf]);
+
+  const loadCapability = useCallback(async () => {
+    try {
+      const r = await api.get(`/api/guidelines/manual-update/capabilities`);
+      setRunCap(r.data);
+    } catch { /* skip */ }
+  }, []);
+  useEffect(() => { void loadCapability(); }, [loadCapability]);
+
+  // 관리자 수동 실행: diagnose(진단, PG 미기록) | record(실제 기록, capability 통과 시).
+  const runNow = useCallback(async (mode: "diagnose" | "record" | "generate_pdf_artifacts") => {
+    if (mode === "record" && !window.confirm("실제 업데이트를 실행합니다(PG staging 기록). 계속할까요?")) return;
+    if (mode === "generate_pdf_artifacts" && !window.confirm("변경 페이지 PDF artifact를 생성합니다(node+chromium 필요). 계속할까요?")) return;
+    setRunBusy(mode); setRunResult(null);
+    try {
+      const r = await api.post(`/api/guidelines/manual-update/run-now`, { mode });
+      setRunResult(r.data);
+      toast.success(`${mode === "diagnose" ? "진단" : "실제"} 실행 완료: ${r.data?.result?.status}`);
+      void loadCapability();
+    } catch (e) {
+      const det = (e as { response?: { status?: number } })?.response;
+      if (det?.status === 409) toast.error("실행 차단(409): 이미 실행 중이거나 실행 불가 환경입니다.");
+      else toast.error("실행 실패");
+    } finally { setRunBusy(null); }
+  }, [loadCapability]);
+
+  const reloadState = useCallback(async () => {
+    try {
+      const r = await api.get("/api/guidelines/manual-update/state");
+      setLiveState(r.data as PgStateResp);
+    } catch { /* 상태 갱신 실패는 치명적이지 않음 */ }
+  }, []);
 
   const loadTop = useCallback(async () => {
     try {
@@ -1605,15 +1881,113 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
       const vs = (vr.data?.versions ?? []) as PgVersion[];
       setVersions(vs);
       setDecisions((dr.data?.rows ?? []) as PgDecision[]);
-      if (vs.length) setVersion(vs[0].version);
+      if (vs.length) setVersion((cur) => cur || vs[0].version);
+      void reloadState();
     } catch { toast.error("PG manual update 자료를 불러오지 못했습니다."); }
-  }, []);
+  }, [reloadState]);
 
   useEffect(() => { void loadTop(); }, [loadTop]);
 
+  // 결정만 다시 불러오기(후보/버전 재조회 없이 빠르게).
+  const reloadDecisions = useCallback(async () => {
+    try {
+      const dr = await api.get("/api/guidelines/manual-update/decisions/active");
+      setDecisions((dr.data?.rows ?? []) as PgDecision[]);
+    } catch { /* ignore */ }
+    void reloadState();
+  }, [reloadState]);
+
+  const errText = (e: unknown, fb: string) =>
+    (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || fb;
+
+  // 단일 결정 저장(승인/기존유지/보류/제외). 승인 시 후보 페이지는 백엔드가 자동 채움.
+  const setDecision = useCallback(async (c: PgCandidate, ui: string) => {
+    setBusy(c.row_id);
+    try {
+      await api.post(`/api/guidelines/manual-update/decisions/${encodeURIComponent(c.row_id)}`, {
+        decision: ui,
+        candidate_page_from: c.candidate_page_from ?? undefined,
+        candidate_page_to: c.candidate_page_to ?? undefined,
+      });
+      toast.success(`결정 저장: ${DEC_UI_KR[ui] ?? ui}`);
+      await reloadDecisions();
+    } catch (e) { toast.error(errText(e, "결정 저장 실패")); }
+    finally { setBusy(null); }
+  }, [reloadDecisions]);
+
+  // 일괄 결정(선택 또는 전체).
+  const bulkDecision = useCallback(async (ui: string, rowIds: string[]) => {
+    if (rowIds.length === 0) { toast.message("선택된 후보가 없습니다."); return; }
+    setBusy("bulk");
+    try {
+      const r = await api.post("/api/guidelines/manual-update/decisions/bulk", { row_ids: rowIds, decision: ui });
+      toast.success(`${DEC_UI_KR[ui] ?? ui} ${r.data?.count ?? rowIds.length}건 저장`);
+      setSelected(new Set());
+      await reloadDecisions();
+    } catch (e) { toast.error(errText(e, "일괄 처리 실패")); }
+    finally { setBusy(null); }
+  }, [reloadDecisions]);
+
+  // 운영 반영(확인 모달에서 호출).
+  const doApply = useCallback(async () => {
+    if (!applyModal) return;
+    const pf = parseInt(applyModal.pf, 10);
+    const pt = parseInt(applyModal.pt, 10) || pf;
+    if (!(pf >= 1)) { toast.error("page_from은 1 이상이어야 합니다."); return; }
+    setBusy(applyModal.rowId);
+    try {
+      const r = await api.post(`/api/guidelines/manual-update/decisions/${encodeURIComponent(applyModal.rowId)}/apply`, { page_from: pf, page_to: pt });
+      toast.success(`운영 반영 완료 (백업: ${r.data?.backup ?? "-"})`);
+      setApplyModal(null);
+      await reloadDecisions();
+    } catch (e) { toast.error(errText(e, "운영 반영 실패")); }
+    finally { setBusy(null); }
+  }, [applyModal, reloadDecisions]);
+
+  // 행 펼침 → 상세(3단 비교) 로드(캐시).
+  const toggleExpand = useCallback(async (c: PgCandidate) => {
+    if (expanded === c.row_id) { setExpanded(null); return; }
+    setExpanded(c.row_id);
+    if (detailCache[c.row_id] || !version) return;
+    setDetailLoading(c.row_id);
+    try {
+      const r = await api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(version)}/candidates/${encodeURIComponent(c.row_id)}/detail`);
+      setDetailCache((prev) => ({ ...prev, [c.row_id]: r.data as PgCandidateDetail }));
+    } catch (e) { toast.error(errText(e, "상세를 불러오지 못했습니다.")); }
+    finally { setDetailLoading(null); }
+  }, [expanded, detailCache, version]);
+
+  // 운영 반영 일괄: 승인(approve/manual_page)했으나 아직 미반영인 후보 전부 반영.
+  const doBulkApply = useCallback(async () => {
+    const dmap: Record<string, PgDecision> = {};
+    for (const d of decisions) dmap[d.row_id] = d;
+    const targets = candidates.filter((c) => {
+      const d = dmap[c.row_id];
+      return d && !d.applied && DEC_APPLYABLE.has(d.decision ?? "");
+    });
+    if (targets.length === 0) { toast.message("운영 반영할 승인 항목이 없습니다."); setBulkApply(false); return; }
+    setBusy("bulk");
+    let ok = 0;
+    for (const c of targets) {
+      const dd = dmap[c.row_id];
+      // 관리자 지정(override)이 있으면 그 페이지로 반영, 없으면 자동 후보 페이지.
+      const pf = dd?.reviewer_candidate_from ?? c.candidate_page_from ?? 1;
+      const pt = dd?.reviewer_candidate_to ?? c.candidate_page_to ?? pf;
+      try {
+        await api.post(`/api/guidelines/manual-update/decisions/${encodeURIComponent(c.row_id)}/apply`, {
+          page_from: pf, page_to: pt,
+        });
+        ok += 1;
+      } catch { /* 개별 실패는 계속 */ }
+    }
+    toast.success(`운영 반영 ${ok}/${targets.length}건 완료`);
+    setBulkApply(false); setBusy(null);
+    await reloadDecisions();
+  }, [candidates, decisions, reloadDecisions]);
+
   const loadVersion = useCallback(async (v: string) => {
     if (!v) return;
-    setLoading(true); setChanged([]); setCandidates([]);
+    setLoading(true); setChanged([]); setCandidates([]); setExpanded(null); setDetailCache({});
     try {
       const [ch, ca] = await Promise.all([
         api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(v)}/changed-pages`),
@@ -1627,17 +2001,125 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
 
   useEffect(() => { if (version) void loadVersion(version); }, [version, loadVersion]);
 
-  const s = state?.state ?? {};
-  const bl = state?.baseline ?? {};
+  // 후보별 PDF artifact 매핑(version 단위) — note "candidate <row_id>" 파싱.
+  useEffect(() => {
+    if (!version) { setArtifactByRow({}); return; }
+    (async () => {
+      try {
+        const r = await api.get(`/api/guidelines/manual-update/pdf-artifacts`, { params: { version } });
+        const map: Record<string, number> = {};
+        for (const a of (r.data?.rows ?? []) as { id: number; note?: string }[]) {
+          const m = /candidate\s+(\S+)/.exec(a.note || "");
+          if (m) map[m[1]] = a.id;
+        }
+        setArtifactByRow(map);
+      } catch { setArtifactByRow({}); }
+    })();
+  }, [version, runResult]);
+
+  // PDF 최신화 진단(visa/stay) — 뷰어가 여는 파일/소스/파이프라인 연결 상태.
+  useEffect(() => {
+    (async () => {
+      const out: Record<string, PdfStatus> = {};
+      for (const m of ["visa", "stay"]) {
+        try {
+          const r = await api.get(`/api/guidelines/manual-update/pdf-status`, { params: { manual: m, version } });
+          out[m] = r.data as PdfStatus;
+        } catch { /* skip */ }
+      }
+      setPdfStatus(out);
+    })();
+  }, [version]);
+
+  const s = liveState?.state ?? {};
+  const bl = liveState?.baseline ?? {};
   const blVersions = bl.versions ?? [];
+  // row_id → 저장된 decision (후보 행에 현재 결정/배지/반영버튼 표시)
+  const decByRow: Record<string, PgDecision> = {};
+  for (const d of decisions) decByRow[d.row_id] = d;
+
+  // 필터 + 정렬 + 코드 그룹핑
+  const matchFilter = (c: PgCandidate): boolean => {
+    const dec = decByRow[c.row_id]?.decision ?? "";
+    const kind = c.change_kind ?? "text_changed";
+    const decided = dec && dec !== "NEW_CANDIDATE";
+    switch (filter) {
+      case "all": return true;
+      case "review": return c.needs_review !== false && !decided;   // 미검토 + 실질 변경 있음 (기본)
+      case "unreviewed": return !decided;
+      case "page_moved": return kind === "page_moved";
+      case "text_changed": return kind === "text_changed";
+      case "uncertain": return kind === "uncertain";
+      case "new": return kind === "new";
+      case "noop": return c.needs_review === false;
+      case "has_pdf": return !!artifactByRow[c.row_id];
+      case "approve": return dec === "REVIEWED_APPROVE_CANDIDATE";
+      case "keep_existing": return dec === "REVIEWED_KEEP_EXISTING";
+      case "hold": return dec === "UNRESOLVED";
+      case "reject": return dec === "REJECTED_BAD_CANDIDATE";
+      default: return true;
+    }
+  };
+  const filteredCands = candidates.filter(matchFilter).sort((a, b) => {
+    const ka = KIND_ORDER[a.change_kind ?? "text_changed"] ?? 5;
+    const kb = KIND_ORDER[b.change_kind ?? "text_changed"] ?? 5;
+    if (ka !== kb) return ka - kb;
+    const ga = (a.detailed_code || a.row_id), gb = (b.detailed_code || b.row_id);
+    return ga.localeCompare(gb);   // 같은 코드/업무명 묶음
+  });
+  const FILTERS: [string, string][] = [
+    ["review", "검토 대상"], ["unreviewed", "미검토"], ["text_changed", "본문 변경"],
+    ["page_moved", "페이지 변경"], ["uncertain", "매칭 불확실"], ["new", "신규"],
+    ["noop", "실질 변경 없음"], ["has_pdf", "PDF 있음"], ["approve", "승인"], ["keep_existing", "기존유지"],
+    ["hold", "보류"], ["reject", "제외"], ["all", "전체"],
+  ];
+  const filterCount = (f: string) => candidates.filter((c) => {
+    const saved = filter; let r: boolean;
+    // 임시로 평가(간단히 재사용): 동일 로직
+    const dec = decByRow[c.row_id]?.decision ?? "";
+    const kind = c.change_kind ?? "text_changed";
+    const decided = dec && dec !== "NEW_CANDIDATE";
+    switch (f) {
+      case "all": r = true; break;
+      case "review": r = c.needs_review !== false && !decided; break;
+      case "unreviewed": r = !decided; break;
+      case "page_moved": r = kind === "page_moved"; break;
+      case "text_changed": r = kind === "text_changed"; break;
+      case "uncertain": r = kind === "uncertain"; break;
+      case "new": r = kind === "new"; break;
+      case "noop": r = c.needs_review === false; break;
+      case "has_pdf": r = !!artifactByRow[c.row_id]; break;
+      case "approve": r = dec === "REVIEWED_APPROVE_CANDIDATE"; break;
+      case "keep_existing": r = dec === "REVIEWED_KEEP_EXISTING"; break;
+      case "hold": r = dec === "UNRESOLVED"; break;
+      case "reject": r = dec === "REJECTED_BAD_CANDIDATE"; break;
+      default: r = true;
+    }
+    void saved; return r;
+  }).length;
+  // 운영 반영 요약(모달용)
+  const applySummary = (() => {
+    let approve = 0, keep = 0, hold = 0, reject = 0, applyable = 0, noop = 0, applied = 0;
+    for (const c of candidates) {
+      if (c.needs_review === false) noop++;
+      const d = decByRow[c.row_id];
+      const dk = d?.decision ?? "";
+      if (d?.applied) { applied++; }
+      if (dk === "REVIEWED_APPROVE_CANDIDATE" || dk === "NEEDS_MANUAL_PAGE") { approve++; if (!d?.applied) applyable++; }
+      else if (dk === "REVIEWED_KEEP_EXISTING") keep++;
+      else if (dk === "UNRESOLVED") hold++;
+      else if (dk === "REJECTED_BAD_CANDIDATE") reject++;
+    }
+    return { approve, keep, hold, reject, applyable, noop, applied };
+  })();
 
   return (
     <div className="space-y-4">
       {/* 안내 배너 — PG 단일 출처 */}
       <div className="hw-card text-xs leading-relaxed" style={{ background: "#EBF8FF", borderColor: "#BEE3F8" }}>
-        <div style={{ color: "#2B6CB0", fontWeight: 700 }}>🗄 PostgreSQL 기반 매뉴얼 업데이트 (단일 출처)</div>
-        <div style={{ color: "#4A5568", marginTop: 4 }}>변경 감지·후보·검토 결정이 PG에 저장됩니다. 기존 실무지침 PDF 조회는 변경되지 않습니다.</div>
-        <div style={{ color: "#C53030", marginTop: 2 }}>운영 manual_ref는 관리자 검토 후에만 별도로 반영됩니다(자동 반영 없음).</div>
+        <div style={{ color: "#2B6CB0", fontWeight: 700 }}>🗄 PostgreSQL 기반 매뉴얼 업데이트 (단일 출처 · 검토/운영반영 가능)</div>
+        <div style={{ color: "#4A5568", marginTop: 4 }}>변경 감지·후보·검토 결정이 PG에 저장됩니다. 후보별 승인/기존유지/보류/제외 후, ‘운영 반영’ 버튼으로만 실무지침에 반영됩니다.</div>
+        <div style={{ color: "#C53030", marginTop: 2 }}>운영 manual_ref는 관리자가 ‘운영 반영’을 누르기 전에는 절대 변경되지 않습니다(자동 반영 없음).</div>
       </div>
 
       {/* 상태 카드 */}
@@ -1645,10 +2127,10 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>자동화 상태</div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           {[
-            ["상태", PG_STATUS_KR[s.status ?? ""] ?? (s.status ?? "-")],
-            ["검토 필요", s.needs_review ? "예 ⚠" : "아니오"],
-            ["마지막 실행", s.last_run_at ?? "-"],
-            ["마지막 성공", s.last_success_at ?? "-"],
+            ["원문 변경", (s.changed_count ?? 0) > 0 ? `있음 (${s.changed_count}p)` : "없음"],
+            ["후보", `${s.candidate_count ?? 0}건 (검토대상 ${s.review_target_count ?? 0} · no-op ${s.noop_count ?? 0})`],
+            ["실질 검토 필요", s.needs_review ? `예 ⚠ (미검토 ${s.pending_count ?? 0})` : "없음"],
+            ["운영 반영 대기", `${s.approved_pending_apply ?? 0}건 (반영 완료 ${s.applied_count ?? 0})`],
             ["최근 staging 버전", s.last_staging_version ?? "-"],
             ["오류", s.error ?? "-"],
           ].map(([k, v]) => (
@@ -1658,6 +2140,13 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
             </div>
           ))}
         </div>
+        {/* 검토 필요 사유 — req 6/7/8: 예이면 사유/후보가 반드시 보이도록 */}
+        {(s.review_reason || s.needs_review) && (
+          <div className="text-xs mt-2 px-2 py-1.5 rounded"
+            style={{ background: s.needs_review ? "#FFFAF0" : "#F0FFF4", color: s.needs_review ? "#C05621" : "#276749", border: `1px solid ${s.needs_review ? "#FEEBC8" : "#C6F6D5"}` }}>
+            {s.needs_review ? "⚠ " : "✓ "}{s.review_reason || (s.needs_review ? "검토 필요" : "검토 완료")}
+          </div>
+        )}
       </div>
 
       {/* baseline 요약 */}
@@ -1677,6 +2166,109 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
             <div style={{ color: "#2D3748", fontWeight: 600 }}>{bl.refs_count ?? 0} rows</div>
           </div>
         </div>
+      </div>
+
+      {/* 매뉴얼 최신화 수동 실행 (진단 / 실제) */}
+      <div className="hw-card">
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>매뉴얼 최신화 실행</div>
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <button disabled={runBusy !== null} onClick={() => void runNow("diagnose")}
+            className="text-xs px-3 py-1.5 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>
+            {runBusy === "diagnose" ? "진단 중..." : "최신 매뉴얼 진단 실행"}
+          </button>
+          <button disabled={runBusy !== null || !runCap?.can_record_update}
+            title={runCap?.can_record_update ? "실제 업데이트(PG 기록) 실행" : (runCap?.reason || "실행 불가")}
+            onClick={() => void runNow("record")}
+            className="text-xs px-3 py-1.5 rounded"
+            style={{ background: runCap?.can_record_update ? "#DD6B20" : "#E2E8F0", color: runCap?.can_record_update ? "#fff" : "#A0AEC0", border: "none", cursor: runCap?.can_record_update ? "pointer" : "not-allowed" }}>
+            {runBusy === "record" ? "실행 중..." : "실제 업데이트 실행"}
+          </button>
+          <button disabled={runBusy !== null || !runCap?.can_generate_pdf}
+            title={runCap?.can_generate_pdf ? "변경 페이지 PDF artifact 생성(node+chromium)" : "node/chromium 실행 환경 없음 — 로컬/워커에서만 생성"}
+            onClick={() => void runNow("generate_pdf_artifacts")}
+            className="text-xs px-3 py-1.5 rounded"
+            style={{ background: runCap?.can_generate_pdf ? "#38A169" : "#E2E8F0", color: runCap?.can_generate_pdf ? "#fff" : "#A0AEC0", border: "none", cursor: runCap?.can_generate_pdf ? "pointer" : "not-allowed" }}>
+            {runBusy === "generate_pdf_artifacts" ? "생성 중..." : "변경 페이지 PDF 생성"}
+          </button>
+          {runCap && (
+            <span className="text-[11px]" style={{ color: "#718096" }}>
+              런타임 {runCap.runtime} · node {runCap.node_available ? "✅" : "❌"} · rhwp {runCap.rhwp_available ? "✅" : "❌"} · 실제기록 {runCap.can_record_update ? "✅" : "❌"} · PDF생성 {runCap.can_generate_pdf ? "✅" : "❌"}
+            </span>
+          )}
+        </div>
+        {runCap && !runCap.can_record_update && (
+          <div className="text-xs px-2 py-1.5 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
+            ⚠ 현재 backend/Render 런타임에는 node/rhwp 실행 환경이 없어 <b>실제 업데이트 실행이 비활성화</b>되어 있습니다. 로컬 호스트 또는 별도 worker 실행 환경이 연결되면 활성화됩니다. (진단 실행은 가능 — 감지까지, 다운로드/추출은 node 가능 환경에서만 완주)
+          </div>
+        )}
+        {runResult && (() => {
+          const r = runResult.result || {}; const s = (r.stages || {}) as Record<string, unknown>;
+          const dl = Array.isArray(s.downloaded) ? (s.downloaded as { name: string; bytes: number }[]) : [];
+          const ep = (s.extracted_pages || {}) as Record<string, number>;
+          const ch = Array.isArray(s.changed) ? s.changed.length : undefined;
+          return (
+            <div className="text-[11px] mt-2 p-2 rounded" style={{ background: "#F7FAFC", color: "#2D3748", lineHeight: 1.8 }}>
+              <div><b>{runResult.mode === "diagnose" ? "진단" : "실제"} 실행 결과</b> — status=<b>{r.status}</b>{r.version && <> · version {r.version}</>}</div>
+              <div>하이코리아 접속: {s.detail_fetch_bytes ? `성공(${String(s.detail_fetch_bytes)} bytes)` : "-"} · 첨부 탐지: {s.attachments_found != null ? String(s.attachments_found) : "-"}건{ch != null && <> · 변경 감지 {ch}건</>}</div>
+              {dl.length > 0 && <div>다운로드: {dl.map((f) => `${f.name} (${Math.round(f.bytes / 1024)}KB)`).join(", ")}</div>}
+              {s.tmp_dir != null && <div>/tmp 저장: {String(s.tmp_dir)}</div>}
+              {Object.keys(ep).length > 0 && <div>rhwp 추출: {Object.entries(ep).map(([k, v]) => `${k} ${v}p`).join(", ")}</div>}
+              {s.changed_pages != null && <div>baseline diff 변경 페이지: {String(s.changed_pages)} · 후보: {String(s.candidates ?? "-")}</div>}
+              <div>PG staging 기록: <b style={{ color: r.wrote_to_pg ? "#C05621" : "#276749" }}>{r.wrote_to_pg ? "기록함(record)" : "미기록(diagnose)"}</b>{r.source_deleted != null && <> · 원본 삭제: {r.source_deleted ? "✅" : "❌"}</>}</div>
+              {s.note != null && <div style={{ color: "#C05621" }}>{String(s.note)}</div>}
+              {r.error != null && <div style={{ color: "#C53030" }}>오류[{r.error_stage}]: {r.error}</div>}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* PDF 최신화 상태 (왜 배포본 PDF 가 보이는지 투명하게 — 미구현 숨김 금지) */}
+      <div className="hw-card">
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>PDF 최신화 상태</div>
+        <div className="text-xs mb-2 px-2 py-1.5 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
+          ⚠ 변경 페이지 → 전체 PDF 교체 파이프라인 <b>미연결</b>. 현재 “전체 PDF 보기”는 최신 staging PDF 가 없어
+          <b> 배포본(현행 운영) PDF</b>로 표시됩니다. 텍스트 diff·후보 검토·페이지 override 는 정상 동작하나, PDF 자체 최신화는 다음 단계 구현 예정입니다.
+        </div>
+        <div className="overflow-x-auto">
+          <table className="hw-table w-full text-xs" style={{ minWidth: 720 }}>
+            <thead><tr>{["매뉴얼", "뷰어 소스", "여는 파일", "배포본 날짜", "배포본 페이지", "최신 staging PDF", "PDF artifact", "생성기", "교체 파이프라인"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+            <tbody>
+              {["visa", "stay"].map((m) => {
+                const ps = pdfStatus[m];
+                if (!ps) return <tr key={m}><td>{m}</td><td colSpan={8} style={{ color: "#A0AEC0" }}>조회 중…</td></tr>;
+                const af = ps.artifacts || {};
+                const vs = ps.viewer_source === "artifact" ? "artifact" : ps.viewer_source === "staging" ? "staging" : "배포본 fallback";
+                return (
+                  <tr key={m}>
+                    <td>{m} ({ps.kr_label ?? ps.manual})</td>
+                    <td><span style={{ fontWeight: 700, color: ps.viewer_source === "deployed" ? "#C05621" : "#22543D" }}>{vs}</span></td>
+                    <td style={{ fontSize: 10 }}>{ps.viewer_file}</td>
+                    <td>{ps.deployed?.mtime ?? "-"}</td>
+                    <td>{ps.deployed?.page_count ?? "-"}p</td>
+                    <td>{ps.staging_pdf_exists ? "있음 ✅" : "없음 ⚠"}</td>
+                    <td>총 {af.total ?? 0} {ps.full_pdf_artifact ? "(full ✅)" : af.total ? "(changed)" : ""}</td>
+                    <td>{ps.generator_present ? "설치됨" : "없음"}</td>
+                    <td><span style={{ color: ps.replace_pipeline_wired ? "#22543D" : "#C53030", fontWeight: 700 }}>{ps.replace_pipeline_wired ? "연결됨" : "미구현"}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {(() => {
+          const tot = (pdfStatus.visa?.artifacts_total ?? 0) + (pdfStatus.stay?.artifacts_total ?? 0);
+          const anyFull = !!(pdfStatus.visa?.full_pdf_artifact || pdfStatus.stay?.full_pdf_artifact);
+          if (tot === 0) return (
+            <div className="text-xs mt-2 px-2 py-1.5 rounded" style={{ background: "#F7FAFC", color: "#718096" }}>
+              현재 생성된 PDF artifact가 없습니다. viewer는 배포본 PDF fallback을 사용 중입니다.
+            </div>
+          );
+          return (
+            <div className="text-xs mt-2 px-2 py-1.5 rounded" style={{ background: "#F0FFF4", color: "#276749", border: "1px solid #C6F6D5" }}>
+              PDF artifact {tot}건 저장됨{anyFull ? " — full_pdf artifact 있음(viewer 우선 사용)" : " (changed_page 검토용; viewer는 full_pdf artifact가 있어야 우선 사용)"}.
+            </div>
+          );
+        })()}
       </div>
 
       {/* 버전 선택 */}
@@ -1737,27 +2329,134 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         </div>
       )}
 
-      {/* manual_ref 후보 */}
+      {/* manual_ref 후보 — 검토/승인/운영반영 */}
       {version && (
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="text-xs font-semibold px-3 py-2" style={{ color: "#2D3748", borderBottom: "1px solid #EDF2F7" }}>
-            영향 manual_ref 후보 ({candidates.length})
+          <div className="px-3 py-2" style={{ borderBottom: "1px solid #EDF2F7" }}>
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <span className="text-xs font-semibold" style={{ color: "#2D3748" }}>
+                영향 manual_ref 후보 — 표시 {filteredCands.length} / 전체 {candidates.length} · 선택 {selected.size}
+              </span>
+              <div className="flex items-center gap-1 flex-wrap">
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("approve", Array.from(selected))}
+                  title="선택 후보를 운영 반영 대상으로 승인" className="text-[11px] px-2 py-1 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>선택 승인</button>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("keep_existing", Array.from(selected))}
+                  title="기존 manual_ref 유지" className="text-[11px] px-2 py-1 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>선택 기존유지</button>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("hold", Array.from(selected))}
+                  title="나중에 다시 검토" className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFFFF0", color: "#975A16", border: "1px solid #FAF089" }}>선택 보류</button>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("reject", Array.from(selected))}
+                  title="이번 후보에서 제외" className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>선택 제외</button>
+                <span style={{ color: "#CBD5E0" }}>|</span>
+                <button disabled={busy === "bulk" || applySummary.applyable === 0} onClick={() => setBulkApply(true)}
+                  title="승인 항목을 운영 실무지침에 반영" className="text-[11px] px-2 py-1 rounded font-bold" style={{ background: applySummary.applyable ? "#DD6B20" : "#E2E8F0", color: applySummary.applyable ? "#fff" : "#A0AEC0", border: "none" }}>
+                  운영 반영 ({applySummary.applyable})
+                </button>
+              </div>
+            </div>
+            {/* 필터 칩 */}
+            <div className="flex items-center gap-1 flex-wrap">
+              {FILTERS.map(([f, label]) => (
+                <button key={f} onClick={() => setFilter(f)}
+                  className="text-[11px] px-2 py-0.5 rounded-full"
+                  style={{ border: `1px solid ${filter === f ? "#2B6CB0" : "#E2E8F0"}`, background: filter === f ? "#2B6CB0" : "#fff", color: filter === f ? "#fff" : "#718096", fontWeight: filter === f ? 700 : 400 }}>
+                  {label} {filterCount(f)}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="hw-table w-full text-xs" style={{ minWidth: 800 }}>
+            <table className="hw-table w-full text-xs" style={{ minWidth: 1040 }}>
               <thead><tr>
-                {["row_id", "코드", "매뉴얼", "기존 p.", "후보 p.", "신뢰도", "action"].map((h) => <th key={h}>{h}</th>)}
+                <th style={{ width: 24 }}>
+                  <input type="checkbox" aria-label="전체 선택"
+                    checked={filteredCands.length > 0 && filteredCands.every((c) => selected.has(c.row_id))}
+                    onChange={(e) => setSelected(e.target.checked ? new Set(filteredCands.map((c) => c.row_id)) : new Set())} />
+                </th>
+                <th style={{ width: 24 }}></th>
+                {["코드/업무명", "매뉴얼", "기존 p.", "후보 p.", "신뢰도", "변경 유형", "매칭 사유", "현재 결정", "결정", "운영 반영"].map((h) => <th key={h}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {candidates.length === 0 && <tr><td colSpan={7} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>후보 없음</td></tr>}
-                {candidates.map((c, i) => (
-                  <tr key={i}>
-                    <td>{c.row_id}</td><td>{c.detailed_code}</td><td>{c.manual_label}</td>
-                    <td>{c.old_page_from}-{c.old_page_to}</td>
-                    <td>{c.candidate_page_from}-{c.candidate_page_to}</td>
-                    <td>{c.confidence}</td><td>{c.action}</td>
-                  </tr>
-                ))}
+                {filteredCands.length === 0 && <tr><td colSpan={12} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>해당 필터에 후보 없음</td></tr>}
+                {filteredCands.map((c) => {
+                  const dec = decByRow[c.row_id];
+                  const decKey = dec?.decision ?? "";
+                  const badge = DEC_BADGE[decKey] ?? DEC_BADGE[""];
+                  const kind = CHANGE_KIND[c.change_kind ?? "text_changed"] ?? CHANGE_KIND.text_changed;
+                  const applied = !!dec?.applied;
+                  const canApply = !applied && DEC_APPLYABLE.has(decKey);
+                  const rowBusy = busy === c.row_id;
+                  const isOpen = expanded === c.row_id;
+                  const detail = detailCache[c.row_id];
+                  return (
+                    <Fragment key={c.row_id}>
+                      <tr style={{ background: selected.has(c.row_id) ? "#F7FAFC" : c.needs_review === false ? "#FAFAFA" : undefined }}>
+                        <td>
+                          <input type="checkbox" checked={selected.has(c.row_id)}
+                            onChange={(e) => setSelected((prev) => { const n = new Set(prev); if (e.target.checked) n.add(c.row_id); else n.delete(c.row_id); return n; })} />
+                        </td>
+                        <td>
+                          <button onClick={() => void toggleExpand(c)} title="상세 비교"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#718096" }}>
+                            {isOpen ? "▼" : "▶"}
+                          </button>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>
+                            {c.detailed_code || "(코드없음)"}
+                            {artifactByRow[c.row_id] && (
+                              <button onClick={() => setPdfView({ artifactId: artifactByRow[c.row_id], page: 1, label: `변경 페이지 PDF — ${c.detailed_code || c.row_id} (#${artifactByRow[c.row_id]})` })}
+                                title="이 후보의 변경 페이지 PDF artifact 보기" className="ml-1" style={{ fontSize: 10, padding: "0 5px", borderRadius: 8, background: "#C6F6D5", color: "#22543D", border: "1px solid #9AE6B4", cursor: "pointer", fontWeight: 700 }}>
+                                📄 PDF
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ color: "#A0AEC0", fontSize: 10 }}>{c.row_id}{c.business_name ? ` · ${c.business_name}` : ""}</div>
+                        </td>
+                        <td><span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 8, background: c.manual_label === "visa" ? "#E9D8FD" : "#BEE3F8", color: "#4A5568" }}>{c.manual_label}</span></td>
+                        <td>{c.old_page_from}-{c.old_page_to}</td>
+                        <td style={{ fontWeight: 600, color: c.page_changed ? "#DD6B20" : "#2B6CB0" }}>
+                          {c.candidate_page_from}-{c.candidate_page_to}
+                          {dec?.reviewer_candidate_from != null && (
+                            <div style={{ fontSize: 10, color: "#C05621", fontWeight: 700 }} title="관리자 지정 (현재 검토 기준)">
+                              ★지정 {dec.reviewer_candidate_from}-{dec.reviewer_candidate_to}
+                            </div>
+                          )}
+                        </td>
+                        <td>{c.confidence}{c.similarity != null && <span style={{ color: "#A0AEC0" }}> ({Math.round(c.similarity * 100)}%)</span>}</td>
+                        <td><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: kind.bg, color: kind.color, fontWeight: 700 }}>{kind.label}</span></td>
+                        <td style={{ maxWidth: 200, fontSize: 10, color: "#718096", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={c.reason}>{c.reason}</td>
+                        <td><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: badge.bg, color: badge.color, fontWeight: 700 }}>{badge.label}</span></td>
+                        <td>
+                          <div className="flex items-center gap-1">
+                            <button disabled={rowBusy} title="후보 내용을 운영 반영 대상으로 선택" onClick={() => setDecision(c, "approve")} className="text-[11px] px-1.5 py-0.5 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>승인</button>
+                            <button disabled={rowBusy} title="기존 manual_ref를 유지" onClick={() => setDecision(c, "keep_existing")} className="text-[11px] px-1.5 py-0.5 rounded border" style={{ borderColor: "#BEE3F8", color: "#2A4365", background: "#fff" }}>기존유지</button>
+                            <button disabled={rowBusy} title="나중에 다시 검토" onClick={() => setDecision(c, "hold")} className="text-[11px] px-1.5 py-0.5 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>보류</button>
+                            <button disabled={rowBusy} title="이번 후보에서 제외" onClick={() => setDecision(c, "reject")} className="text-[11px] px-1.5 py-0.5 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>제외</button>
+                          </div>
+                        </td>
+                        <td>
+                          {applied ? <span style={{ color: "#38A169", fontWeight: 700 }}>반영됨</span>
+                            : canApply ? (
+                              <button disabled={rowBusy} onClick={() => setApplyModal({ rowId: c.row_id, pf: String(dec?.reviewer_candidate_from ?? c.candidate_page_from ?? ""), pt: String(dec?.reviewer_candidate_to ?? c.candidate_page_to ?? dec?.reviewer_candidate_from ?? c.candidate_page_from ?? "") })}
+                                className="text-[11px] px-2 py-0.5 rounded" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>운영 반영</button>
+                            ) : <span style={{ color: "#CBD5E0" }}>—</span>}
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr>
+                          <td colSpan={12} style={{ background: "#F7FAFC", padding: 10 }}>
+                            {detailLoading === c.row_id ? <div style={{ color: "#A0AEC0" }}>상세 불러오는 중…</div>
+                              : detail ? (
+                                <CandidateDetailView d={detail} version={version} cand={c} decision={dec}
+                                  onOpenPdf={openPdf} onOpenCandidatePdf={openCandidatePdf}
+                                  onOverrideChanged={() => void reloadDecisions()} />
+                              ) : <div style={{ color: "#A0AEC0" }}>상세 없음</div>}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1791,6 +2490,113 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           </table>
         </div>
       </div>
+
+      {/* 운영 반영 확인 모달 */}
+      {applyModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => busy !== applyModal.rowId && setApplyModal(null)}>
+          <div className="hw-card" style={{ width: 420, maxWidth: "90vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-bold mb-1" style={{ color: "#C05621" }}>⚠ 운영 반영 확인</div>
+            {(() => {
+              const c = candidates.find((x) => x.row_id === applyModal.rowId);
+              const dd = decByRow[applyModal.rowId];
+              return (
+                <div className="text-xs mb-2 p-2 rounded" style={{ background: "#F7FAFC", lineHeight: 1.8 }}>
+                  <div style={{ color: "#718096" }}>자동 기준 p.: {c?.old_page_from}-{c?.old_page_to} · 자동 후보 p.: {c?.candidate_page_from}-{c?.candidate_page_to}</div>
+                  <div style={{ color: "#C05621" }}>관리자 지정 기준 p.: {dd?.reviewer_baseline_from ?? "-"}-{dd?.reviewer_baseline_to ?? "-"} · 관리자 지정 후보 p.: {dd?.reviewer_candidate_from ?? "-"}-{dd?.reviewer_candidate_to ?? "-"}</div>
+                  <div style={{ color: "#822727", fontWeight: 700 }}>실제 반영될 페이지: {applyModal.pf}-{applyModal.pt}</div>
+                </div>
+              );
+            })()}
+            <div className="text-xs mb-3" style={{ color: "#4A5568", lineHeight: 1.6 }}>
+              <b>{applyModal.rowId}</b> 의 manual_ref 페이지를 운영 실무지침(immigration DB)에 <b>실제로 반영</b>합니다.
+              반영 전 자동 백업되며, 승인/직접입력 상태에서만 가능합니다. 되돌리려면 백업본으로 복원해야 합니다.
+            </div>
+            <div className="flex items-center gap-2 mb-3 text-xs">
+              <label style={{ color: "#718096" }}>page_from</label>
+              <input className="hw-input" style={{ width: 70 }} value={applyModal.pf}
+                onChange={(e) => setApplyModal((m) => m && { ...m, pf: e.target.value })} />
+              <label style={{ color: "#718096" }}>page_to</label>
+              <input className="hw-input" style={{ width: 70 }} value={applyModal.pt}
+                onChange={(e) => setApplyModal((m) => m && { ...m, pt: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setApplyModal(null)} disabled={busy === applyModal.rowId}
+                className="text-xs px-3 py-1.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>취소</button>
+              <button onClick={() => void doApply()} disabled={busy === applyModal.rowId}
+                className="text-xs px-3 py-1.5 rounded" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>
+                {busy === applyModal.rowId ? "반영 중..." : "운영 반영 실행"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 운영 반영 일괄 요약 모달 (req 9) */}
+      {bulkApply && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => busy !== "bulk" && setBulkApply(false)}>
+          <div className="hw-card" style={{ width: 420, maxWidth: "90vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-bold mb-2" style={{ color: "#C05621" }}>⚠ 운영 반영 — 요약 확인</div>
+            <div className="text-xs mb-3" style={{ color: "#4A5568", lineHeight: 1.9 }}>
+              <div>승인: <b>{applySummary.approve}</b>건</div>
+              <div>기존유지: <b>{applySummary.keep}</b>건</div>
+              <div>보류: <b>{applySummary.hold}</b>건</div>
+              <div>제외: <b>{applySummary.reject}</b>건</div>
+              <div>실질 변경 없음(no-op): <b>{applySummary.noop}</b>건</div>
+              <div style={{ color: "#C05621", marginTop: 4 }}>이번에 실제 운영 반영될 항목(승인·미반영): <b>{applySummary.applyable}</b>건</div>
+              <div style={{ color: "#A0AEC0" }}>이미 반영됨: {applySummary.applied}건</div>
+            </div>
+            <div className="text-xs mb-3" style={{ color: "#822727" }}>
+              승인 항목의 후보 페이지를 운영 실무지침(immigration DB)에 반영합니다. 각 건 반영 전 자동 백업됩니다.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setBulkApply(false)} disabled={busy === "bulk"}
+                className="text-xs px-3 py-1.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>취소</button>
+              <button onClick={() => void doBulkApply()} disabled={busy === "bulk" || applySummary.applyable === 0}
+                className="text-xs px-3 py-1.5 rounded" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>
+                {busy === "bulk" ? "반영 중..." : `운영 반영 실행 (${applySummary.applyable}건)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 전체 PDF 보기 모달 (staging 우선, 없으면 배포본) */}
+      {pdfView && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1100, display: "flex", flexDirection: "column", padding: 20 }}
+          onClick={() => setPdfView(null)}>
+          <div className="hw-card" style={{ flex: 1, display: "flex", flexDirection: "column", background: "#fff", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="text-sm font-bold" style={{ color: "#2D3748" }}>
+                {pdfView.artifactId ? (pdfView.label || `변경 페이지 artifact #${pdfView.artifactId}`)
+                  : `${pdfView.isStaging ? "최신 staging PDF" : "배포본 PDF"} — ${pdfView.manual} · p.${pdfView.page}`}
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {!pdfView.artifactId && <>
+                  <span style={{ color: "#718096" }}>페이지</span>
+                  <input defaultValue={String(pdfView.page)} className="hw-input" style={{ width: 60 }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { const n = parseInt((e.target as HTMLInputElement).value, 10); if (n >= 1) setPdfView((p) => p && { ...p, page: n }); } }} />
+                </>}
+                <button onClick={() => setPdfView(null)} className="px-2 py-1 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096" }}>닫기</button>
+              </div>
+            </div>
+            {pdfView.artifactId ? (
+              <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#F0FFF4", color: "#276749", border: "1px solid #C6F6D5" }}>
+                ✅ 최신 변경 페이지 PDF artifact 표시 중 (staging 생성본)
+              </div>
+            ) : !pdfView.isStaging && (
+              <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
+                ⚠ 최신 staging PDF 미배포 — 현재 배포된 매뉴얼 PDF를 표시 중입니다. (페이지 번호가 최신본과 다를 수 있음)
+              </div>
+            )}
+            <iframe key={pdfView.artifactId ? `art-${pdfView.artifactId}` : `${pdfView.manual}-${pdfView.page}`} style={{ flex: 1, border: "1px solid #E2E8F0", borderRadius: 6 }}
+              src={pdfView.artifactId
+                ? `/api/guidelines/manual-update/pdf-artifacts/${pdfView.artifactId}/content?token=${encodeURIComponent(token)}#toolbar=1&view=Fit`
+                : `/api/guidelines/manual-update/pdf?manual=${encodeURIComponent(pdfView.manual || "")}&version=${encodeURIComponent(version)}&token=${encodeURIComponent(token)}#page=${pdfView.page}&toolbar=1&view=Fit`} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1983,9 +2789,10 @@ export default function AdminPage() {
       {activeTab === "manual-review" && (
         <>
           <div className="hw-card text-xs leading-relaxed mb-3" style={{ background: "#FFFAF0", borderColor: "#FEEBC8" }}>
-            <div style={{ color: "#C05621", fontWeight: 700 }}>⚠ 레거시 화면 (파일 기반 manual_update_review.json + rematch)</div>
+            <div style={{ color: "#C05621", fontWeight: 700 }}>⚠ 레거시 화면 (파일 기반 manual_update_review.json + rematch) — 실사용 경로 아님</div>
             <div style={{ color: "#4A5568", marginTop: 4 }}>
-              PostgreSQL 기반 검토는 상단 “매뉴얼 업데이트” 탭을 사용하세요. 이 화면은 호환을 위해 유지되는 구버전입니다.
+              실제 검토·승인·<b>운영 반영</b>은 상단 <b>“매뉴얼 업데이트”</b> 탭(PostgreSQL)에서 수행하세요.
+              이 화면은 파일 기반 구버전으로, 호환을 위해 조회용으로만 유지됩니다.
             </div>
           </div>
           <ManualReviewTab />

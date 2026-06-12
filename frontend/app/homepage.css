@@ -701,8 +701,14 @@
   .dir-bar-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
 
   @media (max-width: 768px) {
-    .dir-map-figure { padding: 12px; }
-    .dir-bar { padding: 18px 18px; gap: 14px; }
+    /* 앵커 진입 시 헤더(68px) 바로 아래에 섹션이 안착하도록 타이트하게. */
+    #directions { scroll-margin-top: 72px; padding-top: 36px; padding-bottom: 48px; }
+    /* 설명 ↔ 지도 사이 큰 간격 축소 — 모바일 첫 화면에 주소 카드까지 들어오게. */
+    #directions .section-desc { margin-bottom: 16px; }
+    .dir-map-figure { padding: 12px; margin-bottom: 14px; }
+    /* 지도 이미지가 과도하게 커서 주소가 밀리지 않도록 모바일에서만 높이 상한(가독성 유지). */
+    .dir-map-img { max-height: 200px; object-fit: contain; }
+    .dir-bar { padding: 16px 16px; gap: 12px; }
     .dir-bar-sep { display: none; }
     .dir-bar-info { gap: 8px 16px; }
     .dir-bar-actions { margin-left: 0; width: 100%; }

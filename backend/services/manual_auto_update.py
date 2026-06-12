@@ -639,6 +639,198 @@ def run_auto_update_pg(*, force: bool = False, trigger: str = "manual",
             shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def run_auto_update_pg_dryrun(force: bool = False, allow_node: bool = True) -> dict:
+    """로컬 전용 test-run — 감지→/tmp 다운로드→rhwp extract→PG baseline diff→candidates
+    까지만 수행하고 **카운트만** 반환한다. PG staging(version/changed/candidates/decision)
+    이나 운영 manual_ref/PDF 에 **아무것도 쓰지 않는다**(start_run/save_version 미호출).
+    /tmp 는 항상 삭제. node(rhwp)가 필요하므로 호스트(또는 node 포함 워커)에서 실행해야 한다.
+    force=True 면 seen 을 무시해 현재 첨부 전체를 변경분으로 간주(다운로드/추출/후보 단계 검증용).
+    allow_node=False(=node 미설치 런타임) 면 감지까지만 하고 다운로드/추출/후보는 건너뛴다."""
+    import shutil
+    import tempfile
+    from backend.services import manual_update_pg_service as svc
+    if not svc.pg_enabled():
+        return {"status": "skipped", "reason": "pg_disabled (need DATABASE_URL + FEATURE_PG_MANUAL_UPDATE=true)"}
+    tmpdir: Path | None = None
+    stage = "init"
+    out: dict = {"status": "ok", "stages": {}, "wrote_to_pg": False, "force": force}
+    try:
+        seen = {} if force else _seen_from_pg(svc)
+        out["stages"]["seen_timestamps"] = seen
+        session = _http_session()
+        stage = "detail_fetch"
+        html = _fetch_detail_html(session)
+        out["stages"]["detail_fetch_bytes"] = len(html or "")
+        stage = "attachment_parse"
+        atts = _parse_attachments(html)
+        out["stages"]["attachments_found"] = len(atts)
+        stage = "timestamp_compare"
+        changed = _compare_attachments(atts, seen)
+        out["stages"]["changed"] = [{"label": c["label"], "old_ts": c["old_ts"], "new_ts": c["new_ts"]} for c in changed]
+        if not changed:
+            out["status"] = "no_change"
+            return out
+        version = _version_from_changes(changed)
+        out["version"] = version
+        if not allow_node:
+            # node(rhwp) 없는 런타임(backend container/Render): 감지까지만, 다운로드/추출 생략.
+            out["status"] = "detection_only"
+            out["stages"]["note"] = "변경 감지됨 — node/rhwp 미설치로 다운로드/추출/후보 생략(로컬/워커에서 진단 실행 필요)"
+            return out
+        tmpdir = Path(tempfile.gettempdir()) / "manual_update_dryrun" / version
+        out["stages"]["tmp_dir"] = str(tmpdir)
+        stage = "download"
+        saved = _download_changed_to(changed, tmpdir, session=session)
+        out["stages"]["downloaded"] = [{"name": p.name, "bytes": p.stat().st_size} for p in saved]
+        from backend.scripts.manual_update_local import (
+            NODE_TOOLS, run_node, load_jsonl, classify_label, diff_pages,
+        )
+        new_pages_by_label: dict[str, list[dict]] = {}
+        all_changed: list[dict] = []
+        stage = "extract"
+        for p in sorted(tmpdir.iterdir()):
+            if not p.is_file() or p.suffix.lower() not in (".hwp", ".hwpx"):
+                continue
+            label = classify_label(p.name)
+            if not label:
+                continue
+            run_node([str(NODE_TOOLS / "extract.mjs"), "--src", str(p),
+                      "--label", label, "--out-dir", str(tmpdir)],
+                     tmpdir / f"extract_{label}.log")
+            pages = load_jsonl(tmpdir / f"{label}_pages.jsonl")
+            new_pages_by_label[label] = pages
+            baseline = svc.load_baseline_pages(label)
+            if baseline:
+                all_changed.extend(diff_pages(baseline, pages))
+        out["stages"]["extracted_pages"] = {k: len(v) for k, v in new_pages_by_label.items()}
+        non_same = [c for c in all_changed if c.get("change_type") != "same"]
+        refs = svc.load_base_refs()
+        stage = "candidates"
+        candidates = svc.compute_candidates(all_changed, new_pages_by_label, refs)
+        out["stages"]["changed_pages"] = len(non_same)
+        out["stages"]["candidates"] = len(candidates)
+        out["status"] = "dryrun_complete"
+        return out
+    except Exception as e:
+        out["status"] = "error"
+        out["error_stage"] = stage
+        out["error"] = f"{type(e).__name__}: {e}"
+        return out
+    finally:
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            out["source_deleted"] = not tmpdir.exists()
+
+
+_MANUAL_NORM = {"visa": "visa", "사증민원": "visa",
+                "residence": "stay", "stay": "stay", "체류민원": "stay"}
+
+
+def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: int = 1,
+                                       limit: int | None = None,
+                                       row_ids: list[str] | None = None) -> dict:
+    """변경 페이지 PDF artifact 생성(node/chromium 필요 — host/worker 전용).
+
+    흐름: 현재 첨부 /tmp 다운로드 → 후보별 (페이지±이웃) 목록 산출 →
+    generate_pdf.mjs --pages 1회 실행(문서 1회 로드) → 후보별로 per-page PDF 를
+    PyMuPDF 로 묶어 manual_pdf_artifacts.pdf_blob 저장 → /tmp 삭제.
+    PDF 생성 실패는 텍스트/후보 데이터에 영향 없음(이 함수는 artifact 만 다룬다).
+    반환: {generated, failed, artifact_ids, errors, version}."""
+    import shutil
+    import tempfile
+    from backend.services import manual_update_pg_service as svc
+    if not svc.pg_enabled():
+        return {"status": "skipped", "reason": "pg_disabled"}
+    version = version or svc.get_state_dict().get("last_staging_version")
+    if not version:
+        return {"status": "skipped", "reason": "no staging version"}
+
+    out = {"version": version, "generated": 0, "failed": 0, "artifact_ids": [], "errors": []}
+    tmpdir = Path(tempfile.gettempdir()) / "manual_pdf_artifacts" / version
+    try:
+        # 1) 현재 첨부 다운로드(force = seen 무시)
+        session = _http_session()
+        atts = _parse_attachments(_fetch_detail_html(session))
+        changed = _compare_attachments(atts, {})
+        if not changed:
+            return {**out, "status": "no_attachments"}
+        _download_changed_to(changed, tmpdir, session=session)
+
+        from backend.scripts.manual_update_local import NODE_TOOLS, run_node, classify_label
+        import fitz
+        cands_all = svc.get_candidates_enriched(version)
+
+        for hwp in sorted(tmpdir.iterdir()):
+            if not hwp.is_file() or hwp.suffix.lower() not in (".hwp", ".hwpx"):
+                continue
+            label = classify_label(hwp.name)
+            manual = _MANUAL_NORM.get(label or "")
+            if not manual:
+                continue
+            cands = [c for c in cands_all if c.get("manual_label") == label]
+            if row_ids:
+                cands = [c for c in cands if c.get("row_id") in row_ids]
+            if limit:
+                cands = cands[:limit]
+            if not cands:
+                continue
+            # 후보별 페이지(±이웃) 합집합 → 1회 렌더
+            def _crange(c):
+                a = int(c.get("candidate_page_from") or 0); b = int(c.get("candidate_page_to") or a)
+                lo = max(1, min(a, b) - neighbor); hi = max(a, b) + neighbor
+                return list(range(lo, hi + 1))
+            needed = sorted({p for c in cands for p in _crange(c)})
+            pages_dir = tmpdir / f"pages_{label}"
+            try:
+                run_node([str(NODE_TOOLS / "generate_pdf.mjs"), "--src", str(hwp),
+                          "--label", label, "--pages", ",".join(map(str, needed)),
+                          "--flat", "--out-dir", str(pages_dir)],
+                         tmpdir / f"genpdf_{label}.log")
+            except Exception as e:
+                out["failed"] += len(cands)
+                out["errors"].append(f"{label} generate_pdf failed: {type(e).__name__}: {e}")
+                continue
+            # 후보별 번들 저장
+            for c in cands:
+                pages = _crange(c)
+                try:
+                    bundle = fitz.open()
+                    used = []
+                    for p in pages:
+                        pf = pages_dir / label / f"p{p:04d}.pdf"
+                        if not pf.is_file():
+                            pf = pages_dir / f"p{p:04d}.pdf"
+                        if pf.is_file():
+                            with fitz.open(pf) as src:
+                                bundle.insert_pdf(src)
+                            used.append(p)
+                    if not used:
+                        out["failed"] += 1
+                        out["errors"].append(f"{c['row_id']}: no page PDFs")
+                        bundle.close()
+                        continue
+                    blob = bundle.tobytes()
+                    bundle.close()
+                    rec = svc.save_pdf_artifact(
+                        manual=manual, artifact_type="changed_page_bundle", version=version,
+                        source="staging", page_from=min(used), page_to=max(used),
+                        page_numbers=used, pdf_blob=blob, page_count=len(used),
+                        status="generated", note=f"candidate {c['row_id']}",
+                    )
+                    out["generated"] += 1
+                    out["artifact_ids"].append(rec.get("id"))
+                except Exception as e:
+                    out["failed"] += 1
+                    out["errors"].append(f"{c['row_id']}: bundle failed: {type(e).__name__}: {e}")
+        out["status"] = "ok"
+        return out
+    except Exception as e:
+        return {**out, "status": "error", "error": f"{type(e).__name__}: {e}"}
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        out["source_deleted"] = not tmpdir.exists()
+
+
 def scheduled_job() -> None:
     """APScheduler 가 호출하는 래퍼. 절대 예외를 밖으로 던지지 않는다(서버 보호).
     FEATURE_PG_MANUAL_UPDATE=true 면 PG 경로, 아니면 파일 기반 경로(fallback)."""

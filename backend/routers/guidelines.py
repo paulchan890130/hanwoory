@@ -729,12 +729,44 @@ def get_manual_update_candidates_v2(version: str, user: dict = Depends(require_a
     from fastapi.responses import JSONResponse
     if _pg_manual_enabled():
         from backend.services import manual_update_pg_service as svc
-        rows = svc.get_candidates(version)
+        rows = svc.get_candidates_enriched(version)  # + change_kind/needs_review/similarity/changed_detail
         return JSONResponse({"source": "pg", "version": version, "count": len(rows),
                              "rows": rows}, headers=_NOSTORE)
     data = _read_staging_json(version, "candidates", "manual_ref_update_candidates.json")
     return JSONResponse({"source": "file", "version": version, "count": len(data),
                          "rows": data}, headers=_NOSTORE)
+
+
+@router.get("/manual-update/versions/{version}/candidates/{row_id}/detail")
+def get_manual_update_candidate_detail(version: str, row_id: str, user: dict = Depends(require_admin)):
+    """후보 1건 상세 비교(기존 baseline 전체 텍스트 + 후보 스니펫 + 변경 페이지 + 본문 diff)."""
+    from fastapi.responses import JSONResponse
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    d = svc.candidate_detail(version, row_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"후보 '{row_id}' 없음(version={version})")
+    # 본문 diff: 변경 페이지별 baseline_snippet vs new_snippet 을 difflib 로 비교.
+    import difflib
+    for cp in d.get("changed_pages", []):
+        a = (cp.get("baseline_snippet") or "")
+        b = (cp.get("new_snippet") or "")
+        sm = difflib.SequenceMatcher(None, a, b)
+        segs = []
+        for op, i1, i2, j1, j2 in sm.get_opcodes():
+            if op == "equal":
+                segs.append({"op": "equal", "text": a[i1:i2]})
+            elif op == "delete":
+                segs.append({"op": "delete", "text": a[i1:i2]})
+            elif op == "insert":
+                segs.append({"op": "insert", "text": b[j1:j2]})
+            else:  # replace
+                segs.append({"op": "delete", "text": a[i1:i2]})
+                segs.append({"op": "insert", "text": b[j1:j2]})
+        cp["diff_segments"] = segs
+        cp["has_text_change"] = any(s["op"] != "equal" and s["text"].strip() for s in segs)
+    return JSONResponse(d, headers=_NOSTORE)
 
 
 @router.get("/manual-update/decisions/active")
@@ -763,6 +795,497 @@ def get_manual_update_active_decisions_v2(user: dict = Depends(require_admin)):
                                  "rows": []}, headers=_NOSTORE)
     return JSONResponse({"source": "file", "count": len(rows), "rows": rows},
                         headers=_NOSTORE)
+
+
+# ── PG manual-update 검토 결정 / 운영 반영 (admin 전용) ───────────────────────
+# 결정 저장(POST decision/bulk)은 운영 manual_ref(JSON)를 절대 수정하지 않는다.
+# 운영 반영은 오직 명시적 /apply 액션으로만 수행되며, 승인/직접입력 상태에서만 허용한다.
+_PG_DECISION_UI_MAP = {
+    "approve": "REVIEWED_APPROVE_CANDIDATE",     # 승인(후보 채택)
+    "keep_existing": "REVIEWED_KEEP_EXISTING",   # 기존 유지
+    "hold": "UNRESOLVED",                        # 보류(미결)
+    "reject": "REJECTED_BAD_CANDIDATE",          # 제외(후보 기각)
+    "manual_page": "NEEDS_MANUAL_PAGE",          # 직접 페이지 입력
+}
+_PG_VALID_DECISIONS = set(_PG_DECISION_UI_MAP.values()) | {"NEW_CANDIDATE"}
+_PG_APPLYABLE = {"REVIEWED_APPROVE_CANDIDATE", "NEEDS_MANUAL_PAGE"}
+
+
+def _pg_map_decision(d: str) -> str:
+    return _PG_DECISION_UI_MAP.get(d, d)
+
+
+def _pg_candidate_page(row_id: str) -> Optional[int]:
+    """최신 staging 버전 후보에서 row_id 의 candidate_page_from 조회(승인 시 페이지 산출용)."""
+    from backend.services import manual_update_pg_service as svc
+    latest = svc.get_state_dict().get("last_staging_version")
+    if not latest:
+        return None
+    for c in svc.get_candidates(latest):
+        if c.get("row_id") == row_id:
+            return c.get("candidate_page_from")
+    return None
+
+
+class PgDecisionBody(BaseModel):
+    decision: str  # approve|keep_existing|hold|reject|manual_page (또는 raw vocabulary)
+    candidate_page_from: Optional[int] = None
+    candidate_page_to: Optional[int] = None
+    note: Optional[str] = None
+
+
+@router.post("/manual-update/decisions/{row_id}")
+def pg_set_decision(row_id: str, body: PgDecisionBody, admin: dict = Depends(require_admin)):
+    """검토 결정을 PG decision 행에 저장(운영 manual_ref 미반영)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    mapped = _pg_map_decision(body.decision)
+    if mapped not in _PG_VALID_DECISIONS:
+        raise HTTPException(status_code=400, detail=f"허용되지 않은 decision: {body.decision}")
+    from backend.services import manual_update_pg_service as svc
+    page = body.candidate_page_from
+    if mapped == "REVIEWED_APPROVE_CANDIDATE" and page is None:
+        page = _pg_candidate_page(row_id)  # 승인인데 페이지 미지정 → 후보 페이지 자동 채움
+    svc.upsert_decision(
+        row_id, decision=mapped, reviewed=True, reviewed_candidate_page=page,
+        manual_page_from=page, manual_page_to=body.candidate_page_to or page,
+        decision_note=body.note or "",
+    )
+    return {"ok": True, "row_id": row_id, "decision": mapped}
+
+
+class PgBulkDecisionBody(BaseModel):
+    row_ids: List[str]
+    decision: str
+
+
+@router.post("/manual-update/decisions/bulk")
+def pg_bulk_decision(body: PgBulkDecisionBody, admin: dict = Depends(require_admin)):
+    """여러 row 에 같은 결정을 일괄 저장. 승인이면 각 후보 페이지를 자동 채운다."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    mapped = _pg_map_decision(body.decision)
+    if mapped not in _PG_VALID_DECISIONS:
+        raise HTTPException(status_code=400, detail=f"허용되지 않은 decision: {body.decision}")
+    from backend.services import manual_update_pg_service as svc
+    page_map: dict = {}
+    if mapped == "REVIEWED_APPROVE_CANDIDATE":
+        latest = svc.get_state_dict().get("last_staging_version")
+        if latest:
+            page_map = {c.get("row_id"): c.get("candidate_page_from")
+                        for c in svc.get_candidates(latest)}
+    done = 0
+    for rid in body.row_ids:
+        page = page_map.get(rid) if mapped == "REVIEWED_APPROVE_CANDIDATE" else None
+        svc.upsert_decision(rid, decision=mapped, reviewed=True,
+                            reviewed_candidate_page=page, manual_page_from=page,
+                            manual_page_to=page)
+        done += 1
+    return {"ok": True, "decision": mapped, "count": done}
+
+
+class PgApplyBody(BaseModel):
+    page_from: int
+    page_to: int
+
+
+@router.post("/manual-update/decisions/{row_id}/apply")
+def pg_apply_decision(row_id: str, body: PgApplyBody, admin: dict = Depends(require_admin)):
+    """승인/직접입력 결정만 운영 manual_ref(JSON)에 반영. 반영 전 백업, 반영 후 applied 기록.
+
+    가드: PG decision 이 REVIEWED_APPROVE_CANDIDATE / NEEDS_MANUAL_PAGE 일 때만.
+    기존유지/제외/보류/미검토는 거부 → 기존 매핑을 실수로 강등하지 않는다."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    if body.page_from < 1:
+        raise HTTPException(status_code=400, detail="page_from은 1 이상이어야 합니다.")
+    from backend.services import manual_update_pg_service as svc
+    dec = svc.get_decision(row_id)
+    if not dec or dec.get("decision") not in _PG_APPLYABLE:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"운영 반영 불가: decision='{(dec or {}).get('decision') or '미검토'}'. "
+                    f"'승인' 또는 '직접 페이지 입력' 상태에서만 반영할 수 있습니다."),
+        )
+    row = _ROW_INDEX.get(row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"row_id '{row_id}' 없음(운영 DB)")
+    found = False
+    for ref in (row.get("manual_ref") or []):
+        if ref.get("match_type") == "manual_override":
+            ref["page_from"] = body.page_from
+            ref["page_to"] = body.page_to
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=400, detail="manual_override ref 없음")
+    import datetime as _dt
+    backup_dir = os.path.join(_BASE_DIR, "data", "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    bk = os.path.join(backup_dir, f"immigration_guidelines_db_v2.pg_apply_backup_{ts}.json")
+    try:
+        with open(_DB_PATH, "rb") as _src:
+            raw = _src.read()
+        with open(bk, "wb") as _dst:
+            _dst.write(raw)
+        with open(_DB_PATH, "w", encoding="utf-8") as _out:
+            json.dump(_DB, _out, ensure_ascii=False, indent=2)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"운영 DB 쓰기 실패: {e}")
+    svc.mark_decision_applied(row_id, body.page_from, body.page_to)
+    return {"ok": True, "row_id": row_id, "page_from": body.page_from,
+            "page_to": body.page_to, "backup": os.path.basename(bk)}
+
+
+# ── 수동 페이지 지정(override) / 재비교 / 최신·배포 PDF ───────────────────────
+class PgOverrideBody(BaseModel):
+    baseline_from: Optional[int] = None
+    baseline_to: Optional[int] = None
+    candidate_from: Optional[int] = None
+    candidate_to: Optional[int] = None
+    reason: Optional[str] = None
+
+
+@router.post("/manual-update/decisions/{row_id}/override")
+def pg_save_override(row_id: str, body: PgOverrideBody, admin: dict = Depends(require_admin)):
+    """관리자 수동 페이지 지정 저장(자동 추천값 보존, 운영 manual_ref 미반영)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    return svc.save_reviewer_override(
+        row_id, baseline_from=body.baseline_from, baseline_to=body.baseline_to,
+        candidate_from=body.candidate_from, candidate_to=body.candidate_to,
+        reason=(body.reason or ""), by=str(admin.get("login_id") or ""))
+
+
+@router.delete("/manual-update/decisions/{row_id}/override")
+def pg_clear_override(row_id: str, admin: dict = Depends(require_admin)):
+    """수동 지정 초기화(자동 추천값으로 복귀)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    return svc.clear_reviewer_override(row_id)
+
+
+@router.get("/manual-update/recompare")
+def pg_recompare(version: str, label: str,
+                 baseline_from: int = Query(...), baseline_to: int = Query(0),
+                 candidate_from: int = Query(...), candidate_to: int = Query(0),
+                 admin: dict = Depends(require_admin)):
+    """수동 지정 페이지 기준으로 기존/후보 텍스트 재추출 + diff 재계산.
+    후보(신규) 텍스트는 변경 페이지 스니펫 기반(전체 본문 미보유 → candidate_partial=true)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    return svc.recompare(version, label, baseline_from, baseline_to or baseline_from,
+                         candidate_from, candidate_to or candidate_from)
+
+
+def _pdf_label_to_kr(label: str) -> Optional[str]:
+    """candidate manual_label(visa/residence/stay…) → _MANUAL_FILES 키(사증민원/체류민원)."""
+    m = {"visa": "사증민원", "사증민원": "사증민원",
+         "residence": "체류민원", "stay": "체류민원", "체류민원": "체류민원"}
+    return m.get((label or "").strip())
+
+
+def _staging_full_pdf_path(version: str, kr_label: str) -> Optional[str]:
+    """버전별 staging 전체 PDF 가 있으면 그 경로(없으면 None). 향후 업로드 대비 hook.
+    convention: data/manuals/staging/{version}/{kr}_full.pdf 또는 review_pdf/{kr}.pdf."""
+    cand = [
+        os.path.join(_MANUALS_DIR, "staging", version, f"{kr_label}_full.pdf"),
+        os.path.join(_MANUALS_DIR, "staging", version, "review_pdf", f"{kr_label}.pdf"),
+    ]
+    for p in cand:
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+@router.get("/manual-update/pdf-source")
+def pg_pdf_source(manual: str, version: str = "", admin: dict = Depends(require_admin)):
+    """버튼 라벨/배너용: 최신 staging PDF 존재 여부 + 사용할 소스(staging|deployed)."""
+    kr = _pdf_label_to_kr(manual)
+    if not kr:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 manual '{manual}'")
+    staging = _staging_full_pdf_path(version, kr) if version else None
+    deployed = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr, ""))
+    return {
+        "manual": manual, "kr_label": kr, "version": version,
+        "is_staging": bool(staging),
+        "source": "staging" if staging else "deployed",
+        "available": bool(staging) or os.path.isfile(deployed),
+    }
+
+
+@router.get("/manual-update/pdf-status")
+def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_admin)):
+    """PDF 최신화 진단 — 뷰어가 실제 여는 파일/소스, 배포본 메타, 최신화 파이프라인 연결 상태.
+
+    화면이 왜 3월/배포본 PDF 로 fallback 하는지 관리자에게 그대로 노출한다(미구현 숨김 금지)."""
+    kr = _pdf_label_to_kr(manual)
+    if not kr:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 manual '{manual}'")
+    staging = _staging_full_pdf_path(version, kr) if version else None
+    deployed_fname = _MANUAL_FILES.get(kr, "")
+    deployed_path = os.path.join(_MANUALS_DIR, deployed_fname)
+    deployed = {"filename": deployed_fname, "exists": os.path.isfile(deployed_path),
+                "mtime": None, "page_count": None}
+    if deployed["exists"]:
+        import datetime as _dt
+        deployed["mtime"] = _dt.datetime.fromtimestamp(os.path.getmtime(deployed_path)).strftime("%Y-%m-%d %H:%M")
+        try:
+            import fitz
+            with fitz.open(deployed_path) as _d:
+                deployed["page_count"] = _d.page_count
+        except Exception:
+            pass
+    # 최신화 파이프라인 연결 상태(현 시점 사실 그대로).
+    gen_node = os.path.join(_BASE_DIR, "..", "tools", "rhwp_manual_pipeline", "node_modules")
+    generator_present = os.path.isdir(gen_node)
+    incoming_dir = os.path.join(_MANUALS_DIR, "incoming")
+    source_hwp_present = False
+    if version and os.path.isdir(incoming_dir):
+        source_hwp_present = any(version in n for n in os.listdir(incoming_dir))
+    # PDF artifact 레지스트리(Step 3) — 개수/최신 full_pdf artifact 존재 여부.
+    artifact_summary = {"total": 0, "by_manual": {}}
+    full_artifact = None
+    try:
+        from backend.services import manual_update_pg_service as svc
+        if svc.pg_enabled():
+            artifact_summary = svc.pdf_artifact_summary(manual=manual)
+            latest = svc.get_latest_pdf_artifact(manual)
+            if latest and latest.get("artifact_type") == "full_pdf":
+                full_artifact = latest
+    except Exception:
+        pass
+    # viewer 우선순위: full_pdf artifact > staging 파일 > 배포본.
+    if full_artifact:
+        viewer_source, viewer_file = "artifact", f"artifact#{full_artifact['id']}"
+    elif staging:
+        viewer_source, viewer_file = "staging", os.path.basename(staging)
+    else:
+        viewer_source, viewer_file = "deployed", deployed_fname
+    return {
+        "manual": manual, "kr_label": kr, "version": version,
+        "viewer_source": viewer_source,
+        "viewer_file": viewer_file,
+        "staging_pdf_exists": bool(staging),
+        "deployed": deployed,
+        "artifacts": artifact_summary.get("by_manual", {}).get(manual, {"total": 0}),
+        "artifacts_total": artifact_summary.get("total", 0),
+        "full_pdf_artifact": full_artifact,               # 최신 full_pdf artifact(있으면 viewer 우선)
+        "generator_present": generator_present,           # rhwp+chromium CLI 설치 여부
+        "source_hwp_present": source_hwp_present,          # 해당 version HWP 원본 보유 여부
+        "replace_pipeline_wired": False,                   # 변경 페이지→full PDF 교체 코드 미구현(사실)
+        "can_refresh_now": False,                          # 위 사유로 현재 자동 최신화 불가
+        "reason": ("full_pdf artifact 표시 중" if full_artifact else
+                   "최신 staging PDF 가 있어 그것을 표시 중" if staging else
+                   "PDF artifact/ staging 없음 → 배포본 PDF fallback. "
+                   "변경 페이지→전체 PDF 교체 파이프라인 미연결(다음 단계 구현 예정)."),
+    }
+
+
+@router.get("/manual-update/pdf")
+def pg_pdf(manual: str, version: str = "",
+           token: Optional[str] = Query(None), authorization: Optional[str] = Header(None)):
+    """viewer resolver: full_pdf artifact > staging 파일 > 배포본 PDF (iframe #page 점프).
+    인증: Authorization 헤더 또는 ?token= (iframe)."""
+    _verify_token_flexible(token, authorization)
+    kr = _pdf_label_to_kr(manual)
+    if not kr:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 manual '{manual}'")
+    # 1순위: full_pdf artifact(blob) — Step 3 resolver prep.
+    try:
+        from fastapi.responses import Response as _Resp
+        from backend.services import manual_update_pg_service as svc
+        if svc.pg_enabled():
+            latest = svc.get_latest_pdf_artifact(manual)
+            if latest and latest.get("artifact_type") == "full_pdf":
+                blob = svc.get_pdf_artifact_blob(latest["id"])
+                if blob:
+                    return _Resp(content=blob, media_type="application/pdf",
+                                 headers={"Cache-Control": "private, max-age=600",
+                                          "Content-Disposition": "inline; filename=\"manual.pdf\""})
+    except Exception:
+        pass
+    # 2순위: staging 파일, 3순위: 배포본.
+    path = _staging_full_pdf_path(version, kr) if version else None
+    if not path:
+        path = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr, ""))
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"PDF 파일 없음: {kr}")
+    from urllib.parse import quote
+    return FileResponse(path, media_type="application/pdf", headers={
+        "Cache-Control": "private, max-age=600",
+        "Content-Disposition": f"inline; filename=\"manual.pdf\"; filename*=UTF-8''{quote(kr + '.pdf', safe='')}",
+    })
+
+
+# ── PDF artifact 레지스트리 API (Step 3) ─────────────────────────────────────
+@router.get("/manual-update/pdf-artifacts")
+def pg_list_pdf_artifacts(manual: str = "", version: str = "", admin: dict = Depends(require_admin)):
+    """artifact 목록(blob 제외) + manual 별 요약."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    rows = svc.get_pdf_artifacts(manual or None, version or None)
+    return {"count": len(rows), "summary": svc.pdf_artifact_summary(manual or None), "rows": rows}
+
+
+@router.get("/manual-update/pdf-artifacts/{artifact_id}")
+def pg_get_pdf_artifact(artifact_id: int, admin: dict = Depends(require_admin)):
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    a = svc.get_pdf_artifact(artifact_id)
+    if not a:
+        raise HTTPException(status_code=404, detail=f"artifact {artifact_id} 없음")
+    return a
+
+
+@router.get("/manual-update/pdf-artifacts/{artifact_id}/content")
+def pg_get_pdf_artifact_content(artifact_id: int,
+                                token: Optional[str] = Query(None),
+                                authorization: Optional[str] = Header(None)):
+    """artifact PDF 바이트(application/pdf). iframe 용 ?token= 도 허용."""
+    _verify_token_flexible(token, authorization)
+    from fastapi.responses import Response as _Resp
+    from backend.services import manual_update_pg_service as svc
+    if not svc.pg_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성")
+    blob = svc.get_pdf_artifact_blob(artifact_id)
+    if blob is None:
+        raise HTTPException(status_code=404, detail=f"artifact {artifact_id} blob 없음")
+    return _Resp(content=blob, media_type="application/pdf",
+                 headers={"Cache-Control": "private, max-age=600",
+                          "Content-Disposition": f"inline; filename=\"artifact_{artifact_id}.pdf\""})
+
+
+_MANUAL_NORM = {"visa": "visa", "사증민원": "visa", "residence": "stay", "stay": "stay", "체류민원": "stay"}
+
+
+@router.get("/manual-update/versions/{version}/candidates/{row_id}/pdf-artifact")
+def pg_candidate_pdf_artifact(version: str, row_id: str, admin: dict = Depends(require_admin)):
+    """후보 상세 PDF viewer resolver — 후보 page range 를 포함하는 changed_page 우선,
+    없으면 full_pdf, 없으면 null(프론트가 배포본 fallback). row_id 로 후보 조회."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_update_pg_service as svc
+    c = next((x for x in svc.get_candidates_enriched(version) if x.get("row_id") == row_id), None)
+    if not c:
+        raise HTTPException(status_code=404, detail=f"후보 '{row_id}' 없음")
+    manual = _MANUAL_NORM.get(c.get("manual_label") or "", c.get("manual_label"))
+    pf = int(c.get("candidate_page_from") or 0)
+    pt = int(c.get("candidate_page_to") or pf or 0)
+    arts = svc.get_pdf_artifacts(manual, version)
+
+    def _covers(a) -> bool:
+        nums = a.get("page_numbers")
+        if nums:
+            return any(pf <= int(p) <= (pt or pf) for p in nums)
+        if a.get("page_from") and a.get("page_to"):
+            return not (a["page_to"] < pf or a["page_from"] > (pt or pf))
+        return False
+    bundle = [a for a in arts if a["artifact_type"] in ("changed_page_bundle", "changed_page") and _covers(a)]
+    full = [a for a in arts if a["artifact_type"] == "full_pdf"]
+    pick = bundle or full
+    if pick:
+        a = pick[0]
+        return {"artifact_id": a["id"], "artifact_type": a["artifact_type"], "source": a["source"],
+                "page_from": a["page_from"], "page_to": a["page_to"], "page_numbers": a.get("page_numbers")}
+    return {"artifact_id": None, "reason": "변경 페이지 artifact 없음 — 배포본 PDF fallback 사용"}
+
+
+# ── 관리자 수동 실행: 진단(dry-run) / 실제 업데이트(record) + capability check ──
+import threading as _threading
+
+_RUN_NOW_LOCK = _threading.Lock()
+_RUN_NOW_STATE = {"running": False, "mode": None, "started_at": None}
+
+
+def _run_capability() -> dict:
+    """현재 API 프로세스(=host/docker-backend/Render 런타임)에서 rhwp extract/실제 기록
+    실행이 가능한지 진단. node 가 없는 컨테이너/Render 면 실제 기록 불가(진단 감지까지 가능)."""
+    import shutil
+    node_available = bool(shutil.which("node"))
+    tools = os.path.join(_BASE_DIR, "..", "tools", "rhwp_manual_pipeline")
+    extract_mjs_exists = os.path.isfile(os.path.join(tools, "extract.mjs"))
+    rhwp_available = os.path.isdir(os.path.join(tools, "node_modules", "@rhwp", "core"))
+    chromium_available = os.path.isdir(os.path.join(tools, "node_modules", "playwright-core"))
+    is_server = str(os.environ.get("HANWOORY_ENV") or os.environ.get("RUN_ENV") or "").lower() == "server"
+    if is_server:
+        runtime = "render"
+    elif os.path.exists("/.dockerenv"):
+        runtime = "docker-backend"
+    else:
+        runtime = "host"
+    can_record_update = node_available and extract_mjs_exists and rhwp_available
+    can_generate_pdf = node_available and chromium_available
+    return {
+        "can_diagnose": True,                         # 감지(detail/parse/compare)는 node 없이 가능
+        "can_record_update": can_record_update,       # 실제 PG 기록 실행 가능 여부
+        "can_generate_pdf": can_generate_pdf,         # (별도) 변경 페이지 PDF 생성 가능 여부
+        "node_available": node_available,
+        "extract_mjs_exists": extract_mjs_exists,
+        "rhwp_available": rhwp_available,
+        "runtime": runtime,
+        "running": _RUN_NOW_STATE["running"],
+        "reason": "" if can_record_update else
+                  "node/rhwp runtime is not available in this backend environment "
+                  "(현재 backend/Render 런타임에 node/rhwp 실행 환경이 없어 실제 업데이트 실행이 비활성화됨. "
+                  "로컬 호스트 또는 별도 worker 연결 시 활성화).",
+    }
+
+
+@router.get("/manual-update/capabilities")
+def pg_capabilities(admin: dict = Depends(require_admin)):
+    return _run_capability()
+
+
+class RunNowBody(BaseModel):
+    mode: str = "diagnose"          # diagnose | record | generate_pdf_artifacts
+    limit: Optional[int] = None     # generate_pdf_artifacts 테스트용 후보 수 제한
+
+
+@router.post("/manual-update/run-now")
+def pg_run_now(body: RunNowBody, admin: dict = Depends(require_admin)):
+    """관리자 수동 실행.
+      mode=diagnose              : run_auto_update_pg_dryrun() — 감지→(node 가능 시)추출/후보. PG 미기록.
+      mode=record                : 실제 run_auto_update_pg() — PG version/changed/candidate 기록.
+                                   capability(can_record_update) 통과 시에만 허용.
+      mode=generate_pdf_artifacts: 변경 페이지 PDF artifact 생성·저장(node+chromium 필요).
+                                   capability(can_generate_pdf) 통과 시에만 허용.
+    중복 실행은 in-process lock 으로 차단(409)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    mode = (body.mode or "diagnose").strip()
+    if mode not in ("diagnose", "record", "generate_pdf_artifacts"):
+        raise HTTPException(status_code=400, detail="mode 는 diagnose|record|generate_pdf_artifacts 만 허용")
+    cap = _run_capability()
+    if mode == "record" and not cap["can_record_update"]:
+        raise HTTPException(status_code=409, detail="실제 업데이트 실행 불가: " + cap["reason"])
+    if mode == "generate_pdf_artifacts" and not cap["can_generate_pdf"]:
+        raise HTTPException(status_code=409, detail="PDF artifact 생성 불가: node/chromium 실행 환경이 없습니다(로컬/워커 필요).")
+    if not _RUN_NOW_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail={"code": "RUNNING",
+                            "message": "이미 매뉴얼 업데이트 실행 중입니다.", "state": dict(_RUN_NOW_STATE)})
+    import datetime as _dt
+    _RUN_NOW_STATE.update(running=True, mode=mode, started_at=_dt.datetime.now().isoformat())
+    try:
+        from backend.services import manual_auto_update as mau
+        if mode == "diagnose":
+            result = mau.run_auto_update_pg_dryrun(force=True, allow_node=cap["can_record_update"])
+        elif mode == "generate_pdf_artifacts":
+            result = mau.generate_pdf_artifacts_for_version(limit=body.limit)
+        else:
+            result = mau.run_auto_update_pg(force=True, trigger="admin-run-now", notify=False)
+            if isinstance(result, dict):
+                result.setdefault("wrote_to_pg", result.get("status") == "staged")
+        return {"mode": mode, "capability": cap, "result": result}
+    finally:
+        _RUN_NOW_STATE.update(running=False, mode=None, started_at=None)
+        _RUN_NOW_LOCK.release()
 
 
 @router.get("/manual-pdf-info")

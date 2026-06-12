@@ -17,7 +17,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer,
-    Text, UniqueConstraint, func, text,
+    LargeBinary, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -218,6 +218,15 @@ class ManualReviewDecision(Base):
     orphaned_at: Mapped[str | None] = mapped_column(Text)
     needs_recheck: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     candidate_changed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # 관리자 수동 페이지 지정(override) — 자동 추천(candidate/old page)과 별개로 보존(0013).
+    # 값이 있으면 화면/diff/운영반영은 이 값을 '현재 검토 기준'으로 사용한다.
+    reviewer_baseline_from: Mapped[int | None] = mapped_column(Integer)
+    reviewer_baseline_to: Mapped[int | None] = mapped_column(Integer)
+    reviewer_candidate_from: Mapped[int | None] = mapped_column(Integer)
+    reviewer_candidate_to: Mapped[int | None] = mapped_column(Integer)
+    reviewer_override_reason: Mapped[str | None] = mapped_column(Text)
+    reviewer_override_by: Mapped[str | None] = mapped_column(Text)
+    reviewer_override_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
@@ -276,4 +285,39 @@ class ManualUpdateState(Base):
     error: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+# ── PDF artifact 레지스트리 (변경 페이지 PDF 등 — viewer 우선사용 기반, Step 3) ──
+class ManualPdfArtifact(Base):
+    """생성된 PDF artifact 메타+blob. 변경 페이지 PDF 는 용량이 작아 PG bytea(pdf_blob)
+    저장을 우선하고, full PDF 등 대용량은 pdf_path 로 둘 수 있게 둘 다 nullable.
+    원본 HWP/HWPX 는 저장하지 않는다(처리 후 삭제)."""
+    __tablename__ = "manual_pdf_artifacts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    run_id: Mapped[int | None] = mapped_column(BigInteger)          # manual_update_runs.id (느슨 참조)
+    manual: Mapped[str] = mapped_column(Text, nullable=False)        # visa | stay
+    version: Mapped[str | None] = mapped_column(Text)               # 예 260601
+    artifact_type: Mapped[str] = mapped_column(Text, nullable=False)  # changed_page|changed_page_bundle|full_pdf
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'staging'"))  # staging|production|deployed_fallback
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    page_numbers: Mapped[list | None] = mapped_column(JSONB)        # 비연속 페이지 목록
+    pdf_blob: Mapped[bytes | None] = mapped_column(LargeBinary)     # bytea (changed-page PDF 우선)
+    pdf_path: Mapped[str | None] = mapped_column(Text)              # 파일 저장소 확장 대비(nullable)
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    file_size: Mapped[int | None] = mapped_column(Integer)
+    content_hash: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'generated'"))  # generated|failed|promoted
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_manual_pdf_artifacts_lookup", "manual", "version", "status"),
     )

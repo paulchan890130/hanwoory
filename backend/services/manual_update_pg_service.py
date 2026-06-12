@@ -93,14 +93,131 @@ def get_baseline_summary() -> dict:
         }
 
 
-def get_state_dict() -> dict:
-    """admin 상태 조회용 dict. PG off 면 {'status':'pg_disabled'}."""
+# 사람이 "결정 완료"로 본 decision 들(검토 필요 집계에서 제외). UNRESOLVED/NEW_CANDIDATE/빈값은 pending.
+_DECIDED = {
+    "REVIEWED_APPROVE_CANDIDATE", "REVIEWED_KEEP_EXISTING",
+    "REJECTED_BAD_CANDIDATE", "NEEDS_MANUAL_PAGE", "APPLIED",
+}
+
+
+def _review_status(session) -> dict:
+    """최신 staging 버전 기준 검토 진행 상황을 실데이터로 재계산.
+
+    needs_review(표시용)는 '미검토(pending) 후보 수 > 0' 으로 산출한다.
+    - status 가 no_change/never_run/pg_disabled 면 항상 False.
+    - 후보가 0건이면(영향 manual_ref 없음) 변경 페이지가 있어도 검토 필요 아니오 + 사유 표시.
+    반환 키: latest_version, candidate_count, changed_count, reviewed_count, applied_count,
+            pending_count, needs_review, review_reason.
+    """
+    from sqlalchemy import select, func as safunc
+    from backend.db.models.manual_update import (
+        ManualUpdateState, ManualUpdateVersion, ManualUpdateCandidate,
+        ManualUpdateChangedPage, ManualReviewDecision,
+    )
+    st = session.scalars(
+        select(ManualUpdateState).order_by(ManualUpdateState.id).limit(1)
+    ).first()
+    status = st.status if st else "never_run"
+    latest = st.last_staging_version if st else None
+    out = {
+        "latest_version": latest, "candidate_count": 0, "changed_count": 0,
+        "review_target_count": 0, "noop_count": 0,
+        "reviewed_count": 0, "applied_count": 0, "pending_count": 0,
+        "approved_pending_apply": 0, "needs_review": False, "review_reason": "",
+        "source_status": status,
+    }
+    # 미검토 후보가 실제로 남아 있으면 status 와 무관하게 검토 필요로 본다(req 6/8).
+    # latest staging 버전이 아예 없을 때만 즉시 '검토 필요 없음'으로 단정한다(req 7).
+    if not latest or status in ("never_run", "pg_disabled"):
+        out["review_reason"] = ("감지 이력 없음" if status == "never_run"
+                                else "변경 없음 — 검토 필요 항목 없음" if status == "no_change"
+                                else "")
+        return out
+    ver = session.scalars(
+        select(ManualUpdateVersion).where(ManualUpdateVersion.version == latest)
+    ).first()
+    if not ver:
+        out["review_reason"] = "최신 staging 버전 정보 없음"
+        return out
+    cand_rows = session.scalars(
+        select(ManualUpdateCandidate).where(ManualUpdateCandidate.update_version_id == ver.id)
+    ).all()
+    changed_rows = session.scalars(
+        select(ManualUpdateChangedPage).where(ManualUpdateChangedPage.update_version_id == ver.id)
+    ).all()
+    changed_count = len(changed_rows)
+    # 분류용 인덱스((label, baseline_page) → changed dict)
+    changed_idx = {}
+    for cp in changed_rows:
+        if cp.manual_label and cp.baseline_page is not None:
+            changed_idx[(cp.manual_label, cp.baseline_page)] = {
+                "change_type": cp.change_type, "similarity": cp.similarity}
+    dec_by_row = {d.row_id: d for d in session.scalars(select(ManualReviewDecision)).all()}
+
+    # 실질 검토 대상(=noop 아님) 기준으로 집계(req 10).
+    review_targets = noop = reviewed = applied = pending = approved_pending = 0
+    for c in cand_rows:
+        cd = {
+            "manual_label": c.manual_label, "old_page_from": c.old_page_from,
+            "old_page_to": c.old_page_to, "candidate_page_from": c.candidate_page_from,
+            "confidence": c.confidence, "action": c.action, "change_type": c.change_type,
+        }
+        cls = _classify_candidate(cd, changed_idx)
+        d = dec_by_row.get(c.row_id)
+        if not cls["needs_review"]:
+            noop += 1
+            continue
+        review_targets += 1
+        if d and d.applied:
+            applied += 1; reviewed += 1
+        elif d and d.decision in _DECIDED:
+            reviewed += 1
+            if d.decision in ("REVIEWED_APPROVE_CANDIDATE", "NEEDS_MANUAL_PAGE"):
+                approved_pending += 1  # 승인했으나 아직 운영 반영 전
+        else:
+            pending += 1
+    out.update({
+        "candidate_count": len(cand_rows), "changed_count": int(changed_count),
+        "review_target_count": review_targets, "noop_count": noop,
+        "reviewed_count": reviewed, "applied_count": applied, "pending_count": pending,
+        "approved_pending_apply": approved_pending,
+        "needs_review": pending > 0,
+    })
+    if pending > 0:
+        out["review_reason"] = f"실질 검토 대상 {review_targets}건 중 미검토 {pending}건 (no-op {noop}건 제외)"
+    elif review_targets == 0:
+        out["review_reason"] = (f"후보 {len(cand_rows)}건 모두 실질 변경 없음(no-op) — 검토 불필요"
+                                if cand_rows else
+                                (f"변경 페이지 {int(changed_count)}건 감지(영향 manual_ref 없음)"
+                                 if changed_count else "변경 없음"))
+    else:
+        out["review_reason"] = (f"검토 대상 {review_targets}건 검토 완료"
+                                + (f", 운영 반영 대기 {approved_pending}건" if approved_pending else f" (반영 {applied}건)"))
+    return out
+
+
+def get_review_status() -> dict:
     if not pg_enabled():
-        return {"status": "pg_disabled", "needs_review": False}
+        return {"needs_review": False, "review_reason": "", "candidate_count": 0,
+                "pending_count": 0, "reviewed_count": 0, "applied_count": 0,
+                "changed_count": 0, "latest_version": None}
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        return _review_status(session)
+
+
+def get_state_dict() -> dict:
+    """admin 상태 조회용 dict. PG off 면 {'status':'pg_disabled'}.
+
+    needs_review/review_reason 등은 최신 staging 버전의 실제 미검토 후보 수로 재계산해
+    반환한다(저장된 state.needs_review 의 stale 값에 의존하지 않음)."""
+    if not pg_enabled():
+        return {"status": "pg_disabled", "needs_review": False, "review_reason": ""}
     from backend.db.session import get_sessionmaker
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         st = _get_or_create_state(session)
+        rev = _review_status(session)
         session.commit()
         return {
             "status": st.status,
@@ -110,7 +227,18 @@ def get_state_dict() -> dict:
             "last_checked_version": st.last_checked_version,
             "last_detected_version": st.last_detected_version,
             "last_staging_version": st.last_staging_version,
-            "needs_review": bool(st.needs_review),
+            # 표시용 needs_review 는 실데이터 재계산값을 사용(req 6/7/8).
+            "needs_review": rev["needs_review"],
+            "needs_review_stored": bool(st.needs_review),
+            "review_reason": rev["review_reason"],
+            "candidate_count": rev["candidate_count"],
+            "changed_count": rev["changed_count"],
+            "review_target_count": rev["review_target_count"],
+            "noop_count": rev["noop_count"],
+            "pending_count": rev["pending_count"],
+            "reviewed_count": rev["reviewed_count"],
+            "applied_count": rev["applied_count"],
+            "approved_pending_apply": rev["approved_pending_apply"],
             "error": st.error,
             "updated_at": st.updated_at.isoformat() if st.updated_at else None,
         }
@@ -160,6 +288,8 @@ def finish_no_change(run_id: int, checked_version: Optional[str] = None) -> None
         st.status = "no_change"
         st.last_success_at = _now()
         st.last_checked_version = checked_version
+        # 변경 없음이면 검토 필요는 아니오여야 한다(과거 staged run 의 stale 값 잔존 방지).
+        st.needs_review = False
         session.commit()
 
 
@@ -382,6 +512,156 @@ def upsert_decision(row_id: str, *, decision: str = "", decision_note: str = "",
         d.updated_at = _now()
         session.commit()
         return {"ok": True, "row_id": row_id}
+
+
+def get_decision(row_id: str) -> Optional[dict]:
+    """단일 decision 조회(없으면 None). 운영 반영 가드에서 사용."""
+    if not pg_enabled():
+        return None
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualReviewDecision
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        d = session.scalars(
+            select(ManualReviewDecision).where(ManualReviewDecision.row_id == row_id)
+        ).first()
+        if not d:
+            return None
+        return {"row_id": d.row_id, "decision": d.decision, "applied": bool(d.applied),
+                "manual_page_from": d.manual_page_from, "manual_page_to": d.manual_page_to,
+                "reviewed_candidate_page": d.reviewed_candidate_page}
+
+
+def mark_decision_applied(row_id: str, page_from: int, page_to: int) -> dict:
+    """운영 manual_ref 반영이 끝난 뒤 decision 행을 applied=APPLIED 로 기록.
+    JSON(immigration DB) 자체는 라우터에서 수정한다(이 함수는 PG 상태만 갱신)."""
+    if not pg_enabled():
+        return {"ok": False, "reason": "pg_disabled"}
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualReviewDecision
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        d = session.scalars(
+            select(ManualReviewDecision).where(ManualReviewDecision.row_id == row_id)
+        ).first()
+        if d is None:
+            d = ManualReviewDecision(row_id=row_id)
+            session.add(d)
+        d.decision = "APPLIED"
+        d.applied = True
+        d.reviewed = True
+        d.manual_page_from = page_from
+        d.manual_page_to = page_to
+        d.needs_recheck = False
+        d.updated_at = _now()
+        session.commit()
+        return {"ok": True, "row_id": row_id}
+
+
+# ── 관리자 수동 페이지 지정(override) + 재추출/재비교 ─────────────────────────
+
+def save_reviewer_override(row_id: str, *, baseline_from=None, baseline_to=None,
+                           candidate_from=None, candidate_to=None,
+                           reason: str = "", by: str = "") -> dict:
+    """관리자 수동 페이지 지정 저장(자동 추천값은 candidate 테이블에 그대로 보존).
+    운영 manual_ref(JSON)는 건드리지 않는다."""
+    if not pg_enabled():
+        return {"ok": False, "reason": "pg_disabled"}
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualReviewDecision
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        d = session.scalars(
+            select(ManualReviewDecision).where(ManualReviewDecision.row_id == row_id)
+        ).first()
+        if d is None:
+            d = ManualReviewDecision(row_id=row_id)
+            session.add(d)
+        d.reviewer_baseline_from = baseline_from
+        d.reviewer_baseline_to = baseline_to or baseline_from
+        d.reviewer_candidate_from = candidate_from
+        d.reviewer_candidate_to = candidate_to or candidate_from
+        d.reviewer_override_reason = reason or None
+        d.reviewer_override_by = by or None
+        d.reviewer_override_at = _now()
+        d.updated_at = _now()
+        session.commit()
+        return {"ok": True, "row_id": row_id,
+                "reviewer_baseline_from": baseline_from, "reviewer_baseline_to": baseline_to or baseline_from,
+                "reviewer_candidate_from": candidate_from, "reviewer_candidate_to": candidate_to or candidate_from}
+
+
+def clear_reviewer_override(row_id: str) -> dict:
+    """관리자 수동 지정 초기화(자동 추천값으로 복귀)."""
+    if not pg_enabled():
+        return {"ok": False, "reason": "pg_disabled"}
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualReviewDecision
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        d = session.scalars(
+            select(ManualReviewDecision).where(ManualReviewDecision.row_id == row_id)
+        ).first()
+        if d:
+            d.reviewer_baseline_from = d.reviewer_baseline_to = None
+            d.reviewer_candidate_from = d.reviewer_candidate_to = None
+            d.reviewer_override_reason = None
+            d.reviewer_override_by = None
+            d.reviewer_override_at = None
+            d.updated_at = _now()
+            session.commit()
+    return {"ok": True, "row_id": row_id}
+
+
+def _baseline_text_for(label: str, pf: int, pt: int) -> str:
+    pages = {p["rhwp_page_index"]: p for p in load_baseline_pages(label)} if label else {}
+    return "\n".join((pages.get(p, {}).get("text") or "") for p in range(pf, (pt or pf) + 1)).strip()
+
+
+def _candidate_text_for(version: str, label: str, pf: int, pt: int) -> tuple[str, bool]:
+    """후보(신규) 페이지 텍스트 — PG에는 변경 페이지 스니펫(240자)만 있다.
+    new_page 가 범위에 드는 변경 페이지의 new_snippet 을 모은다. (전체 본문 미보유)
+    반환: (text, partial) — partial=True 면 스니펫 기반(전체 아님)."""
+    snips = []
+    for cp in get_changed_pages(version):
+        if cp.get("manual_label") != label:
+            continue
+        np = cp.get("new_page")
+        if np is not None and pf <= np <= (pt or pf):
+            snips.append(f"[p.{np}] " + (cp.get("new_snippet") or ""))
+    return ("\n".join(snips).strip(), True)
+
+
+def _diff_segments(a: str, b: str) -> list[dict]:
+    import difflib
+    sm = difflib.SequenceMatcher(None, a or "", b or "")
+    segs = []
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if op == "equal":
+            segs.append({"op": "equal", "text": a[i1:i2]})
+        elif op == "delete":
+            segs.append({"op": "delete", "text": a[i1:i2]})
+        elif op == "insert":
+            segs.append({"op": "insert", "text": b[j1:j2]})
+        else:
+            segs.append({"op": "delete", "text": a[i1:i2]})
+            segs.append({"op": "insert", "text": b[j1:j2]})
+    return segs
+
+
+def recompare(version: str, label: str, baseline_from: int, baseline_to: int,
+              candidate_from: int, candidate_to: int) -> dict:
+    """수동 지정 페이지 기준으로 기존/후보 텍스트를 재추출하고 diff 를 다시 계산.
+    후보(신규) 텍스트는 변경 페이지 스니펫 기반(전체 본문 미보유 → partial)."""
+    existing = _baseline_text_for(label, baseline_from, baseline_to)
+    cand, partial = _candidate_text_for(version, label, candidate_from, candidate_to)
+    return {
+        "existing_text": existing,
+        "candidate_text": cand,
+        "candidate_partial": partial,
+        "diff_segments": _diff_segments(existing[:1500], cand[:1500]),
+        "has_text_change": existing.strip() != cand.strip(),
+    }
 
 
 # ── 후보 계산 (manual_base_refs 기준) ─────────────────────────────────────────
@@ -683,6 +963,117 @@ def get_candidates(version: str) -> list[dict]:
         } for r in rows]
 
 
+# 같은 페이지 + modified 인데 유사도가 이 값 이상이면 '실질 변경 없음(no-op)'으로 본다.
+NOOP_SIMILARITY = 0.95
+
+
+def _classify_candidate(c: dict, changed_idx: dict) -> dict:
+    """후보 1건을 분류. changed_idx: (label, baseline_page) → changed_page dict.
+
+    change_kind:
+      new(신규) | page_moved(페이지 변경) | text_changed(본문 변경) |
+      uncertain(매칭 불확실) | noop(실질 변경 없음)
+    needs_review = (noop 이 아님). 같은 페이지 + modified + 고유사도 → noop.
+    """
+    lbl = c.get("manual_label")
+    opf = int(c.get("old_page_from") or 0)
+    opt = int(c.get("old_page_to") or opf or 0)
+    cpf = int(c.get("candidate_page_from") or 0)
+    conf = c.get("confidence") or ""
+    act = c.get("action") or ""
+    ct = c.get("change_type") or ""
+    overlap = [changed_idx[(lbl, p)] for p in range(opf, (opt or opf) + 1)
+               if (lbl, p) in changed_idx]
+    sims = [o.get("similarity") for o in overlap if o.get("similarity") is not None]
+    sim_min = min(sims) if sims else None
+    ctypes = {o.get("change_type") for o in overlap}
+    page_changed = bool(cpf) and (opf != cpf)
+
+    if "added" in ctypes or "added" in ct:
+        kind = "new"
+    elif page_changed or "moved" in ctypes:
+        kind = "page_moved"
+    elif conf != "high" or act == "review":
+        kind = "uncertain"
+    elif (ctypes <= {"modified"} or ct == "modified") and sim_min is not None and sim_min >= NOOP_SIMILARITY:
+        kind = "noop"
+    elif "modified" in ctypes or "modified" in ct:
+        kind = "text_changed"
+    else:
+        kind = "noop"
+    return {
+        "change_kind": kind,
+        "needs_review": kind != "noop",
+        "similarity": sim_min,
+        "page_changed": page_changed,
+        "text_changed": kind == "text_changed",
+        "changed_detail": overlap,
+    }
+
+
+def get_candidates_enriched(version: str) -> list[dict]:
+    """후보 + 분류(change_kind/needs_review/similarity) + 겹치는 변경 페이지 스니펫."""
+    if not pg_enabled():
+        return []
+    cands = get_candidates(version)
+    changed = get_changed_pages(version)
+    changed_idx = {}
+    for cp in changed:
+        if cp.get("manual_label") and cp.get("baseline_page") is not None:
+            changed_idx[(cp["manual_label"], cp["baseline_page"])] = cp
+    out = []
+    for c in cands:
+        out.append({**c, **_classify_candidate(c, changed_idx)})
+    return out
+
+
+def candidate_detail(version: str, row_id: str) -> Optional[dict]:
+    """후보 1건의 상세(3단 비교용): 기존 baseline 전체 텍스트 + 후보 스니펫 + 분류.
+
+    기존 본문 = manual_base_pages 의 old_page_from..old_page_to 전체 텍스트.
+    후보 본문 = 겹치는 변경 페이지의 new_snippet(없으면 candidate.new_snippet).
+    """
+    if not pg_enabled():
+        return None
+    enriched = {c["row_id"]: c for c in get_candidates_enriched(version)}
+    c = enriched.get(row_id)
+    if not c:
+        return None
+    lbl = c.get("manual_label")
+    opf = int(c.get("old_page_from") or 0)
+    opt = int(c.get("old_page_to") or opf or 0)
+    base_pages = {p["rhwp_page_index"]: p for p in load_baseline_pages(lbl)} if lbl else {}
+    base_text = "\n".join(
+        (base_pages.get(p, {}).get("text") or "") for p in range(opf, (opt or opf) + 1)
+    ).strip()
+    base_titles = [base_pages.get(p, {}).get("title_guess") for p in range(opf, (opt or opf) + 1)]
+    base_title = next((t for t in base_titles if t), "") or ""
+    cand_text = "\n".join(
+        (o.get("new_snippet") or "") for o in c.get("changed_detail", [])
+    ).strip() or (c.get("new_snippet") or "")
+    return {
+        "row_id": row_id,
+        "manual_label": lbl,
+        "change_kind": c.get("change_kind"),
+        "needs_review": c.get("needs_review"),
+        "similarity": c.get("similarity"),
+        "existing": {
+            "title": base_title, "code": c.get("detailed_code"),
+            "page_from": c.get("old_page_from"), "page_to": c.get("old_page_to"),
+            "manual_ref": f"{c.get('old_page_from')}-{c.get('old_page_to')}",
+            "match_text": c.get("match_text") or "",
+            "text": base_text,
+        },
+        "candidate": {
+            "code": c.get("detailed_code"),
+            "page_from": c.get("candidate_page_from"), "page_to": c.get("candidate_page_to"),
+            "staging": f"{c.get('candidate_page_from')}-{c.get('candidate_page_to')}",
+            "text": cand_text,
+        },
+        "changed_pages": c.get("changed_detail", []),
+    }
+
+
 def get_active_decisions() -> list[dict]:
     """admin 기본 화면용 — 현재 유효 decision + 이번 version 에서 막 orphaned 된 1회분.
     archive 및 과거 orphaned 는 제외(쿼리에서 자동 제외)."""
@@ -719,5 +1110,151 @@ def get_active_decisions() -> list[dict]:
             "orphaned": bool(r.orphaned), "orphaned_at": r.orphaned_at,
             "needs_recheck": bool(r.needs_recheck),
             "candidate_changed": bool(r.candidate_changed),
+            "reviewer_baseline_from": r.reviewer_baseline_from, "reviewer_baseline_to": r.reviewer_baseline_to,
+            "reviewer_candidate_from": r.reviewer_candidate_from, "reviewer_candidate_to": r.reviewer_candidate_to,
+            "reviewer_override_reason": r.reviewer_override_reason, "reviewer_override_by": r.reviewer_override_by,
+            "reviewer_override_at": r.reviewer_override_at.isoformat() if r.reviewer_override_at else None,
             "updated_at": r.updated_at.isoformat() if r.updated_at else None,
         } for r in rows]
+
+
+# ── PDF artifact 레지스트리 (Step 3) ─────────────────────────────────────────
+def _artifact_to_dict(a, *, with_blob: bool = False) -> dict:
+    d = {
+        "id": a.id, "run_id": a.run_id, "manual": a.manual, "version": a.version,
+        "artifact_type": a.artifact_type, "source": a.source,
+        "page_from": a.page_from, "page_to": a.page_to, "page_numbers": a.page_numbers,
+        "pdf_path": a.pdf_path, "page_count": a.page_count, "file_size": a.file_size,
+        "content_hash": a.content_hash, "status": a.status, "note": a.note,
+        "has_blob": a.pdf_blob is not None,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+        "updated_at": a.updated_at.isoformat() if a.updated_at else None,
+    }
+    if with_blob:
+        d["pdf_blob"] = a.pdf_blob
+    return d
+
+
+def save_pdf_artifact(*, manual: str, artifact_type: str, version: str | None = None,
+                      run_id: int | None = None, source: str = "staging",
+                      page_from: int | None = None, page_to: int | None = None,
+                      page_numbers: list | None = None, pdf_blob: bytes | None = None,
+                      pdf_path: str | None = None, page_count: int | None = None,
+                      status: str = "generated", note: str = "") -> dict:
+    """PDF artifact 1건 기록. content_hash/file_size 는 blob 으로부터 자동 산출."""
+    if not pg_enabled():
+        return {"ok": False, "reason": "pg_disabled"}
+    import hashlib
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    fsize = len(pdf_blob) if pdf_blob is not None else None
+    chash = hashlib.sha256(pdf_blob).hexdigest() if pdf_blob is not None else None
+    with get_sessionmaker()() as session:
+        a = ManualPdfArtifact(
+            manual=manual, artifact_type=artifact_type, version=version, run_id=run_id,
+            source=source, page_from=page_from, page_to=page_to, page_numbers=page_numbers,
+            pdf_blob=pdf_blob, pdf_path=pdf_path, page_count=page_count,
+            file_size=fsize, content_hash=chash, status=status, note=note or None,
+        )
+        session.add(a)
+        session.commit()
+        session.refresh(a)
+        return _artifact_to_dict(a)
+
+
+def get_pdf_artifacts(manual: str | None = None, version: str | None = None) -> list[dict]:
+    """artifact 목록(blob 제외). manual/version 으로 선택 필터."""
+    if not pg_enabled():
+        return []
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        stmt = select(ManualPdfArtifact)
+        if manual:
+            stmt = stmt.where(ManualPdfArtifact.manual == manual)
+        if version:
+            stmt = stmt.where(ManualPdfArtifact.version == version)
+        stmt = stmt.order_by(ManualPdfArtifact.created_at.desc())
+        return [_artifact_to_dict(a) for a in session.scalars(stmt).all()]
+
+
+def get_pdf_artifact(artifact_id: int, *, with_blob: bool = False) -> dict | None:
+    if not pg_enabled():
+        return None
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        a = session.get(ManualPdfArtifact, artifact_id)
+        return _artifact_to_dict(a, with_blob=with_blob) if a else None
+
+
+def get_pdf_artifact_blob(artifact_id: int) -> bytes | None:
+    a = get_pdf_artifact(artifact_id, with_blob=True)
+    return a.get("pdf_blob") if a else None
+
+
+def get_latest_pdf_artifact(manual: str, page_no: int | None = None) -> dict | None:
+    """viewer resolver 용 — manual 의 최신 사용가능 artifact.
+    우선순위: promoted(production) > generated(staging). page_no 주면 해당 페이지 포함분 우선."""
+    if not pg_enabled():
+        return None
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        rows = session.scalars(
+            select(ManualPdfArtifact)
+            .where(ManualPdfArtifact.manual == manual,
+                   ManualPdfArtifact.status.in_(("generated", "promoted")))
+            .order_by(ManualPdfArtifact.created_at.desc())
+        ).all()
+    def _covers(a) -> bool:
+        if page_no is None:
+            return True
+        if a.page_numbers and page_no in a.page_numbers:
+            return True
+        if a.page_from and a.page_to and a.page_from <= page_no <= a.page_to:
+            return True
+        return False
+    promoted = [a for a in rows if a.status == "promoted" and _covers(a)]
+    generated = [a for a in rows if a.status == "generated" and _covers(a)]
+    pick = (promoted or generated)
+    return _artifact_to_dict(pick[0]) if pick else None
+
+
+def delete_pdf_artifact(artifact_id: int) -> bool:
+    if not pg_enabled():
+        return False
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        a = session.get(ManualPdfArtifact, artifact_id)
+        if not a:
+            return False
+        session.delete(a)
+        session.commit()
+        return True
+
+
+def pdf_artifact_summary(manual: str | None = None) -> dict:
+    """pdf-status/UI 용 — manual 별 artifact 개수 + 최신 staging/production 유무."""
+    if not pg_enabled():
+        return {"total": 0, "by_manual": {}}
+    from sqlalchemy import select, func as safunc
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    out: dict = {"by_manual": {}}
+    with get_sessionmaker()() as session:
+        stmt = select(ManualPdfArtifact.manual, ManualPdfArtifact.status,
+                      safunc.count()).group_by(ManualPdfArtifact.manual, ManualPdfArtifact.status)
+        if manual:
+            stmt = stmt.where(ManualPdfArtifact.manual == manual)
+        total = 0
+        for m, st, cnt in session.execute(stmt).all():
+            bm = out["by_manual"].setdefault(m, {"total": 0, "generated": 0, "promoted": 0, "failed": 0})
+            bm[st] = bm.get(st, 0) + int(cnt)
+            bm["total"] += int(cnt)
+            total += int(cnt)
+        out["total"] = total
+    return out

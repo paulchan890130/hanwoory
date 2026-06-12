@@ -100,9 +100,11 @@ export function parseSvgSize(svg) {
 // Reuses a single chromium page across calls when given.
 export async function svgToPdf(svg, sharedPage) {
   const { w, h } = parseSvgSize(svg);
-  const wPx = Math.round(w * 96 / 72);
-  const hPx = Math.round(h * 96 / 72);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0}svg{display:block}</style></head><body>${svg}</body></html>`;
+  // 페이지를 viewBox 단위(원본 page 크기)와 1:1 로 맞추고, SVG 가 페이지 전체를 채우게 한다.
+  // (이전: w*96/72 로 페이지를 키워 SVG(intrinsic=viewBox)가 좌상단에 작게 박히던 버그)
+  const wPx = Math.round(w);
+  const hPx = Math.round(h);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%}svg{display:block;width:100%;height:100%}</style></head><body>${svg}</body></html>`;
   if (sharedPage) {
     await sharedPage.setContent(html, { waitUntil: 'domcontentloaded' });
     return await sharedPage.pdf({
