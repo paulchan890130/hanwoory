@@ -15,3 +15,8 @@ token.json
 credentials.json
 client_secret*.json
 service_account*.json
+# 운영 시크릿/백업/입력 산출물 — 이미지에 절대 포함 금지(보안·이미지 비대화 방지)
+secrets
+backups
+migration_input
+analysis

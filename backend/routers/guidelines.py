@@ -1204,37 +1204,89 @@ _RUN_NOW_LOCK = _threading.Lock()
 _RUN_NOW_STATE = {"running": False, "mode": None, "started_at": None}
 
 
+def _chromium_runtime_status() -> tuple[bool, str]:
+    """실제 chromium 실행 파일이 있는지(=PDF 생성 가능)를 _lib.mjs 의 CHROME_PATH 규칙대로 판정.
+
+    npm 패키지(playwright-core) 디렉터리 존재 ≠ chromium 브라우저 존재. _lib.mjs 는:
+      * CHROME_PATH=<경로>  → 그 실행 파일을 executablePath 로 사용 (파일이 존재해야 함)
+      * CHROME_PATH=""       → playwright 번들 chromium(ms-playwright 캐시) 사용
+      * CHROME_PATH 미설정    → 기본값(Windows 로컬 Chrome)
+    반환: (실행가능여부, 점검한 경로/위치 설명)."""
+    import glob
+    cp = os.environ.get("CHROME_PATH")
+    if cp:  # 비어있지 않은 명시 경로 → 그 파일이 실제로 있어야 한다(워커 이미지: /usr/bin/chromium)
+        return (os.path.isfile(cp), cp)
+    if cp == "":  # 명시적 빈 문자열 → playwright 번들 chromium 탐색
+        base = (os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+                or os.path.expanduser("~/.cache/ms-playwright"))
+        hits = (glob.glob(os.path.join(base, "chromium-*", "chrome-linux", "chrome"))
+                + glob.glob(os.path.join(base, "chromium-*", "chrome-linux", "headless_shell")))
+        return (bool(hits), f"playwright-bundled:{base}")
+    # CHROME_PATH 미설정 → _lib.mjs 기본값(로컬 Windows Chrome)
+    default = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    return (os.path.isfile(default), default)
+
+
 def _run_capability() -> dict:
-    """현재 API 프로세스(=host/docker-backend/Render 런타임)에서 rhwp extract/실제 기록
-    실행이 가능한지 진단. node 가 없는 컨테이너/Render 면 실제 기록 불가(진단 감지까지 가능)."""
+    """현재 프로세스 런타임에서 rhwp extract(실제 기록) / chromium(변경 페이지 PDF) 실행이
+    가능한지 진단한다. 각 능력을 **독립적으로** 판단한다:
+      * node / rhwp / extract.mjs  → can_record_update (PG staging 기록)
+      * 위 + chromium 실제 실행파일 → can_generate_pdf (PDF artifact 생성)
+    웹서비스(chromium 없음)는 can_generate_pdf=False; Render Cron/Worker(chromium 있음)는 True."""
     import shutil
     node_available = bool(shutil.which("node"))
     tools = os.path.join(_BASE_DIR, "..", "tools", "rhwp_manual_pipeline")
     extract_mjs_exists = os.path.isfile(os.path.join(tools, "extract.mjs"))
     rhwp_available = os.path.isdir(os.path.join(tools, "node_modules", "@rhwp", "core"))
-    chromium_available = os.path.isdir(os.path.join(tools, "node_modules", "playwright-core"))
+    # playwright-core npm 패키지 존재(≠ 브라우저) — 진단 표시용으로만 분리해 노출
+    chromium_pkg_present = os.path.isdir(os.path.join(tools, "node_modules", "playwright-core"))
+    chromium_executable, chromium_path = _chromium_runtime_status()
+    chromium_available = node_available and chromium_pkg_present and chromium_executable
+
+    is_worker = str(os.environ.get("MANUAL_UPDATE_WORKER") or "").strip().lower() in (
+        "1", "true", "yes", "y", "on")
     is_server = str(os.environ.get("HANWOORY_ENV") or os.environ.get("RUN_ENV") or "").lower() == "server"
-    if is_server:
-        runtime = "render"
+    if is_worker:
+        runtime = "render-worker"
+    elif is_server:
+        runtime = "render-web"
     elif os.path.exists("/.dockerenv"):
         runtime = "docker-backend"
     else:
         runtime = "host"
+
     can_record_update = node_available and extract_mjs_exists and rhwp_available
-    can_generate_pdf = node_available and chromium_available
+    can_generate_pdf = can_record_update and chromium_available
+
+    record_reason = "" if can_record_update else (
+        "node/rhwp runtime is not available in this environment "
+        "(이 런타임에 node/rhwp 실행 환경이 없어 실제 업데이트(PG 기록)가 비활성화됨).")
+    if can_generate_pdf:
+        pdf_reason = ""
+    elif not can_record_update:
+        pdf_reason = record_reason
+    elif not chromium_available:
+        pdf_reason = (
+            "chromium 실행 환경이 없습니다 (checked: " + chromium_path + "). "
+            "변경 페이지 PDF 생성은 chromium 이 포함된 Render Cron/Worker(Dockerfile.worker)가 담당합니다.")
+    else:
+        pdf_reason = ""
+
     return {
         "can_diagnose": True,                         # 감지(detail/parse/compare)는 node 없이 가능
         "can_record_update": can_record_update,       # 실제 PG 기록 실행 가능 여부
-        "can_generate_pdf": can_generate_pdf,         # (별도) 변경 페이지 PDF 생성 가능 여부
+        "can_generate_pdf": can_generate_pdf,         # 변경 페이지 PDF 생성 가능 여부(=record + chromium)
         "node_available": node_available,
         "extract_mjs_exists": extract_mjs_exists,
         "rhwp_available": rhwp_available,
+        "chromium_pkg_present": chromium_pkg_present,  # playwright-core npm 패키지(≠ 브라우저)
+        "chromium_available": chromium_available,      # 실제 chromium 실행파일까지 확인됨
+        "chromium_path": chromium_path,                # 점검한 chromium 경로/위치
+        "is_worker": is_worker,                        # PDF 담당 워커 런타임 여부
         "runtime": runtime,
         "running": _RUN_NOW_STATE["running"],
-        "reason": "" if can_record_update else
-                  "node/rhwp runtime is not available in this backend environment "
-                  "(현재 backend/Render 런타임에 node/rhwp 실행 환경이 없어 실제 업데이트 실행이 비활성화됨. "
-                  "로컬 호스트 또는 별도 worker 연결 시 활성화).",
+        "reason": record_reason,                       # (하위호환) record 비활성 사유
+        "pdf_reason": pdf_reason,                      # PDF 생성 비활성 사유(분리)
     }
 
 

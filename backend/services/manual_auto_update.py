@@ -831,6 +831,39 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
         out["source_deleted"] = not tmpdir.exists()
 
 
+def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
+                     notify: bool = True, limit: int | None = None,
+                     trigger: str = "cron") -> dict:
+    """Render Cron Job / Worker 1사이클 — 서버 자동화 진입점.
+
+    흐름:
+      1) run_auto_update_pg(): 감지 → /tmp 다운로드 → rhwp extract → diff →
+         candidates → PG version/changed/candidates 저장 → decision 병합 → /tmp 삭제.
+      2) staging 이 'staged' 이고 with_pdf 면 generate_pdf_artifacts_for_version(version)
+         으로 변경 페이지 PDF artifact 를 PG(manual_pdf_artifacts.pdf_blob)에 저장.
+
+    PDF 단계 실패는 텍스트/후보 저장(staging) 결과에 **전이되지 않는다** — PDF 오류는
+    out['pdf'] 에 담아 반환할 뿐, staging 성공은 그대로 유지한다. 어떤 예외도 밖으로
+    던지지 않는다(서버 자동화 보호). 실행 결과 기록은 run_auto_update_pg 내부의
+    manual_update_runs(svc.finish_staged/finish_error) + save_pdf_artifact 가 담당한다."""
+    staging = run_auto_update_pg(force=force, trigger=trigger, notify=notify)
+    out = {"staging": staging, "pdf": None}
+    if not with_pdf:
+        out["pdf"] = {"status": "skipped", "reason": "with_pdf=False"}
+        return out
+    if not isinstance(staging, dict) or staging.get("status") != "staged":
+        out["pdf"] = {"status": "skipped",
+                      "reason": f"staging status={staging.get('status') if isinstance(staging, dict) else 'unknown'}"}
+        return out
+    version = staging.get("version")
+    try:
+        out["pdf"] = generate_pdf_artifacts_for_version(version, limit=limit)
+    except Exception as e:  # generate_* 는 내부에서 잡지만 이중 방어 — staging 에 전이 금지
+        out["pdf"] = {"status": "error", "version": version,
+                      "error": f"{type(e).__name__}: {e}"}
+    return out
+
+
 def scheduled_job() -> None:
     """APScheduler 가 호출하는 래퍼. 절대 예외를 밖으로 던지지 않는다(서버 보호).
     FEATURE_PG_MANUAL_UPDATE=true 면 PG 경로, 아니면 파일 기반 경로(fallback)."""
@@ -856,12 +889,21 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="rhwp 매뉴얼 자동 staging")
     ap.add_argument("--pg", action="store_true",
                     help="PG 단일 출처 경로 실행(Render Cron Job 권장). 미지정 시 파일 기반")
+    ap.add_argument("--with-pdf", action="store_true",
+                    help="PG staging 후 변경 페이지 PDF artifact 까지 생성(node+chromium 필요). --pg 와 함께 사용")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="--with-pdf 시 PDF 생성 후보 수 제한(테스트용)")
     ap.add_argument("--detect-only", action="store_true",
                     help="감지만 수행(다운로드/스테이징/상태변경 없음)")
     ap.add_argument("--force", action="store_true", help="오늘 already-ran guard 무시")
     ap.add_argument("--no-notify", action="store_true", help="게시판 공지 생략")
     args = ap.parse_args()
-    if args.pg:
+    if args.with_pdf:
+        # staging → (chromium) PDF artifact 까지. PG 경로 전용(파일 기반은 미지원).
+        out = run_worker_cycle(force=args.force, with_pdf=True,
+                               notify=not args.no_notify, limit=args.limit,
+                               trigger="manual")
+    elif args.pg:
         out = run_auto_update_pg(force=args.force, trigger="manual",
                                  notify=not args.no_notify)
     else:

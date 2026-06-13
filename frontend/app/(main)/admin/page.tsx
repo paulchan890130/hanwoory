@@ -1810,7 +1810,7 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [bulkApply, setBulkApply] = useState(false);                  // 운영 반영 요약 모달
   const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string } | null>(null);
   const [pdfStatus, setPdfStatus] = useState<Record<string, PdfStatus>>({});
-  const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; runtime?: string; reason?: string } | null>(null);
+  const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; chromium_pkg_present?: boolean; chromium_available?: boolean; chromium_path?: string; is_worker?: boolean; runtime?: string; reason?: string; pdf_reason?: string } | null>(null);
   const [runBusy, setRunBusy] = useState<"diagnose" | "record" | "generate_pdf_artifacts" | null>(null);
   const [runResult, setRunResult] = useState<{ mode?: string; result?: { status?: string; version?: string; source_deleted?: boolean; wrote_to_pg?: boolean; stages?: Record<string, unknown>; error?: string; error_stage?: string } } | null>(null);
   // row_id → artifact id (해당 후보에 생성된 변경 페이지 PDF artifact). note "candidate <row_id>" 로 매칭.
@@ -2176,29 +2176,32 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
             className="text-xs px-3 py-1.5 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>
             {runBusy === "diagnose" ? "진단 중..." : "최신 매뉴얼 진단 실행"}
           </button>
-          <button disabled={runBusy !== null || !runCap?.can_record_update}
-            title={runCap?.can_record_update ? "실제 업데이트(PG 기록) 실행" : (runCap?.reason || "실행 불가")}
+          {/* 실제 업데이트(PG 기록) / 변경 페이지 PDF 생성은 무거운 작업 → 웹서비스에서 직접
+              동기 실행하지 않는다. chromium 포함 Render Cron/Worker(Dockerfile.worker)가 담당.
+              웹 UI 에서는 워커 런타임(is_worker)일 때만 활성화한다(실질적으로 항상 비활성, 안내용). */}
+          <button disabled={runBusy !== null || !runCap?.is_worker || !runCap?.can_record_update}
+            title={runCap?.is_worker ? "실제 업데이트(PG 기록) 실행" : "실제 업데이트는 Render Cron/Worker가 담당합니다(웹서비스에서 직접 실행하지 않음)"}
             onClick={() => void runNow("record")}
             className="text-xs px-3 py-1.5 rounded"
-            style={{ background: runCap?.can_record_update ? "#DD6B20" : "#E2E8F0", color: runCap?.can_record_update ? "#fff" : "#A0AEC0", border: "none", cursor: runCap?.can_record_update ? "pointer" : "not-allowed" }}>
-            {runBusy === "record" ? "실행 중..." : "실제 업데이트 실행"}
+            style={{ background: (runCap?.is_worker && runCap?.can_record_update) ? "#DD6B20" : "#E2E8F0", color: (runCap?.is_worker && runCap?.can_record_update) ? "#fff" : "#A0AEC0", border: "none", cursor: (runCap?.is_worker && runCap?.can_record_update) ? "pointer" : "not-allowed" }}>
+            {runBusy === "record" ? "실행 중..." : "실제 업데이트 실행 (Cron/Worker 담당)"}
           </button>
-          <button disabled={runBusy !== null || !runCap?.can_generate_pdf}
-            title={runCap?.can_generate_pdf ? "변경 페이지 PDF artifact 생성(node+chromium)" : "node/chromium 실행 환경 없음 — 로컬/워커에서만 생성"}
+          <button disabled={runBusy !== null || !runCap?.is_worker || !runCap?.can_generate_pdf}
+            title={runCap?.is_worker ? "변경 페이지 PDF artifact 생성(node+chromium)" : "PDF 생성은 chromium 포함 Render Cron/Worker가 담당합니다"}
             onClick={() => void runNow("generate_pdf_artifacts")}
             className="text-xs px-3 py-1.5 rounded"
-            style={{ background: runCap?.can_generate_pdf ? "#38A169" : "#E2E8F0", color: runCap?.can_generate_pdf ? "#fff" : "#A0AEC0", border: "none", cursor: runCap?.can_generate_pdf ? "pointer" : "not-allowed" }}>
-            {runBusy === "generate_pdf_artifacts" ? "생성 중..." : "변경 페이지 PDF 생성"}
+            style={{ background: (runCap?.is_worker && runCap?.can_generate_pdf) ? "#38A169" : "#E2E8F0", color: (runCap?.is_worker && runCap?.can_generate_pdf) ? "#fff" : "#A0AEC0", border: "none", cursor: (runCap?.is_worker && runCap?.can_generate_pdf) ? "pointer" : "not-allowed" }}>
+            {runBusy === "generate_pdf_artifacts" ? "생성 중..." : "변경 페이지 PDF 생성 (Cron/Worker 담당)"}
           </button>
           {runCap && (
             <span className="text-[11px]" style={{ color: "#718096" }}>
-              런타임 {runCap.runtime} · node {runCap.node_available ? "✅" : "❌"} · rhwp {runCap.rhwp_available ? "✅" : "❌"} · 실제기록 {runCap.can_record_update ? "✅" : "❌"} · PDF생성 {runCap.can_generate_pdf ? "✅" : "❌"}
+              런타임 {runCap.runtime} · node {runCap.node_available ? "✅" : "❌"} · rhwp {runCap.rhwp_available ? "✅" : "❌"} · chromium {runCap.chromium_available ? "✅" : "❌"} · 워커 {runCap.is_worker ? "✅" : "❌"} · 실제기록 {runCap.can_record_update ? "✅" : "❌"} · PDF생성 {runCap.can_generate_pdf ? "✅" : "❌"}
             </span>
           )}
         </div>
-        {runCap && !runCap.can_record_update && (
+        {runCap && !runCap.is_worker && (
           <div className="text-xs px-2 py-1.5 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
-            ⚠ 현재 backend/Render 런타임에는 node/rhwp 실행 환경이 없어 <b>실제 업데이트 실행이 비활성화</b>되어 있습니다. 로컬 호스트 또는 별도 worker 실행 환경이 연결되면 활성화됩니다. (진단 실행은 가능 — 감지까지, 다운로드/추출은 node 가능 환경에서만 완주)
+            ⚠ <b>실제 업데이트(PG 기록)·변경 페이지 PDF 생성</b>은 매일 15:00 KST 또는 수동 트리거 시 <b>Render Cron/Worker(Dockerfile.worker, chromium 포함)</b>가 담당합니다. 웹서비스에서는 무거운 작업을 직접 실행하지 않으며, 이 화면은 <b>감지(진단)·상태 조회</b> 용도입니다. {runCap.can_record_update ? "(현재 웹 런타임도 node/rhwp 는 가능하나, 부하 분리를 위해 워커로 일원화)" : null}
           </div>
         )}
         {runResult && (() => {

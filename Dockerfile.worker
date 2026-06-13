@@ -1,0 +1,50 @@
+# ── Manual-update Worker / Render Cron Job image ──────────────────────────────
+# 매뉴얼 업데이트 서버 자동화 전용 실행환경.
+#   감지 → 다운로드 → rhwp extract → diff → candidates → PG 저장
+#   → (chromium) 변경 페이지 PDF artifact 생성 → PG blob 저장 → /tmp 삭제 → 종료
+#
+# 웹서비스용 이미지(Dockerfile.combined)와 분리한다:
+#   * Next.js 빌드 / uvicorn / next start 를 실행하지 않는다(Cron 1회 실행 후 종료).
+#   * chromium 은 이 워커 이미지에만 넣는다 — 웹 이미지를 무겁게 만들지 않기 위함.
+# 결과는 전부 PostgreSQL(manual_pdf_artifacts.pdf_blob 등)에 저장되므로 웹서비스와
+# 파일시스템을 공유할 필요가 없다(Cron↔Web 결과 공유는 PG 로 해결).
+FROM python:3.11-slim
+
+# rhwp extract = Node 20 + @rhwp/core(WASM). PDF artifact = playwright-core + chromium.
+# chromium 은 apt 패키지(/usr/bin/chromium)를 쓰고 _lib.mjs 의 CHROME_PATH 로 주입한다.
+# Korean PDF 렌더링을 위해 한글 폰트(fonts-nanum)를 반드시 포함한다.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        ca-certificates \
+        chromium \
+        fonts-nanum \
+        fonts-liberation \
+        libglib2.0-0 \
+        libgomp1 \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ── Python deps (웹과 동일 requirements; OCR/omnimrz 는 워커가 import 하지 않음) ──
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# ── rhwp 파이프라인 deps (@rhwp/core + playwright-core) ───────────────────────
+RUN cd /app/tools/rhwp_manual_pipeline && npm ci --omit=dev
+
+ENV PYTHONUNBUFFERED=1
+ENV HANWOORY_ENV=server
+ENV NODE_ENV=production
+# _lib.mjs 는 CHROME_PATH 가 비어있지 않으면 그 경로를 chromium executablePath 로 쓴다.
+ENV CHROME_PATH=/usr/bin/chromium
+# capability 판정이 "PDF 생성 가능한 워커 런타임"임을 인식하도록 하는 신호.
+ENV MANUAL_UPDATE_WORKER=1
+
+# 기본 1회 실행 커맨드(Render Cron Job 에서 override 가능):
+#   감지 → PG staging → (chromium) 변경 페이지 PDF artifact 생성 → 종료
+CMD ["python", "-m", "backend.scripts.manual_worker_run", "--pg", "--with-pdf"]
