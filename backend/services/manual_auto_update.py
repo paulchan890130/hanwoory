@@ -726,16 +726,37 @@ _MANUAL_NORM = {"visa": "visa", "사증민원": "visa",
                 "residence": "stay", "stay": "stay", "체류민원": "stay"}
 
 
+def _existing_artifact_rowids(svc, version: str) -> set:
+    """해당 version 에 이미 생성된 candidate PDF artifact 의 row_id 집합.
+    candidate bundle 의 note 규칙은 'candidate <row_id>' (save_pdf_artifact 호출부와 일치)."""
+    rowids: set = set()
+    try:
+        for a in svc.get_pdf_artifacts(version=version):
+            note = (a.get("note") or "")
+            if note.startswith("candidate "):
+                rid = note[len("candidate "):].strip()
+                if rid:
+                    rowids.add(rid)
+    except Exception:
+        pass
+    return rowids
+
+
 def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: int = 1,
                                        limit: int | None = None,
-                                       row_ids: list[str] | None = None) -> dict:
+                                       row_ids: list[str] | None = None,
+                                       skip_existing: bool = True) -> dict:
     """변경 페이지 PDF artifact 생성(node/chromium 필요 — host/worker 전용).
 
-    흐름: 현재 첨부 /tmp 다운로드 → 후보별 (페이지±이웃) 목록 산출 →
-    generate_pdf.mjs --pages 1회 실행(문서 1회 로드) → 후보별로 per-page PDF 를
-    PyMuPDF 로 묶어 manual_pdf_artifacts.pdf_blob 저장 → /tmp 삭제.
-    PDF 생성 실패는 텍스트/후보 데이터에 영향 없음(이 함수는 artifact 만 다룬다).
-    반환: {generated, failed, artifact_ids, errors, version}."""
+    흐름: 후보 조회 → (skip_existing) 이미 artifact 있는 후보 제외 → 남은 후보가 있으면
+    현재 첨부 /tmp 다운로드 → 후보별 (페이지±이웃) 목록 산출 → generate_pdf.mjs --pages
+    1회 실행(문서 1회 로드) → 후보별 per-page PDF 를 PyMuPDF 로 묶어
+    manual_pdf_artifacts.pdf_blob 저장 → /tmp 삭제.
+
+    중복 방지: 같은 version 의 candidate(row_id)에 이미 artifact 가 있으면 재생성하지 않는다
+    (skip_existing=True). 남은 후보가 없으면 다운로드조차 하지 않고 skip 한다.
+    PDF 생성 실패는 텍스트/후보 데이터에 영향 없다(이 함수는 artifact 만 다룬다).
+    반환: {version, generated, failed, skipped_existing, artifact_ids, errors, status}."""
     import shutil
     import tempfile
     from backend.services import manual_update_pg_service as svc
@@ -745,10 +766,30 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
     if not version:
         return {"status": "skipped", "reason": "no staging version"}
 
-    out = {"version": version, "generated": 0, "failed": 0, "artifact_ids": [], "errors": []}
+    out = {"version": version, "generated": 0, "failed": 0, "skipped_existing": 0,
+           "artifact_ids": [], "errors": []}
+
+    # 생성 대상(target) 을 다운로드 전에 확정해 불필요한 하이코리아 접속/추출을 피한다.
+    cands_all = svc.get_candidates_enriched(version)
+    if row_ids:
+        cands_all = [c for c in cands_all if c.get("row_id") in row_ids]
+    existing_rowids = _existing_artifact_rowids(svc, version)
+    if skip_existing:
+        target = [c for c in cands_all if c.get("row_id") not in existing_rowids]
+        out["skipped_existing"] = len(cands_all) - len(target)
+    else:
+        target = list(cands_all)
+    if limit:
+        target = target[:limit]
+    if not cands_all:
+        return {**out, "status": "skipped", "reason": "no_candidates"}
+    if not target:
+        return {**out, "status": "skipped", "reason": "artifacts_already_exist",
+                "existing_artifacts": len(existing_rowids), "candidates": len(cands_all)}
+
     tmpdir = Path(tempfile.gettempdir()) / "manual_pdf_artifacts" / version
     try:
-        # 1) 현재 첨부 다운로드(force = seen 무시)
+        # 현재 첨부 다운로드(force = seen 무시)
         session = _http_session()
         atts = _parse_attachments(_fetch_detail_html(session))
         changed = _compare_attachments(atts, {})
@@ -758,7 +799,6 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
 
         from backend.scripts.manual_update_local import NODE_TOOLS, run_node, classify_label
         import fitz
-        cands_all = svc.get_candidates_enriched(version)
 
         for hwp in sorted(tmpdir.iterdir()):
             if not hwp.is_file() or hwp.suffix.lower() not in (".hwp", ".hwpx"):
@@ -767,11 +807,8 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
             manual = _MANUAL_NORM.get(label or "")
             if not manual:
                 continue
-            cands = [c for c in cands_all if c.get("manual_label") == label]
-            if row_ids:
-                cands = [c for c in cands if c.get("row_id") in row_ids]
-            if limit:
-                cands = cands[:limit]
+            # target 은 이미 row_ids/skip_existing/limit 적용된 생성 대상 후보다.
+            cands = [c for c in target if c.get("manual_label") == label]
             if not cands:
                 continue
             # 후보별 페이지(±이웃) 합집합 → 1회 렌더
@@ -831,6 +868,53 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
         out["source_deleted"] = not tmpdir.exists()
 
 
+def _backfill_pdf_artifacts(*, limit: int | None = None, neighbor: int = 1) -> dict:
+    """no_change 사이클 보강: 신규 매뉴얼 변경이 없어도, 최신 staging version 의 candidate
+    중 PDF artifact 가 아직 없는 것만 생성(backfill)한다. 이미 충분하면 생성하지 않고 skip.
+
+    '다음 실제 변경 때까지 PDF 0' 문제를 해소하기 위한 경로. 후보별 중복 방지는
+    generate_pdf_artifacts_for_version 내부 dedup(skip_existing=True)에 위임한다.
+    운영 manual_ref/apply/배포 PDF 는 절대 건드리지 않는다(staging artifact 만 생성)."""
+    from backend.services import manual_update_pg_service as svc
+    if not svc.pg_enabled():
+        _log("pdf_backfill_check", pg=False)
+        return {"status": "skipped", "reason": "pg_disabled", "mode": "backfill"}
+    version = svc.get_state_dict().get("last_staging_version")
+    if not version:
+        versions = svc.list_versions()
+        version = versions[0].get("version") if versions else None
+    _log("pdf_backfill_check", version=version)
+    if not version:
+        _log("pdf_backfill_no_staging_version")
+        return {"status": "skipped", "reason": "no_staging_version", "mode": "backfill"}
+    cands = svc.get_candidates_enriched(version)
+    existing = _existing_artifact_rowids(svc, version)
+    missing = [c for c in cands if c.get("row_id") not in existing]
+    if not cands:
+        _log("pdf_backfill_no_candidates", version=version)
+        return {"status": "skipped", "reason": "no_candidates",
+                "version": version, "mode": "backfill"}
+    if not missing:
+        _log("pdf_backfill_artifacts_already_exist", version=version,
+             candidates=len(cands), artifacts=len(existing))
+        return {"status": "skipped", "reason": "artifacts_already_exist", "version": version,
+                "candidates": len(cands), "existing_artifacts": len(existing), "mode": "backfill"}
+    _log("pdf_backfill_generate_start", version=version, missing=len(missing))
+    try:
+        res = generate_pdf_artifacts_for_version(
+            version, limit=limit, neighbor=neighbor,
+            row_ids=[c["row_id"] for c in missing], skip_existing=True)
+    except Exception as e:  # 이중 방어 — staging 에 전이 금지
+        _log("pdf_backfill_failed", version=version, error=f"{type(e).__name__}: {e}")
+        return {"status": "error", "version": version, "mode": "backfill",
+                "error": f"{type(e).__name__}: {e}"}
+    _log("pdf_backfill_generate_done", version=version,
+         generated=res.get("generated"), failed=res.get("failed"),
+         skipped_existing=res.get("skipped_existing"))
+    res["mode"] = "backfill"
+    return res
+
+
 def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
                      notify: bool = True, limit: int | None = None,
                      trigger: str = "cron") -> dict:
@@ -839,8 +923,11 @@ def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
     흐름:
       1) run_auto_update_pg(): 감지 → /tmp 다운로드 → rhwp extract → diff →
          candidates → PG version/changed/candidates 저장 → decision 병합 → /tmp 삭제.
-      2) staging 이 'staged' 이고 with_pdf 면 generate_pdf_artifacts_for_version(version)
-         으로 변경 페이지 PDF artifact 를 PG(manual_pdf_artifacts.pdf_blob)에 저장.
+      2) with_pdf 면 PDF artifact 단계:
+         - staging == 'staged' (신규 변경): 그 version 의 후보로 PDF 생성.
+         - staging == 'no_change' (신규 변경 없음): 최신 staging version 의 후보 중
+           artifact 가 없는 것만 backfill 생성(_backfill_pdf_artifacts).
+         두 경로 모두 후보별 중복 방지(skip_existing)가 적용된다.
 
     PDF 단계 실패는 텍스트/후보 저장(staging) 결과에 **전이되지 않는다** — PDF 오류는
     out['pdf'] 에 담아 반환할 뿐, staging 성공은 그대로 유지한다. 어떤 예외도 밖으로
@@ -851,16 +938,19 @@ def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
     if not with_pdf:
         out["pdf"] = {"status": "skipped", "reason": "with_pdf=False"}
         return out
-    if not isinstance(staging, dict) or staging.get("status") != "staged":
-        out["pdf"] = {"status": "skipped",
-                      "reason": f"staging status={staging.get('status') if isinstance(staging, dict) else 'unknown'}"}
-        return out
-    version = staging.get("version")
-    try:
-        out["pdf"] = generate_pdf_artifacts_for_version(version, limit=limit)
-    except Exception as e:  # generate_* 는 내부에서 잡지만 이중 방어 — staging 에 전이 금지
-        out["pdf"] = {"status": "error", "version": version,
-                      "error": f"{type(e).__name__}: {e}"}
+    status = staging.get("status") if isinstance(staging, dict) else None
+    if status == "staged":
+        version = staging.get("version")
+        try:
+            out["pdf"] = generate_pdf_artifacts_for_version(version, limit=limit)
+        except Exception as e:  # 이중 방어 — staging 에 전이 금지
+            out["pdf"] = {"status": "error", "version": version,
+                          "error": f"{type(e).__name__}: {e}"}
+    elif status == "no_change":
+        # 신규 변경이 없어도 최신 staging version 의 누락 PDF 를 backfill.
+        out["pdf"] = _backfill_pdf_artifacts(limit=limit)
+    else:
+        out["pdf"] = {"status": "skipped", "reason": f"staging status={status}"}
     return out
 
 
