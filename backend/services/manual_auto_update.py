@@ -726,6 +726,74 @@ _MANUAL_NORM = {"visa": "visa", "사증민원": "visa",
                 "residence": "stay", "stay": "stay", "체류민원": "stay"}
 
 
+def _emit_genpdf_log_tail(*, manual: str, version: str, exc: Exception,
+                          log_path) -> None:
+    """generate_pdf.mjs(node) 실패 시 원인을 Render Cron Logs 에 노출한다.
+    Cron 종료 후 /tmp 의 genpdf 로그를 직접 볼 수 없으므로 tail 을 JSON 으로 찍는다.
+    이벤트: pdf_generate_node_failed → pdf_generate_log_tail | pdf_generate_log_missing."""
+    import re as _re
+    rc = None
+    m = _re.search(r"rc=(-?\d+)", str(exc))
+    if m:
+        rc = int(m.group(1))
+    _log("pdf_generate_node_failed", manual=manual, version=version, rc=rc,
+         log_path=str(log_path), error=f"{type(exc).__name__}: {exc}")
+    try:
+        p = Path(log_path)
+        if not p.is_file():
+            _log("pdf_generate_log_missing", manual=manual, version=version,
+                 log_path=str(log_path))
+            return
+        data = p.read_text(encoding="utf-8", errors="replace")
+        tail = data[-20000:]  # 마지막 ~20KB
+        _log("pdf_generate_log_tail", manual=manual, version=version,
+             log_path=str(log_path), bytes=len(data), log_tail=tail)
+    except Exception as e:
+        _log("pdf_generate_log_read_error", manual=manual, version=version,
+             log_path=str(log_path), error=f"{type(e).__name__}: {e}")
+
+
+def _emit_worker_preflight() -> None:
+    """워커 시작 시 실행환경 진단(JSON 1줄, 이벤트: manual_worker_preflight).
+    chromium/node 가용성·경로를 Cron Logs 에 노출한다. 실패해도 비치명."""
+    import shutil as _sh
+    import subprocess as _sp
+    info: dict = {}
+    try:
+        worker_flag = str(os.environ.get("MANUAL_UPDATE_WORKER") or "").strip().lower() in (
+            "1", "true", "yes", "y", "on")
+        is_server = str(os.environ.get("HANWOORY_ENV") or os.environ.get("RUN_ENV") or "").lower() == "server"
+        info["runtime"] = ("render-worker" if worker_flag else
+                           ("render-web" if is_server else
+                            ("docker-backend" if os.path.exists("/.dockerenv") else "host")))
+        info["MANUAL_UPDATE_WORKER"] = os.environ.get("MANUAL_UPDATE_WORKER")
+        cp = os.environ.get("CHROME_PATH")
+        info["CHROME_PATH"] = cp
+        info["chrome_path_exists"] = bool(cp) and os.path.isfile(cp)
+        info["chrome_path_executable"] = bool(cp) and os.access(cp, os.X_OK)
+        if cp and os.path.isfile(cp):
+            try:
+                r = _sp.run([cp, "--version"], capture_output=True, text=True, timeout=20)
+                info["chromium_version"] = (r.stdout or r.stderr or "").strip()[:200]
+            except Exception as e:
+                info["chromium_version_error"] = f"{type(e).__name__}: {e}"
+        node = _sh.which("node")
+        info["node_found"] = bool(node)
+        if node:
+            try:
+                r = _sp.run([node, "--version"], capture_output=True, text=True, timeout=20)
+                info["node_version"] = (r.stdout or "").strip()
+            except Exception as e:
+                info["node_version_error"] = f"{type(e).__name__}: {e}"
+        info["cwd"] = os.getcwd()
+        tools = ROOT / "tools" / "rhwp_manual_pipeline"
+        info["rhwp_pipeline_dir_exists"] = tools.is_dir()
+        info["generate_pdf_mjs_exists"] = (tools / "generate_pdf.mjs").is_file()
+    except Exception as e:
+        info["preflight_error"] = f"{type(e).__name__}: {e}"
+    _log("manual_worker_preflight", **info)
+
+
 def _existing_artifact_rowids(svc, version: str) -> set:
     """해당 version 에 이미 생성된 candidate PDF artifact 의 row_id 집합.
     candidate bundle 의 note 규칙은 'candidate <row_id>' (save_pdf_artifact 호출부와 일치)."""
@@ -818,14 +886,17 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
                 return list(range(lo, hi + 1))
             needed = sorted({p for c in cands for p in _crange(c)})
             pages_dir = tmpdir / f"pages_{label}"
+            genpdf_log = tmpdir / f"genpdf_{label}.log"
             try:
                 run_node([str(NODE_TOOLS / "generate_pdf.mjs"), "--src", str(hwp),
                           "--label", label, "--pages", ",".join(map(str, needed)),
                           "--flat", "--out-dir", str(pages_dir)],
-                         tmpdir / f"genpdf_{label}.log")
+                         genpdf_log)
             except Exception as e:
                 out["failed"] += len(cands)
                 out["errors"].append(f"{label} generate_pdf failed: {type(e).__name__}: {e}")
+                # Cron 종료 후 /tmp 로그를 볼 수 없으므로 node 실패 로그 tail 을 Render Logs 에 노출
+                _emit_genpdf_log_tail(manual=manual, version=version, exc=e, log_path=genpdf_log)
                 continue
             # 후보별 번들 저장
             for c in cands:
@@ -933,6 +1004,7 @@ def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
     out['pdf'] 에 담아 반환할 뿐, staging 성공은 그대로 유지한다. 어떤 예외도 밖으로
     던지지 않는다(서버 자동화 보호). 실행 결과 기록은 run_auto_update_pg 내부의
     manual_update_runs(svc.finish_staged/finish_error) + save_pdf_artifact 가 담당한다."""
+    _emit_worker_preflight()  # 실행환경(chromium/node/경로) 진단을 Cron Logs 에 먼저 남긴다
     staging = run_auto_update_pg(force=force, trigger=trigger, notify=notify)
     out = {"staging": staging, "pdf": None}
     if not with_pdf:
