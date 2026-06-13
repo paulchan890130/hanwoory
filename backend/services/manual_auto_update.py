@@ -675,7 +675,7 @@ def run_auto_update_pg_dryrun(force: bool = False, allow_node: bool = True) -> d
         if not allow_node:
             # node(rhwp) 없는 런타임(backend container/Render): 감지까지만, 다운로드/추출 생략.
             out["status"] = "detection_only"
-            out["stages"]["note"] = "변경 감지됨 — node/rhwp 미설치로 다운로드/추출/후보 생략(로컬/워커에서 진단 실행 필요)"
+            out["stages"]["note"] = "변경 감지됨 — 이 런타임에 node/rhwp 미설치로 다운로드/추출/후보 생략. 실제 처리는 Render Cron/Worker(Dockerfile.worker)가 담당."
             return out
         tmpdir = Path(tempfile.gettempdir()) / "manual_update_dryrun" / version
         out["stages"]["tmp_dir"] = str(tmpdir)

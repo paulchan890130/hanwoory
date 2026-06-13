@@ -1388,9 +1388,9 @@ function ManualUpdateV1Tab() {
               </span>
             ))}
           </div>
-          {/* full PDF 생성은 명시적 CLI 옵션 (운영 영향 없음) */}
+          {/* full PDF 생성은 개발용 CLI fallback (운영 영향 없음). 운영 자동화는 Render Cron/Worker. */}
           <div className="mt-3 text-[11px] p-2 rounded" style={{ background: "#FFFDF7", color: "#6B5314", border: "1px solid #FAF089" }}>
-            전체 staging PDF 가 필요하면 로컬에서 명시적으로 생성하세요:
+            운영 자동화는 <b>Render Cron/Worker(Dockerfile.worker)</b>가 담당합니다. 아래는 개발용 fallback CLI입니다:
             <code className="ml-1 font-mono">python backend/scripts/manual_update_local.py --version {manifest.version} --full-pdf</code>
             <br />기본 파이프라인은 변경 페이지 ± 이웃만 PDF 로 만들어 불필요한 작업을 최소화합니다.
           </div>
@@ -2204,6 +2204,20 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
             ⚠ <b>실제 업데이트(PG 기록)·변경 페이지 PDF 생성</b>은 매일 15:00 KST 또는 수동 트리거 시 <b>Render Cron/Worker(Dockerfile.worker, chromium 포함)</b>가 담당합니다. 웹서비스에서는 무거운 작업을 직접 실행하지 않으며, 이 화면은 <b>감지(진단)·상태 조회</b> 용도입니다. {runCap.can_record_update ? "(현재 웹 런타임도 node/rhwp 는 가능하나, 부하 분리를 위해 워커로 일원화)" : null}
           </div>
         )}
+        {/* Render Cron Job 설정 안내 — 미설정 시 자동 업데이트가 동작하지 않음을 명확히 표시 */}
+        <details className="text-[11px] mt-2 p-2 rounded" style={{ background: "#F0F5FF", color: "#2A4365", border: "1px solid #BEE3F8" }}>
+          <summary style={{ cursor: "pointer", fontWeight: 700 }}>ⓘ 자동 업데이트는 Render Cron Job 설정 시 동작 — 미설정 시 비동작 (설정값 보기)</summary>
+          <div style={{ lineHeight: 1.9, marginTop: 6 }}>
+            <div><b>Render Dashboard → New + → Cron Job</b> (Web Service 아님). repo=동일, branch=main.</div>
+            <div>Dockerfile: <code className="font-mono">Dockerfile.worker</code></div>
+            <div>Command: <code className="font-mono">python -m backend.scripts.manual_worker_run --pg --with-pdf</code></div>
+            <div>Schedule(UTC): <code className="font-mono">0 6 * * *</code> (= 15:00 KST)</div>
+            <div>필수 env: <code className="font-mono">DATABASE_URL</code>(Web과 동일 PG) · <code className="font-mono">FEATURE_PG_MANUAL_UPDATE=1</code> · <code className="font-mono">FEATURE_MANUAL_AUTO_UPDATE=1</code></div>
+            <div>선택 env(이미지에 baked): <code className="font-mono">CHROME_PATH=/usr/bin/chromium</code> · <code className="font-mono">MANUAL_UPDATE_WORKER=1</code></div>
+            <div>불필요: KID_PII_ENCRYPTION_KEY · JWT/웹 전용 env · 업로드 관련 env</div>
+            <div style={{ color: "#C05621" }}>결과는 PG(manual_pdf_artifacts blob 등)에 저장되어 이 화면에서 조회됩니다. Cron Job 미설정 시 자동 staging/PDF가 생성되지 않습니다.</div>
+          </div>
+        </details>
         {runResult && (() => {
           const r = runResult.result || {}; const s = (r.stages || {}) as Record<string, unknown>;
           const dl = Array.isArray(s.downloaded) ? (s.downloaded as { name: string; bytes: number }[]) : [];

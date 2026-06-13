@@ -1318,7 +1318,7 @@ def pg_run_now(body: RunNowBody, admin: dict = Depends(require_admin)):
     if mode == "record" and not cap["can_record_update"]:
         raise HTTPException(status_code=409, detail="실제 업데이트 실행 불가: " + cap["reason"])
     if mode == "generate_pdf_artifacts" and not cap["can_generate_pdf"]:
-        raise HTTPException(status_code=409, detail="PDF artifact 생성 불가: node/chromium 실행 환경이 없습니다(로컬/워커 필요).")
+        raise HTTPException(status_code=409, detail="PDF artifact 생성 불가: chromium 실행 환경이 없습니다. 변경 페이지 PDF 생성은 Render Cron/Worker(Dockerfile.worker)가 담당합니다.")
     if not _RUN_NOW_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail={"code": "RUNNING",
                             "message": "이미 매뉴얼 업데이트 실행 중입니다.", "state": dict(_RUN_NOW_STATE)})
