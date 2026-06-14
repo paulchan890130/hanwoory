@@ -49,7 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-notify", action="store_true",
                     help="게시판 '검토 필요' 공지 생략.")
     ap.add_argument("--limit", type=int, default=None,
-                    help="--with-pdf 시 PDF 생성 후보 수 제한(테스트용).")
+                    help="--with-pdf 시 PDF 생성 후보 수 제한(디버깅용 수동 제한). "
+                         "미지정이면 컨테이너 메모리 기준 adaptive batch 로 누락 후보 전체 처리.")
     args = ap.parse_args(argv)
 
     from backend.services.manual_auto_update import run_worker_cycle

@@ -810,6 +810,236 @@ def _existing_artifact_rowids(svc, version: str) -> set:
     return rowids
 
 
+# ── adaptive PDF batching (512MB-safe 순차 처리) ──────────────────────────────
+# Render Cron Starter(512MB)에서 21개 후보를 한 번에 렌더하면 chromium/node 가 OOM(rc=137,
+# SIGKILL) 난다. 컨테이너 메모리를 읽어 안전한 batch size 를 산정하고, batch 하나씩
+# generate_pdf.mjs 를 따로 실행(프로세스 종료 → 메모리 회수)한다. node/OOM 실패 시 batch 를
+# 절반으로 줄여 재시도하고, size 1 에서도 실패하면 그 후보만 failed 로 기록하고 진행한다.
+_DEFAULT_MEMORY_LIMIT_MB = 512
+_CGROUP_MEMORY_PATHS = (
+    "/sys/fs/cgroup/memory.max",                 # cgroup v2
+    "/sys/fs/cgroup/memory/memory.limit_in_bytes",  # cgroup v1
+)
+# OOM/메모리 실패로 간주할 신호(소문자 비교). rc=137(=128+9 SIGKILL) / 일부 환경 rc=-9.
+_OOM_MARKERS = ("out of memory", "killed", "sigkill",
+                "javascript heap out of memory", "cannot allocate memory")
+_OOM_RC = ("rc=137", "rc=-9")
+
+
+def _detect_memory_limit_mb() -> int:
+    """컨테이너 메모리 상한(MB). cgroup v2→v1 순으로 읽고, 없거나 비정상이면 512 로 간주.
+    테스트/오버라이드용 env ``MANUAL_PDF_MEMORY_LIMIT_MB`` 가 우선한다."""
+    env = os.environ.get("MANUAL_PDF_MEMORY_LIMIT_MB")
+    if env:
+        try:
+            v = int(str(env).strip())
+            if v > 0:
+                return v
+        except ValueError:
+            pass
+    for p in _CGROUP_MEMORY_PATHS:
+        try:
+            raw = Path(p).read_text(encoding="utf-8").strip()
+        except Exception:
+            continue
+        if not raw or raw.lower() == "max":
+            continue
+        try:
+            val = int(raw)
+        except ValueError:
+            continue
+        # cgroup v1 "무제한" 은 거대한 sentinel(≈PAGE_COUNTER_MAX) → 무시
+        if val <= 0 or val >= (1 << 62):
+            continue
+        mb = val // (1024 * 1024)
+        if mb <= 0 or mb > 1024 * 1024:  # 0 또는 >1TB 는 비정상
+            continue
+        return mb
+    return _DEFAULT_MEMORY_LIMIT_MB
+
+
+def _compute_batch_size(memory_limit_mb: int) -> int:
+    """메모리 상한 기준 초기 batch size(후보 개수)."""
+    if memory_limit_mb <= 512:
+        return 1
+    if memory_limit_mb <= 768:
+        return 2
+    if memory_limit_mb <= 1024:
+        return 3
+    return 5
+
+
+def _page_budget(memory_limit_mb: int) -> int:
+    """batch 당 한 번에 렌더할 페이지 수 상한. 페이지 범위가 큰 후보는 혼자, 작은 후보는
+    묶어서 처리하기 위한 2차 기준(개수 batch_size 와 함께 적용)."""
+    if memory_limit_mb <= 512:
+        return 6
+    if memory_limit_mb <= 768:
+        return 10
+    if memory_limit_mb <= 1024:
+        return 16
+    return 30
+
+
+def _node_heap_mb(memory_limit_mb: int) -> int:
+    """generate_pdf.mjs 의 --max-old-space-size(MB). 512MB 컨테이너에서 기본 4096 은
+    V8 이 한도를 넘어 자라다 OOM 나므로 작게 잡는다(chromium 은 별도 프로세스)."""
+    if memory_limit_mb <= 512:
+        return 256
+    if memory_limit_mb <= 1024:
+        return 512
+    return 4096
+
+
+def _candidate_pages(c: dict, neighbor: int) -> list[int]:
+    """후보의 (candidate_page_from..to)±neighbor 1-based 페이지 목록."""
+    a = int(c.get("candidate_page_from") or 0)
+    b = int(c.get("candidate_page_to") or a)
+    lo = max(1, min(a, b) - neighbor)
+    hi = max(a, b) + neighbor
+    return list(range(lo, hi + 1))
+
+
+def _plan_batches(cands: list[dict], batch_size: int, page_budget: int,
+                  neighbor: int) -> list[list[dict]]:
+    """후보를 개수(batch_size)·페이지(page_budget) 양쪽 상한으로 greedy 패킹.
+    자기 혼자 page_budget 을 넘는 후보는 단독 batch 로 분리한다."""
+    batches: list[list[dict]] = []
+    cur: list[dict] = []
+    cur_pages = 0
+    for c in cands:
+        n = len(_candidate_pages(c, neighbor))
+        if n >= page_budget:  # 페이지 범위가 큰 후보 → 단독 처리
+            if cur:
+                batches.append(cur); cur = []; cur_pages = 0
+            batches.append([c])
+            continue
+        if cur and (len(cur) >= batch_size or cur_pages + n > page_budget):
+            batches.append(cur); cur = []; cur_pages = 0
+        cur.append(c); cur_pages += n
+    if cur:
+        batches.append(cur)
+    return batches
+
+
+def _is_oom_failure(exc: Exception, log_path) -> bool:
+    """node 실패가 OOM/메모리성인지 판단(예외 메시지 + node 로그 tail 검사)."""
+    msg = str(exc).lower()
+    if any(rc in msg for rc in _OOM_RC):
+        return True
+    if any(m in msg for m in _OOM_MARKERS):
+        return True
+    try:
+        data = Path(log_path).read_text(encoding="utf-8", errors="replace").lower()
+        if any(m in data for m in _OOM_MARKERS):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _render_batch(*, label: str, manual: str, hwp, batch: list[dict], neighbor: int,
+                  version: str, svc, tmpdir, out: dict, max_old_space_mb: int) -> None:
+    """batch 후보들의 합집합 페이지를 generate_pdf.mjs 1회 실행으로 렌더한 뒤 후보별 번들 저장.
+
+    node(run_node) 실패는 예외로 전파한다(호출부가 OOM 판정 → batch 축소/재시도). 번들
+    단계 실패는 후보 단위라 예외를 던지지 않고 out['failed'] 에만 기록한다."""
+    import fitz
+    from backend.scripts.manual_update_local import NODE_TOOLS, run_node
+    needed = sorted({p for c in batch for p in _candidate_pages(c, neighbor)})
+    pages_dir = tmpdir / f"pages_{label}"
+    genpdf_log = tmpdir / f"genpdf_{label}.log"
+    run_node([str(NODE_TOOLS / "generate_pdf.mjs"), "--src", str(hwp),
+              "--label", label, "--pages", ",".join(map(str, needed)),
+              "--flat", "--out-dir", str(pages_dir)],
+             genpdf_log, max_old_space_mb=max_old_space_mb)
+    for c in batch:
+        pages = _candidate_pages(c, neighbor)
+        try:
+            bundle = fitz.open()
+            used = []
+            for p in pages:
+                pf = pages_dir / label / f"p{p:04d}.pdf"
+                if not pf.is_file():
+                    pf = pages_dir / f"p{p:04d}.pdf"
+                if pf.is_file():
+                    with fitz.open(pf) as srcpdf:
+                        bundle.insert_pdf(srcpdf)
+                    used.append(p)
+            if not used:
+                bundle.close()
+                out["failed"] += 1
+                out["failed_row_ids"].append(c.get("row_id"))
+                out["errors"].append(f"{c.get('row_id')}: no page PDFs")
+                continue
+            blob = bundle.tobytes()
+            bundle.close()
+            rec = svc.save_pdf_artifact(
+                manual=manual, artifact_type="changed_page_bundle", version=version,
+                source="staging", page_from=min(used), page_to=max(used),
+                page_numbers=used, pdf_blob=blob, page_count=len(used),
+                status="generated", note=f"candidate {c['row_id']}",
+            )
+            out["generated"] += 1
+            out["artifact_ids"].append(rec.get("id"))
+        except Exception as e:
+            out["failed"] += 1
+            out["failed_row_ids"].append(c.get("row_id"))
+            out["errors"].append(f"{c.get('row_id')}: bundle failed: {type(e).__name__}: {e}")
+
+
+def _process_label_adaptive(*, label: str, manual: str, hwp, cands: list[dict],
+                            batch_size: int, page_budget: int, neighbor: int,
+                            version: str, svc, tmpdir, out: dict, memory_limit_mb: int,
+                            batch_counter: dict, batch_count: int) -> None:
+    """한 매뉴얼(label)의 후보들을 batch 단위로 순차 렌더. node/OOM 실패 시 batch 를 절반으로
+    줄여 재시도하고, batch_size 1 에서도 실패하면 해당 후보만 failed 로 기록하고 진행한다."""
+    genpdf_log = tmpdir / f"genpdf_{label}.log"
+    work = [(b, batch_size) for b in _plan_batches(cands, batch_size, page_budget, neighbor)]
+    while work:
+        batch, bs = work.pop(0)
+        batch_counter["i"] += 1
+        bi = batch_counter["i"]
+        rids = [c.get("row_id") for c in batch]
+        max_old = _node_heap_mb(memory_limit_mb)
+        _log("pdf_batch_start", version=version, manual=manual,
+             memory_limit_mb=memory_limit_mb, batch_size=bs, batch_index=bi,
+             batch_count=batch_count, candidate_row_ids=rids, node_heap_mb=max_old)
+        try:
+            _render_batch(label=label, manual=manual, hwp=hwp, batch=batch,
+                          neighbor=neighbor, version=version, svc=svc, tmpdir=tmpdir,
+                          out=out, max_old_space_mb=max_old)
+            _log("pdf_batch_done", version=version, manual=manual, batch_size=bs,
+                 batch_index=bi, batch_count=batch_count, candidate_row_ids=rids,
+                 generated=out["generated"], failed=out["failed"],
+                 skipped_existing=out["skipped_existing"])
+        except Exception as e:
+            oom = _is_oom_failure(e, genpdf_log)
+            _log("pdf_batch_failed", version=version, manual=manual, batch_size=bs,
+                 batch_index=bi, batch_count=batch_count, candidate_row_ids=rids,
+                 oom=oom, error=f"{type(e).__name__}: {e}")
+            if bs > 1:
+                new_bs = max(1, bs // 2)
+                out["retry_count"] += 1
+                _log("pdf_batch_retry_smaller", version=version, manual=manual,
+                     batch_size=bs, new_batch_size=new_bs, batch_index=bi,
+                     batch_count=batch_count, candidate_row_ids=rids, oom=oom)
+                sub = _plan_batches(batch, new_bs, page_budget, neighbor)
+                work = [(s, new_bs) for s in sub] + work  # 즉시 재시도(앞에 삽입)
+            else:
+                for c in batch:
+                    out["failed"] += 1
+                    out["failed_row_ids"].append(c.get("row_id"))
+                    out["errors"].append(
+                        f"{c.get('row_id')}: generate_pdf failed at batch_size=1: "
+                        f"{type(e).__name__}: {e}")
+                _log("pdf_batch_candidate_failed", version=version, manual=manual,
+                     batch_index=bi, batch_count=batch_count, candidate_row_ids=rids,
+                     oom=oom, error=f"{type(e).__name__}: {e}")
+                _emit_genpdf_log_tail(manual=manual, version=version, exc=e,
+                                      log_path=genpdf_log)
+
+
 def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: int = 1,
                                        limit: int | None = None,
                                        row_ids: list[str] | None = None,
@@ -817,16 +1047,26 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
     """변경 페이지 PDF artifact 생성(node/chromium 필요 — host/worker 전용).
 
     흐름: 후보 조회 → (skip_existing) 이미 artifact 있는 후보 제외 → 남은 후보가 있으면
-    현재 첨부 /tmp 다운로드 → 후보별 (페이지±이웃) 목록 산출 → generate_pdf.mjs --pages
-    1회 실행(문서 1회 로드) → 후보별 per-page PDF 를 PyMuPDF 로 묶어
-    manual_pdf_artifacts.pdf_blob 저장 → /tmp 삭제.
+    현재 첨부 /tmp 다운로드 → **컨테이너 메모리 기준 adaptive batch 산정** → 후보를 batch
+    단위로 나눠 batch 하나씩 generate_pdf.mjs 실행(프로세스 종료 → 메모리 회수) → 후보별
+    per-page PDF 를 PyMuPDF 로 묶어 manual_pdf_artifacts.pdf_blob 저장 → /tmp 삭제.
+
+    512MB(Render Cron Starter)에서 21개 후보를 한 번에 렌더하면 OOM 나므로, batch 하나가
+    실패(OOM/node)하면 batch 를 절반으로 줄여 재시도하고, batch_size 1 에서도 실패하면 그
+    후보만 failed 로 기록하고 다음 후보로 넘어간다.
+
+    ``limit`` 이 명시되면 수동 제한(생성 대상 후보 수를 앞에서 자른다)으로 동작하고, 그래도
+    batch 처리(메모리 안전장치)는 동일하게 적용된다. ``limit=None`` 이면 누락된 모든 후보를
+    adaptive batch 로 처리한다.
 
     중복 방지: 같은 version 의 candidate(row_id)에 이미 artifact 가 있으면 재생성하지 않는다
     (skip_existing=True). 남은 후보가 없으면 다운로드조차 하지 않고 skip 한다.
     PDF 생성 실패는 텍스트/후보 데이터에 영향 없다(이 함수는 artifact 만 다룬다).
-    반환: {version, generated, failed, skipped_existing, artifact_ids, errors, status}."""
+    반환: {version, generated, failed, skipped_existing, remaining, batch_size,
+           memory_limit_mb, retry_count, artifact_ids, errors, status}."""
     import shutil
     import tempfile
+    from collections import defaultdict
     from backend.services import manual_update_pg_service as svc
     if not svc.pg_enabled():
         return {"status": "skipped", "reason": "pg_disabled"}
@@ -835,7 +1075,8 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
         return {"status": "skipped", "reason": "no staging version"}
 
     out = {"version": version, "generated": 0, "failed": 0, "skipped_existing": 0,
-           "artifact_ids": [], "errors": []}
+           "remaining": 0, "batch_size": None, "memory_limit_mb": None,
+           "retry_count": 0, "artifact_ids": [], "errors": [], "failed_row_ids": []}
 
     # 생성 대상(target) 을 다운로드 전에 확정해 불필요한 하이코리아 접속/추출을 피한다.
     cands_all = svc.get_candidates_enriched(version)
@@ -847,13 +1088,20 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
         out["skipped_existing"] = len(cands_all) - len(target)
     else:
         target = list(cands_all)
-    if limit:
+    if limit:  # 디버깅용 수동 제한 — 그래도 batch 처리는 동일 적용
         target = target[:limit]
     if not cands_all:
         return {**out, "status": "skipped", "reason": "no_candidates"}
     if not target:
         return {**out, "status": "skipped", "reason": "artifacts_already_exist",
                 "existing_artifacts": len(existing_rowids), "candidates": len(cands_all)}
+
+    # ── adaptive batch 산정 ──────────────────────────────────────────────────
+    memory_limit_mb = _detect_memory_limit_mb()
+    init_bs = _compute_batch_size(memory_limit_mb)
+    budget = _page_budget(memory_limit_mb)
+    out["memory_limit_mb"] = memory_limit_mb
+    out["batch_size"] = init_bs
 
     tmpdir = Path(tempfile.gettempdir()) / "manual_pdf_artifacts" / version
     try:
@@ -865,9 +1113,20 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
             return {**out, "status": "no_attachments"}
         _download_changed_to(changed, tmpdir, session=session)
 
-        from backend.scripts.manual_update_local import NODE_TOOLS, run_node, classify_label
-        import fitz
+        from backend.scripts.manual_update_local import classify_label
 
+        # target 을 매뉴얼(label)별로 그룹핑 후 batch 계획 수립(로그용 총 batch 수 산정).
+        by_label: dict[str, list[dict]] = defaultdict(list)
+        for c in target:
+            by_label[c.get("manual_label")].append(c)
+        batch_count = sum(len(_plan_batches(cs, init_bs, budget, neighbor))
+                          for cs in by_label.values())
+        _log("pdf_batch_plan", version=version, memory_limit_mb=memory_limit_mb,
+             batch_size=init_bs, page_budget=budget, batch_count=batch_count,
+             total_candidates=len(target),
+             labels={k: len(v) for k, v in by_label.items()})
+
+        batch_counter = {"i": 0}
         for hwp in sorted(tmpdir.iterdir()):
             if not hwp.is_file() or hwp.suffix.lower() not in (".hwp", ".hwpx"):
                 continue
@@ -876,61 +1135,21 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
             if not manual:
                 continue
             # target 은 이미 row_ids/skip_existing/limit 적용된 생성 대상 후보다.
-            cands = [c for c in target if c.get("manual_label") == label]
+            cands = by_label.get(label) or []
             if not cands:
                 continue
-            # 후보별 페이지(±이웃) 합집합 → 1회 렌더
-            def _crange(c):
-                a = int(c.get("candidate_page_from") or 0); b = int(c.get("candidate_page_to") or a)
-                lo = max(1, min(a, b) - neighbor); hi = max(a, b) + neighbor
-                return list(range(lo, hi + 1))
-            needed = sorted({p for c in cands for p in _crange(c)})
-            pages_dir = tmpdir / f"pages_{label}"
-            genpdf_log = tmpdir / f"genpdf_{label}.log"
-            try:
-                run_node([str(NODE_TOOLS / "generate_pdf.mjs"), "--src", str(hwp),
-                          "--label", label, "--pages", ",".join(map(str, needed)),
-                          "--flat", "--out-dir", str(pages_dir)],
-                         genpdf_log)
-            except Exception as e:
-                out["failed"] += len(cands)
-                out["errors"].append(f"{label} generate_pdf failed: {type(e).__name__}: {e}")
-                # Cron 종료 후 /tmp 로그를 볼 수 없으므로 node 실패 로그 tail 을 Render Logs 에 노출
-                _emit_genpdf_log_tail(manual=manual, version=version, exc=e, log_path=genpdf_log)
-                continue
-            # 후보별 번들 저장
-            for c in cands:
-                pages = _crange(c)
-                try:
-                    bundle = fitz.open()
-                    used = []
-                    for p in pages:
-                        pf = pages_dir / label / f"p{p:04d}.pdf"
-                        if not pf.is_file():
-                            pf = pages_dir / f"p{p:04d}.pdf"
-                        if pf.is_file():
-                            with fitz.open(pf) as src:
-                                bundle.insert_pdf(src)
-                            used.append(p)
-                    if not used:
-                        out["failed"] += 1
-                        out["errors"].append(f"{c['row_id']}: no page PDFs")
-                        bundle.close()
-                        continue
-                    blob = bundle.tobytes()
-                    bundle.close()
-                    rec = svc.save_pdf_artifact(
-                        manual=manual, artifact_type="changed_page_bundle", version=version,
-                        source="staging", page_from=min(used), page_to=max(used),
-                        page_numbers=used, pdf_blob=blob, page_count=len(used),
-                        status="generated", note=f"candidate {c['row_id']}",
-                    )
-                    out["generated"] += 1
-                    out["artifact_ids"].append(rec.get("id"))
-                except Exception as e:
-                    out["failed"] += 1
-                    out["errors"].append(f"{c['row_id']}: bundle failed: {type(e).__name__}: {e}")
+            _process_label_adaptive(
+                label=label, manual=manual, hwp=hwp, cands=cands, batch_size=init_bs,
+                page_budget=budget, neighbor=neighbor, version=version, svc=svc,
+                tmpdir=tmpdir, out=out, memory_limit_mb=memory_limit_mb,
+                batch_counter=batch_counter, batch_count=batch_count)
+
+        out["remaining"] = max(0, len(target) - out["generated"] - out["failed"])
         out["status"] = "ok"
+        _log("pdf_batch_all_done", version=version, memory_limit_mb=memory_limit_mb,
+             batch_size=init_bs, batch_count=batch_count, generated=out["generated"],
+             failed=out["failed"], skipped_existing=out["skipped_existing"],
+             remaining=out["remaining"], retry_count=out["retry_count"])
         return out
     except Exception as e:
         return {**out, "status": "error", "error": f"{type(e).__name__}: {e}"}

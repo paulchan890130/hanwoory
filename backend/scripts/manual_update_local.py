@@ -98,14 +98,19 @@ def sha256(p: pathlib.Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def run_node(args: list[str], log_path: pathlib.Path) -> dict:
+def run_node(args: list[str], log_path: pathlib.Path, *,
+             max_old_space_mb: int = 4096) -> dict:
     """Run a Node script under tools/rhwp_manual_pipeline.
 
     Captures stdout JSON lines. Last 'done' line is returned as the meta dict.
+
+    ``max_old_space_mb`` caps V8's old-space heap. The 4096 default suits the
+    host/local pipeline; the adaptive PDF batcher lowers it on small (≤512MB)
+    containers so V8 GCs aggressively instead of growing past the cgroup limit.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     proc = subprocess.run(
-        ['node', '--max-old-space-size=4096'] + args,
+        ['node', f'--max-old-space-size={int(max_old_space_mb)}'] + args,
         capture_output=True, text=True, encoding='utf-8',
     )
     log_path.write_text(proc.stdout + ('\n[stderr]\n' + proc.stderr if proc.stderr else ''),
