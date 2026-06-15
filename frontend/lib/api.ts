@@ -170,6 +170,33 @@ export const authApi = {
   me: () => api.get("/api/auth/me"),
 };
 
+// 전자명함 (마이페이지)
+export interface BusinessCard {
+  office_name: string;
+  contact_name: string;
+  phone: string;        // 표시용(effective): card_phone || contact_tel
+  address: string;      // 표시용(effective): card_address || office_adr
+  bio: string;
+  work_fields: string[];
+  logo_url: string;
+  public_slug: string;
+  is_public: boolean;
+  // 편집용 원본값(빈 값이면 fallback이 적용됨을 의미 — 입력칸은 이 raw 값으로 채운다)
+  raw?: {
+    card_phone: string;
+    card_address: string;
+    card_logo_url: string;
+    card_work_fields: string[];
+  };
+}
+export const businessCardApi = {
+  getMine: () => api.get<BusinessCard>("/api/my/business-card"),
+  updateMine: (data: Partial<{
+    phone: string; address: string; bio: string;
+    work_fields: string[]; logo_url: string; public_slug: string; is_public: boolean;
+  }>) => api.patch<BusinessCard>("/api/my/business-card", data),
+};
+
 // 업무
 export const tasksApi = {
   getActive: () => api.get<ActiveTask[]>("/api/tasks/active"),

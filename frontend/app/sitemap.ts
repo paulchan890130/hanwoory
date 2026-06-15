@@ -84,5 +84,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
-  return [...staticEntries, ...dynamicEntries];
+  // 공개(card_is_public=true) 전자명함만 포함. /login·/dashboard·/admin·/marketing 은 미포함.
+  let cardEntries: MetadataRoute.Sitemap = [];
+  try {
+    const res = await fetch(`${API_URL}/api/public/business-cards`, {
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data: { slugs?: string[] } = await res.json();
+      cardEntries = (data.slugs || []).map((slug) => ({
+        url: `${BASE_URL}/card/${encodeURIComponent(slug)}`,
+        lastModified: now,
+        changeFrequency: "monthly" as const,
+        priority: 0.5,
+      }));
+    }
+  } catch {
+    /* 공개 명함 목록 실패 시 조용히 건너뜀(정적/게시물 항목은 유지) */
+  }
+
+  return [...staticEntries, ...dynamicEntries, ...cardEntries];
 }

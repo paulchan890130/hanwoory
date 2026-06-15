@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, String, Text, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.base import Base
@@ -36,6 +37,16 @@ class Tenant(Base):
     folder_id: Mapped[str | None] = mapped_column(Text)
     customer_sheet_key: Mapped[str | None] = mapped_column(Text)
     work_sheet_key: Mapped[str | None] = mapped_column(Text)
+    # ── 전자명함(business card) — 마이페이지 입력 / 공개 /card/{slug} (migration 0015) ──
+    card_bio: Mapped[str | None] = mapped_column(Text)
+    card_work_fields: Mapped[list | None] = mapped_column(JSONB)
+    card_phone: Mapped[str | None] = mapped_column(Text)
+    card_address: Mapped[str | None] = mapped_column(Text)
+    card_logo_url: Mapped[str | None] = mapped_column(Text)
+    card_public_slug: Mapped[str | None] = mapped_column(Text, unique=True)
+    card_is_public: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("TRUE")
     )

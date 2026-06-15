@@ -169,6 +169,7 @@ from backend.routers import (
     marketing,
     signature,
     certification,
+    business_card,
     health as health_router,
 )
 
@@ -214,6 +215,7 @@ app.include_router(guideline_categories.router, prefix="/api/guideline-categorie
 app.include_router(marketing.router,  prefix="/api/marketing",  tags=["마케팅"])
 app.include_router(signature.router,      prefix="/api/signature",               tags=["서명"])
 app.include_router(certification.router,  prefix="/api/certification-services",  tags=["각종공인증"])
+app.include_router(business_card.router,   prefix="/api",                          tags=["전자명함"])
 app.include_router(health_router.router,  prefix="/health",                       tags=["헬스체크"])
 
 # ── Local-beta only: PostgreSQL dev endpoints ─────────────────────────────────

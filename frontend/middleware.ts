@@ -14,6 +14,7 @@ export function middleware(request: NextRequest) {
   if (
     pathname === "/" ||
     pathname.startsWith("/board") ||
+    pathname.startsWith("/card") ||    // 공개 전자명함 (/card/{slug})
     pathname.startsWith("/sign") ||    // 모바일 서명 패드 (/sign/{token})
     pathname === "/documents" ||
     pathname === "/siheung-immigration-agent" ||
