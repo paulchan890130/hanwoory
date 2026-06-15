@@ -945,13 +945,43 @@ class PgOverrideBody(BaseModel):
     candidate_from: Optional[int] = None
     candidate_to: Optional[int] = None
     reason: Optional[str] = None
+    manual: Optional[str] = None      # 페이지 상한 검증용(매뉴얼 라벨). 없으면 fallback 상한.
+    version: Optional[str] = None     # staging 전체본이 있으면 그 page_count 로 검증
 
 
 @router.post("/manual-update/decisions/{row_id}/override")
 def pg_save_override(row_id: str, body: PgOverrideBody, admin: dict = Depends(require_admin)):
-    """관리자 수동 페이지 지정 저장(자동 추천값 보존, 운영 manual_ref 미반영)."""
+    """관리자 수동 페이지 지정 저장(자동 추천값 보존, 운영 manual_ref 미반영).
+
+    기존/추천 페이지가 모두 틀릴 때 임의 페이지를 직접 입력하는 경로. 잘못된 페이지는
+    400 으로 막는다:
+      - 0/음수/정수 아님 → 400
+      - from > to → 400
+      - 매뉴얼 전체 page_count 를 알 수 있으면 1~page_count 초과 → 400
+        (예: 764페이지 PDF 에서 3000 입력 차단)
+      - page_count 를 알 수 없을 때만 fallback 상한(_MAX_PAGE) 사용(UI 는 pdf-source 의
+        page_count=null 로 '전체 페이지 수 확인 불가' 를 구분 표시)."""
     if not _pg_manual_enabled():
         raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    _MAX_PAGE = 5000  # page_count 미확인 시에만 쓰는 안전 상한
+    page_count = None
+    if body.manual:
+        kr = _pdf_label_to_kr(body.manual)
+        if kr:
+            page_count, _ = _full_pdf_page_count(kr, body.version or "")
+    upper = page_count if page_count else _MAX_PAGE
+    bound_txt = (f"1~{page_count} (전체 {page_count}페이지)" if page_count
+                 else f"1~{_MAX_PAGE} (전체 페이지 수 확인 불가)")
+
+    def _vpair(frm, to, name):
+        for v in (frm, to):
+            if v is not None and (int(v) < 1 or int(v) > upper):
+                raise HTTPException(status_code=400,
+                    detail=f"{name} 페이지는 {bound_txt} 범위여야 합니다.")
+        if frm is not None and to is not None and int(frm) > int(to):
+            raise HTTPException(status_code=400, detail=f"{name} 시작 페이지가 끝 페이지보다 큽니다.")
+    _vpair(body.baseline_from, body.baseline_to, "기준")
+    _vpair(body.candidate_from, body.candidate_to, "후보")
     from backend.services import manual_update_pg_service as svc
     return svc.save_reviewer_override(
         row_id, baseline_from=body.baseline_from, baseline_to=body.baseline_to,
@@ -1002,18 +1032,61 @@ def _staging_full_pdf_path(version: str, kr_label: str) -> Optional[str]:
     return None
 
 
+def _full_pdf_page_count(kr_label: str, version: str = "") -> tuple[Optional[int], Optional[str]]:
+    """검증 기준이 되는 매뉴얼 전체 페이지 수 → (page_count, source).
+    staging 전체 PDF 가 있으면 그것, 없으면 배포본 PDF 의 page_count. 둘 다 없으면 (None, None)."""
+    candidates = []
+    staging = _staging_full_pdf_path(version, kr_label) if version else None
+    if staging:
+        candidates.append((staging, "staging"))
+    deployed = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr_label, ""))
+    if os.path.isfile(deployed):
+        candidates.append((deployed, "deployed"))
+    for path, src in candidates:
+        try:
+            import fitz
+            with fitz.open(path) as d:
+                return d.page_count, src
+        except Exception:
+            continue
+    return None, None
+
+
 @router.get("/manual-update/pdf-source")
 def pg_pdf_source(manual: str, version: str = "", admin: dict = Depends(require_admin)):
-    """버튼 라벨/배너용: 최신 staging PDF 존재 여부 + 사용할 소스(staging|deployed)."""
+    """버튼 라벨/배너용 + 임의 페이지 검증 기준.
+
+    resolver 우선순위(pg_pdf 와 동일): staging 파일 > worker full_pdf > review_splice 합성 > 배포본.
+    ``review_only`` 가 True 면 PyMuPDF 검토용 합성본(운영 미반영)이다.
+    ``page_count`` 는 임의 페이지 입력 검증 상한(없으면 null → '전체 페이지 수 확인 불가')."""
     kr = _pdf_label_to_kr(manual)
     if not kr:
         raise HTTPException(status_code=400, detail=f"알 수 없는 manual '{manual}'")
     staging = _staging_full_pdf_path(version, kr) if version else None
     deployed = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr, ""))
+    manual_norm = _MANUAL_NORM.get((manual or "").strip())
+    page_count, page_count_source = _full_pdf_page_count(kr, version)
+    # 소스 판정(스트리밍은 pg_pdf 가 동일 우선순위로 수행)
+    source, review_only = "deployed", False
+    if staging:
+        source, review_only = "staging", False
+    elif manual_norm and version:
+        try:
+            from backend.services import manual_update_pg_service as svc
+            if svc.pg_enabled():
+                if svc.get_worker_full_pdf(manual_norm, version):
+                    source, review_only = "worker_artifact", False
+                elif svc._changed_components(manual_norm, version):
+                    source, review_only = "review_splice", True
+        except Exception:
+            pass
     return {
         "manual": manual, "kr_label": kr, "version": version,
         "is_staging": bool(staging),
-        "source": "staging" if staging else "deployed",
+        "source": source,
+        "review_only": review_only,        # True → 검토용(운영 미반영) 합성본
+        "page_count": page_count,          # 임의 페이지 검증 상한(null=확인 불가)
+        "page_count_source": page_count_source,
         "available": bool(staging) or os.path.isfile(deployed),
     }
 
@@ -1047,23 +1120,28 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
     source_hwp_present = False
     if version and os.path.isdir(incoming_dir):
         source_hwp_present = any(version in n for n in os.listdir(incoming_dir))
-    # PDF artifact 레지스트리(Step 3) — 개수/최신 full_pdf artifact 존재 여부.
+    # PDF artifact 레지스트리(Step 3) — worker full_pdf / review_splice 합성 구분.
     artifact_summary = {"total": 0, "by_manual": {}}
-    full_artifact = None
+    full_artifact = None            # worker/node 가 만든 진짜 full_pdf (review_splice 아님)
+    review_splice_available = False  # 변경 페이지 → 배포본 스플라이스 합성 가능 여부
+    manual_norm = _MANUAL_NORM.get((manual or "").strip())
     try:
         from backend.services import manual_update_pg_service as svc
         if svc.pg_enabled():
             artifact_summary = svc.pdf_artifact_summary(manual=manual)
-            latest = svc.get_latest_pdf_artifact(manual)
-            if latest and latest.get("artifact_type") == "full_pdf":
-                full_artifact = latest
+            if manual_norm:
+                full_artifact = svc.get_worker_full_pdf(manual_norm, version or None)
+                if version:
+                    review_splice_available = bool(svc._changed_components(manual_norm, version))
     except Exception:
         pass
-    # viewer 우선순위: full_pdf artifact > staging 파일 > 배포본.
-    if full_artifact:
-        viewer_source, viewer_file = "artifact", f"artifact#{full_artifact['id']}"
-    elif staging:
+    # viewer 우선순위: staging 파일 > worker full_pdf > review_splice 합성 > 배포본.
+    if staging:
         viewer_source, viewer_file = "staging", os.path.basename(staging)
+    elif full_artifact:
+        viewer_source, viewer_file = "worker_artifact", f"artifact#{full_artifact['id']}"
+    elif review_splice_available:
+        viewer_source, viewer_file = "review_splice", "pymupdf_splice(검토용·운영 미반영)"
     else:
         viewer_source, viewer_file = "deployed", deployed_fname
     return {
@@ -1074,52 +1152,75 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
         "deployed": deployed,
         "artifacts": artifact_summary.get("by_manual", {}).get(manual, {"total": 0}),
         "artifacts_total": artifact_summary.get("total", 0),
-        "full_pdf_artifact": full_artifact,               # 최신 full_pdf artifact(있으면 viewer 우선)
+        "full_pdf_artifact": full_artifact,               # worker full_pdf artifact(있으면 viewer 우선)
+        "review_splice_available": review_splice_available,  # 변경 페이지→배포본 스플라이스 합성 가능
+        "review_only": viewer_source == "review_splice",  # 검토용(운영 미반영) 표시 중인지
         "generator_present": generator_present,           # rhwp+chromium CLI 설치 여부
         "source_hwp_present": source_hwp_present,          # 해당 version HWP 원본 보유 여부
-        "replace_pipeline_wired": False,                   # 변경 페이지→full PDF 교체 코드 미구현(사실)
-        "can_refresh_now": False,                          # 위 사유로 현재 자동 최신화 불가
-        "reason": ("full_pdf artifact 표시 중" if full_artifact else
-                   "최신 staging PDF 가 있어 그것을 표시 중" if staging else
-                   "PDF artifact/ staging 없음 → 배포본 PDF fallback. "
-                   "변경 페이지→전체 PDF 교체 파이프라인 미연결(다음 단계 구현 예정)."),
+        # 변경 페이지→전체 PDF '검토용' 합성은 연결됨(PyMuPDF 스플라이스). 운영 배포본 교체는 별개.
+        "replace_pipeline_wired": review_splice_available,
+        "can_refresh_now": review_splice_available,
+        "reason": ("최신 staging PDF 가 있어 그것을 표시 중" if staging else
+                   "worker full_pdf artifact 표시 중" if full_artifact else
+                   "변경 페이지를 배포본에 합성한 검토용 PDF 표시 중(운영 미반영)" if review_splice_available else
+                   "변경 페이지 artifact 없음 → 배포본 PDF fallback."),
     }
 
 
 @router.get("/manual-update/pdf")
 def pg_pdf(manual: str, version: str = "",
            token: Optional[str] = Query(None), authorization: Optional[str] = Header(None)):
-    """viewer resolver: full_pdf artifact > staging 파일 > 배포본 PDF (iframe #page 점프).
+    """viewer resolver — '변경 반영된 완전한 PDF'(전체 문서) 를 #page 점프와 함께 제공.
+
+    우선순위:
+      1) staging 전체 PDF 파일(worker 가 렌더한 완전한 새 매뉴얼)
+      2) worker/node 가 만든 진짜 full_pdf artifact (review_splice 아님)
+      3) 변경 페이지 artifact 를 배포본에 스플라이스한 review_splice 합성본(검토용·운영 미반영, PyMuPDF)
+      4) 배포본 전체 PDF fallback
+    어느 경우든 변경 페이지만 있는 bundle 이 아니라 '전체 문서'를 반환 → 앞뒤 스크롤 가능.
     인증: Authorization 헤더 또는 ?token= (iframe)."""
     _verify_token_flexible(token, authorization)
+    from fastapi.responses import Response as _Resp
+    from urllib.parse import quote
     kr = _pdf_label_to_kr(manual)
     if not kr:
         raise HTTPException(status_code=400, detail=f"알 수 없는 manual '{manual}'")
-    # 1순위: full_pdf artifact(blob) — Step 3 resolver prep.
-    try:
-        from fastapi.responses import Response as _Resp
-        from backend.services import manual_update_pg_service as svc
-        if svc.pg_enabled():
-            latest = svc.get_latest_pdf_artifact(manual)
-            if latest and latest.get("artifact_type") == "full_pdf":
-                blob = svc.get_pdf_artifact_blob(latest["id"])
-                if blob:
-                    return _Resp(content=blob, media_type="application/pdf",
-                                 headers={"Cache-Control": "private, max-age=600",
-                                          "Content-Disposition": "inline; filename=\"manual.pdf\""})
-    except Exception:
-        pass
-    # 2순위: staging 파일, 3순위: 배포본.
-    path = _staging_full_pdf_path(version, kr) if version else None
-    if not path:
-        path = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr, ""))
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=404, detail=f"PDF 파일 없음: {kr}")
-    from urllib.parse import quote
-    return FileResponse(path, media_type="application/pdf", headers={
+    _hdr = {
         "Cache-Control": "private, max-age=600",
         "Content-Disposition": f"inline; filename=\"manual.pdf\"; filename*=UTF-8''{quote(kr + '.pdf', safe='')}",
-    })
+    }
+    # 1순위: staging 전체 PDF(이미 완전한 새 매뉴얼)
+    staging = _staging_full_pdf_path(version, kr) if version else None
+    if staging and os.path.isfile(staging):
+        return FileResponse(staging, media_type="application/pdf", headers=_hdr)
+    deployed_path = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr, ""))
+    manual_norm = _MANUAL_NORM.get((manual or "").strip())
+    if manual_norm:
+        try:
+            import hashlib
+            from backend.services import manual_update_pg_service as svc
+            if svc.pg_enabled():
+                # 2순위: worker/node 가 만든 진짜 full_pdf artifact(검토용 splice 아님)
+                worker = svc.get_worker_full_pdf(manual_norm, version or None)
+                if worker:
+                    blob = svc.get_pdf_artifact_blob(worker["id"])
+                    if blob:
+                        return _Resp(content=blob, media_type="application/pdf", headers=_hdr)
+                # 3순위: 변경 페이지 → 배포본 스플라이스 review_splice 합성(검토용)
+                if version and os.path.isfile(deployed_path):
+                    with open(deployed_path, "rb") as f:
+                        base_bytes = f.read()
+                    res = svc.compose_full_pdf_blob(
+                        manual_norm, version, base_bytes,
+                        hashlib.sha256(base_bytes).hexdigest())
+                    if res and res.get("blob"):
+                        return _Resp(content=res["blob"], media_type="application/pdf", headers=_hdr)
+        except Exception:
+            pass
+    # 4순위: 배포본 전체 PDF fallback
+    if not os.path.isfile(deployed_path):
+        raise HTTPException(status_code=404, detail=f"PDF 파일 없음: {kr}")
+    return FileResponse(deployed_path, media_type="application/pdf", headers=_hdr)
 
 
 # ── PDF artifact 레지스트리 API (Step 3) ─────────────────────────────────────
@@ -1167,8 +1268,13 @@ _MANUAL_NORM = {"visa": "visa", "사증민원": "visa", "residence": "stay", "st
 
 @router.get("/manual-update/versions/{version}/candidates/{row_id}/pdf-artifact")
 def pg_candidate_pdf_artifact(version: str, row_id: str, admin: dict = Depends(require_admin)):
-    """후보 상세 PDF viewer resolver — 후보 page range 를 포함하는 changed_page 우선,
-    없으면 full_pdf, 없으면 null(프론트가 배포본 fallback). row_id 로 후보 조회."""
+    """후보 상세 PDF viewer resolver.
+
+    검토용 PDF 는 '변경 페이지만 있는 bundle' 이 아니라 **변경 반영된 완전한 PDF**(전체 문서)
+    이어야 한다 → ``mode="full"`` + 후보 페이지(``page``)를 돌려준다. 프론트는
+    ``/manual-update/pdf?manual&version#page=N`` 으로 전체 문서를 열고 후보 페이지로 자동
+    이동하며 앞뒤 스크롤이 가능하다. (참고용으로 해당 후보를 덮는 변경 페이지 artifact id 도
+    함께 제공.)"""
     if not _pg_manual_enabled():
         raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
     from backend.services import manual_update_pg_service as svc
@@ -1188,13 +1294,14 @@ def pg_candidate_pdf_artifact(version: str, row_id: str, admin: dict = Depends(r
             return not (a["page_to"] < pf or a["page_from"] > (pt or pf))
         return False
     bundle = [a for a in arts if a["artifact_type"] in ("changed_page_bundle", "changed_page") and _covers(a)]
-    full = [a for a in arts if a["artifact_type"] == "full_pdf"]
-    pick = bundle or full
-    if pick:
-        a = pick[0]
-        return {"artifact_id": a["id"], "artifact_type": a["artifact_type"], "source": a["source"],
-                "page_from": a["page_from"], "page_to": a["page_to"], "page_numbers": a.get("page_numbers")}
-    return {"artifact_id": None, "reason": "변경 페이지 artifact 없음 — 배포본 PDF fallback 사용"}
+    changed_id = bundle[0]["id"] if bundle else None
+    return {
+        "mode": "full",
+        "manual": manual,
+        "version": version,
+        "page": pf or 1,
+        "changed_artifact_id": changed_id,   # 참고용(변경 페이지만 따로 보고 싶을 때)
+    }
 
 
 # ── 관리자 수동 실행: 진단(dry-run) / 실제 업데이트(record) + capability check ──

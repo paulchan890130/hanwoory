@@ -3,7 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from backend.auth import get_current_user, require_admin
@@ -236,6 +236,15 @@ def update_account(
             u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
             if u is None:
                 raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+            # 마지막 활성 관리자 보호 — 비활성화(is_active=false) 또는 관리자 해제(is_admin=false)가
+            # 활성 관리자를 0으로 만들면 차단(인라인 토글 경로도 동일 가드).
+            deactivating = update.is_active is False
+            demoting = update.is_admin is False
+            if (deactivating or demoting) and u.is_admin and u.is_active \
+                    and _other_admin_count(session, login_id, active_only=True) == 0:
+                raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
+            will_deactivate = deactivating and u.is_active
+            target_tenant_id = u.tenant_id
             if update.is_active is not None:
                 u.is_active = bool(update.is_active)
             if update.is_admin is not None:
@@ -256,6 +265,14 @@ def update_account(
                 if update.customer_sheet_key is not None: t.customer_sheet_key = update.customer_sheet_key
                 if update.is_active is not None: t.is_active = bool(update.is_active)
             session.commit()
+        # 인라인 토글로 비활성화한 경우에도 기존 세션 즉시 revoke.
+        if will_deactivate:
+            try:
+                from backend.services.session_pg_service import revoke_active_sessions
+                revoke_active_sessions(login_id, reason="account_disabled", only_non_kiosk=False)
+            except Exception:
+                pass
+            _audit_account("ACCOUNT_DISABLED", user, login_id, target_tenant_id, {"via": "update"})
         # tenant_service 맵 캐시 초기화
         try:
             import backend.services.tenant_service as _ts
@@ -344,14 +361,80 @@ def set_agent_rrn(login_id: str, body: AgentRrnUpdate, user: dict = Depends(requ
         return _agent_rrn_status(t)
 
 
+def _other_admin_count(session, exclude_login_id: str, active_only: bool) -> int:
+    """exclude_login_id 를 제외한 관리자 수. active_only=True 면 활성 관리자만."""
+    from sqlalchemy import select, func
+    from backend.db.models.user import AccountUser
+    stmt = select(func.count()).select_from(AccountUser).where(
+        AccountUser.is_admin.is_(True),
+        AccountUser.login_id != exclude_login_id,
+    )
+    if active_only:
+        stmt = stmt.where(AccountUser.is_active.is_(True))
+    return int(session.scalar(stmt) or 0)
+
+
+def _connected_data_summary(session, tenant_id: str) -> dict:
+    """해당 tenant 에 연결된 업무 데이터 건수(0 이면 완전삭제 안전).
+
+    information_schema 로 tenant_id 컬럼을 가진 테이블을 찾아 행 수를 센다(스키마 적응형).
+    계정/세션/인프라 테이블은 제외(이들은 삭제 절차에서 직접 정리). 테이블명은
+    information_schema 출처라 인젝션 위험 없음, tenant_id 는 파라미터 바인딩.
+    """
+    from sqlalchemy import text
+    exclude = {"users", "tenants", "user_sessions", "signature_pad_tokens", "audit_logs"}
+    counts: dict = {}
+    try:
+        rows = session.execute(text(
+            "select table_name from information_schema.columns "
+            "where table_schema='public' and column_name='tenant_id'"
+        )).fetchall()
+    except Exception:
+        return counts
+    for (tbl,) in rows:
+        if tbl in exclude:
+            continue
+        try:
+            n = session.execute(
+                text(f'select count(*) from "{tbl}" where tenant_id = :tid'),
+                {"tid": tenant_id},
+            ).scalar() or 0
+        except Exception:
+            n = 0
+        if n:
+            counts[tbl] = int(n)
+    return counts
+
+
+def _audit_account(action: str, actor: dict, target_login_id: str, tenant_id: str, payload: dict | None = None) -> None:
+    """계정 상태 변경 감사 로그(best-effort, FEATURE_PG_AUDIT off면 no-op)."""
+    try:
+        from backend.services.audit_service import log_event
+        log_event(action=action, actor_login_id=str(actor.get("login_id", "")) or None,
+                  tenant_id=tenant_id or None, target_type="account",
+                  target_id=target_login_id, payload=payload)
+    except Exception:
+        pass
+
+
+def _bust_tenant_cache() -> None:
+    try:
+        import backend.services.tenant_service as _ts
+        _ts._TENANT_MAP_CACHE = {}
+        _ts._TENANT_MAP_TIME = 0
+    except Exception:
+        pass
+
+
 @router.delete("/accounts/{login_id}")
 def delete_account(
     login_id: str,
     user: dict = Depends(require_admin),
 ):
-    """계정 비활성화 (소프트 삭제). is_active=FALSE → 로그인 즉시 차단."""
-    if login_id.strip() == str(user.get("login_id", "")).strip():
-        raise HTTPException(status_code=400, detail="자신의 계정은 삭제할 수 없습니다.")
+    """계정 비활성화 (소프트 삭제). is_active=FALSE → 다음 요청부터 즉시 차단 + 세션 revoke."""
+    login_id = login_id.strip()
+    if login_id == str(user.get("login_id", "")).strip():
+        raise HTTPException(status_code=400, detail="자신의 계정은 비활성화할 수 없습니다.")
     # PG-only(Phase B): 비활성화는 항상 PostgreSQL. Google Sheets fallback 제거.
     from sqlalchemy import select
     from backend.db.models.user import AccountUser
@@ -361,16 +444,116 @@ def delete_account(
         u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
         if u is None:
             raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        # 마지막 (활성) 관리자 보호 — 비활성화 시 활성 관리자가 0이 되면 차단.
+        if u.is_admin and u.is_active and _other_admin_count(session, login_id, active_only=True) == 0:
+            raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
         already = not u.is_active
+        tenant_id = u.tenant_id
         u.is_active = False
         session.commit()
+    # 기존 로그인 세션 즉시 무효화(단일세션 모드 토큰 포함) — kiosk 포함 전부.
     try:
-        import backend.services.tenant_service as _ts
-        _ts._TENANT_MAP_CACHE = {}
-        _ts._TENANT_MAP_TIME = 0
+        from backend.services.session_pg_service import revoke_active_sessions
+        revoke_active_sessions(login_id, reason="account_disabled", only_non_kiosk=False)
     except Exception:
         pass
+    _bust_tenant_cache()
+    _audit_account("ACCOUNT_DISABLED", user, login_id, tenant_id, {"already_inactive": already})
     return {"ok": True, "login_id": login_id, "already_inactive": already}
+
+
+@router.post("/accounts/{login_id}/restore")
+def restore_account(login_id: str, user: dict = Depends(require_admin)):
+    """비활성 계정 복구 (is_active=TRUE). 워크스페이스/시트키는 변경하지 않음."""
+    login_id = login_id.strip()
+    from sqlalchemy import select
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        was_active = u.is_active
+        tenant_id = u.tenant_id
+        u.is_active = True
+        session.commit()
+    _bust_tenant_cache()
+    _audit_account("ACCOUNT_RESTORED", user, login_id, tenant_id, {"was_active": was_active})
+    return {"ok": True, "login_id": login_id, "was_active": was_active}
+
+
+@router.delete("/accounts/{login_id}/hard")
+def hard_delete_account(
+    login_id: str,
+    confirm_login_id: str = Query("", description="삭제 확인용 — 대상 login_id 와 동일해야 함"),
+    user: dict = Depends(require_admin),
+):
+    """비활성 계정 **완전 삭제**(물리 삭제). 강한 안전검사 통과 시에만 수행.
+
+    조건: 존재 / 자기 자신 아님 / is_active=False / 마지막 관리자 아님 /
+    connect 확인 문자열 일치 / 연결된 업무 데이터 없음. 연결 데이터가 있으면 차단(409).
+    """
+    login_id = login_id.strip()
+    if login_id == str(user.get("login_id", "")).strip():
+        raise HTTPException(status_code=400, detail="자신의 계정은 완전 삭제할 수 없습니다.")
+    if confirm_login_id.strip() != login_id:
+        raise HTTPException(status_code=400, detail="확인용 계정 아이디가 일치하지 않습니다.")
+
+    from sqlalchemy import select, text, func
+    from backend.db.models.user import AccountUser
+    from backend.db.models.tenant import Tenant
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        if u.is_active:
+            raise HTTPException(status_code=409, detail="비활성 계정만 완전 삭제할 수 있습니다. 먼저 비활성화하세요.")
+        if u.is_admin and _other_admin_count(session, login_id, active_only=False) == 0:
+            raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
+
+        tenant_id = u.tenant_id
+        # 연결 업무 데이터 검사 — 있으면 물리 삭제 차단(임의 cascade 금지).
+        connected = _connected_data_summary(session, tenant_id)
+        if connected:
+            summary = ", ".join(f"{k}={v}" for k, v in sorted(connected.items()))
+            raise HTTPException(
+                status_code=409,
+                detail=f"연결된 업무 데이터가 있어 완전 삭제할 수 없습니다. 먼저 데이터 이관/정리 정책이 필요합니다. ({summary})",
+            )
+
+        # 같은 tenant 에 다른 user 가 남는지(있으면 tenant 행은 보존).
+        other_users = int(session.scalar(
+            select(func.count()).select_from(AccountUser)
+            .where(AccountUser.tenant_id == tenant_id, AccountUser.login_id != login_id)
+        ) or 0)
+
+        # 세션/패드토큰 등 계정 부속 데이터 먼저 정리(연결 업무 데이터는 위에서 없음 확인됨).
+        for tbl, col in (("user_sessions", "login_id"), ("signature_pad_tokens", "tenant_id")):
+            val = login_id if col == "login_id" else tenant_id
+            try:
+                session.execute(text(f'delete from "{tbl}" where {col} = :v'), {"v": val})
+            except Exception:
+                pass
+
+        session.delete(u)
+        session.flush()   # 사용자 행을 먼저 삭제(users.tenant_id FK) 후 tenant 삭제 순서 보장
+        deleted_tenant = False
+        if other_users == 0:
+            t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+            if t is not None:
+                session.delete(t)
+                session.flush()
+                deleted_tenant = True
+        session.commit()
+
+    _bust_tenant_cache()
+    _audit_account("ACCOUNT_HARD_DELETED", user, login_id, tenant_id,
+                   {"deleted_account_identifier": login_id, "tenant_id": tenant_id,
+                    "deleted_tenant": deleted_tenant})
+    return {"ok": True, "login_id": login_id, "deleted_tenant": deleted_tenant}
 
 
 @router.post("/accounts")
@@ -471,23 +654,22 @@ def create_workspace(
     """
     테넌트 워크스페이스 생성/재생성 (멱등성 보장).
 
-    단계별 독립 실행:
-      A. Drive 폴더 — 이미 folder_id가 Accounts에 있으면 재사용
-      B. 고객 데이터 시트 복사 — 이미 customer_sheet_key가 있으면 건너뜀
-      C. 업무정리 시트 복사 — 이미 work_sheet_key가 있으면 건너뜀
-      D. Accounts 행 업데이트 — 성공한 ID만 기입, 기존 값 파괴 안 함
-      E. is_active=TRUE — 세 키가 모두 채워졌을 때만 설정
+    PG-only(단계적 제거 2단계): PG 가 구성된 운영 환경에서는 Drive/Sheets 가짜키
+    (``local-folder-*`` / ``local-sheet-*``)를 더 이상 생성하지 않는다. 고객/업무/
+    결산/문서 등 모든 운영 데이터는 PostgreSQL 에 있으므로 이 키들은 어떤 읽기 경로
+    에서도 사용되지 않는다. 워크스페이스 생성에 실제로 필요한 것은:
+      (1) tenant/user 활성화(is_active=TRUE)
+      (2) 온보딩 샘플 시드
+    뿐이므로 이 둘만 수행한다. 기존 계정의 기존 folder_id/customer_sheet_key/
+    work_sheet_key 값은 절대 건드리지 않는다(여기서 읽지도, 쓰지도 않음).
 
-    부분 성공 시 성공한 ID는 저장되며 실패 단계만 재시도 가능.
-
-    로컬 베타: FEATURE_LOCAL_DRIVE_MOCK=true 시 Google Drive를 호출하지 않고
-    로컬 모의 Drive 어댑터(``backend/services/local_drive_mock.py``)가 sentinel
-    ID를 반환한다. 운영 Drive 폴더는 절대 만들지 않는다.
+    (legacy) 순수 Sheets 설치(PG 미구성)에서만 아래쪽 실제 Drive 프로비저닝 경로가
+    살아 있다 — 운영(Render)에서는 PG 가 항상 구성되므로 도달하지 않는다.
     """
     import logging
     log = logging.getLogger("admin.workspace")
 
-    # ── 로컬 베타: Drive 호출 차단 + 로컬 모의 워크스페이스 ─────────────────
+    # ── PG-only: 가짜키 미생성, 활성화 + 샘플 시드만 수행 ─────────────────────
     from backend.db.feature_flags import (
         local_drive_mock_enabled,
         pg_tenant_provisioning_enabled,
@@ -495,15 +677,30 @@ def create_workspace(
     from backend.db.session import is_configured as _pg_configured
     # PG-only(Phase B): PG 가 구성된 환경은 항상 PG 프로비저닝 경로 사용(Accounts 시트/운영 Drive 미접촉).
     if local_drive_mock_enabled() or pg_tenant_provisioning_enabled() or _pg_configured():
-        from backend.services.local_drive_mock import provision_workspace
         login_id = body.login_id.strip()
         office_name = body.office_name.strip() or login_id
-        result = provision_workspace(login_id=login_id, office_name=office_name)
+        # 응답 형태는 기존 프론트(handleCreateWorkspace/handleRowWorkspace)와 호환 유지.
+        # folder/customer/work 키는 더 이상 생성하지 않으므로 빈 값으로 둔다.
+        result = {
+            "ok": True,
+            "stages": {
+                "folder_create":   {"status": "skipped-pg", "id": "", "error": None},
+                "customer_copy":   {"status": "skipped-pg", "id": "", "error": None},
+                "work_copy":       {"status": "skipped-pg", "id": "", "error": None},
+                "accounts_update": {"status": "deferred-to-caller", "error": None},
+            },
+            "folder_id": "",
+            "customer_sheet_key": "",
+            "work_sheet_key": "",
+            "is_active": False,
+            "drive_user": None,
+            "drive_quota": None,
+            "message": "PostgreSQL workspace activated — Drive/Sheets 키를 생성하지 않습니다.",
+        }
 
-        # 로컬 PG의 tenants 행 + 가입신청한 user 행 모두 즉시 갱신/활성화.
-        # 워크스페이스가 mocked로 완료되었으므로 가입신청 사용자도 로그인 가능
-        # 상태로 옮긴다 (is_active=True). 관리자 권한은 별도로 PUT /accounts/{id}
-        # 로 부여한다 — 본 mock 은 활성화만 책임진다.
+        # 로컬 PG의 tenants 행 + 가입신청한 user 행 활성화 (가짜키 기록 없음).
+        # 가입신청 사용자도 로그인 가능 상태로 옮긴다 (is_active=True). 관리자 권한은
+        # 별도로 PUT /accounts/{id} 로 부여한다 — 본 경로는 활성화만 책임진다.
         try:
             from sqlalchemy import select
             from backend.db.models.tenant import Tenant
@@ -512,16 +709,13 @@ def create_workspace(
             if is_configured():
                 SessionLocal = get_sessionmaker()
                 with SessionLocal() as session:
-                    # tenant: upsert sheet keys + activate
+                    # tenant: activate (sheet 키는 생성/수정하지 않음 — 기존 값 보존)
                     t = session.scalar(select(Tenant).where(Tenant.tenant_id == login_id))
                     if t is None:
                         # signup → workspace 사이 tenant 행이 누락된 경우 생성
                         t = Tenant(tenant_id=login_id, office_name=office_name)
                         session.add(t)
                         session.flush()
-                    t.folder_id = result["folder_id"]
-                    t.customer_sheet_key = result["customer_sheet_key"]
-                    t.work_sheet_key = result["work_sheet_key"]
                     t.office_name = office_name
                     t.is_active = True
                     # user: activate the signup row(s) belonging to this tenant
@@ -549,7 +743,7 @@ def create_workspace(
             from backend.db.session import is_configured as _is_cfg
             if _is_cfg():
                 from backend.services.tenant_sample_seed_service import seed_new_tenant_sample_data
-                seed = seed_new_tenant_sample_data(login_id, result.get("work_sheet_key"))
+                seed = seed_new_tenant_sample_data(login_id, None)
                 result["stages"]["sample_seed"] = {
                     "status": "seeded" if (seed.get("reference_rows") or
                                            any(seed.get("certification", {}).values()))
@@ -562,7 +756,7 @@ def create_workspace(
             log.warning("[workspace] 샘플 시드 실패 (non-fatal): %s", e)
             result["stages"]["sample_seed"] = {"status": "failed", "error": str(e)}
 
-        log.info("[workspace] LOCAL MOCK 사용 — Google Drive 미호출. result=%s", result)
+        log.info("[workspace] PG 활성화 완료 — 가짜키 미생성. result=%s", result)
         return result
 
     import config as _cfg

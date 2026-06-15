@@ -1,5 +1,10 @@
 """Local mock for Google Drive folder/file operations.
 
+DEPRECATED (PG 단계적 제거 2단계): ``admin.py`` 의 워크스페이스 생성 경로는 PG 모드
+에서 더 이상 이 모듈을 호출하지 않는다. 신규 계정은 가짜키(``local-folder-*`` /
+``local-sheet-*``) 없이 tenant/user 활성화 + 샘플 시드만 수행한다. 이 파일은 호출
+제거만 했고(과거 import 경로/테스트 호환을 위해) 삭제는 다음 단계로 보류한다.
+
 Activated by ``FEATURE_LOCAL_DRIVE_MOCK=true``. When on, ``admin.py``'s
 workspace-creation flow doesn't reach the real Drive API; instead each
 operation returns a sentinel ID so the rest of the flow (writing

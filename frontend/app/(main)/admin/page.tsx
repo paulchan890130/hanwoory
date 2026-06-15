@@ -15,9 +15,19 @@ import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
 
 // ── PG 저장소 상태 helper ────────────────────────────────────────────────────
-// Backend returns storage_mode === "pg+local-mock" when FEATURE_LOCAL_DRIVE_MOCK
-// is on; in that case we swap the four Sheet-key columns for two status chips
-// (PostgreSQL 저장소 / 파일 저장소).
+// 운영 기준은 PostgreSQL. 계정 목록은 PG 업무 데이터 유무만 "PG 저장소" 칩으로
+// 표시한다. 과거 Drive/Sheets 키(레거시 admin/정평 등)는 표 컬럼이 아니라 수정
+// 드로어의 접힘 "레거시 정보"로만 노출한다 — 운영 저장소처럼 보이지 않게 한다.
+// (local-* sentinel 키는 PG 프로비저닝 placeholder일 뿐 저장소가 아니므로 숨김.)
+// 백엔드 detail(예: 마지막 관리자/연결 데이터 차단 사유)을 그대로 노출.
+function adminErr(e: unknown, fallback: string): string {
+  const d = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  if (typeof d === "string" && d.trim()) return d;
+  if (d && typeof d === "object" && typeof (d as { message?: string }).message === "string")
+    return (d as { message: string }).message;
+  return fallback;
+}
+
 function isPgMode(rows: Record<string, string>[]): boolean {
   return rows.some((r) => String(r.storage_mode || "").startsWith("pg+"));
 }
@@ -32,65 +42,45 @@ function PgStorageChip({ acc }: { acc: Record<string, unknown> }) {
         style={{ background: "#C6F6D5", color: "#276749" }}
         title={label}
       >
-        ✓ PG 데이터 있음
+        ✅ PG 데이터 있음
       </span>
     );
   }
   return (
     <span
       className="text-xs px-2 py-1 rounded-full"
-      style={{ background: "#F7FAFC", color: "#A0AEC0", border: "1px solid #E2E8F0" }}
-      title={label}
+      style={{ background: "#FFF9E6", color: "#6B5314", border: "1px solid #FAE0A0" }}
+      title="PostgreSQL에 업무 데이터가 아직 없습니다 (Drive 생성 불필요)"
     >
-      비어있음
+      ⚠️ PG 미초기화
     </span>
   );
 }
 
-function FileStorageChip({ acc }: { acc: Record<string, unknown> }) {
-  const status = String(acc.file_storage_status || "");
-  const label = String(acc.file_storage_label || "");
-  if (status === "local-mock") {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded-full"
-        style={{ background: "#FAF5FF", color: "#553C9A", border: "1px solid #D6BCFA" }}
-        title="로컬 모의 저장소 (Google Drive 미호출)"
-      >
-        🧪 {label}
-      </span>
-    );
-  }
-  if (status === "google-drive") {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded-full"
-        style={{ background: "#EBF8FF", color: "#2B6CB0" }}
-        title="Google Drive 키 (운영 Sheets 참조 — 로컬 PG 모드에서는 더 이상 호출되지 않음)"
-      >
-        ☁️ {label}
-      </span>
-    );
-  }
-  if (status === "partial" || status === "mixed") {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded-full"
-        style={{ background: "#FFF9E6", color: "#6B5314" }}
-        title={label}
-      >
-        ⚠ {label}
-      </span>
-    );
-  }
+// 과거 Drive/Sheets 키(레거시 admin/정평 등) — 운영 저장소가 아니라 참고용 흔적.
+// 실제 Google ID(비 local-*)가 남아 있을 때만 접힘으로 노출한다. local-* sentinel은
+// PG 프로비저닝 placeholder일 뿐이므로(운영 저장소 아님) 표시하지 않는다.
+function LegacyFieldNote({ acc }: { acc: Record<string, string> }) {
+  const folder = String(acc.folder_id || "");
+  const ckey = String(acc.customer_sheet_key || "");
+  const wkey = String(acc.work_sheet_key || "");
+  const legacy = [
+    ["folder_id", folder],
+    ["customer_sheet_key", ckey],
+    ["work_sheet_key", wkey],
+  ].filter(([, v]) => v && !v.startsWith("local-")) as [string, string][];
+  if (legacy.length === 0) return null;
   return (
-    <span
-      className="text-xs px-2 py-1 rounded-full"
-      style={{ background: "#F7FAFC", color: "#A0AEC0", border: "1px solid #E2E8F0" }}
-      title="아직 워크스페이스 생성 안 됨"
-    >
-      없음
-    </span>
+    <details className="text-[11px]" style={{ color: "#A0AEC0" }}>
+      <summary style={{ cursor: "pointer" }}>
+        과거 Drive/Sheets 필드 (레거시 · 현재 미사용)
+      </summary>
+      <div className="mt-1 space-y-0.5 font-mono">
+        {legacy.map(([k, v]) => (
+          <div key={k}>{k}: {v}</div>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -392,12 +382,12 @@ function CreateAccountModal({
             </div>
           </div>
 
-          {/* 섹션3: 워크스페이스 (Google Sheets 또는 로컬 모의) */}
+          {/* 섹션3: 워크스페이스 (PostgreSQL) */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-[11px] font-semibold uppercase px-2 py-1 rounded" style={{ color: "#718096", background: "#F7FAFC" }}>
                 {pgMode
-                  ? (isLocalMock ? "워크스페이스 (로컬 모의)" : "워크스페이스 (PostgreSQL)")
+                  ? (isLocalMock ? "워크스페이스 (PostgreSQL · 개발용 mock)" : "워크스페이스 (PostgreSQL)")
                   : "Google Sheets 연동"}
               </div>
               <SubmitButton
@@ -409,21 +399,19 @@ function CreateAccountModal({
                 className="text-xs"
                 style={{ padding: "6px 12px", fontSize: 11, borderRadius: 8, border: "1px solid var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
               >
-                <><FolderOpen size={11} /> {isLocalMock ? "로컬 모의 생성" : "워크스페이스 자동 생성"}</>
+                <><FolderOpen size={11} /> 워크스페이스 자동 생성</>
               </SubmitButton>
             </div>
             {(form.customer_sheet_key || form.folder_id) && (
               <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: "#C6F6D5", color: "#276749" }}>
-                ✅ 워크스페이스 자동 생성됨
-                {isLocalMock && <span className="ml-2 font-mono">(local-* sentinel ID)</span>}
+                ✅ 워크스페이스 초기화 완료
               </div>
             )}
             {pgMode ? (
               <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: "#F7FAFC", color: "#4A5568" }}>
-                로컬 PG 모드에서는 Google Sheets / Drive 키를 직접 입력하지 않습니다.<br />
-                위 버튼을 누르면 backend의 <code>local_drive_mock</code> 이 sentinel ID
-                <code>(local-folder-… / local-sheet-…)</code> 를 생성하고 PostgreSQL <code>tenants</code> 행에
-                저장합니다. Google API는 호출되지 않습니다.
+                신규 계정은 PostgreSQL 기준으로 생성됩니다. 위 버튼은 PostgreSQL
+                <code>tenants</code> 행을 초기화하고 계정을 활성화합니다.
+                Google Sheets / Drive는 사용하지 않습니다.
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
@@ -627,19 +615,15 @@ function AccountDetailPanel({
 
           {pgMode ? (
             <>
-              <div className="hw-section-divider mt-4">저장소 상태 (PostgreSQL 모드)</div>
+              <div className="hw-section-divider mt-4">저장소 상태</div>
               <div className="text-xs space-y-2" style={{ color: "#4A5568" }}>
                 <div>
                   <span style={{ color: "#718096" }}>PostgreSQL: </span>
                   <span className="font-mono">{acc.pg_storage_label || "(없음)"}</span>
                 </div>
-                <div>
-                  <span style={{ color: "#718096" }}>파일 저장소: </span>
-                  <span className="font-mono">{acc.file_storage_label || "(없음)"}</span>
-                </div>
+                <LegacyFieldNote acc={acc} />
                 <div className="text-[11px]" style={{ color: "#A0AEC0" }}>
-                  로컬 PG 모드에서는 Google Sheets / Drive 키를 직접 편집하지 않습니다.<br />
-                  워크스페이스가 필요하면 계정 행의 ‘워크스페이스 자동 생성’ 버튼을 사용하세요.
+                  운영 데이터는 PostgreSQL에만 저장됩니다. (Google Sheets / Drive 미사용)
                 </div>
               </div>
             </>
@@ -1661,8 +1645,24 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
   const [reason, setReason] = useState(decision?.reviewer_override_reason ?? "");
   const [recmp, setRecmp] = useState<RecompareResp | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [pageCountKnown, setPageCountKnown] = useState(false);
   const hasOverride = decision?.reviewer_baseline_from != null || decision?.reviewer_candidate_from != null;
   const manual = cand.manual_label || d.manual_label || "visa";
+  // 매뉴얼 전체 page_count 조회 → 임의 페이지 입력 검증 상한. null 이면 '전체 페이지 수 확인 불가'.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await api.get(`/api/guidelines/manual-update/pdf-source`, { params: { manual, version } });
+        if (!alive) return;
+        const pc = r.data?.page_count;
+        setPageCount(typeof pc === "number" ? pc : null);
+        setPageCountKnown(typeof pc === "number");
+      } catch { if (alive) { setPageCount(null); setPageCountKnown(false); } }
+    })();
+    return () => { alive = false; };
+  }, [manual, version]);
   const LIMIT = 800;
   const clip = (t?: string) => { const s = t || ""; return (showFull || s.length <= LIMIT) ? s : s.slice(0, LIMIT) + " …"; };
   const err = (e: unknown, fb: string) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || fb;
@@ -1685,12 +1685,30 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
     } catch (e) { toast.error(err(e, "재비교 실패")); }
     finally { setBusy(false); }
   };
+  // 임의 페이지 입력 검증: 1 이상 정수, from ≤ to, (page_count 알면) page_count 이하.
+  // page_count 미확인 시 상한 검증은 생략(서버가 fallback 상한으로 최종 차단).
+  const pageErr = (() => {
+    const pairs: [string, string, string][] = [[bf, bt, "기준"], [cf, ct, "후보"]];
+    for (const [f, t, name] of pairs) {
+      const fv = f.trim() === "" ? null : Number(f);
+      const tv = t.trim() === "" ? null : Number(t);
+      for (const v of [fv, tv]) {
+        if (v !== null && (!Number.isInteger(v) || v < 1)) return `${name} 페이지는 1 이상의 정수여야 합니다.`;
+        if (v !== null && pageCountKnown && pageCount != null && v > pageCount)
+          return `${name} 페이지는 1~${pageCount}(전체 ${pageCount}페이지) 범위를 벗어났습니다.`;
+      }
+      if (fv !== null && tv !== null && fv > tv) return `${name} 시작 페이지가 끝 페이지보다 큽니다.`;
+    }
+    return "";
+  })();
   const saveOverride = async () => {
+    if (pageErr) { toast.error(pageErr); return; }
     setBusy(true);
     try {
       await api.post(`/api/guidelines/manual-update/decisions/${encodeURIComponent(cand.row_id)}/override`, {
         baseline_from: Number(bf) || null, baseline_to: Number(bt) || null,
-        candidate_from: Number(cf) || null, candidate_to: Number(ct) || null, reason });
+        candidate_from: Number(cf) || null, candidate_to: Number(ct) || null, reason,
+        manual, version });   // manual/version → 서버가 page_count 로 상한 검증
       toast.success("관리자 지정 페이지 저장됨");
       onOverrideChanged();
     } catch (e) { toast.error(err(e, "저장 실패")); }
@@ -1718,27 +1736,35 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
         {hasOverride && <span style={{ color: "#C05621", fontWeight: 700 }}>· 관리자 지정: 기준 {decision?.reviewer_baseline_from}-{decision?.reviewer_baseline_to} / 후보 {decision?.reviewer_candidate_from}-{decision?.reviewer_candidate_to}</span>}
         <span style={{ color: "#CBD5E0" }}>|</span>
         <button onClick={() => onOpenCandidatePdf(cand.row_id, manual, Number(cf) || cand.candidate_page_from || 1)}
-          title="변경 페이지 PDF artifact 우선, 없으면 배포본 fallback" className="px-2 py-0.5 rounded font-bold" style={{ background: "#C6F6D5", color: "#22543D", border: "1px solid #9AE6B4" }}>변경 페이지 PDF 보기</button>
-        <button onClick={() => onOpenPdf(manual, Number(cf) || cand.candidate_page_from || 1)} className="px-2 py-0.5 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>최신/배포 전체 PDF</button>
+          title="변경 반영된 완전한 PDF(전체 문서)를 후보 페이지로 자동 이동해 엽니다 — 앞뒤 스크롤 가능" className="px-2 py-0.5 rounded font-bold" style={{ background: "#C6F6D5", color: "#22543D", border: "1px solid #9AE6B4" }}>변경 반영 완전 PDF (후보 p.{Number(cf) || cand.candidate_page_from || 1})</button>
+        <button onClick={() => onOpenPdf(manual, Number(cf) || cand.candidate_page_from || 1)} className="px-2 py-0.5 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>전체 PDF(후보 페이지)</button>
         <button onClick={() => onOpenPdf(manual, cand.candidate_page_from || 1)} className="px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#4A5568" }}>후보 페이지 열기</button>
         <button onClick={() => onOpenPdf(manual, cand.old_page_from || 1)} className="px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#4A5568" }}>기존 페이지 열기</button>
       </div>
 
-      {/* 수동 페이지 지정 */}
-      <div className="flex items-center gap-2 flex-wrap mb-2 p-2 rounded" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
-        <span className="text-[11px] font-bold" style={{ color: "#92400E" }}>수동 페이지 지정</span>
-        <span className="text-[11px]" style={{ color: "#718096" }}>기준</span>
-        <input value={bf} onChange={(e) => setBf(e.target.value)} className="hw-input" style={{ width: 48 }} />
-        <span>-</span>
-        <input value={bt} onChange={(e) => setBt(e.target.value)} className="hw-input" style={{ width: 48 }} />
-        <span className="text-[11px]" style={{ color: "#718096" }}>후보</span>
-        <input value={cf} onChange={(e) => setCf(e.target.value)} className="hw-input" style={{ width: 48 }} />
-        <span>-</span>
-        <input value={ct} onChange={(e) => setCt(e.target.value)} className="hw-input" style={{ width: 48 }} />
-        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사유 (예: 자동매칭 오류, 실제 p.40)" className="hw-input" style={{ flex: 1, minWidth: 160 }} />
-        <button disabled={busy} onClick={() => void doRecompare()} className="text-[11px] px-2 py-1 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>다시 비교</button>
-        <button disabled={busy} onClick={() => void saveOverride()} className="text-[11px] px-2 py-1 rounded" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>페이지 저장</button>
-        <button disabled={busy} onClick={() => void clearOverride()} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>초기화</button>
+      {/* 수동 페이지 지정 — 기존/추천이 모두 틀릴 때 실제 페이지 직접 입력 */}
+      <div className="mb-2 p-2 rounded" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+        <div className="text-[11px] font-bold mb-1" style={{ color: "#92400E" }}>
+          ✏️ 수동 페이지 지정 — 기존·추천 페이지가 모두 틀릴 때 실제 매뉴얼 페이지를 직접 입력하세요.
+          {pageCountKnown && pageCount != null
+            ? <span style={{ fontWeight: 400, color: "#718096" }}> (전체 {pageCount}페이지 — 1~{pageCount} 입력 가능)</span>
+            : <span style={{ fontWeight: 400, color: "#C05621" }}> (전체 페이지 수 확인 불가)</span>}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px]" style={{ color: "#718096" }}>기준</span>
+          <input type="number" min={1} value={bf} onChange={(e) => setBf(e.target.value)} className="hw-input" style={{ width: 56 }} />
+          <span>-</span>
+          <input type="number" min={1} value={bt} onChange={(e) => setBt(e.target.value)} className="hw-input" style={{ width: 56 }} />
+          <span className="text-[11px]" style={{ color: "#718096" }}>후보</span>
+          <input type="number" min={1} value={cf} onChange={(e) => setCf(e.target.value)} className="hw-input" style={{ width: 56 }} />
+          <span>-</span>
+          <input type="number" min={1} value={ct} onChange={(e) => setCt(e.target.value)} className="hw-input" style={{ width: 56 }} />
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사유 (예: 자동매칭 오류, 실제 p.40)" className="hw-input" style={{ flex: 1, minWidth: 160 }} />
+          <button disabled={busy} onClick={() => void doRecompare()} className="text-[11px] px-2 py-1 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>다시 비교</button>
+          <button disabled={busy || !!pageErr} onClick={() => void saveOverride()} title={pageErr || "관리자 지정 페이지 저장"} className="text-[11px] px-2 py-1 rounded disabled:opacity-50" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>페이지 저장</button>
+          <button disabled={busy} onClick={() => void clearOverride()} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>초기화</button>
+        </div>
+        {pageErr && <div className="text-[10px] mt-1" style={{ color: "#C53030" }}>⚠ {pageErr}</div>}
       </div>
       {recmp?.candidate_partial && <div className="text-[10px] mb-2" style={{ color: "#C05621" }}>※ 후보(신규) 본문은 변경 페이지 스니펫 기반입니다(전체 본문 미보유) — 정확한 페이지는 PDF로 확인하세요.</div>}
 
@@ -1808,7 +1834,7 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [detailCache, setDetailCache] = useState<Record<string, PgCandidateDetail>>({});
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
   const [bulkApply, setBulkApply] = useState(false);                  // 운영 반영 요약 모달
-  const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string } | null>(null);
+  const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string; reviewOnly?: boolean; source?: string } | null>(null);
   const [pdfStatus, setPdfStatus] = useState<Record<string, PdfStatus>>({});
   const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; chromium_pkg_present?: boolean; chromium_available?: boolean; chromium_path?: string; is_worker?: boolean; runtime?: string; reason?: string; pdf_reason?: string } | null>(null);
   const [runBusy, setRunBusy] = useState<"diagnose" | "record" | "generate_pdf_artifacts" | null>(null);
@@ -1819,24 +1845,27 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const token = (typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "");
   // PDF 열기: staging 있으면 staging, 없으면 배포본 (백엔드가 자동 선택). 배너용으로 source 조회.
   const openPdf = useCallback(async (manual: string, page: number) => {
-    let isStaging = false;
+    let isStaging = false; let reviewOnly = false; let src = "deployed";
     try {
       const r = await api.get(`/api/guidelines/manual-update/pdf-source`, { params: { manual, version } });
       isStaging = !!r.data?.is_staging;
+      reviewOnly = !!r.data?.review_only;
+      src = String(r.data?.source || "deployed");
     } catch { /* 기본 deployed */ }
-    setPdfView({ manual, page: page || 1, isStaging });
+    setPdfView({ manual, page: page || 1, isStaging, reviewOnly, source: src });
   }, [version]);
 
-  // 후보 상세: 변경 페이지 artifact 우선 → 있으면 artifact PDF, 없으면 배포본 fallback.
+  // 후보 상세: '변경 반영된 완전한 PDF'(전체 문서)를 후보 페이지로 자동 이동해 연다.
+  // (변경 페이지만 있는 bundle 이 아니라 전체 문서 → 앞뒤 스크롤 가능. 백엔드가 변경 페이지를
+  //  배포본에 스플라이스해 합성한다.)
   const openCandidatePdf = useCallback(async (rowId: string, manual: string, fallbackPage: number) => {
     try {
       const r = await api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(version)}/candidates/${encodeURIComponent(rowId)}/pdf-artifact`);
-      if (r.data?.artifact_id) {
-        setPdfView({ artifactId: r.data.artifact_id, page: 1, label: `변경 페이지 artifact #${r.data.artifact_id} (p.${r.data.page_from}-${r.data.page_to})` });
-        return;
-      }
-      toast.message("변경 페이지 artifact 없음 — 배포본 PDF로 엽니다.");
-    } catch { toast.message("artifact 조회 실패 — 배포본 PDF로 엽니다."); }
+      const page = Number(r.data?.page) || fallbackPage || 1;
+      const m = (r.data?.manual as string) || manual;
+      void openPdf(m, page);
+      return;
+    } catch { toast.message("후보 PDF 조회 실패 — 배포본 PDF로 엽니다."); }
     void openPdf(manual, fallbackPage);
   }, [version, openPdf]);
 
@@ -2643,9 +2672,17 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
               <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#F0FFF4", color: "#276749", border: "1px solid #C6F6D5" }}>
                 ✅ 최신 변경 페이지 PDF artifact 표시 중 (staging 생성본)
               </div>
-            ) : !pdfView.isStaging && (
+            ) : pdfView.reviewOnly ? (
+              <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#9B2C2C", border: "1px solid #FEB2B2" }}>
+                🔎 검토용 PDF (운영 미반영) — 변경 페이지를 배포본에 합성한 미리보기입니다. 전체 문서이며 앞뒤 스크롤이 가능합니다. 운영 배포 PDF는 아직 교체되지 않았습니다.
+              </div>
+            ) : pdfView.source === "staging" || pdfView.source === "worker_artifact" || pdfView.isStaging ? (
+              <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#F0FFF4", color: "#276749", border: "1px solid #C6F6D5" }}>
+                ✅ 최신 전체 PDF 표시 중 (전체 문서 · 앞뒤 스크롤 가능)
+              </div>
+            ) : (
               <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
-                ⚠ 최신 staging PDF 미배포 — 현재 배포된 매뉴얼 PDF를 표시 중입니다. (페이지 번호가 최신본과 다를 수 있음)
+                ℹ 배포본 전체 PDF를 표시 중입니다(앞뒤 스크롤 가능). 이 버전의 변경 페이지 artifact가 아직 없습니다.
               </div>
             )}
             <iframe key={pdfView.artifactId ? `art-${pdfView.artifactId}` : `${pdfView.manual}-${pdfView.page}`} style={{ flex: 1, border: "1px solid #E2E8F0", borderRadius: 6 }}
@@ -2698,6 +2735,7 @@ export default function AdminPage() {
   const [detailAcc, setDetailAcc] = useState<Record<string, string> | null>(null);
   const [wsDetail, setWsDetail] = useState<WsResult | null>(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<Record<string, string> | null>(null);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<Record<string, string> | null>(null);
 
 
   useEffect(() => {
@@ -2730,11 +2768,31 @@ export default function AdminPage() {
   const deleteMut = useMutation({
     mutationFn: (loginId: string) => adminApi.deleteAccount(loginId),
     onSuccess: (_, loginId) => {
-      toast.success(`계정 '${loginId}' 삭제됨`);
+      toast.success(`계정 '${loginId}' 비활성화됨`);
       qc.invalidateQueries({ queryKey: ["admin"] });
       setConfirmDeleteTarget(null);
     },
-    onError: () => toast.error("계정 삭제 실패"),
+    onError: (e: unknown) => toast.error(adminErr(e, "비활성화 실패")),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: (loginId: string) => adminApi.restoreAccount(loginId),
+    onSuccess: (_, loginId) => {
+      toast.success(`계정 '${loginId}' 복구됨`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e: unknown) => toast.error(adminErr(e, "복구 실패")),
+  });
+
+  const hardDeleteMut = useMutation({
+    mutationFn: ({ loginId, confirm }: { loginId: string; confirm: string }) =>
+      adminApi.hardDeleteAccount(loginId, confirm),
+    onSuccess: (_, { loginId }) => {
+      toast.success(`계정 '${loginId}' 완전 삭제됨`);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      setHardDeleteTarget(null);
+    },
+    onError: (e: unknown) => toast.error(adminErr(e, "완전 삭제 실패")),
   });
 
   const toggle = (loginId: string, field: "is_active" | "is_admin", current: string) => {
@@ -2792,11 +2850,11 @@ export default function AdminPage() {
               }}
               title={
                 isLocalMock
-                  ? "PostgreSQL + 로컬 모의 저장소 모드 — Google Sheets/Drive는 호출되지 않습니다"
+                  ? "개발 환경 — PostgreSQL + 개발용 mock 어댑터 (운영 아님, Google Sheets/Drive 미호출)"
                   : "PostgreSQL 모드"
               }
             >
-              {isLocalMock ? "🧪 PG + 로컬 모의" : "🗄 PG 모드"}
+              {isLocalMock ? "🧪 개발용 mock" : "🗄 PG 모드"}
             </span>
           )}
         </div>
@@ -2874,7 +2932,7 @@ export default function AdminPage() {
                         "ID", "테넌트ID", "사무실명", "주소", "담당자", "연락처",
                         "사업자번호", "행정사RRN", "가입일",
                         "활성", "관리자",
-                        "PG 저장소", "파일 저장소",
+                        "PG 저장소",
                         "워크스페이스", "편집", "삭제",
                       ]
                     : [
@@ -2955,10 +3013,7 @@ export default function AdminPage() {
                         </button>
                       </td>
                       {pgMode ? (
-                        <>
-                          <td><PgStorageChip acc={acc as Record<string, unknown>} /></td>
-                          <td><FileStorageChip acc={acc as Record<string, unknown>} /></td>
-                        </>
+                        <td><PgStorageChip acc={acc as Record<string, unknown>} /></td>
                       ) : (
                         <>
                           <td><InlineEdit field="customer_sheet_key" width="w-40" /></td>
@@ -2975,6 +3030,34 @@ export default function AdminPage() {
                           const allReady = hasFolder && hasCustomer && hasWork;
                           const partial = hasFolder && (!hasCustomer || !hasWork);
                           const isLoading = wsLoadingId === acc.login_id;
+
+                          // PG 모드: 워크스페이스 = PostgreSQL 활성화(가짜 Drive/Sheets 키 미생성).
+                          // is_active 기준으로 표시하고, 비활성 계정만 활성화 버튼을 보인다.
+                          if (pgMode) {
+                            if (isActive) {
+                              return (
+                                <span
+                                  className="text-xs px-2 py-1 rounded-full"
+                                  style={{ background: "#C6F6D5", color: "#276749" }}
+                                  title="PostgreSQL 활성화됨"
+                                >
+                                  ✅ 활성
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => handleRowWorkspace(acc)}
+                                disabled={isLoading}
+                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                                style={{ borderColor: "var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
+                              >
+                                {isLoading
+                                  ? <><Loader2 size={10} className="animate-spin" /> 활성화 중</>
+                                  : <><FolderOpen size={10} /> 활성화</>}
+                              </button>
+                            );
+                          }
 
                           if (allReady) {
                             return (
@@ -3025,20 +3108,39 @@ export default function AdminPage() {
                         </button>
                       </td>
                       <td>
-                        {!isActive ? (
-                          <span className="text-xs px-2 py-1 rounded-lg" style={{ color: "#A0AEC0", background: "#F7FAFC", border: "1px solid #E2E8F0" }}>
-                            삭제됨
-                          </span>
-                        ) : (
+                        {isActive ? (
+                          // 활성 계정: 비활성화만(완전삭제 숨김)
                           <button
                             onClick={() => setConfirmDeleteTarget(acc)}
                             disabled={acc.login_id === user?.login_id}
                             className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             style={{ borderColor: "#FEB2B2", color: "#C53030", background: "#FFF5F5" }}
-                            title={acc.login_id === user?.login_id ? "자신의 계정은 삭제할 수 없습니다" : "계정 삭제"}
+                            title={acc.login_id === user?.login_id ? "자신의 계정은 비활성화할 수 없습니다" : "계정 비활성화"}
                           >
-                            <Trash2 size={11} /> 삭제
+                            <XCircle size={11} /> 비활성화
                           </button>
+                        ) : (
+                          // 비활성 계정: 복구 + 완전삭제
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => restoreMut.mutate(acc.login_id)}
+                              disabled={restoreMut.isPending}
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                              style={{ borderColor: "#9AE6B4", color: "#276749", background: "#F0FFF4" }}
+                              title="계정 복구(활성화)"
+                            >
+                              <RefreshCw size={11} /> 복구
+                            </button>
+                            <button
+                              onClick={() => setHardDeleteTarget(acc)}
+                              disabled={acc.login_id === user?.login_id}
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}
+                              title={acc.login_id === user?.login_id ? "자신의 계정은 완전 삭제할 수 없습니다" : "완전 삭제(복구 불가)"}
+                            >
+                              <Trash2 size={11} /> 완전삭제
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -3081,7 +3183,7 @@ export default function AdminPage() {
         <WsDetailPanel result={wsDetail} onClose={() => setWsDetail(null)} />
       )}
 
-      {/* 계정 삭제 확인 모달 */}
+      {/* 계정 비활성화 확인 모달 */}
       {confirmDeleteTarget && (
         <DeleteConfirmModal
           acc={confirmDeleteTarget}
@@ -3090,6 +3192,69 @@ export default function AdminPage() {
           isDeleting={deleteMut.isPending}
         />
       )}
+
+      {/* 완전 삭제(물리 삭제) 2단계 확인 모달 — 계정 아이디 직접 입력 필요 */}
+      {hardDeleteTarget && (
+        <HardDeleteModal
+          acc={hardDeleteTarget}
+          onConfirm={(confirm) => hardDeleteMut.mutate({ loginId: hardDeleteTarget.login_id, confirm })}
+          onClose={() => setHardDeleteTarget(null)}
+          isDeleting={hardDeleteMut.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── 완전 삭제 확인 모달 (계정 아이디 직접 입력) ────────────────────────────────
+function HardDeleteModal({
+  acc, onConfirm, onClose, isDeleting,
+}: {
+  acc: Record<string, string>;
+  onConfirm: (confirmLoginId: string) => void;
+  onClose: () => void;
+  isDeleting: boolean;
+}) {
+  const [text, setText] = useState("");
+  const matches = text.trim() === acc.login_id;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+      onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="hw-card" style={{ width: 440, maxWidth: "92vw", background: "#fff" }}>
+        <div className="flex items-center gap-2 mb-2">
+          <Trash2 size={16} style={{ color: "#C53030" }} />
+          <span className="font-semibold text-sm" style={{ color: "#C53030" }}>계정 완전 삭제 (복구 불가)</span>
+        </div>
+        <div className="text-sm mb-3" style={{ color: "#4A5568", lineHeight: 1.6 }}>
+          <strong>{acc.office_name || acc.login_id}</strong> (<code className="font-mono">{acc.login_id}</code>) 계정을
+          <b style={{ color: "#C53030" }}> 영구적으로 삭제</b>합니다. 이 작업은 되돌릴 수 없습니다.
+          <div className="mt-1" style={{ color: "#718096", fontSize: 12 }}>
+            연결된 업무 데이터(고객·결산·문서 등)가 있으면 삭제가 차단됩니다.
+          </div>
+        </div>
+        <div className="text-xs mb-1" style={{ color: "#718096" }}>삭제하려면 계정 아이디 <b className="font-mono" style={{ color: "#2D3748" }}>{acc.login_id}</b> 를 입력하세요.</div>
+        <input
+          autoFocus
+          className="hw-input w-full font-mono text-sm mb-3"
+          placeholder={acc.login_id}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && matches && !isDeleting) onConfirm(text.trim()); }}
+        />
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E2E8F0", color: "#718096", background: "#fff" }}>
+            취소
+          </button>
+          <button
+            onClick={() => onConfirm(text.trim())}
+            disabled={!matches || isDeleting}
+            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}
+          >
+            {isDeleting ? <><Loader2 size={12} className="animate-spin" /> 삭제 중</> : <><Trash2 size={12} /> 완전 삭제</>}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

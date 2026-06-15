@@ -13,10 +13,12 @@ from sqlalchemy import select
 
 
 def list_sheets(tenant_id: str) -> dict:
-    """Return {"sheet_key": <synthetic>, "sheets": [sheet_name, ...]}.
+    """Return {"sheet_key": "", "sheets": [sheet_name, ...]}.
 
-    Local PG mode doesn't have a real spreadsheet ID, so we return a sentinel
-    so the existing frontend doesn't have to special-case it.
+    PG 모드에는 실제 Google 스프레드시트 ID가 없다. 과거에는 ``local-work-{tenant_id}``
+    synthetic sentinel 을 돌려줬으나, 이 값이 프론트의 "원본 시트 열기" 링크로 이어져
+    깨진 Google Sheets URL 을 만들었다. PG 전환 원칙상 Sheets 링크를 만들지 않으므로
+    ``sheet_key`` 는 빈 문자열로 둔다 → 프론트는 빈 값이면 링크를 숨긴다.
     """
     from backend.db.models.work_data import WorkReferenceSheet
     from backend.db.session import get_sessionmaker
@@ -29,7 +31,7 @@ def list_sheets(tenant_id: str) -> dict:
             .order_by(WorkReferenceSheet.sheet_name)
         ).all()
     return {
-        "sheet_key": f"local-work-{tenant_id}",
+        "sheet_key": "",
         "sheets": [r.sheet_name for r in rows],
     }
 

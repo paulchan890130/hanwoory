@@ -1258,3 +1258,136 @@ def pdf_artifact_summary(manual: str | None = None) -> dict:
             total += int(cnt)
         out["total"] = total
     return out
+
+
+# ── full PDF 합성(PyMuPDF 스플라이스, 검토용) ────────────────────────────────
+# 검토용 "완전한 PDF": 배포본 전체 매뉴얼 PDF 에 이미 렌더된 변경 페이지 artifact 를
+# 해당 위치에 끼워넣어 '변경 반영된 완전한 PDF(검토용·운영 미반영)' 를 만든다.
+# node/playwright 불필요(변경 페이지는 worker 가 이미 렌더). 결과는 full_pdf artifact
+# 로 캐시하되, worker/node 가 재렌더한 '진짜' full_pdf 및 staging full PDF 와 반드시
+# 구분한다. 구분 마커(note):  "purpose=review_splice;generator=pymupdf_splice;source_hash=…"
+# cleanup 은 이 마커가 있는 review_splice artifact 만 삭제 → worker full_pdf 는 절대 보존.
+_SPLICE_PURPOSE = "review_splice"
+_SPLICE_GENERATOR = "pymupdf_splice"
+
+
+def is_review_splice_note(note: str | None) -> bool:
+    """note 가 PyMuPDF 검토용 스플라이스 artifact 마커를 가지면 True."""
+    n = note or ""
+    return (f"generator={_SPLICE_GENERATOR}" in n) or (f"purpose={_SPLICE_PURPOSE}" in n)
+
+
+def _splice_note(source_hash: str) -> str:
+    return f"purpose={_SPLICE_PURPOSE};generator={_SPLICE_GENERATOR};source_hash={source_hash}"
+
+
+def get_worker_full_pdf(manual: str, version: str | None = None) -> dict | None:
+    """worker/node 가 재렌더한 '진짜' full_pdf artifact(검토용 splice 가 아닌 것). 없으면 None.
+    version 지정 시 해당 버전 우선, 없으면 최신(created_at desc)."""
+    if not pg_enabled():
+        return None
+    rows = [a for a in get_pdf_artifacts(manual, version)
+            if a.get("artifact_type") == "full_pdf" and not is_review_splice_note(a.get("note"))]
+    if not rows and version:
+        rows = [a for a in get_pdf_artifacts(manual, None)
+                if a.get("artifact_type") == "full_pdf" and not is_review_splice_note(a.get("note"))]
+    return rows[0] if rows else None
+
+
+def _changed_components(manual: str, version: str) -> list[dict]:
+    """(manual, version) 의 변경 페이지 artifact(blob 포함)를 page_from 순으로 반환."""
+    out: list[dict] = []
+    for a in get_pdf_artifacts(manual, version):
+        if a.get("artifact_type") not in ("changed_page", "changed_page_bundle"):
+            continue
+        pf = a.get("page_from")
+        if not pf:
+            nums = a.get("page_numbers") or []
+            if not nums:
+                continue
+            pf, pt = min(nums), max(nums)
+        else:
+            pt = a.get("page_to") or pf
+        blob = get_pdf_artifact_blob(a["id"])
+        if not blob:
+            continue
+        out.append({"page_from": int(pf), "page_to": int(pt),
+                    "content_hash": a.get("content_hash") or str(a["id"]), "blob": blob})
+    out.sort(key=lambda c: c["page_from"])
+    return out
+
+
+def splice_changed_pages_into_full(base_pdf_bytes: bytes, components: list[dict]) -> bytes:
+    """배포본 전체 PDF(base)의 변경 구간을 components(렌더된 변경 페이지 PDF)로 교체.
+
+    page_from 내림차순으로 처리해 앞 페이지 인덱스가 흔들리지 않게 한다.
+    modified(동일 페이지 수)는 1:1 정확 교체, 페이지 증감 케이스는 근사
+    (시작 인덱스에 변경 페이지를 삽입). 1-based 페이지 번호 기준."""
+    import fitz
+    base = fitz.open(stream=base_pdf_bytes, filetype="pdf")
+    try:
+        for c in sorted(components, key=lambda x: x["page_from"], reverse=True):
+            pf = int(c["page_from"]); pt = int(c["page_to"] or pf)
+            i0 = max(0, pf - 1)
+            if i0 >= base.page_count:
+                continue
+            i1 = min(base.page_count - 1, pt - 1)
+            repl = fitz.open(stream=c["blob"], filetype="pdf")
+            try:
+                if i0 <= i1:
+                    base.delete_pages(from_page=i0, to_page=i1)
+                base.insert_pdf(repl, start_at=i0)
+            finally:
+                repl.close()
+        return base.tobytes(deflate=True, garbage=3)
+    finally:
+        base.close()
+
+
+def compose_full_pdf_blob(manual: str, version: str, base_pdf_bytes: bytes,
+                          base_hash: str) -> dict | None:
+    """변경 페이지 artifact 가 있으면 base 에 스플라이스해 '검토용' full_pdf blob 을 만들고
+    review_splice full_pdf artifact 로 캐시한다(입력 동일하면 재사용). 없으면 None.
+
+    캐시/정리 모두 review_splice 마커가 있는 artifact 만 대상으로 한다 → worker/node 가
+    만든 진짜 full_pdf 와 staging full PDF 는 절대 건드리지 않는다.
+    반환: {"blob", "artifact_id", "cached", "page_count", "components", "review_only": True}."""
+    if not pg_enabled():
+        return None
+    components = _changed_components(manual, version)
+    if not components:
+        return None
+    import hashlib
+    src = base_hash + "|" + "|".join(
+        f"{c['page_from']}-{c['page_to']}:{c['content_hash']}" for c in components)
+    src_hash = hashlib.sha256(src.encode("utf-8")).hexdigest()
+    note_tag = _splice_note(src_hash)
+    # 동일 입력 캐시 재사용 (review_splice + 동일 source_hash)
+    for a in get_pdf_artifacts(manual, version):
+        if (a.get("artifact_type") == "full_pdf" and is_review_splice_note(a.get("note"))
+                and (a.get("note") or "") == note_tag):
+            blob = get_pdf_artifact_blob(a["id"])
+            if blob:
+                return {"blob": blob, "artifact_id": a["id"], "cached": True,
+                        "page_count": a.get("page_count"), "components": len(components),
+                        "review_only": True}
+    composed = splice_changed_pages_into_full(base_pdf_bytes, components)
+    pc = None
+    try:
+        import fitz
+        with fitz.open(stream=composed, filetype="pdf") as _d:
+            pc = _d.page_count
+    except Exception:
+        pass
+    # 옛 review_splice 캐시만 정리(같은 manual/version). worker full_pdf/staging 은 보존.
+    for a in get_pdf_artifacts(manual, version):
+        if a.get("artifact_type") == "full_pdf" and is_review_splice_note(a.get("note")):
+            try:
+                delete_pdf_artifact(a["id"])
+            except Exception:
+                pass
+    saved = save_pdf_artifact(manual=manual, artifact_type="full_pdf", version=version,
+                              source="review_splice", pdf_blob=composed, page_count=pc,
+                              status="generated", note=note_tag)
+    return {"blob": composed, "artifact_id": saved.get("id"), "cached": False,
+            "page_count": pc, "components": len(components), "review_only": True}
