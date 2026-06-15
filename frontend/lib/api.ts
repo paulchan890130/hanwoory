@@ -540,6 +540,10 @@ export const adminApi = {
     }>("/api/admin/workspace", { login_id, office_name }),
   deleteAccount: (loginId: string) =>
     api.delete(`/api/admin/accounts/${loginId}`),
+  restoreAccount: (loginId: string) =>
+    api.post(`/api/admin/accounts/${loginId}/restore`),
+  hardDeleteAccount: (loginId: string, confirmLoginId: string) =>
+    api.delete(`/api/admin/accounts/${loginId}/hard`, { params: { confirm_login_id: confirmLoginId } }),
   // 행정사 주민등록번호 — 상태만 조회/저장(원문 미노출). 빈 값 저장 = 삭제.
   getAgentRrn: (loginId: string) =>
     api.get<{ has_agent_rrn: boolean; agent_rrn_last4: string }>(
