@@ -101,6 +101,44 @@ def logout(current_user: dict = Depends(get_current_user)):
 # ─────────────────────────────────────────────────────────────────────────────
 # /signup
 # ─────────────────────────────────────────────────────────────────────────────
+def _prepare_agent_rrn_fields(raw_value):
+    """입력된 행정사 주민번호를 **검증·암호화**해 tenants 컬럼 dict 로 반환(fail-closed).
+
+    정책(확정):
+    - 빈 값 → None(선택 입력 → 가입 계속, agent_rrn 미저장).
+    - 입력됨 + 형식 오류 → HTTPException 400("행정사 주민등록번호 형식이 올바르지 않습니다.").
+      허용 형식: ``900101-1234567`` / ``9001011234567`` (숫자 13자리 기준).
+    - 입력됨 + 암호화 키 미설정/암호화 실패 → HTTPException 503(키 이름 비노출).
+    검증·암호화는 **DB write 이전**에 수행하므로, 실패 시 계정이 생성되지 않는다.
+    평문/해시는 저장하지 않으며 예외 메시지·로그에 PII(raw RRN)를 남기지 않는다.
+    """
+    raw = (raw_value or "").strip()
+    if not raw:
+        return None
+    from datetime import datetime, timezone
+    from backend.services.pii_crypto import (
+        encrypt_agent_rrn, rrn_last4, validate_rrn_format, RrnFormatError,
+    )
+    if not validate_rrn_format(raw):
+        raise HTTPException(status_code=400, detail="행정사 주민등록번호 형식이 올바르지 않습니다.")
+    try:
+        cipher = encrypt_agent_rrn(raw)
+        last4 = rrn_last4(raw)
+    except RrnFormatError:
+        raise HTTPException(status_code=400, detail="행정사 주민등록번호 형식이 올바르지 않습니다.")
+    except Exception:
+        # PiiKeyMissing 등 모든 암호화 실패 → 키 이름/평문 비노출, 가입 자체를 차단.
+        raise HTTPException(
+            status_code=503,
+            detail="주민등록번호 보안 저장 설정이 완료되지 않아 가입신청을 처리할 수 없습니다. 관리자에게 문의하십시오.",
+        )
+    return {
+        "agent_rrn_encrypted": cipher,
+        "agent_rrn_last4": last4,
+        "agent_rrn_updated_at": datetime.now(timezone.utc),
+    }
+
+
 @router.post("/signup")
 def signup(req: SignupRequest):
     if req.password != req.confirm_password:
@@ -112,9 +150,16 @@ def signup(req: SignupRequest):
 
     login_id = req.login_id.strip()
 
+    # 행정사 주민번호 검증·암호화를 **계정 생성 이전**에 먼저 수행(fail-closed).
+    # 형식 오류 → 400, 키 미설정/암호화 실패 → 503 으로 즉시 차단되어 계정이 생성되지 않는다.
+    rrn_fields = _prepare_agent_rrn_fields(req.agent_rrn)
+
     # ── PG-only(Phase B) ─────────────────────────────────────────────────
     # 가입신청은 PostgreSQL(tenants + users)에만 기록한다. Google Sheets 미사용.
-    # is_active=False → 관리자 승인 후 활성화. agent_rrn 원본은 저장하지 않는다.
+    # is_active=False → 관리자 승인 후 활성화.
+    # 행정사 주민번호(agent_rrn)는 입력되면 **암호화**해 tenants.agent_rrn_encrypted 에 저장한다
+    # (평문/해시는 저장하지 않음). tenant+user 는 단일 commit 으로 원자적으로 생성된다.
+    # 승인 플로우는 is_active/시트키만 갱신하므로 이 값은 보존된다.
     from sqlalchemy import select
     from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
@@ -124,15 +169,24 @@ def signup(req: SignupRequest):
         if session.scalar(select(AccountUser).where(AccountUser.login_id == login_id)):
             raise HTTPException(status_code=409, detail="동일한 ID가 존재합니다. 다른 ID로 가입신청해 주십시오.")
         tenant_id = login_id  # default rule: tenant_id == login_id
-        if not session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)):
-            session.add(Tenant(
+        existing_tenant = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if not existing_tenant:
+            t = Tenant(
                 tenant_id=tenant_id,
                 office_name=req.office_name.strip(),
                 office_adr=(req.office_adr or "").strip() or None,
                 biz_reg_no=(req.biz_reg_no or "").strip() or None,
                 is_active=False,
-            ))
+            )
+            if rrn_fields:
+                for col, val in rrn_fields.items():
+                    setattr(t, col, val)
+            session.add(t)
             session.flush()
+        elif rrn_fields:
+            # tenant 가 이미 있고 rrn 이 입력된 경우에도 저장(검증은 위에서 통과한 상태).
+            for col, val in rrn_fields.items():
+                setattr(existing_tenant, col, val)
         session.add(AccountUser(
             login_id=login_id,
             tenant_id=tenant_id,

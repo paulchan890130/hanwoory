@@ -31,7 +31,8 @@ function Input({ label, value, onChange, multiline, style }: {
   multiline?: boolean; style?: React.CSSProperties;
 }) {
   const base: React.CSSProperties = {
-    width: "100%", padding: "5px 8px", border: "1px solid #CBD5E0", borderRadius: 6,
+    width: "100%", minWidth: 0, boxSizing: "border-box",
+    padding: "5px 8px", border: "1px solid #CBD5E0", borderRadius: 6,
     fontSize: 13, background: "#fff", ...style,
   };
   return (
@@ -52,7 +53,7 @@ function Select({ label, value, onChange, options }: {
     <div style={{ marginBottom: 6 }}>
       {label && <div style={{ fontSize: 11, color: "#718096", marginBottom: 2 }}>{label}</div>}
       <select value={value} onChange={e => onChange(e.target.value)}
-        style={{ width: "100%", padding: "5px 8px", border: "1px solid #CBD5E0", borderRadius: 6, fontSize: 13, background: "#fff" }}>
+        style={{ width: "100%", minWidth: 0, boxSizing: "border-box", padding: "5px 8px", border: "1px solid #CBD5E0", borderRadius: 6, fontSize: 13, background: "#fff" }}>
         <option value="">선택 없음</option>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -397,7 +398,10 @@ export default function CertificationServicesPage() {
   const dirOpts = (data?.directions ?? []).map(d => ({ value: d.name, label: d.name }));
   const vendorOpts = (data?.vendors ?? []).map(v => ({ value: v.id, label: v.name }));
 
-  // PriceForm: 대분류 선택에 따라 중분류/소분류 후보를 동적으로 계산
+  // PriceForm: 대분류 선택에 따라 중분류/소분류 후보를 동적으로 계산.
+  // ⚠️ 컴포넌트 본문 안에 정의돼 있으므로 JSX(<PriceForm/>)로 렌더하면 매 입력마다
+  // 부모 리렌더 → 새 컴포넌트 식별자 → input 리마운트로 포커스가 사라진다.
+  // 반드시 함수 호출({PriceForm({draft, setDraft})})로 렌더해 부모 트리에 인라인한다.
   const PriceForm = ({ draft, setDraft }: { draft: Partial<CertPrice>; setDraft: (d: Partial<CertPrice>) => void }) => {
     const allGroups = data?.groups ?? [];
     const allRegions = data?.regions ?? [];
@@ -529,7 +533,7 @@ export default function CertificationServicesPage() {
       {addingPrice && (
         <div style={{ border: "2px dashed #3B82F6", borderRadius: 10, padding: 16, marginBottom: 16, background: "#EFF6FF" }}>
           <div style={{ fontWeight: 700, marginBottom: 10, color: "#1D4ED8" }}>새 항목 추가</div>
-          <PriceForm draft={newPrice} setDraft={setNewPrice} />
+          {PriceForm({ draft: newPrice, setDraft: setNewPrice })}
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <Btn onClick={saveNewPrice} color="green"><Save size={13} /> 저장</Btn>
             <Btn onClick={() => setAddingPrice(false)}><X size={13} /> 취소</Btn>
@@ -544,7 +548,7 @@ export default function CertificationServicesPage() {
             {editPriceId === p.id ? (
               <>
                 <div style={{ fontWeight: 700, marginBottom: 10, color: "#1D4ED8" }}>수정 중</div>
-                <PriceForm draft={priceDraft} setDraft={setPriceDraft} />
+                {PriceForm({ draft: priceDraft, setDraft: setPriceDraft })}
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <Btn onClick={savePriceEdit} color="green"><Save size={13} /> 저장</Btn>
                   <Btn onClick={() => setEditPriceId(null)}><X size={13} /> 취소</Btn>
@@ -610,6 +614,7 @@ export default function CertificationServicesPage() {
     } catch (e: any) { showToast(e.response?.data?.detail || "삭제 실패", "error"); }
   };
 
+  // ⚠️ PriceForm 과 동일 — 함수 호출({VendorForm({...})})로만 렌더(포커스 유지).
   const VendorForm = ({ draft, setDraft }: { draft: Partial<CertVendor>; setDraft: (d: Partial<CertVendor>) => void }) => (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
       <Input label="업체명" value={draft.name ?? ""} onChange={v => setDraft({ ...draft, name: v })} />
@@ -633,7 +638,7 @@ export default function CertificationServicesPage() {
       {addingVendor && (
         <div style={{ border: "2px dashed #3B82F6", borderRadius: 10, padding: 16, marginBottom: 16, background: "#EFF6FF" }}>
           <div style={{ fontWeight: 700, marginBottom: 10, color: "#1D4ED8" }}>새 업체 추가</div>
-          <VendorForm draft={newVendor} setDraft={setNewVendor} />
+          {VendorForm({ draft: newVendor, setDraft: setNewVendor })}
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <Btn onClick={saveNewVendor} color="green"><Save size={13} /> 저장</Btn>
             <Btn onClick={() => setAddingVendor(false)}><X size={13} /> 취소</Btn>
@@ -647,7 +652,7 @@ export default function CertificationServicesPage() {
             {editVendorId === v.id ? (
               <>
                 <div style={{ fontWeight: 700, marginBottom: 10, color: "#1D4ED8" }}>수정 중</div>
-                <VendorForm draft={vendorDraft} setDraft={setVendorDraft} />
+                {VendorForm({ draft: vendorDraft, setDraft: setVendorDraft })}
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <Btn onClick={saveVendorEdit} color="green"><Save size={13} /> 저장</Btn>
                   <Btn onClick={() => setEditVendorId(null)}><X size={13} /> 취소</Btn>
@@ -798,59 +803,61 @@ export default function CertificationServicesPage() {
     );
   }
 
+  // ⚠️ ClassList 도 본문 내부 정의 → JSX(<ClassList/>) 렌더 시 입력마다 리마운트(포커스 손실).
+  // 함수 호출({ClassList<T>({...})})로 렌더해 부모 트리에 인라인한다.
   const ClassificationTab = (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-      <ClassList<CertDirection>
-        title="대분류 관리" items={data?.directions ?? []}
-        editId={editDirId} draft={dirDraft} setDraft={setDirDraft as any}
-        onEdit={(id, item) => { setEditDirId(id); setDirDraft({ ...item }); }} onSave={saveDirEdit}
-        onCancel={() => { setEditDirId(null); setAddingDir(false); }}
-        onAdd={() => { setAddingDir(true); setNewDir({ ...EMPTY_DIR }); }}
-        addingItem={addingDir} newItem={newDir} setNewItem={setNewDir as any} onSaveNew={saveNewDir}
-        onDelete={deleteDir}
-        renderRow={d => <span style={{ fontSize: 13 }}>{d.name} <span style={{ fontSize: 11, color: "#A0AEC0" }}>({d.sort_order})</span></span>}
-        renderForm={(d, set) => (
+      {ClassList<CertDirection>({
+        title: "대분류 관리", items: data?.directions ?? [],
+        editId: editDirId, draft: dirDraft, setDraft: setDirDraft as any,
+        onEdit: (id, item) => { setEditDirId(id); setDirDraft({ ...item }); }, onSave: saveDirEdit,
+        onCancel: () => { setEditDirId(null); setAddingDir(false); },
+        onAdd: () => { setAddingDir(true); setNewDir({ ...EMPTY_DIR }); },
+        addingItem: addingDir, newItem: newDir, setNewItem: setNewDir as any, onSaveNew: saveNewDir,
+        onDelete: deleteDir,
+        renderRow: d => <span style={{ fontSize: 13 }}>{d.name} <span style={{ fontSize: 11, color: "#A0AEC0" }}>({d.sort_order})</span></span>,
+        renderForm: (d, set) => (
           <>
             <Input label="이름" value={(d as Partial<CertDirection>).name ?? ""} onChange={v => set({ ...d, name: v } as any)} />
             <Input label="정렬순서" value={(d as Partial<CertDirection>).sort_order ?? "0"} onChange={v => set({ ...d, sort_order: v } as any)} />
           </>
-        )}
-      />
-      <ClassList<CertGroup>
-        title="중분류 관리" items={data?.groups ?? []}
-        editId={editGrpId} draft={grpDraft} setDraft={setGrpDraft as any}
-        onEdit={(id, item) => { setEditGrpId(id); setGrpDraft({ ...item }); }} onSave={saveGrpEdit}
-        onCancel={() => { setEditGrpId(null); setAddingGrp(false); }}
-        onAdd={() => { setAddingGrp(true); setNewGrp({ ...EMPTY_GRP }); }}
-        addingItem={addingGrp} newItem={newGrp} setNewItem={setNewGrp as any} onSaveNew={saveNewGrp}
-        onDelete={deleteGrp}
-        renderRow={g => <div><span style={{ fontSize: 13, fontWeight: 600 }}>{(g as CertGroup).group_name}</span>
-          {(g as CertGroup).aliases && <div style={{ fontSize: 11, color: "#718096", marginTop: 1 }}>{(g as CertGroup).aliases}</div>}</div>}
-        renderForm={(d, set) => (
+        ),
+      })}
+      {ClassList<CertGroup>({
+        title: "중분류 관리", items: data?.groups ?? [],
+        editId: editGrpId, draft: grpDraft, setDraft: setGrpDraft as any,
+        onEdit: (id, item) => { setEditGrpId(id); setGrpDraft({ ...item }); }, onSave: saveGrpEdit,
+        onCancel: () => { setEditGrpId(null); setAddingGrp(false); },
+        onAdd: () => { setAddingGrp(true); setNewGrp({ ...EMPTY_GRP }); },
+        addingItem: addingGrp, newItem: newGrp, setNewItem: setNewGrp as any, onSaveNew: saveNewGrp,
+        onDelete: deleteGrp,
+        renderRow: g => <div><span style={{ fontSize: 13, fontWeight: 600 }}>{(g as CertGroup).group_name}</span>
+          {(g as CertGroup).aliases && <div style={{ fontSize: 11, color: "#718096", marginTop: 1 }}>{(g as CertGroup).aliases}</div>}</div>,
+        renderForm: (d, set) => (
           <>
             <Input label="그룹명" value={(d as Partial<CertGroup>).group_name ?? ""} onChange={v => set({ ...d, group_name: v } as any)} />
             <Input label="별칭/키워드 (쉼표구분)" value={(d as Partial<CertGroup>).aliases ?? ""} onChange={v => set({ ...d, aliases: v } as any)} multiline />
             <Select label="기본 대분류" value={(d as Partial<CertGroup>).default_direction ?? ""} onChange={v => set({ ...d, default_direction: v } as any)} options={dirOpts} />
             <Input label="정렬순서" value={(d as Partial<CertGroup>).sort_order ?? "0"} onChange={v => set({ ...d, sort_order: v } as any)} />
           </>
-        )}
-      />
-      <ClassList<CertRegion>
-        title="소분류/지역 관리" items={data?.regions ?? []}
-        editId={editRgnId} draft={rgnDraft} setDraft={setRgnDraft as any}
-        onEdit={(id, item) => { setEditRgnId(id); setRgnDraft({ ...item }); }} onSave={saveRgnEdit}
-        onCancel={() => { setEditRgnId(null); setAddingRgn(false); }}
-        onAdd={() => { setAddingRgn(true); setNewRgn({ ...EMPTY_RGN }); }}
-        addingItem={addingRgn} newItem={newRgn} setNewItem={setNewRgn as any} onSaveNew={saveNewRgn}
-        onDelete={deleteRgn}
-        renderRow={r => <span style={{ fontSize: 13 }}>{(r as CertRegion).name}</span>}
-        renderForm={(d, set) => (
+        ),
+      })}
+      {ClassList<CertRegion>({
+        title: "소분류/지역 관리", items: data?.regions ?? [],
+        editId: editRgnId, draft: rgnDraft, setDraft: setRgnDraft as any,
+        onEdit: (id, item) => { setEditRgnId(id); setRgnDraft({ ...item }); }, onSave: saveRgnEdit,
+        onCancel: () => { setEditRgnId(null); setAddingRgn(false); },
+        onAdd: () => { setAddingRgn(true); setNewRgn({ ...EMPTY_RGN }); },
+        addingItem: addingRgn, newItem: newRgn, setNewItem: setNewRgn as any, onSaveNew: saveNewRgn,
+        onDelete: deleteRgn,
+        renderRow: r => <span style={{ fontSize: 13 }}>{(r as CertRegion).name}</span>,
+        renderForm: (d, set) => (
           <>
             <Input label="이름" value={(d as Partial<CertRegion>).name ?? ""} onChange={v => set({ ...d, name: v } as any)} />
             <Input label="정렬순서" value={(d as Partial<CertRegion>).sort_order ?? "0"} onChange={v => set({ ...d, sort_order: v } as any)} />
           </>
-        )}
-      />
+        ),
+      })}
     </div>
   );
 

@@ -2149,6 +2149,47 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         )}
       </div>
 
+      {/* 단계별 진행 상태 — "어디까지 작동했고 어디부터 미구현인지" 분리 표시(작동 안 함 오해 방지) */}
+      <div className="hw-card">
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>단계별 진행 상태</div>
+        {(() => {
+          const changed = s.changed_count ?? 0;
+          const cand = s.candidate_count ?? 0;
+          const review = s.review_target_count ?? 0;
+          const artTot = (pdfStatus.visa?.artifacts_total ?? 0) + (pdfStatus.stay?.artifacts_total ?? 0);
+          const anyFull = !!(pdfStatus.visa?.full_pdf_artifact || pdfStatus.stay?.full_pdf_artifact);
+          const stages: { label: string; state: "ok" | "info" | "todo"; text: string }[] = [
+            { label: "텍스트 변경 감지", state: "ok",
+              text: changed > 0 ? `정상 · 변경 ${changed}p 감지` : "정상 · 최신(변경 없음)" },
+            { label: "manual_ref 후보", state: cand > 0 ? "ok" : "info",
+              text: cand > 0 ? `후보 있음 ${cand}건 (검토대상 ${review})`
+                    : changed > 0 ? "후보 없음 · 영향 manual_ref 없음 / revision_history만 변경(정상)"
+                    : "후보 없음" },
+            { label: "변경 페이지 PDF", state: artTot > 0 ? "ok" : "info",
+              text: artTot > 0 ? `생성됨 (${artTot}건)` : "없음 (Cron/Worker에서 생성)" },
+            { label: "전체 PDF 뷰어 최신화", state: anyFull ? "ok" : "todo",
+              text: anyFull ? "full_pdf artifact 적용" : "미구현 · full_pdf artifact 없음 → 배포본 PDF 표시" },
+            { label: "실행 주체", state: "info",
+              text: runCap?.is_worker ? "워커 런타임" : "웹서비스(감지·조회 전용) · 기록/PDF 생성은 Cron/Worker 담당" },
+          ];
+          const col = (st: string) => st === "ok" ? "#276749" : st === "todo" ? "#C53030" : "#B7791F";
+          const ic = (st: string) => st === "ok" ? "✅" : st === "todo" ? "⛔" : "ℹ️";
+          return (
+            <div className="flex flex-col gap-1.5">
+              {stages.map((st) => (
+                <div key={st.label} className="text-xs flex gap-2" style={{ alignItems: "baseline" }}>
+                  <span style={{ width: 132, color: "#A0AEC0", flexShrink: 0 }}>{st.label}</span>
+                  <span style={{ color: col(st.state), fontWeight: 600 }}>{ic(st.state)} {st.text}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+        <div className="text-xs mt-2" style={{ color: "#718096" }}>
+          ※ 텍스트 변경 감지·후보 검토·페이지 override·변경 페이지 PDF는 작동하며, <b>전체 PDF 뷰어 최신화만</b> 미구현입니다.
+        </div>
+      </div>
+
       {/* baseline 요약 */}
       <div className="hw-card">
         <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>
@@ -2243,8 +2284,8 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
       <div className="hw-card">
         <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>PDF 최신화 상태</div>
         <div className="text-xs mb-2 px-2 py-1.5 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
-          ⚠ 변경 페이지 → 전체 PDF 교체 파이프라인 <b>미연결</b>. 현재 “전체 PDF 보기”는 최신 staging PDF 가 없어
-          <b> 배포본(현행 운영) PDF</b>로 표시됩니다. 텍스트 diff·후보 검토·페이지 override 는 정상 동작하나, PDF 자체 최신화는 다음 단계 구현 예정입니다.
+          ℹ️ <b>전체 PDF 뷰어 최신화만</b> 미구현입니다(full_pdf artifact 없음). 텍스트 변경 감지·후보 검토·페이지 override·변경 페이지 PDF 생성은 <b>정상 동작</b>합니다.
+          “전체 PDF 보기”는 full_pdf artifact가 없어 <b>배포본(현행 운영) PDF</b>로 표시되며, 이 부분(변경 페이지→전체 PDF 교체)은 다음 단계 구현 예정입니다.
         </div>
         <div className="overflow-x-auto">
           <table className="hw-table w-full text-xs" style={{ minWidth: 720 }}>
