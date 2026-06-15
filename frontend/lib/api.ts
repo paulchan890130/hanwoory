@@ -378,6 +378,92 @@ export interface YearlyAggRow {
   fixed?: number;
   net_after_fixed?: number;
 }
+// 기준일까지 누계 비교 / 일별·시간대 분석 (요구사항 1·3·5·6)
+export interface PeriodSide {
+  sales: number;
+  net: number;
+  expense: number;
+  count: number;
+}
+export interface PeriodBlock {
+  ref_day: number;
+  prev_ref_day: number;
+  days_in_month: number;
+  is_current_month: boolean;
+  is_future: boolean;
+  cur: PeriodSide;
+  prev: PeriodSide;
+  avg_daily_sales: number;
+  avg_daily_net: number;
+  projected_sales: number;
+  projected_net: number;
+}
+export interface DailyPoint {
+  day: number;
+  cur_sales: number;
+  cur_net: number;
+  prev_sales: number;
+  prev_net: number;
+  cur_cum_sales: number | null;
+  cur_cum_net: number | null;
+  prev_cum_sales: number;
+  prev_cum_net: number;
+  is_future: boolean;
+}
+export interface HourComparePoint {
+  bucket: string;
+  cur_sales: number;
+  cur_net: number;
+  cur_count: number;
+  prev_sales: number;
+  prev_net: number;
+  prev_count: number;
+}
+// 업무군별 경영 진단 보고서 (business_insights)
+export interface BizCategory {
+  category: string;
+  cur_count: number;
+  cur_sales: number;
+  cur_expense: number;
+  cur_net: number;
+  cur_margin: number | null;
+  cur_avg_ticket: number;
+  cur_net_per_case: number;
+  prev_count: number;
+  prev_sales: number;
+  prev_net: number;
+  prev_margin: number | null;
+  has_prev: boolean;
+  count_delta: number;
+  count_delta_pct: number | null;
+  sales_delta: number;
+  sales_delta_pct: number | null;
+  net_delta: number;
+  net_delta_pct: number | null;
+  margin_delta: number | null;
+  controllability: string;
+  risk_factors: string[];
+  diagnosis: string;
+  recommendation: string;
+}
+export interface BusinessInsights {
+  summary: {
+    best_margin_category: string | null;
+    best_margin_value: number | null;
+    worst_decline_category: string | null;
+    worst_decline_net: number | null;
+    focus_category: string | null;
+    focus_margin: number | null;
+  };
+  total_comment: string;
+  categories: BizCategory[];
+  manual_issue: {
+    status: "linked" | "not_linked" | "error";
+    comment: string;
+    related_changes: { version: string; detected_at: string; changed_page_count: number; candidate_count: number }[];
+  };
+  actions: string[];
+}
 export interface YearlyOverview {
   years: number[];
   selected: { year: number; month: number; quarter: number };
@@ -389,6 +475,12 @@ export interface YearlyOverview {
   category_compare: { name: string; cur: number; prev: number; delta: number }[];
   tax?: { current: TaxSummary | null; prev: TaxSummary | null; auto_reported_sales?: number };
   diagnosis: { good: string[]; bad: string[] };
+  // 신규 (요구사항 1·3·5·6)
+  period?: PeriodBlock;
+  daily_series?: DailyPoint[];
+  hour_compare?: HourComparePoint[];
+  analysis?: { good: string[]; bad: string[]; actions: string[] };
+  business_insights?: BusinessInsights;
 }
 
 // 메모

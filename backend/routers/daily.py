@@ -335,6 +335,622 @@ def _build_yearly_overview(records: list, year: int, month: int,
     }
 
 
+# ── 기준일까지 누계 비교 / 일별·시간대 분석 (요구사항 1·3·5·6) ──────────────────
+import calendar as _calendar
+
+# 시간대 버킷 (1~2시간 단위, 권장 기본값). lo ≤ hh < hi.
+_HOUR_BUCKETS = [
+    ("09~11", 9, 11), ("11~13", 11, 13), ("13~15", 13, 15),
+    ("15~17", 15, 17), ("17~19", 17, 19),
+]
+_HOUR_ETC = "기타/시간미상"
+
+
+def _days_in_month(y: int, m: int) -> int:
+    """해당 연·월의 마지막 일(윤년/2월/30·31일 안전)."""
+    return _calendar.monthrange(y, m)[1]
+
+
+def _won(n: int) -> str:
+    """만원 단위 표기(자동 분석 문구용). 음수는 부호 유지."""
+    return f"{round(n / 10000):,}만원"
+
+
+def _analyze_period(period: dict, hour_compare: list, category_compare: list,
+                    tax_cur: Optional[dict] = None) -> dict:
+    """기준일까지 누계(period) + 시간대 + 업무군 기반 자동 분석(장점/부족/대응).
+
+    - 전년 동월 동일기간 데이터가 없으면 전년 비교를 생략하고 현재월 내부 지표만 안내.
+    - 과장 금지, 데이터 부족 시 명시.
+    """
+    good: list = []
+    bad: list = []
+    actions: list = []
+    cur, prev = period["cur"], period["prev"]
+
+    def pct(c, p):
+        return None if not p else round((c - p) / abs(p) * 100, 1)
+
+    if period["is_future"]:
+        actions.append("아직 시작되지 않은 월입니다. 분석할 데이터가 없습니다.")
+        return {"good": good, "bad": bad, "actions": actions}
+
+    if cur["count"] == 0:
+        bad.append("데이터 부족: 이번 기간 결산 데이터가 없습니다.")
+
+    has_prev = bool(prev["sales"] or prev["count"])
+    if has_prev and cur["count"]:
+        ps = pct(cur["sales"], prev["sales"])
+        if ps is not None:
+            (good if ps >= 0 else bad).append(
+                f"이번 기간 누계 매출은 전년 동월 동일기간 대비 {'+' if ps >= 0 else ''}{ps}% "
+                f"({_won(abs(cur['sales'] - prev['sales']))}) {'증가' if ps >= 0 else '감소'}했습니다."
+            )
+        pn = pct(cur["net"], prev["net"])
+        if pn is not None:
+            (good if pn >= 0 else bad).append(
+                f"이번 기간 누계 순수익은 전년 동월 동일기간 대비 "
+                f"{'+' if pn >= 0 else ''}{pn}% {'증가' if pn >= 0 else '감소'}했습니다."
+            )
+        cur_rate = cur["net"] / cur["sales"] * 100 if cur["sales"] else 0
+        prev_rate = prev["net"] / prev["sales"] * 100 if prev["sales"] else 0
+        if ps is not None and ps > 0 and round(cur_rate - prev_rate, 1) < 0:
+            bad.append("매출은 증가했으나 지출 증가율이 더 높아 순수익률이 하락했습니다.")
+        # 시간대 약점(전년 대비 20% 이상 감소)
+        for h in hour_compare:
+            if h["prev_sales"] > 0:
+                hp = pct(h["cur_sales"], h["prev_sales"])
+                if hp is not None and hp <= -20:
+                    bad.append(f"{h['bucket']} 시간대 매출이 전년 대비 {hp}% 감소했습니다.")
+        # 업무군 하락(상위 2개)
+        downs = sorted([c for c in category_compare if c["delta"] < 0],
+                       key=lambda x: x["delta"])[:2]
+        for c in downs:
+            bad.append(
+                f"{c['name']} 매출이 전년 동월 대비 {_won(abs(c['delta']))} 감소했습니다. "
+                f"해당 업무 유입을 점검하십시오."
+            )
+        ups = sorted([c for c in category_compare if c["delta"] > 0],
+                     key=lambda x: -x["delta"])[:2]
+        for c in ups:
+            good.append(f"{c['name']} 매출이 전년 동월 대비 {_won(c['delta'])} 증가했습니다.")
+    elif cur["count"]:
+        actions.append("전년 동월 데이터가 없어 전년 비교 대신 현재월 내부 지표만 표시합니다.")
+
+    # 월말 예상(진행 중인 월에서만 의미)
+    if period["is_current_month"] and cur["count"]:
+        actions.append(
+            f"현재 일평균 기준 월말 예상 순수익은 약 {_won(period['projected_net'])}입니다."
+        )
+        actions.append(f"월말 예상 매출은 약 {_won(period['projected_sales'])}입니다.")
+
+    # 현재기간 강한 시간대 요약
+    valid = [h for h in hour_compare if h["bucket"] != _HOUR_ETC and h["cur_sales"] > 0]
+    if valid:
+        top = max(valid, key=lambda h: h["cur_sales"])
+        good.append(f"이번 기간 매출이 가장 높은 시간대는 {top['bucket']}입니다.")
+
+    return {"good": good, "bad": bad, "actions": actions}
+
+
+def _build_period_analysis(records: list, year: int, month: int, today,
+                           category_compare: list,
+                           tax_cur: Optional[dict] = None) -> dict:
+    """선택월 기준일까지의 누계 비교 + 일별 추이(작년 동월 겹쳐보기) + 시간대별 비교 + 자동 분석.
+
+    기준일 규칙:
+    - 진행 중인 월(=오늘이 속한 월): 기준일 = 오늘 day.
+    - 과거 완료 월: 기준일 = 해당월 말일.
+    - 미래 월: 데이터 없음(말일 기준, 분석 생략).
+    전년 동월 비교 구간은 같은 day까지로 자르되, 전년 해당월에 그 day가 없으면 말일로 보정.
+    현금출금 카테고리는 매출/순수익/건수에서 제외(cash_out 미반영). 읽기 전용.
+    """
+    from collections import defaultdict
+
+    dim = _days_in_month(year, month)
+    is_current = (year == today.year and month == today.month)
+    is_future = (year > today.year) or (year == today.year and month > today.month)
+    ref_day = min(today.day, dim) if is_current else dim
+    prev_dim = _days_in_month(year - 1, month)
+    prev_ref_day = min(ref_day, prev_dim)  # 윤년/말일 보정
+
+    def daily_map(y: int, m: int) -> dict:
+        dmap: dict = defaultdict(lambda: {"sales": 0, "net": 0, "count": 0})
+        for r in records:
+            ds = str(r.get("date", "") or "")
+            if len(ds) < 10:
+                continue
+            try:
+                ry, rm, rd = int(ds[:4]), int(ds[5:7]), int(ds[8:10])
+            except Exception:
+                continue
+            if ry != y or rm != m:
+                continue
+            cat = str(r.get("category", "") or "").strip() or "기타"
+            if cat == "현금출금":
+                continue
+            sales = _entry_sales(r)
+            cell = dmap[rd]
+            cell["sales"] += sales
+            cell["net"] += sales - _entry_expense(r)
+            cell["count"] += 1
+        return dmap
+
+    cur_dm = daily_map(year, month)
+    prev_dm = daily_map(year - 1, month)
+
+    def agg(dmap: dict, day_limit: int) -> dict:
+        s = {"sales": 0, "net": 0, "count": 0}
+        for d, v in dmap.items():
+            if d <= day_limit:
+                s["sales"] += v["sales"]
+                s["net"] += v["net"]
+                s["count"] += v["count"]
+        return s
+
+    cur_p = agg(cur_dm, ref_day)
+    prev_p = agg(prev_dm, prev_ref_day)
+
+    # 일별 추이(1~말일) — 올해 vs 전년 동월, 일별 + 누계. 진행 중 월은 오늘 이후를 미래로 표시.
+    daily_series = []
+    cum_cs = cum_cn = cum_ps = cum_pn = 0
+    for d in range(1, dim + 1):
+        c = cur_dm.get(d)
+        p = prev_dm.get(d) if d <= prev_dim else None
+        future = d > ref_day
+        cs = (c["sales"] if c else 0) if not future else 0
+        cn = (c["net"] if c else 0) if not future else 0
+        ps = p["sales"] if p else 0
+        pn = p["net"] if p else 0
+        cum_cs += cs
+        cum_cn += cn
+        cum_ps += ps
+        cum_pn += pn
+        daily_series.append({
+            "day": d,
+            "cur_sales": cs, "cur_net": cn,
+            "prev_sales": ps, "prev_net": pn,
+            "cur_cum_sales": None if future else cum_cs,
+            "cur_cum_net": None if future else cum_cn,
+            "prev_cum_sales": cum_ps, "prev_cum_net": cum_pn,
+            "is_future": future,
+        })
+
+    # 시간대별 비교(현재기간 vs 전년 동월 동일기간)
+    def hour_agg(y: int, m: int, day_limit: int) -> dict:
+        buckets = {name: {"sales": 0, "net": 0, "count": 0} for name, _, _ in _HOUR_BUCKETS}
+        buckets[_HOUR_ETC] = {"sales": 0, "net": 0, "count": 0}
+        for r in records:
+            ds = str(r.get("date", "") or "")
+            if len(ds) < 10:
+                continue
+            try:
+                ry, rm, rd = int(ds[:4]), int(ds[5:7]), int(ds[8:10])
+            except Exception:
+                continue
+            if ry != y or rm != m or rd > day_limit:
+                continue
+            cat = str(r.get("category", "") or "").strip() or "기타"
+            if cat == "현금출금":
+                continue
+            sales = _entry_sales(r)
+            net = sales - _entry_expense(r)
+            ts = str(r.get("time", "") or "").strip()
+            label = _HOUR_ETC
+            if ts:
+                try:
+                    hh = int(ts.split(":")[0])
+                    for name, lo, hi in _HOUR_BUCKETS:
+                        if lo <= hh < hi:
+                            label = name
+                            break
+                except Exception:
+                    label = _HOUR_ETC
+            b = buckets[label]
+            b["sales"] += sales
+            b["net"] += net
+            b["count"] += 1
+        return buckets
+
+    ch = hour_agg(year, month, ref_day)
+    ph = hour_agg(year - 1, month, prev_ref_day)
+    order = [n for n, _, _ in _HOUR_BUCKETS] + [_HOUR_ETC]
+    hour_compare = [{
+        "bucket": n,
+        "cur_sales": ch[n]["sales"], "cur_net": ch[n]["net"], "cur_count": ch[n]["count"],
+        "prev_sales": ph[n]["sales"], "prev_net": ph[n]["net"], "prev_count": ph[n]["count"],
+    } for n in order]
+
+    period = {
+        "ref_day": ref_day,
+        "prev_ref_day": prev_ref_day,
+        "days_in_month": dim,
+        "is_current_month": is_current,
+        "is_future": is_future,
+        "cur": {"sales": cur_p["sales"], "net": cur_p["net"], "count": cur_p["count"],
+                "expense": cur_p["sales"] - cur_p["net"]},
+        "prev": {"sales": prev_p["sales"], "net": prev_p["net"], "count": prev_p["count"],
+                 "expense": prev_p["sales"] - prev_p["net"]},
+        "avg_daily_sales": round(cur_p["sales"] / ref_day) if ref_day else 0,
+        "avg_daily_net": round(cur_p["net"] / ref_day) if ref_day else 0,
+        "projected_sales": round(cur_p["sales"] / ref_day * dim) if ref_day else 0,
+        "projected_net": round(cur_p["net"] / ref_day * dim) if ref_day else 0,
+    }
+
+    return {
+        "period": period,
+        "daily_series": daily_series,
+        "hour_compare": hour_compare,
+        "analysis": _analyze_period(period, hour_compare, category_compare, tax_cur),
+    }
+
+
+# ── 업무군별 경영 진단 보고서 (business_insights) ──────────────────────────────
+# 신규 입력은 프론트 구분_옵션과 동일한 표준 버킷이지만, 과거/레거시 데이터에는
+# "영주"(권 없음)·"체류"·"연장"·"공인증"·"전자" 등 자유 입력값이 섞일 수 있어
+# normalize_business_category()로 표준 7종에 정규화한다(현금출금은 호출 전 제외).
+_BIZ_CATEGORIES = ["출입국", "전자민원", "공증", "여권", "초청", "영주권", "기타"]
+_LOW_VOLUME_CATS = {"여권", "초청", "영주권", "기타"}  # 건수 적으면 추세 판단 제한 문구
+_LOW_VOLUME_N = 3
+
+# 키워드 정규화 매핑(부분 일치). 우선순위 순서가 중요하다:
+# 영주권(F-5 최우선) → 전자민원 → 공증 → 여권 → 초청 → 출입국 → 기타.
+# F-5는 영주권, 그 외 체류자격 코드(F-1~F-4/F-6/H-2/E-7/D-2/D-4/D-8/D-10)는 출입국.
+_PERMANENT_CODES = ("F-5",)
+_IMMIG_CODES = ("F-1", "F-2", "F-3", "F-4", "F-6", "H-2", "E-7", "D-2", "D-4", "D-8", "D-10")
+_KW_PERMANENT = ("영주권", "영주신청", "영주자격", "영주")   # "영주"가 "영주권"·"영주자격"도 포함
+_KW_PERMANENT_EN = ("permanent residence",)
+_KW_EMINWON   = ("전자민원", "온라인민원", "민원24", "정부24", "전자", "온라인")
+_KW_GONGJEUNG = ("중국공증", "번역공증", "미재혼공증", "미혼공증", "공증", "공인증", "아포스티유", "인증")
+_KW_PASSPORT  = ("여권연장", "여권신청", "여권")
+_KW_INVITE    = ("사증초청", "초청장", "초청")
+_KW_IMMIG     = ("출입국", "체류", "사증", "등록사항", "등록", "연장", "변경", "부여", "신고", "주소")
+
+_CLEAR_BUCKETS = ("전자민원", "공증", "여권", "초청", "영주권")  # 명확 → aux로 덮어쓰지 않음
+
+
+def _classify_category_text(text) -> str:
+    """문자열 하나를 표준 업무군으로 분류(부분 일치, 우선순위).
+    영주권(F-5 최우선) → 전자민원 → 공증 → 여권 → 초청 → 출입국 → 기타.
+    매칭 실패/빈 값 → '기타'.
+    """
+    c = str(text or "").strip()
+    if not c:
+        return "기타"
+    s = c.upper().replace(" ", "")     # 코드 비교: 공백 제거 + 대문자 + 하이픈 유무 허용
+    cl = c.lower()                      # 영문 키워드 비교
+
+    def has_code(codes) -> bool:
+        for code in codes:
+            if code in s or code.replace("-", "") in s:
+                return True
+        return False
+
+    if (has_code(_PERMANENT_CODES) or any(k in c for k in _KW_PERMANENT)
+            or any(k in cl for k in _KW_PERMANENT_EN)):
+        return "영주권"
+    if any(k in c for k in _KW_EMINWON):
+        return "전자민원"
+    if any(k in c for k in _KW_GONGJEUNG):
+        return "공증"
+    if any(k in c for k in _KW_PASSPORT):
+        return "여권"
+    if any(k in c for k in _KW_INVITE):
+        return "초청"
+    if has_code(_IMMIG_CODES) or any(k in c for k in _KW_IMMIG):
+        return "출입국"
+    return "기타"
+
+
+def normalize_business_category(category, aux="") -> str:
+    """원본 category(+보조 task/work/details)를 표준 업무군 7종으로 정규화.
+
+    정책(확정):
+    - category가 전자민원/공증/여권/초청/영주권으로 명확하면 그대로(aux로 덮어쓰지 않음).
+    - category가 '출입국'이면, aux에 강한 영주권 신호(영주/영주권/F-5/F5/영주자격/
+      permanent residence)가 있을 때만 '영주권', 아니면 '출입국' 유지.
+    - category가 기타/빈값/미매핑이면 aux로 전체 fallback 분류(매칭 없으면 '기타').
+    원본 저장값은 변경하지 않으며 business_insights 분석 분류에만 사용한다.
+    현금출금은 호출부에서 별도 제외.
+    """
+    base = _classify_category_text(category)
+    if base in _CLEAR_BUCKETS:
+        return base
+    aux_cat = _classify_category_text(aux)
+    if base == "출입국":
+        return "영주권" if aux_cat == "영주권" else "출입국"
+    # base == "기타" (category 기타/빈값/미매핑) → aux 전체 fallback
+    return aux_cat
+
+# 업무군 성격(통제가능성/외부 위험요인) — 데이터 주장이 아닌 도메인 정의.
+_CAT_PROFILE = {
+    "출입국":   {"controllability": "낮음 (제도·매뉴얼 영향 큼)",
+                "risk_factors": ["하이코리아 매뉴얼 변경", "체류자격별 심사 강화/완화", "계절성 신청 수요", "특정 체류자격 이슈"]},
+    "전자민원": {"controllability": "높음 (내부 처리·응대 통제 가능)",
+                "risk_factors": ["처리 속도", "안내문/가격표", "반복업무 자동화", "SNS 유입", "응대 스크립트"]},
+    "공증":     {"controllability": "중간 (외부 요인 영향 큼)",
+                "risk_factors": ["중국 현지 정책", "계절성", "서류 준비 난이도", "상담 후 이탈률", "가격 민감도"]},
+    "여권":     {"controllability": "중간", "risk_factors": ["발급 수요 계절성", "낮은 단가"]},
+    "초청":     {"controllability": "중간", "risk_factors": ["초청 요건 변경", "서류 준비 난이도"]},
+    "영주권":   {"controllability": "중간", "risk_factors": ["요건 충족 난이도", "심사 기간"]},
+    "기타":     {"controllability": "-", "risk_factors": []},
+}
+
+
+# 외부요인/매뉴얼 이슈 — 상태별 문구(현재 가능한 수준과 한계를 명확히 기술).
+_MANUAL_MSG_NONE = (
+    "선택월에 감지된 매뉴얼 변경 데이터가 없습니다. 이번 달 출입국 실적 변화는 "
+    "매뉴얼 변경보다는 상담 유입, 계절성, 체류자격별 수요, 내부 응대 전환율을 중심으로 "
+    "확인해야 합니다."
+)
+_MANUAL_MSG_ERROR = (
+    "매뉴얼 변경 데이터를 조회하지 못했습니다. 월간결산의 출입국 분석에는 매뉴얼 변경 요인이 "
+    "반영되지 않았으므로, 관리자 → 매뉴얼 업데이트 PG 화면에서 변경 이력을 별도로 확인하십시오."
+)
+
+
+def _manual_issue_for_month(year: int, month: int, ref_day: int) -> dict:
+    """선택월에 감지된 매뉴얼 업데이트(manual_update_versions)를 best-effort로 연결.
+
+    상태:
+    - linked    : 선택월 변경 기록 존재(건수/페이지수 제시). 단, 체류자격별 정밀 매칭은 아님.
+    - not_linked: PG 정상 조회됐으나 선택월 변경 없음.
+    - error     : PG 미구성 또는 조회 예외(반영 불가).
+    절대 예외로 크래시하지 않는다.
+    """
+    try:
+        from backend.db.session import is_configured, get_sessionmaker
+        if not is_configured():
+            return {"status": "error", "comment": _MANUAL_MSG_ERROR, "related_changes": []}
+        from backend.db.models.manual_update import ManualUpdateVersion
+        SM = get_sessionmaker()
+        with SM() as s:
+            rows = (s.query(ManualUpdateVersion)
+                    .order_by(ManualUpdateVersion.detected_at.desc())
+                    .limit(100).all())
+        sel = []
+        for v in rows:
+            dt = v.detected_at
+            if dt and dt.year == year and dt.month == month and dt.day <= ref_day:
+                sel.append(v)
+        if not sel:
+            return {"status": "not_linked", "comment": _MANUAL_MSG_NONE, "related_changes": []}
+        changes = [{
+            "version": v.version,
+            "detected_at": v.detected_at.strftime("%Y-%m-%d"),
+            "changed_page_count": int(v.changed_page_count or 0),
+            "candidate_count": int(v.candidate_count or 0),
+        } for v in sel]
+        total_changed = sum(c["changed_page_count"] for c in changes)
+        comment = (
+            f"선택월에 매뉴얼 변경 {len(sel)}건 / 관련 페이지 {total_changed}개가 감지되었습니다. "
+            f"다만 현재 월간결산은 변경 내용과 체류자격별 매출·건수를 정밀 매칭하지는 않습니다. "
+            f"변경된 체류자격과 실제 출입국 업무 증감을 함께 검토하십시오."
+        )
+        return {"status": "linked", "comment": comment, "related_changes": changes}
+    except Exception:
+        return {"status": "error", "comment": _MANUAL_MSG_ERROR, "related_changes": []}
+
+
+def _build_business_insights(records: list, year: int, month: int, today) -> dict:
+    """업무군별 손익 + 전년 동월 동일기간 비교 + 진단/개선 제안 보고서 (읽기 전용).
+
+    기준일/전년 보정/현금출금 제외/미수(수입 0) 제외는 기존 누계 비교 로직과 동일.
+    근거 없는 문장은 만들지 않으며, 전년 데이터 없음·건수 부족은 그대로 표시한다.
+    """
+    from collections import defaultdict
+
+    dim = _days_in_month(year, month)
+    is_current = (year == today.year and month == today.month)
+    is_future = (year > today.year) or (year == today.year and month > today.month)
+    ref_day = min(today.day, dim) if is_current else dim
+    prev_dim = _days_in_month(year - 1, month)
+    prev_ref_day = min(ref_day, prev_dim)
+
+    cur = defaultdict(lambda: {"count": 0, "sales": 0, "expense": 0, "net": 0})
+    prev = defaultdict(lambda: {"count": 0, "sales": 0, "expense": 0, "net": 0})
+    for r in records:
+        ds = str(r.get("date", "") or "")
+        if len(ds) < 10:
+            continue
+        try:
+            ry, rm, rd = int(ds[:4]), int(ds[5:7]), int(ds[8:10])
+        except Exception:
+            continue
+        cat0 = str(r.get("category", "") or "").strip()
+        if cat0 == "현금출금":   # cash_out 전용 카테고리 → 제외
+            continue
+        sales = _entry_sales(r)        # 미수는 income 0 → 매출 0 자연 제외
+        exp = _entry_expense(r)
+        # 일일결산의 보조 텍스트는 task(업무 설명). work/details는 진행업무 전용 필드라 daily엔 없음.
+        aux = str(r.get("task", "") or "")
+        bucket = normalize_business_category(cat0, aux)
+        if ry == year and rm == month and rd <= ref_day:
+            b = cur[bucket]
+        elif ry == year - 1 and rm == month and rd <= prev_ref_day:
+            b = prev[bucket]
+        else:
+            continue
+        b["count"] += 1
+        b["sales"] += sales
+        b["expense"] += exp
+        b["net"] += sales - exp
+
+    def margin(net, sales):
+        return None if not sales else round(net / sales * 100, 1)
+
+    def pct(c, p):
+        return None if not p else round((c - p) / abs(p) * 100, 1)
+
+    def won(n):
+        return f"{round(n / 10000):,}만원"
+
+    # 활동이 있는 버킷만(현재 또는 전년) — 표준 순서 유지
+    active = [c for c in _BIZ_CATEGORIES if cur[c]["count"] or prev[c]["count"]]
+
+    cats = []
+    for c in active:
+        cu, pv = cur[c], prev[c]
+        has_prev = bool(pv["count"] or pv["sales"])
+        cu_margin = margin(cu["net"], cu["sales"])
+        pv_margin = margin(pv["net"], pv["sales"])
+        prof = _CAT_PROFILE.get(c, _CAT_PROFILE["기타"])
+        cats.append({
+            "category": c,
+            "cur_count": cu["count"], "cur_sales": cu["sales"], "cur_expense": cu["expense"],
+            "cur_net": cu["net"], "cur_margin": cu_margin,
+            "cur_avg_ticket": round(cu["sales"] / cu["count"]) if cu["count"] else 0,
+            "cur_net_per_case": round(cu["net"] / cu["count"]) if cu["count"] else 0,
+            "prev_count": pv["count"], "prev_sales": pv["sales"], "prev_net": pv["net"],
+            "prev_margin": pv_margin, "has_prev": has_prev,
+            "count_delta": cu["count"] - pv["count"],
+            "count_delta_pct": pct(cu["count"], pv["count"]),
+            "sales_delta": cu["sales"] - pv["sales"],
+            "sales_delta_pct": pct(cu["sales"], pv["sales"]),
+            "net_delta": cu["net"] - pv["net"],
+            "net_delta_pct": pct(cu["net"], pv["net"]),
+            "margin_delta": (None if (cu_margin is None or pv_margin is None)
+                             else round(cu_margin - pv_margin, 1)),
+            "controllability": prof["controllability"],
+            "risk_factors": prof["risk_factors"],
+        })
+
+    by_cat = {c["category"]: c for c in cats}
+    gong = by_cat.get("공증")
+
+    # 진단/개선 문장 (모두 계산값에 근거)
+    for c in cats:
+        name = c["category"]
+        m_txt = f"{c['cur_margin']}%" if c["cur_margin"] is not None else "-"
+        diag = (f"{name}은(는) {c['cur_count']}건, 매출 {won(c['cur_sales'])}, "
+                f"순이익 {won(c['cur_net'])}으로 순이익률 {m_txt}입니다.")
+        # 전년 비교
+        if not c["has_prev"]:
+            diag += " 전년 동기 데이터가 없습니다."
+        else:
+            cd = "증가" if c["count_delta"] >= 0 else "감소"
+            nd = "증가" if c["net_delta"] >= 0 else "감소"
+            diag += (f" 전년 동기 대비 건수가 {cd}({c['count_delta']:+}건), "
+                     f"순이익은 {nd}({won(c['net_delta'])})했습니다.")
+        # 저건수 경고
+        if name in _LOW_VOLUME_CATS and c["cur_count"] < _LOW_VOLUME_N:
+            diag += " 건수가 적어 추세 판단이 제한됩니다."
+        # 전자민원 ↔ 공증 순이익률 비교
+        if (name == "전자민원" and c["cur_margin"] is not None
+                and gong and gong["cur_margin"] is not None):
+            rel = "높은" if c["cur_margin"] >= gong["cur_margin"] else "낮은"
+            diag += f" 공증 순이익률 {gong['cur_margin']}%와 비교하면 {rel} 수준입니다."
+
+        # 개선 제안 (업무군 성격 + 실제 수치 조건)
+        recs = []
+        if name == "전자민원":
+            if c["cur_margin"] is not None and c["cur_margin"] >= 50 and c["cur_count"] <= 5:
+                recs.append("순이익률이 높고 건수가 낮아 적극 확대(반복업무 자동화·템플릿화·마케팅 강화)가 필요합니다.")
+            elif c["cur_margin"] is not None and c["cur_margin"] < 30:
+                recs.append("순이익률이 낮아 수수료 조정 또는 처리시간 단축이 필요합니다.")
+            else:
+                recs.append("처리 속도·안내문·가격표·응대 스크립트 개선으로 통제 가능한 업무군입니다.")
+        elif name == "공증":
+            if c["has_prev"] and c["count_delta"] < 0:
+                recs.append("전년 대비 건수가 감소했습니다. 문의 유입 경로·상담 후 이탈률·준비서류 안내문·마케팅 노출을 점검하십시오.")
+            if c["cur_margin"] is not None and c["cur_margin"] < 30:
+                recs.append("순이익률이 낮아 대행 범위와 가격 재검토가 필요합니다.")
+            if not recs:
+                recs.append("계절성·현지 정책 영향을 받는 업무군이므로 유입 경로와 상담 품질을 점검하십시오.")
+        elif name == "출입국":
+            if c["has_prev"] and c["count_delta"] < 0:
+                recs.append("전년 대비 건수가 감소했습니다. 제도 이슈·상담 전환율·고객 유입 경로를 점검하십시오.")
+            recs.append("하이코리아 매뉴얼 변경·체류자격별 심사 변화의 영향을 받으므로 최근 매뉴얼 변동 반영 여부를 확인하십시오.")
+        else:  # 여권/초청/영주권/기타
+            if c["cur_count"] < _LOW_VOLUME_N:
+                recs.append("건수가 적어 추세 판단이 제한됩니다. 데이터 누적 후 재평가가 필요합니다.")
+            elif c["cur_margin"] is not None and c["cur_margin"] < 30:
+                recs.append("순이익률이 낮아 가격·처리시간 점검이 필요합니다.")
+            else:
+                recs.append("현재 추세를 유지하며 유입 경로를 점검하십시오.")
+        c["diagnosis"] = diag
+        c["recommendation"] = " ".join(recs)
+
+    # ── 요약 카드 ──
+    margin_cats = [c for c in cats if c["cur_margin"] is not None and c["cur_count"] > 0]
+    best = max(margin_cats, key=lambda c: c["cur_margin"]) if margin_cats else None
+    decl = [c for c in cats if c["has_prev"] and c["net_delta"] < 0]
+    worst = min(decl, key=lambda c: c["net_delta"]) if decl else None
+
+    total_sales = sum(c["cur_sales"] for c in cats)
+    # 집중 개선 대상: 매출 비중 15%↑ 중 순이익률 최저(없으면 최대 감소 업무군)
+    focus = None
+    sizable = [c for c in cats if c["cur_margin"] is not None and total_sales
+               and c["cur_sales"] / total_sales >= 0.15]
+    if sizable:
+        focus = min(sizable, key=lambda c: c["cur_margin"])
+    elif worst:
+        focus = worst
+
+    summary = {
+        "best_margin_category": best["category"] if best else None,
+        "best_margin_value": best["cur_margin"] if best else None,
+        "worst_decline_category": worst["category"] if worst else None,
+        "worst_decline_net": worst["net_delta"] if worst else None,
+        "focus_category": focus["category"] if focus else None,
+        "focus_margin": focus["cur_margin"] if focus else None,
+    }
+
+    # 총평
+    total_net = sum(c["cur_net"] for c in cats)
+    total_margin = margin(total_net, total_sales)
+    if is_future:
+        total_comment = "아직 시작되지 않은 월입니다. 분석할 데이터가 없습니다."
+    elif not cats:
+        total_comment = "데이터 부족: 이번 기간 결산 데이터가 없습니다."
+    else:
+        tm = f"{total_margin}%" if total_margin is not None else "-"
+        total_comment = (f"이번 기간(1~{ref_day}일) 총 매출 {won(total_sales)}, "
+                         f"순이익 {won(total_net)}(순이익률 {tm})입니다.")
+        if best:
+            total_comment += f" 수익성이 가장 높은 업무군은 {best['category']}({best['cur_margin']}%)입니다."
+        if worst:
+            total_comment += f" 전년 대비 순이익이 가장 많이 감소한 업무군은 {worst['category']}({won(worst['net_delta'])})입니다."
+        elif not any(c["has_prev"] for c in cats):
+            total_comment += " 전년 동기 데이터가 없어 전년 비교는 생략합니다."
+
+    # 다음 달 액션 (교차 분석 규칙 — 모두 계산값 근거)
+    actions = []
+    ej, gj = by_cat.get("전자민원"), by_cat.get("공증")
+    if (ej and gj and ej["cur_margin"] is not None and gj["cur_margin"] is not None
+            and ej["cur_margin"] > gj["cur_margin"] and ej["cur_count"] < gj["cur_count"]):
+        actions.append("전자민원이 공증보다 순이익률이 높고 건수는 적습니다 → 전자민원 확대 전략을 검토하십시오.")
+    if gj and gj["cur_margin"] is not None and gj["cur_margin"] < 30 and total_sales and gj["cur_sales"] / total_sales >= 0.15:
+        actions.append("공증은 매출 비중은 크지만 순이익률이 낮습니다 → 대행 범위·가격·준비서류 안내를 개선하십시오.")
+    ig = by_cat.get("출입국")
+    if ig and ig["has_prev"] and ig["count_delta"] < 0 and (ig["cur_margin"] or 0) >= 30:
+        actions.append("출입국은 순이익률은 양호하나 전년 대비 건수가 감소했습니다 → 제도 이슈·상담 전환율·유입 경로를 점검하십시오.")
+    # 전체: 건수↑·순이익률↓
+    cur_total_margin = total_margin
+    prev_total_sales = sum(c["prev_sales"] for c in cats)
+    prev_total_net = sum(c["prev_net"] for c in cats)
+    prev_total_margin = margin(prev_total_net, prev_total_sales)
+    cur_total_count = sum(c["cur_count"] for c in cats)
+    prev_total_count = sum(c["prev_count"] for c in cats)
+    if (prev_total_margin is not None and cur_total_margin is not None
+            and cur_total_count > prev_total_count and cur_total_margin < prev_total_margin):
+        actions.append("건수는 늘었으나 순이익률이 하락했습니다 → 저가 업무 증가 또는 지출 증가 원인을 점검하십시오.")
+    if (prev_total_sales and total_sales > prev_total_sales and total_net < prev_total_net):
+        actions.append("매출은 늘었으나 순이익이 줄었습니다 → 비용 누수 또는 가격 정책을 점검하십시오.")
+    if focus and not actions:
+        actions.append(f"집중 개선 대상은 {focus['category']}입니다. 순이익률 개선을 우선 검토하십시오.")
+
+    manual_issue = _manual_issue_for_month(year, month, ref_day)
+
+    return {
+        "summary": summary,
+        "total_comment": total_comment,
+        "categories": cats,
+        "manual_issue": manual_issue,
+        "actions": actions,
+    }
+
+
 @router.get("/entries")
 def get_entries(
     date: Optional[str] = Query(None, description="YYYY-MM-DD"),
@@ -797,8 +1413,18 @@ def get_yearly_overview(
     tax_cur = get_tax_summary(tenant_id, f"{year}-{month:02d}")
     tax_prev = get_tax_summary(tenant_id, f"{year - 1}-{month:02d}")
 
-    return _build_yearly_overview(records, year, month, fixed_records=fixed_records,
-                                  pg_daily=pg, tax_cur=tax_cur, tax_prev=tax_prev)
+    overview = _build_yearly_overview(records, year, month, fixed_records=fixed_records,
+                                      pg_daily=pg, tax_cur=tax_cur, tax_prev=tax_prev)
+    # 기준일까지 누계 비교 + 일별 추이 + 시간대 비교 + 자동 분석(요구사항 1·3·5·6)
+    import datetime as _dt
+    _today = _dt.date.today()
+    overview.update(_build_period_analysis(
+        records, year, month, _today,
+        overview["category_compare"], tax_cur=tax_cur,
+    ))
+    # 업무군별 경영 진단 보고서
+    overview["business_insights"] = _build_business_insights(records, year, month, _today)
+    return overview
 
 
 # ── 고정지출 / 신고·부가세 (PostgreSQL 전용 — FEATURE_PG_DAILY) ────────────────
