@@ -44,18 +44,30 @@ export async function generateMetadata({
   const post = await getPost(params.id);
   if (!post) return { title: { absolute: "게시물 없음 | 한우리행정사사무소" } };
   const desc = post.meta_description || post.summary || post.content?.replace(/[#*>`[\]!()-]/g, "").slice(0, 120) || "";
+  const url = `${BASE_URL}/board/${post.slug || post.id}`;
+  // og:image — 게시글 썸네일이 있으면 그것을, 없으면 한우리 기본 preview 이미지(로고)로 fallback.
+  const ogImage = post.thumbnail_url || `${BASE_URL}/hanwoori-logo-new.png`;
   return {
     title: { absolute: `${post.title} | 한우리행정사사무소` },
     description: desc,
     openGraph: {
-      title: post.title,
+      title: post.title,                 // 사이트명 suffix 없이 게시글 제목만 (제목 중복 방지)
       description: desc,
       type: "article",
+      siteName: "한우리행정사사무소",
+      url,
+      locale: "ko_KR",
       publishedTime: post.created_at,
       modifiedTime: post.updated_at,
-      ...(post.thumbnail_url ? { images: [{ url: post.thumbnail_url }] } : {}),
+      images: [{ url: ogImage }],
     },
-    alternates: { canonical: `${BASE_URL}/board/${post.slug || post.id}` },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: desc,
+      images: [ogImage],
+    },
+    alternates: { canonical: url },
   };
 }
 

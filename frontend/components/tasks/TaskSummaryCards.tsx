@@ -51,7 +51,8 @@ export default function TaskSummaryCards({
   return (
     <div style={{
       display: "grid",
-      gridTemplateColumns: "repeat(4, 1fr)",
+      // 데스크톱 4열 유지, 좁은 화면(모바일)에서는 자동으로 2열 등으로 줄바꿈.
+      gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
       gap: 12,
       marginBottom: 12,
     }}>

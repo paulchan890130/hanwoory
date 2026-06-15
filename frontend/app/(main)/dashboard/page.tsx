@@ -837,11 +837,25 @@ export default function DashboardPage() {
     arg.el.style.cursor = "pointer";
   }, []);
 
-  const renderEventContent = useCallback((arg: { event: { title: string } }) => (
-    <div style={{ fontSize: 11, padding: "1px 4px", whiteSpace: "pre-line", lineHeight: 1.4, overflow: "hidden", width: "100%" }}>
-      {arg.event.title}
-    </div>
-  ), []);
+  // 모바일: 날짜 칸이 한눈에 보이도록 내용 전체 대신 골드 dot + 건수 배지만 표시.
+  //         (날짜 클릭 → 캘린더 모달에서 해당 날짜의 일정 목록/수정 표시)
+  // 데스크톱: 기존처럼 내용 전체 표시.
+  const renderEventContent = useCallback((arg: { event: { title: string } }) => {
+    if (isMobile) {
+      const count = (arg.event.title || "").split("\n").filter(Boolean).length;
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, width: "100%", padding: "0 2px", overflow: "hidden" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--hw-gold)", flexShrink: 0 }} />
+          {count > 1 && <span style={{ fontSize: 10, fontWeight: 700, color: "#B7791F", lineHeight: 1 }}>{count}</span>}
+        </div>
+      );
+    }
+    return (
+      <div style={{ fontSize: 11, padding: "1px 4px", whiteSpace: "pre-line", lineHeight: 1.4, overflow: "hidden", width: "100%" }}>
+        {arg.event.title}
+      </div>
+    );
+  }, [isMobile]);
 
   // Returns class names only (no JSX) — avoids ContentInjector custom-rendering loop
   const handleDayCellClassNames = useCallback((info: { date: Date }) => {
@@ -1192,23 +1206,26 @@ export default function DashboardPage() {
                     counts={dashCatCounts}
                     totalCount={allActive.length}
                   />
-                  <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #E2E8F0", flexShrink: 0, marginLeft: 12 }}>
-                    {(["card", "table"] as const).map(mode => (
-                      <button key={mode} onClick={() => setDashViewMode(mode)} style={{
-                        height: 26, padding: "0 10px", fontSize: 11, fontWeight: 600,
-                        cursor: "pointer", border: "none",
-                        background: dashViewMode === mode ? "#4A5568" : "#F7FAFC",
-                        color: dashViewMode === mode ? "#fff" : "#718096",
-                      }}>
-                        {mode === "table" ? "☰" : "⊞"}
-                      </button>
-                    ))}
-                  </div>
+                  {/* 모바일은 가로로 넓은 표 대신 세로로 쌓이는 카드만 사용 → 토글 숨김 */}
+                  {!isMobile && (
+                    <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #E2E8F0", flexShrink: 0, marginLeft: 12 }}>
+                      {(["card", "table"] as const).map(mode => (
+                        <button key={mode} onClick={() => setDashViewMode(mode)} style={{
+                          height: 26, padding: "0 10px", fontSize: 11, fontWeight: 600,
+                          cursor: "pointer", border: "none",
+                          background: dashViewMode === mode ? "#4A5568" : "#F7FAFC",
+                          color: dashViewMode === mode ? "#fff" : "#718096",
+                        }}>
+                          {mode === "table" ? "☰" : "⊞"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {dashFiltered.length === 0 ? (
                   <p style={{ fontSize: 12, color: "#A0AEC0", padding: "12px 0" }}>해당 분류의 업무가 없습니다.</p>
-                ) : dashViewMode === "card" ? (
+                ) : (isMobile || dashViewMode === "card") ? (
                   <TaskCardView tasks={dashFiltered} {...dashCommonProps} />
                 ) : (
                   <TaskTableView tasks={dashFiltered} {...dashCommonProps} />
