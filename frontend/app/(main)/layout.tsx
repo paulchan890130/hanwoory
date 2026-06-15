@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
+import { authApi } from "@/lib/api";
 import Sidebar, {
   SIDEBAR_EXPANDED_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
@@ -150,6 +151,26 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  // 비활성/삭제 계정 자동 로그아웃 — 진입 시 + 탭 focus/visibility + 45초 주기로 상태 재확인.
+  // 비활성화된 계정이면 API를 직접 누르지 않아도 401(ACCOUNT_DISABLED) → api.ts 인터셉터가
+  // 토큰을 정리하고 /login 으로 보낸다(여기선 호출만 트리거).
+  useEffect(() => {
+    if (!ready) return;
+    let stopped = false;
+    const check = () => { if (!stopped && isLoggedIn()) authApi.me().catch(() => {}); };
+    check();
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", check);
+    const intervalId = window.setInterval(check, 45_000);
+    return () => {
+      stopped = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", check);
+      window.clearInterval(intervalId);
+    };
+  }, [ready]);
 
   // 고객카드 고정 이벤트 수신
   useEffect(() => {

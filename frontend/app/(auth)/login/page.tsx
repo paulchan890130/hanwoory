@@ -54,9 +54,15 @@ export default function LoginPage() {
   const [showExpiredMsg, setShowExpiredMsg] = useState(false);
 
   const [showRevokedMsg, setShowRevokedMsg] = useState(false);
+  const [showDisabledMsg, setShowDisabledMsg] = useState(false);
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("session_revoked") === "1") {
+      if (sessionStorage.getItem("account_disabled") === "1") {
+        setShowDisabledMsg(true);   // 비활성/삭제로 인한 강제 로그아웃 — 최우선
+        sessionStorage.removeItem("account_disabled");
+        sessionStorage.removeItem("session_revoked");
+        sessionStorage.removeItem("auth_expired");
+      } else if (sessionStorage.getItem("session_revoked") === "1") {
         setShowRevokedMsg(true);
         sessionStorage.removeItem("session_revoked");
         sessionStorage.removeItem("auth_expired");  // 동시 설정 시 revoked 우선
@@ -255,6 +261,16 @@ export default function LoginPage() {
           {/* ── 로그인 폼 ── */}
           {tab === "login" && (
             <form onSubmit={loginForm.handleSubmit(onLogin)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* 계정 비활성화/삭제로 인한 강제 로그아웃 안내 */}
+              {showDisabledMsg && (
+                <div style={{
+                  padding: "11px 14px", borderRadius: 8,
+                  background: "rgba(254,178,178,0.35)", color: "#9B2C2C",
+                  border: "1px solid rgba(252,129,129,0.55)", fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+                }}>
+                  계정이 비활성화되었습니다. 관리자에게 문의하십시오.
+                </div>
+              )}
               {/* 다른 기기 로그인으로 인한 강제 로그아웃 안내 */}
               {showRevokedMsg && (
                 <div style={{

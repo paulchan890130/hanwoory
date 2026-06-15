@@ -27,6 +27,24 @@ class PGUserInfo(TypedDict):
     contact_name: str
 
 
+def account_active_status(login_id: str) -> str:
+    """login_id 의 현재 활성 상태 — 'active' | 'disabled' | 'missing'.
+
+    매 요청 인증(get_current_user)에서 비활성/삭제된 계정을 **즉시 차단**하기 위한 조회.
+    JWT 디코드만으로 통과시키지 않도록, 토큰이 유효해도 이 상태를 다시 확인한다.
+    조회 실패(연결 오류 등)는 호출측에서 가용성 우선으로 처리한다(여기선 예외 전파).
+    """
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        row = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if row is None:
+            return "missing"
+        return "active" if bool(row.is_active) else "disabled"
+
+
 def find_user_pg(login_id: str) -> Optional[PGUserInfo]:
     """Look up one user by ``login_id``. Returns ``None`` if not found.
 

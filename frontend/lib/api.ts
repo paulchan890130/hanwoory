@@ -54,7 +54,8 @@ api.interceptors.response.use(
         localStorage.removeItem("user_info");
         document.cookie = "kid_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         try {
-          if (code === "SESSION_REVOKED") sessionStorage.setItem("session_revoked", "1");
+          if (code === "ACCOUNT_DISABLED") sessionStorage.setItem("account_disabled", "1");
+          else if (code === "SESSION_REVOKED") sessionStorage.setItem("session_revoked", "1");
           else sessionStorage.setItem("auth_expired", "1");
         } catch { /* sessionStorage 차단 환경 무시 */ }
         // replace: 히스토리 스택에 만료된 내부 페이지를 남기지 않음
@@ -165,6 +166,8 @@ export const authApi = {
   signup: (data: Record<string, string>) =>
     api.post("/api/auth/signup", data),
   logout: () => api.post("/api/auth/logout", null, { headers: { "X-Skip-Auth-Redirect": "1" } }),
+  // 현재 계정 상태 재확인용 — 비활성/삭제 시 401(ACCOUNT_DISABLED) → 인터셉터가 강제 로그아웃.
+  me: () => api.get("/api/auth/me"),
 };
 
 // 업무

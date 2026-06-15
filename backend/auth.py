@@ -41,6 +41,28 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if not login_id:
         raise HTTPException(status_code=401, detail="인증 정보가 없습니다.")
 
+    # ── 계정 비활성/삭제 즉시 차단 ──────────────────────────────────────────
+    # JWT 디코드만으로 통과시키지 않는다. 매 요청 PG 의 is_active 를 재확인해,
+    # 관리자가 비활성화/삭제한 계정의 기존 토큰(최대 8h)이 계속 쓰이는 것을 막는다.
+    # PG 미구성 환경(레거시)에서는 건너뛴다. 조회 실패는 가용성 우선(통과).
+    try:
+        from backend.db.session import is_configured
+        if is_configured():
+            from backend.services.auth_pg_service import account_active_status
+            acct_status = account_active_status(login_id)
+            if acct_status in ("disabled", "missing"):
+                raise HTTPException(
+                    status_code=401,
+                    detail={"code": "ACCOUNT_DISABLED",
+                            "message": "계정이 비활성화되었습니다. 관리자에게 문의하십시오."},
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        # PG 조회 실패 시 인증을 막지 않는다(가용성 우선) — 기존 세션검사 정책과 동일.
+        pass
+
     # ── 단일 세션(새 로그인 우선) 강제 — FEATURE_SINGLE_SESSION on 일 때만 ──
     # off면 sid 검사 자체를 건너뛰어 기존 토큰/로그인 동작과 100% 동일.
     try:
