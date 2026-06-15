@@ -116,5 +116,8 @@ backend/data/manuals/.manual_auto_update.lock
 샘플/
 analysis/
 
+# ===== Migration input artifacts (real migration source data — never commit) =====
+migration_input/
+
 # ===== Nested git repos not part of this project =====
 hanwoory/
