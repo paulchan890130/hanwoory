@@ -71,14 +71,14 @@ function BusinessCardSection() {
   const [slug, setSlug] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [fields, setFields] = useState<string[]>(["", "", ""]);
-  const { submit: save, isSubmitting: saving } = useSubmit();
+  const [saving, setSaving] = useState(false);
 
-  // ── 로고 파일 업로드 상태 ──
+  // ── 로고 상태(즉시 업로드하지 않고 최종 '저장' 때 텍스트와 함께 반영) ──
   const [hasLogo, setHasLogo] = useState(false);
   const [savedPreview, setSavedPreview] = useState<string | null>(null);   // 저장된 로고 blob URL
-  const [pendingFile, setPendingFile] = useState<File | null>(null);       // 선택했으나 미저장
+  const [pendingFile, setPendingFile] = useState<File | null>(null);       // 선택했으나 미반영(저장 시 업로드)
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
-  const [logoBusy, setLogoBusy] = useState(false);
+  const [markedForDelete, setMarkedForDelete] = useState(false);           // 저장 시 로고 삭제
   const [showAdvanced, setShowAdvanced] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -122,22 +122,14 @@ function BusinessCardSection() {
   }, [hasLogo, pendingFile, card?.logo_updated_at]);
 
   const publicUrl = slug ? `${PUBLIC_BASE}/card/${slug}` : "";
-  const logoToShow = pendingPreview || savedPreview;
+  // 로고 미리보기: 새로 고른 파일 > (삭제 예정이면 없음) > 저장된 로고
+  const logoToShow = pendingPreview || (markedForDelete ? null : savedPreview);
+  const logoPendingChange = !!pendingFile || markedForDelete;
 
-  const handleSave = () => {
-    save(
-      async () => {
-        const r = await businessCardApi.updateMine({
-          phone, address, bio, logo_url: logoUrl,
-          work_fields: fields.map((f) => f.trim()).filter(Boolean),
-          public_slug: slug.trim(),
-          is_public: isPublic,
-        });
-        load(r.data);
-      },
-      { successMessage: "전자명함이 저장되었습니다.", errorMessage: "저장 실패" }
-    );
-  };
+  // slug 검증 — backend(_SLUG_RE)와 동일 기준(영문 소문자·숫자·하이픈, 3~50자).
+  const slugTrim = slug.trim();
+  const slugBadFormat = !!slugTrim && !/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(slugTrim);
+  const slugRequiredButEmpty = isPublic && !slugTrim;
 
   const onPickFile = (f: File | null) => {
     if (!f) return;
@@ -149,6 +141,7 @@ function BusinessCardSection() {
       toast.error("로고 파일은 200KB 이하만 업로드할 수 있습니다.");
       return;
     }
+    setMarkedForDelete(false);
     setPendingFile(f);
     setPendingPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
   };
@@ -159,33 +152,41 @@ function BusinessCardSection() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const uploadPending = async () => {
-    if (!pendingFile) return;
-    setLogoBusy(true);
+  // 최종 저장 — 텍스트 + 로고(업로드/삭제)를 한 번에 반영하고, 끝나면 재조회로 state 갱신.
+  // 실패 시 입력 state 는 그대로 유지(절대 초기화하지 않음)하고 어느 단계에서 실패했는지 알린다.
+  const handleSave = async () => {
+    if (slugBadFormat) { toast.error("공개주소는 영문 소문자·숫자·하이픈(-)만, 3자 이상 입력해 주세요."); return; }
+    if (slugRequiredButEmpty) { toast.error("공개하려면 공개 주소(slug)를 입력하세요."); return; }
+    if (saving) return;
+    setSaving(true);
+    let step = "명함 내용";
     try {
-      await businessCardApi.uploadLogo(pendingFile);
+      await businessCardApi.updateMine({
+        phone, address, bio, logo_url: logoUrl,
+        work_fields: fields.map((f) => f.trim()).filter(Boolean),
+        public_slug: slugTrim,
+        is_public: isPublic,
+      });
+      if (pendingFile) {
+        step = "로고 업로드";
+        await businessCardApi.uploadLogo(pendingFile);
+      } else if (markedForDelete) {
+        step = "로고 삭제";
+        await businessCardApi.deleteLogo();
+      }
+      step = "재조회";
+      const r = await businessCardApi.getMine();
+      load(r.data);              // 재조회 결과(raw 포함)로만 state 갱신 → 입력값 보존
       cancelPending();
-      const r = await businessCardApi.getMine();
-      load(r.data);
-      toast.success("로고가 업로드되었습니다.");
-    } catch {
-      toast.error("로고 업로드 실패 — 형식(JPG/PNG/WEBP)·용량(200KB)을 확인하세요.");
+      setMarkedForDelete(false);
+      toast.success("전자명함이 저장되었습니다.");
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      const note = step === "명함 내용" ? "" : " (명함 내용은 저장되었을 수 있습니다)";
+      toast.error(`저장 실패 — ${step} 단계${detail ? `: ${detail}` : ""}.${note} 입력값은 그대로 유지됩니다.`);
+      // load() 호출하지 않음 → 사용자가 입력한 텍스트/로고 선택 유지
     } finally {
-      setLogoBusy(false);
-    }
-  };
-
-  const removeLogo = async () => {
-    setLogoBusy(true);
-    try {
-      await businessCardApi.deleteLogo();
-      const r = await businessCardApi.getMine();
-      load(r.data);
-      toast.success("로고가 삭제되었습니다.");
-    } catch {
-      toast.error("로고 삭제 실패");
-    } finally {
-      setLogoBusy(false);
+      setSaving(false);
     }
   };
 
@@ -262,39 +263,44 @@ function BusinessCardSection() {
           </div>
 
           <div style={{ flex: 1, minWidth: 160 }}>
-            {pendingFile ? (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" onClick={uploadPending} disabled={logoBusy}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-                    border: "none", background: GOLD, color: "#fff", fontSize: 12, fontWeight: 700, cursor: logoBusy ? "default" : "pointer", opacity: logoBusy ? 0.6 : 1 }}>
-                  <Upload size={13} /> {logoBusy ? "업로드 중..." : "이 로고 저장"}
-                </button>
-                <button type="button" onClick={cancelPending} disabled={logoBusy}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-                    border: `1px solid ${BORDER}`, background: "#fff", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  취소
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={logoBusy}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={saving}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                  border: `1px solid ${BORDER}`, background: "#fff", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                <Upload size={13} /> {hasLogo && !markedForDelete ? "로고 변경" : "로고 선택"}
+              </button>
+              {pendingFile && (
+                <button type="button" onClick={cancelPending} disabled={saving}
                   style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
                     border: `1px solid ${BORDER}`, background: "#fff", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  <Upload size={13} /> {hasLogo ? "로고 변경" : "로고 선택"}
+                  선택 취소
                 </button>
-                {hasLogo && (
-                  <button type="button" onClick={removeLogo} disabled={logoBusy}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-                      border: `1px solid #FBD5D5`, background: "#fff", color: "#C53030", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                    <Trash2 size={13} /> 로고 삭제
-                  </button>
-                )}
-              </div>
-            )}
+              )}
+              {hasLogo && !pendingFile && !markedForDelete && (
+                <button type="button" onClick={() => setMarkedForDelete(true)} disabled={saving}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                    border: `1px solid #FBD5D5`, background: "#fff", color: "#C53030", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  <Trash2 size={13} /> 로고 삭제
+                </button>
+              )}
+              {markedForDelete && (
+                <button type="button" onClick={() => setMarkedForDelete(false)} disabled={saving}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                    border: `1px solid ${BORDER}`, background: "#fff", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  삭제 취소
+                </button>
+              )}
+            </div>
             <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 8, lineHeight: 1.6 }}>
               권장: 512px × 512px, JPG/PNG/WEBP, 200KB 이하 (정사각형 권장)<br/>
               로고를 등록하지 않으면 전자명함에는 로고가 표시되지 않습니다.
             </div>
+            {logoPendingChange && (
+              <div style={{ fontSize: 11, color: "#8A6D1F", background: "#FBF8F0", border: `1px solid #EAD9A8`,
+                borderRadius: 8, padding: "7px 10px", marginTop: 8, lineHeight: 1.6 }}>
+                {pendingFile ? "선택한 로고" : "로고 삭제"}는 아래 <b>저장</b> 버튼을 누르면 명함 내용과 <b>함께 반영</b>됩니다.
+              </div>
+            )}
           </div>
         </div>
 
@@ -316,19 +322,26 @@ function BusinessCardSection() {
 
       {/* 공개 설정 */}
       <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 6, paddingTop: 14 }}>
-        <Field label="공개 주소(slug)" value={slug} onChange={(v) => setSlug(v.toLowerCase())} placeholder="예: hanwoori (영문 소문자·숫자·하이픈)" />
+        <Field label="공개 주소(slug)" value={slug} onChange={(v) => setSlug(v.toLowerCase())} placeholder="예: my-office" />
+        <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: -8, marginBottom: 8, lineHeight: 1.6 }}>
+          공개주소는 영문 소문자·숫자·하이픈(-)만 사용할 수 있으며 <b>3자 이상</b> 입력해야 합니다.
+        </div>
+        {slugBadFormat && (
+          <div style={{ fontSize: 11, color: "#C53030", marginBottom: 6 }}>공개주소는 영문 소문자·숫자·하이픈(-)만, 3자 이상 입력해 주세요.</div>
+        )}
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#2D3748", cursor: "pointer", marginBottom: 4 }}>
           <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} style={{ width: 15, height: 15, accentColor: GOLD }} />
           전자명함 공개 (링크로 누구나 열람 가능)
         </label>
-        {isPublic && !slug.trim() && (
+        {slugRequiredButEmpty && (
           <div style={{ fontSize: 11, color: "#C53030", marginBottom: 6 }}>공개하려면 공개 주소(slug)를 입력하세요.</div>
         )}
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-        <SubmitButton isSubmitting={saving} onClick={handleSave} loadingText="저장 중..." className="text-xs" style={{ padding: "6px 12px", fontSize: 12 }}>
-          <><Save size={12} /> 저장</>
+        <SubmitButton isSubmitting={saving} disabled={slugBadFormat || slugRequiredButEmpty}
+          onClick={handleSave} loadingText="저장 중..." className="text-xs" style={{ padding: "6px 12px", fontSize: 12 }}>
+          <><Save size={12} /> 전자명함 저장</>
         </SubmitButton>
       </div>
 

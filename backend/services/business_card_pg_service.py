@@ -111,7 +111,16 @@ def update_my_card(tenant_id: str, *, phone=None, address=None, bio=None,
         if t.card_is_public and not (t.card_public_slug or ""):
             raise SlugFormatError()
         session.commit()
-        return _effective(t, contact_tel="")
+        # get_my_card 와 동일한 형태로 반환 — 프론트 편집칸이 raw 로 채워지므로
+        # raw 가 빠지면 저장 직후 work_fields/phone/address/logo_url 입력이 사라진다.
+        eff = _effective(t, contact_tel="")
+        eff["raw"] = {
+            "card_phone": t.card_phone or "",
+            "card_address": t.card_address or "",
+            "card_logo_url": t.card_logo_url or "",
+            "card_work_fields": _clean_work_fields(t.card_work_fields),
+        }
+        return eff
 
 
 def get_public_card(slug: str) -> Optional[dict]:
