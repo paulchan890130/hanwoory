@@ -30,8 +30,8 @@ export function DirectionsSection() {
             src={MAP_IMAGE}
             alt="한우리행정사사무소 약도 — 시흥정왕동우체국에서 경기스마트고등학교 방향으로 군서마을로를 따라 약 150m"
             loading="lazy"
-            width={3765}
-            height={1647}
+            width={4852}
+            height={1681}
           />
         </figure>
 
