@@ -421,12 +421,18 @@ def _realign_l1_by_nat(L1_raw: str, nat3: str) -> str:
 
 
 def _mrz_score_td3(L1: str, L2: str) -> int:
+    """TD3 pair 점수. 단순 글자수가 아니라 MRZ check digit 구조를 강하게 반영한다.
+
+    핵심: 여권번호(document) check digit 통과를 최우선으로, 세 필드
+    (document/birth/expiry)가 모두 통과하면 압도적 보너스를 줘서, 앞글자 누락 등으로
+    document check가 깨진 후보(예: 'EF6806032' vs 'F68060322')가 글자수/filler 점수로
+    역전하지 못하게 한다.
+    """
     if not _is_td3_candidate(L1, L2):
         return -1
-    L1 = _normalize_mrz_line(L1)
+    L1 = _fix_l1_prefix(_normalize_mrz_line(L1))
     L2 = _fix_td3_line2_fields(L2)
 
-    score = 0
     doc = L2[0:9]
     doc_cd = L2[9]
     birth = _mrz_digitize(L2[13:19])
@@ -437,24 +443,21 @@ def _mrz_score_td3(L1: str, L2: str) -> int:
     opt_cd = L2[42]
     comp_cd = L2[43]
 
-    if doc_cd.isdigit() and _mrz_check_digit(doc) == doc_cd:
-        score += 2
-    if birth_cd.isdigit() and _mrz_check_digit(birth) == birth_cd:
-        score += 2
-    if exp_cd.isdigit() and _mrz_check_digit(exp) == exp_cd:
-        score += 2
-    if opt_cd.isdigit() and _mrz_check_digit(opt) == opt_cd:
-        score += 1
+    doc_ok = bool(doc_cd.isdigit() and _mrz_check_digit(doc) == doc_cd)
+    birth_ok = bool(birth_cd.isdigit() and _mrz_check_digit(birth) == birth_cd)
+    exp_ok = bool(exp_cd.isdigit() and _mrz_check_digit(exp) == exp_cd)
+    opt_ok = bool(opt_cd.isdigit() and _mrz_check_digit(opt) == opt_cd)
 
-    matches = 0
-    if doc_cd.isdigit() and _mrz_check_digit(doc) == doc_cd:
-        matches += 1
-    if birth_cd.isdigit() and _mrz_check_digit(birth) == birth_cd:
-        matches += 1
-    if exp_cd.isdigit() and _mrz_check_digit(exp) == exp_cd:
-        matches += 1
-    if matches < 2:
+    if (doc_ok + birth_ok + exp_ok) < 2:
         return -1
+
+    score = 0
+    score += 4 if doc_ok else 0     # 여권번호 check digit 최우선
+    score += 2 if birth_ok else 0
+    score += 2 if exp_ok else 0
+    score += 1 if opt_ok else 0
+    if doc_ok and birth_ok and exp_ok:
+        score += 12                  # 3개 모두 통과 → filler/길이 점수로 역전 불가하게 압도
 
     comp_data = L2[0:10] + _mrz_digitize(L2[13:20]) + _mrz_digitize(L2[21:43])
     if comp_cd.isdigit() and _mrz_check_digit(comp_data) == comp_cd:
@@ -483,23 +486,65 @@ def _clean_mrz_k_runs(s: str, min_run: int = 5) -> str:
     return ''.join(result)
 
 
+def _fix_l1_prefix(L1: str) -> str:
+    """L1 2번째 문자(MRZ filler '<')가 OCR에서 O/0로 오인된 경우만 '<'로 보정.
+
+    위치를 L1[1]로 **한정**한다(전체 O/0를 '<'로 바꾸지 않는다). 'P' + 3자리 발행국
+    구조가 확인될 때만 적용 → 'POCHN…'/'P0CHN…' → 'P<CHN…'.
+    """
+    if (len(L1) >= 5 and L1[0] == "P" and L1[1] in ("O", "0")
+            and re.fullmatch(r"[A-Z]{3}", L1[2:5] or "")):
+        return "P<" + L1[2:]
+    return L1
+
+
+def _mrz_check_report(L1: str, L2: str) -> dict:
+    """디버그용: 선택된 pair의 여권번호/생년월일/만료일 check digit 통과 여부 + 점수."""
+    try:
+        L2f = _fix_td3_line2_fields(L2) if L2 else ""
+        doc = L2f[0:9]
+        doc_cd = L2f[9]
+        birth = _mrz_digitize(L2f[13:19])
+        birth_cd = L2f[19]
+        exp = _mrz_digitize(L2f[21:27])
+        exp_cd = L2f[27]
+        return {
+            "doc_number": doc,
+            "doc_check_ok": bool(doc_cd.isdigit() and _mrz_check_digit(doc) == doc_cd),
+            "birth_check_ok": bool(birth_cd.isdigit() and _mrz_check_digit(birth) == birth_cd),
+            "expiry_check_ok": bool(exp_cd.isdigit() and _mrz_check_digit(exp) == exp_cd),
+            "score": _mrz_score_td3(L1, L2),
+        }
+    except Exception:
+        return {}
+
+
 def find_best_mrz_pair_from_text(text: str):
+    """OCR 텍스트(여러 시도/줄 혼합)에서 최적 TD3 pair 선택.
+
+    인접 줄만 보던 기존 방식 대신 **전체 cross-product**로 모든 (L1, L2) 조합을 평가한다.
+    이렇게 해야 서로 다른 OCR 시도(ocrb/eng·psm 별)에서 나온 '좋은 L1'과 '좋은 L2'가
+    짝지어질 수 있다(예: ocrb의 올바른 L2 'EF6806032…'가 다른 시도의 L1과 매칭).
+    부적합 조합은 _is_td3_candidate / check digit 게이트가 걸러낸다.
+    """
     lines = [l for l in (text or "").splitlines() if l.strip()]
     norms = [_clean_mrz_k_runs(_normalize_mrz_line(l)) for l in lines]
+    norms = norms[:40]  # O(n^2) 상한(잡음 줄 폭주 방지)
     best = (None, None, -1)
     n = len(norms)
     for i in range(n):
-        for j in range(i + 1, min(n, i + 3)):
-            L1, L2 = norms[i], norms[j]
-            sc = _mrz_score_td3(L1, L2)
+        for j in range(n):
+            if i == j:
+                continue
+            sc = _mrz_score_td3(norms[i], norms[j])
             if sc > best[2]:
-                best = (L1, L2, sc)
+                best = (norms[i], norms[j], sc)
     return best
 
 
 def _parse_mrz_pair(L1: str, L2: str) -> dict:
     out = {}
-    L1 = _normalize_mrz_line(L1) if L1 else ""
+    L1 = _fix_l1_prefix(_normalize_mrz_line(L1)) if L1 else ""
     L2 = _fix_td3_line2_fields(L2) if L2 else ""
     nat3 = _mrz_clean(L2)[10:13] if L2 else ""
     if nat3 and re.fullmatch(r"[A-Z]{3}", nat3):
@@ -532,10 +577,21 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
         if m_sep:
             sur_raw = name_block[:m_sep.start()].replace("<", " ").strip()
             after_sep = name_block[m_sep.end():]
-            # Preserve the FULL given-name field (ICAO: single '<' separates given name
-            # components, trailing '<' is filler padding).  Stopping at the first '<'
-            # was wrong for multi-token names like SHOHRUHBEK<ABDIHAKIMOVICH<<<<.
-            given_raw = after_sep.rstrip("<").replace("<", " ").strip()
+            # Given-name 필드 파싱(ICAO): 컴포넌트는 단일 '<'로 구분, 2개 이상 연속
+            # '<'는 패딩 시작이다. OCR이 패딩 '<'를 K로 오인하면 'MINGJUN<<<<K…'처럼
+            # 패딩 구간의 K가 이름에 섞인다 → (1) 첫 '<{2,}'(패딩 경계)에서 자르고,
+            # (2) 남은 컴포넌트 중 '전체가 K'인 filler-noise 토큰은(앞에 실제 이름 토큰이
+            # 있을 때만) 버린다. 'KIM','KOVAK','MALIK','PARK','NOVAK'처럼 K가 단어의
+            # 일부인 토큰과, 다중 컴포넌트(SHOHRUHBEK<ABDIHAKIMOVICH)는 보존된다.
+            _mcut = re.search(r"<{2,}", after_sep)
+            given_field = after_sep[:_mcut.start()] if _mcut else after_sep
+            _tokens = [t for t in given_field.split("<") if t]
+            _kept = []
+            for _t in _tokens:
+                if re.fullmatch(r"K+", _t) and _kept:
+                    continue  # filler '<'가 K로 오인된 잡음 토큰
+                _kept.append(_t)
+            given_raw = " ".join(_kept).strip()
             sur = re.sub(r"\s+", " ", sur_raw).strip()
             given = re.sub(r"\s+", " ", given_raw).strip()
             sur = _strip_name_trailing_k(_strip_mrz_trail(sur))

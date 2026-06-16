@@ -9,6 +9,7 @@ from backend.services.ocr_service import (
     _ocr,
     _prep_mrz,
     _parse_mrz_pair,
+    _mrz_check_report,
     find_best_mrz_pair_from_text,
     _extract_kor_name_strict,
     _normalize_hangul_name,
@@ -195,7 +196,10 @@ def extract_passport_roi(img: Image.Image, roi: Dict[str, float], rotation_deg: 
             "prep_preview_base64": prep_b64,
             "raw_ocr_text": text,
             "ocr_attempts": attempts,
-            "mrz_candidates": {"L1": L1, "L2": L2, "score": score, "found": True},
+            "mrz_candidates": {
+                "L1": L1, "L2": L2, "score": score, "found": True,
+                "checks": _mrz_check_report(L1, L2),  # 개발자 debug: doc/birth/expiry check digit 통과 여부
+            },
             "parse_result": {k: v for k, v in parsed.items() if not k.startswith("_")},
             "failure_reason": "",
         },
