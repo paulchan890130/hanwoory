@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { adminApi, api, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
+import { adminApi, api, manualApi, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import {
@@ -1817,6 +1817,66 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
   );
 }
 
+// ── 상태 요약 카드 (색상 의미: blue 진행/검토 · green 완료 · yellow 대기/주의 · red 실패 · gray 정보) ──
+const _TONE: Record<string, { bg: string; bd: string; fg: string }> = {
+  blue: { bg: "#EBF8FF", bd: "#BEE3F8", fg: "#2B6CB0" },
+  green: { bg: "#F0FFF4", bd: "#C6F6D5", fg: "#276749" },
+  yellow: { bg: "#FFFAF0", bd: "#FEEBC8", fg: "#C05621" },
+  red: { bg: "#FFF5F5", bd: "#FED7D7", fg: "#C53030" },
+  gray: { bg: "#F7FAFC", bd: "#E2E8F0", fg: "#718096" },
+};
+
+function StatusSummaryCards({ cards }: { cards: { label: string; value: string; tone: string }[] }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {cards.map((c) => {
+        const t = _TONE[c.tone] ?? _TONE.gray;
+        return (
+          <div key={c.label} className="rounded-lg p-3" style={{ background: t.bg, border: `1px solid ${t.bd}` }}>
+            <div className="text-[11px]" style={{ color: "#718096" }}>{c.label}</div>
+            <div className="text-sm font-bold mt-1" style={{ color: t.fg }}>{c.value}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── 매뉴얼 업데이트 알림(첨부 제목 변동) 보조 카드 — 화면 하단/사이드 ──────────
+function ManualAlertAdminCard() {
+  const [busy, setBusy] = useState(false);
+  const [last, setLast] = useState<string>("");
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await manualApi.runAlertDetect();
+      const created = r.data.created ?? 0;
+      setLast(created > 0 ? `제목 변경 ${created}건 감지 — 전 사용자에게 로그인 알림 표시` : "변경 없음(이미 최신)");
+      toast.success(created > 0 ? `제목 변경 ${created}건 감지됨` : "제목 변경 없음");
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setLast(`실패 — ${detail || "감지 오류"}`);
+      toast.error(detail || "제목 감지 실패");
+    } finally { setBusy(false); }
+  };
+  return (
+    <details className="hw-card" style={{ background: "#FBFCFE" }}>
+      <summary className="text-xs font-semibold cursor-pointer" style={{ color: "#718096" }}>🔔 매뉴얼 업데이트 알림 (보조)</summary>
+      <div className="mt-2 text-[11px]" style={{ color: "#718096", lineHeight: 1.7 }}>
+        하이코리아 첨부파일 <b>제목 변동</b>을 감지하면 전 사용자가 다음 로그인 시 알림을 봅니다(1일 1회 자동 감시).
+        Cron 미설정 시 아래 버튼으로 수동 감지할 수 있습니다.
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <button type="button" onClick={() => void run()} disabled={busy}
+            className="px-2.5 py-1 rounded font-bold" style={{ background: "#2B6CB0", color: "#fff", border: "none", opacity: busy ? 0.6 : 1 }}>
+            {busy ? "감지 중..." : "제목 변경 감지 실행"}
+          </button>
+          {last && <span style={{ color: "#4A5568" }}>{last}</span>}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 // ── 관리자 최신 PDF 업로드 카드 (web 합성/렌더 없이 저장+텍스트추출+비교) ──────────
 const _UPLOAD_MANUALS = [
   { k: "visa", kr: "사증민원" },
@@ -1831,21 +1891,40 @@ function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: ()
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ManualUploadResult | null>(null);
+  const [detect, setDetect] = useState<{ status: string; changed?: number; candidates?: number; message?: string } | null>(null);
+  const [detectErr, setDetectErr] = useState<string>("");
   const [viewer, setViewer] = useState<{ manual: string; version: string; kr: string } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const doUpload = async () => {
     if (!file) { toast.error("PDF 파일을 선택하세요."); return; }
     if (!version.trim()) { toast.error("버전을 입력하세요 (예: 260616)."); return; }
-    setBusy(true); setResult(null);
+    setBusy(true); setResult(null); setDetect(null); setDetectErr("");
     try {
       const r = await manualUpdateApi.uploadPdf(manual, version.trim(), file, memo);
       setResult(r.data);
-      toast.success("검토용 최신 PDF 업로드됨 (운영 반영 전)");
+      toast.success("PDF 업로드됨 (저장 완료) · 변경감지는 별도 실행");
       onReload?.();
     } catch (e) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       toast.error(detail || "업로드 실패");
+    } finally { setBusy(false); }
+  };
+
+  const runDetect = async () => {
+    if (!result) return;
+    setBusy(true); setDetectErr("");
+    try {
+      const r = await manualUpdateApi.detectChanges(result.manual, result.version);
+      setDetect(r.data);
+      toast.success(r.data.status === "ok"
+        ? `변경감지 완료 · 변경 ${r.data.changed} · 후보 ${r.data.candidates}건`
+        : (r.data.message || "변경감지 완료"));
+      onReload?.();
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDetectErr(detail || "변경감지 실패");
+      toast.error(detail || "변경감지 실패 — 업로드 PDF는 유지됩니다.");
     } finally { setBusy(false); }
   };
 
@@ -1865,9 +1944,9 @@ function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: ()
 
   return (
     <div className="hw-card">
-      <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>📤 최신 PDF 업로드 (관리자 직접 업로드 → 저장·텍스트추출·변경감지)</div>
+      <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>📤 최신 PDF 업로드 (저장 우선 → 변경감지 별도 실행)</div>
       <div className="text-[11px] mb-2" style={{ color: "#718096", lineHeight: 1.6 }}>
-        관리자가 변환한 최신 PDF를 업로드하면 서버는 <b>저장·페이지 텍스트 추출·변경 감지</b>만 합니다(전체 PDF 합성/렌더링 없음 → 메모리 안전).
+        업로드 시 서버는 <b>저장만</b> 합니다(전체 PDF 합성/스플라이스/렌더 없음 → 메모리 안전). 텍스트 추출·변경 감지는 <b>“변경감지 실행”</b> 버튼으로 분리되어 있습니다.
         업로드본은 <b>운영 미반영(검토용)</b>이며, 검토 후 <b>운영 반영(승격)</b> 시 적용됩니다.
       </div>
 
@@ -1902,14 +1981,27 @@ function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: ()
       {/* 업로드 결과/상태 */}
       {result && (
         <div className="text-[11px] mt-2 p-2 rounded" style={{ background: "#F0FFF4", border: "1px solid #C6F6D5", color: "#22543D", lineHeight: 1.9 }}>
-          <div><b>✔ 검토용 최신 PDF 업로드됨</b> · <span style={{ color: "#C05621" }}>운영 반영 전</span> · {result.manual_kr} {result.version}</div>
-          <div>페이지 수: {result.page_count} · 텍스트 추출 완료({result.extracted_pages}p) · 파일 {Math.round(result.file_size / 1024)}KB</div>
+          <div><b>✔ 검토용 업로드 PDF</b> · <span style={{ color: "#C05621" }}>운영 미반영</span> · {result.manual_kr} {result.version}</div>
+          <div>페이지 수: {result.page_count} · 파일 {Math.round(result.file_size / 1024)}KB{result.prior_uploads_removed ? ` · 이전 업로드본 ${result.prior_uploads_removed}건 정리됨` : ""}</div>
           <div>
-            {result.baseline_init
-              ? "초기 PDF baseline — 비교 대상(이전 운영 PDF) 없음. 운영 반영 시 비교 기준이 됩니다."
-              : <>변경 감지 완료 · 변경 페이지 {result.changed} · 후보 {result.candidates}건 생성</>}
+            {detectErr
+              ? <span style={{ color: "#C53030" }}>⚠ 변경감지 실패 — {detectErr} (업로드 PDF는 유지됨, viewer 사용 가능)</span>
+              : detect
+                ? (detect.status === "ok"
+                    ? <span style={{ color: "#22543D" }}>✔ 변경감지 완료 · 변경 페이지 {detect.changed} · 후보 {detect.candidates}건</span>
+                    : <span style={{ color: "#718096" }}>{detect.message || "변경감지 완료"}</span>)
+              : <span style={{ color: "#C05621" }}>PDF 업로드됨 · 변경감지 대기 (아래 “변경감지 실행”)</span>}
+          </div>
+          <div className="text-[10px]" style={{ color: "#A0AEC0" }}>
+            ℹ PDF 기준 변경 감지 — 후보 매칭은 기준 DB(manual_base_refs) 품질에 따라 제한될 수 있습니다.
           </div>
           <div className="flex items-center gap-2 flex-wrap mt-1">
+            {result.supports_change_detection && (
+              <button type="button" onClick={() => void runDetect()} disabled={busy}
+                className="px-2 py-0.5 rounded font-bold" style={{ background: "#2B6CB0", color: "#fff", border: "none", opacity: busy ? 0.6 : 1 }}>
+                {busy ? "변경감지 중..." : "변경감지 실행"}
+              </button>
+            )}
             <button type="button" onClick={() => setViewer({ manual: result.manual, version: result.version, kr: result.manual_kr })}
               className="px-2 py-0.5 rounded" style={{ border: "1px solid #CBD5E0", background: "#fff", color: "#2B6CB0" }}>
               검토 PDF 열기(전체)
@@ -1958,6 +2050,7 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [detailCache, setDetailCache] = useState<Record<string, PgCandidateDetail>>({});
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
   const [bulkApply, setBulkApply] = useState(false);                  // 운영 반영 요약 모달
+  const [showAdvCols, setShowAdvCols] = useState(false);              // 후보 표 고급 컬럼(신뢰도/매칭사유/row_id) 표시
   const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string; reviewOnly?: boolean; source?: string } | null>(null);
   const [pdfStatus, setPdfStatus] = useState<Record<string, PdfStatus>>({});
   const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; chromium_pkg_present?: boolean; chromium_available?: boolean; chromium_path?: string; is_worker?: boolean; runtime?: string; reason?: string; pdf_reason?: string } | null>(null);
@@ -2268,40 +2361,49 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
 
   return (
     <div className="space-y-4">
-      {/* 안내 배너 — PG 단일 출처 */}
+      {/* 워크플로 안내 */}
       <div className="hw-card text-xs leading-relaxed" style={{ background: "#EBF8FF", borderColor: "#BEE3F8" }}>
-        <div style={{ color: "#2B6CB0", fontWeight: 700 }}>🗄 PostgreSQL 기반 매뉴얼 업데이트 (단일 출처 · 검토/운영반영 가능)</div>
-        <div style={{ color: "#4A5568", marginTop: 4 }}>변경 감지·후보·검토 결정이 PG에 저장됩니다. 후보별 승인/기존유지/보류/제외 후, ‘운영 반영’ 버튼으로만 실무지침에 반영됩니다.</div>
-        <div style={{ color: "#C53030", marginTop: 2 }}>운영 manual_ref는 관리자가 ‘운영 반영’을 누르기 전에는 절대 변경되지 않습니다(자동 반영 없음).</div>
-      </div>
-
-      {/* 상태 카드 */}
-      <div className="hw-card">
-        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>자동화 상태</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          {[
-            ["원문 변경", (s.changed_count ?? 0) > 0 ? `있음 (${s.changed_count}p)` : "없음"],
-            ["후보", `${s.candidate_count ?? 0}건 (검토대상 ${s.review_target_count ?? 0} · no-op ${s.noop_count ?? 0})`],
-            ["실질 검토 필요", s.needs_review ? `예 ⚠ (미검토 ${s.pending_count ?? 0})` : "없음"],
-            ["운영 반영 대기", `${s.approved_pending_apply ?? 0}건 (반영 완료 ${s.applied_count ?? 0})`],
-            ["최근 staging 버전", s.last_staging_version ?? "-"],
-            ["오류", s.error ?? "-"],
-          ].map(([k, v]) => (
-            <div key={k as string}>
-              <div style={{ color: "#A0AEC0" }}>{k}</div>
-              <div style={{ color: "#2D3748", fontWeight: 600, wordBreak: "break-all" }}>{v as string}</div>
-            </div>
-          ))}
+        <div style={{ color: "#2B6CB0", fontWeight: 700 }}>매뉴얼 업데이트 — 4단계로 진행</div>
+        <div style={{ color: "#4A5568", marginTop: 4 }}>
+          ① 최신 PDF 업로드 → ② 변경감지 실행 → ③ 변경사항 검토 → ④ 운영 반영.
+          운영 매뉴얼은 <b>‘운영 반영’을 누르기 전까지 바뀌지 않습니다</b>(자동 반영 없음).
         </div>
-        {/* 검토 필요 사유 — req 6/7/8: 예이면 사유/후보가 반드시 보이도록 */}
-        {(s.review_reason || s.needs_review) && (
-          <div className="text-xs mt-2 px-2 py-1.5 rounded"
-            style={{ background: s.needs_review ? "#FFFAF0" : "#F0FFF4", color: s.needs_review ? "#C05621" : "#276749", border: `1px solid ${s.needs_review ? "#FEEBC8" : "#C6F6D5"}` }}>
-            {s.needs_review ? "⚠ " : "✓ "}{s.review_reason || (s.needs_review ? "검토 필요" : "검토 완료")}
-          </div>
-        )}
       </div>
 
+      {/* 상태 요약 — 한눈에 */}
+      {(() => {
+        const pdfSrc = pdfStatus.stay?.viewer_source || pdfStatus.visa?.viewer_source || "";
+        const pdfLabel = pdfSrc === "upload_staging" ? "검토용 업로드됨"
+          : pdfSrc === "upload_deployed" ? "운영본(업로드)"
+          : "현재 운영 PDF";
+        const pdfTone = pdfSrc === "upload_staging" ? "yellow" : pdfSrc === "upload_deployed" ? "green" : "gray";
+        const cand = s.candidate_count ?? 0;
+        const detectLabel = versions.length === 0 ? "대기 중" : cand > 0 ? `완료 · 변경 ${cand}건` : "완료 · 변경 없음";
+        const detectTone = versions.length === 0 ? "yellow" : "green";
+        const pending = s.pending_count ?? 0;
+        const reviewLabel = (s.review_target_count ?? 0) > 0 ? `${s.review_target_count}건 (미검토 ${pending})` : "없음";
+        const reviewTone = pending > 0 ? "yellow" : "green";
+        const applyLabel = applySummary.applyable > 0 ? `반영 대기 ${applySummary.applyable}건`
+          : applySummary.applied > 0 ? `${applySummary.applied}건 반영 완료` : "미반영";
+        const applyTone = applySummary.applyable > 0 ? "blue" : applySummary.applied > 0 ? "green" : "gray";
+        return <StatusSummaryCards cards={[
+          { label: "PDF 상태", value: pdfLabel, tone: pdfTone },
+          { label: "변경감지", value: detectLabel, tone: detectTone },
+          { label: "검토 대상", value: reviewLabel, tone: reviewTone },
+          { label: "운영 반영", value: applyLabel, tone: applyTone },
+        ]} />;
+      })()}
+      {(s.review_reason || s.needs_review) && (
+        <div className="text-xs px-2 py-1.5 rounded"
+          style={{ background: s.needs_review ? "#FFFAF0" : "#F0FFF4", color: s.needs_review ? "#C05621" : "#276749", border: `1px solid ${s.needs_review ? "#FEEBC8" : "#C6F6D5"}` }}>
+          {s.needs_review ? "⚠ " : "✓ "}{s.review_reason || (s.needs_review ? "검토가 필요합니다" : "검토 완료")}
+        </div>
+      )}
+
+      {/* 고급 · 진단 정보 (단계 진행 상태 · 기준 DB) — 기본 접힘 */}
+      <details className="hw-card" style={{ background: "#FBFCFE" }}>
+        <summary className="text-xs font-semibold cursor-pointer" style={{ color: "#718096" }}>🔧 고급 · 진단 정보 (단계 진행 상태 · 기준 DB)</summary>
+        <div className="space-y-3 mt-3">
       {/* 단계별 진행 상태 — "어디까지 작동했고 어디부터 미구현인지" 분리 표시(작동 안 함 오해 방지) */}
       <div className="hw-card">
         <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>단계별 진행 상태</div>
@@ -2362,12 +2464,26 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         </div>
       </div>
 
-      {/* 관리자 최신 PDF 업로드 — 저장/텍스트추출/변경감지 (web 합성 없음) */}
+        </div>
+      </details>
+
+      {/* 1단계 · 최신 PDF 업로드 */}
+      <div className="text-sm font-bold px-1 pt-1" style={{ color: "#2B6CB0" }}>1단계 · 최신 PDF 업로드</div>
       <ManualPdfUploadCard token={token} onReload={() => { void reloadState(); void reloadDecisions(); }} />
 
+      {/* 2단계 · 변경감지 안내 (실제 실행은 위 업로드 카드의 "변경감지 실행" 버튼) */}
+      <div className="text-sm font-bold px-1 pt-1" style={{ color: "#2B6CB0" }}>2단계 · 변경감지 실행</div>
+      <div className="text-[11px] px-1" style={{ color: "#718096" }}>
+        업로드한 PDF와 기준 PDF를 비교해 변경된 페이지를 찾습니다 — 위 업로드 카드의 <b>“변경감지 실행”</b> 버튼을 누르세요. (자동 실행/진단 등 상세는 아래 고급 정보)
+      </div>
+
+      {/* 고급 · 진단 정보 (자동 실행 · PDF 상태) — 기본 접힘 */}
+      <details className="hw-card" style={{ background: "#FBFCFE" }}>
+        <summary className="text-xs font-semibold cursor-pointer" style={{ color: "#718096" }}>🔧 고급 · 진단 정보 (자동 실행 · 워커 · PDF 표시 상태)</summary>
+        <div className="space-y-3 mt-3">
       {/* 매뉴얼 최신화 수동 실행 (진단 / 실제) */}
       <div className="hw-card">
-        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>매뉴얼 최신화 실행</div>
+        <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>매뉴얼 최신화 실행 (자동/워커)</div>
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <button disabled={runBusy !== null} onClick={() => void runNow("diagnose")}
             className="text-xs px-3 py-1.5 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>
@@ -2488,6 +2604,12 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         })()}
       </div>
 
+        </div>
+      </details>
+
+      {/* 3단계 · 변경사항 검토 */}
+      <div className="text-sm font-bold px-1 pt-1" style={{ color: "#2B6CB0" }}>3단계 · 변경사항 검토</div>
+
       {/* 버전 선택 */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs font-medium" style={{ color: "#718096" }}>업데이트 버전</span>
@@ -2552,7 +2674,7 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           <div className="px-3 py-2" style={{ borderBottom: "1px solid #EDF2F7" }}>
             <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
               <span className="text-xs font-semibold" style={{ color: "#2D3748" }}>
-                영향 manual_ref 후보 — 표시 {filteredCands.length} / 전체 {candidates.length} · 선택 {selected.size}
+                변경사항 검토 — 표시 {filteredCands.length} / 전체 {candidates.length} · 선택 {selected.size}
               </span>
               <div className="flex items-center gap-1 flex-wrap">
                 <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("approve", Array.from(selected))}
@@ -2565,8 +2687,13 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                   title="이번 후보에서 제외" className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>선택 제외</button>
                 <span style={{ color: "#CBD5E0" }}>|</span>
                 <button disabled={busy === "bulk" || applySummary.applyable === 0} onClick={() => setBulkApply(true)}
-                  title="승인 항목을 운영 실무지침에 반영" className="text-[11px] px-2 py-1 rounded font-bold" style={{ background: applySummary.applyable ? "#DD6B20" : "#E2E8F0", color: applySummary.applyable ? "#fff" : "#A0AEC0", border: "none" }}>
-                  운영 반영 ({applySummary.applyable})
+                  title="승인 항목을 운영 실무지침에 반영 (4단계)" className="text-[11px] px-2 py-1 rounded font-bold" style={{ background: applySummary.applyable ? "#DD6B20" : "#E2E8F0", color: applySummary.applyable ? "#fff" : "#A0AEC0", border: "none" }}>
+                  4단계 · 운영 반영 ({applySummary.applyable})
+                </button>
+                <button type="button" onClick={() => setShowAdvCols((v) => !v)}
+                  title="신뢰도·매칭 사유·내부 ID 등 개발자용 컬럼 표시/숨김"
+                  className="text-[11px] px-2 py-1 rounded" style={{ border: "1px solid #E2E8F0", background: "#fff", color: "#718096" }}>
+                  {showAdvCols ? "고급 컬럼 숨기기" : "고급 컬럼"}
                 </button>
               </div>
             </div>
@@ -2590,10 +2717,14 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                     onChange={(e) => setSelected(e.target.checked ? new Set(filteredCands.map((c) => c.row_id)) : new Set())} />
                 </th>
                 <th style={{ width: 24 }}></th>
-                {["코드/업무명", "매뉴얼", "기존 p.", "후보 p.", "신뢰도", "변경 유형", "매칭 사유", "현재 결정", "결정", "운영 반영"].map((h) => <th key={h}>{h}</th>)}
+                <th>업무명</th><th>매뉴얼</th><th>기존 p.</th><th>추천 p.</th>
+                {showAdvCols && <th>신뢰도</th>}
+                <th>변경 유형</th>
+                {showAdvCols && <th>매칭 사유</th>}
+                <th>현재 결정</th><th>결정</th><th>운영 반영</th>
               </tr></thead>
               <tbody>
-                {filteredCands.length === 0 && <tr><td colSpan={12} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>해당 필터에 후보 없음</td></tr>}
+                {filteredCands.length === 0 && <tr><td colSpan={showAdvCols ? 12 : 10} style={{ color: "#A0AEC0", textAlign: "center", padding: 16 }}>해당 필터에 후보 없음</td></tr>}
                 {filteredCands.map((c) => {
                   const dec = decByRow[c.row_id];
                   const decKey = dec?.decision ?? "";
@@ -2627,7 +2758,7 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                               </button>
                             )}
                           </div>
-                          <div style={{ color: "#A0AEC0", fontSize: 10 }}>{c.row_id}{c.business_name ? ` · ${c.business_name}` : ""}</div>
+                          <div style={{ color: "#A0AEC0", fontSize: 10 }}>{showAdvCols ? c.row_id : ""}{c.business_name ? `${showAdvCols ? " · " : ""}${c.business_name}` : ""}</div>
                         </td>
                         <td><span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 8, background: c.manual_label === "visa" ? "#E9D8FD" : "#BEE3F8", color: "#4A5568" }}>{c.manual_label}</span></td>
                         <td>{c.old_page_from}-{c.old_page_to}</td>
@@ -2639,9 +2770,9 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                             </div>
                           )}
                         </td>
-                        <td>{c.confidence}{c.similarity != null && <span style={{ color: "#A0AEC0" }}> ({Math.round(c.similarity * 100)}%)</span>}</td>
+                        {showAdvCols && <td>{c.confidence}{c.similarity != null && <span style={{ color: "#A0AEC0" }}> ({Math.round(c.similarity * 100)}%)</span>}</td>}
                         <td><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: kind.bg, color: kind.color, fontWeight: 700 }}>{kind.label}</span></td>
-                        <td style={{ maxWidth: 200, fontSize: 10, color: "#718096", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={c.reason}>{c.reason}</td>
+                        {showAdvCols && <td style={{ maxWidth: 200, fontSize: 10, color: "#718096", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={c.reason}>{c.reason}</td>}
                         <td><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: badge.bg, color: badge.color, fontWeight: 700 }}>{badge.label}</span></td>
                         <td>
                           <div className="flex items-center gap-1">
@@ -2778,6 +2909,9 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           </div>
         </div>
       )}
+
+      {/* 매뉴얼 업데이트 알림 (보조 카드 — 화면 하단) */}
+      <ManualAlertAdminCard />
 
       {/* 전체 PDF 보기 모달 (staging 우선, 없으면 배포본) */}
       {pdfView && (

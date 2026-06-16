@@ -825,13 +825,22 @@ export interface ManualUploadResult {
   manual_kr: string;
   version: string;
   page_count: number;
-  extracted_pages: number;
   file_size: number;
-  changed: number;
-  candidates: number;
-  baseline_init: boolean;
   artifact_id: number | null;
   review_only: boolean;
+  change_detection: string;          // "pending" — 변경감지는 별도 단계
+  prior_uploads_removed: number;     // 새 업로드 시 정리된 이전 업로드본 수
+  supports_change_detection: boolean;
+}
+
+export interface ManualDetectResult {
+  status: string;                    // ok | baseline_init | no_diff
+  manual: string;
+  version: string;
+  extracted_pages?: number;
+  changed: number;
+  candidates: number;
+  message?: string;
 }
 
 export const manualUpdateApi = {
@@ -845,6 +854,8 @@ export const manualUpdateApi = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
+  detectChanges: (manual: string, version: string) =>
+    api.post<ManualDetectResult>("/api/guidelines/manual-update/detect-changes", { manual, version }),
   promotePdf: (manual: string, version: string) =>
     api.post<{ ok: boolean; deployed_artifact_id: number; previous_count: number }>(
       "/api/guidelines/manual-update/promote-pdf", { manual, version }),

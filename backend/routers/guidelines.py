@@ -1091,10 +1091,9 @@ def pg_pdf_source(manual: str, version: str = "", admin: dict = Depends(require_
         try:
             from backend.services import manual_update_pg_service as svc
             if svc.pg_enabled():
+                # worker/node 가 미리 만든 full_pdf artifact 만 인정. (web 합성 review_splice 비활성)
                 if svc.get_worker_full_pdf(manual_norm, version):
                     source, review_only = "worker_artifact", False
-                elif svc._changed_components(manual_norm, version):
-                    source, review_only = "review_splice", True
         except Exception:
             pass
     return {
@@ -1159,7 +1158,8 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
         uploaded_meta = _up.resolve_review_pdf_meta(manual, version)
     except Exception:
         uploaded_meta = None
-    # viewer 우선순위: 업로드본 > staging 파일 > worker full_pdf > review_splice 합성 > 배포본.
+    # viewer 우선순위: 업로드본 > staging 파일 > worker full_pdf > 배포본.
+    # ※ OOM 방지: review_splice(web PyMuPDF 합성)는 viewer 경로에서 비활성 — 절대 자동 합성하지 않는다.
     if uploaded_meta:
         viewer_source = uploaded_meta["source"]   # upload_staging | upload_deployed
         viewer_file = f"upload_artifact#{uploaded_meta.get('artifact_id')}"
@@ -1167,8 +1167,6 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
         viewer_source, viewer_file = "staging", os.path.basename(staging)
     elif full_artifact:
         viewer_source, viewer_file = "worker_artifact", f"artifact#{full_artifact['id']}"
-    elif review_splice_available:
-        viewer_source, viewer_file = "review_splice", "pymupdf_splice(검토용·운영 미반영)"
     else:
         viewer_source, viewer_file = "deployed", deployed_fname
     return {
@@ -1180,19 +1178,18 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
         "artifacts": artifact_summary.get("by_manual", {}).get(manual, {"total": 0}),
         "artifacts_total": artifact_summary.get("total", 0),
         "full_pdf_artifact": full_artifact,               # worker full_pdf artifact(있으면 viewer 우선)
-        "review_splice_available": review_splice_available,  # 변경 페이지→배포본 스플라이스 합성 가능
-        "review_only": viewer_source in ("review_splice", "upload_staging"),  # 검토용(운영 미반영) 표시 중인지
+        "review_splice_available": review_splice_available,  # 변경 페이지 존재 여부(worker 합성 후보; web 합성 안 함)
+        "review_splice_web_disabled": True,                # web 요청 중 PyMuPDF full 합성 비활성(OOM 방지)
+        "review_only": viewer_source == "upload_staging",  # 검토용(운영 미반영) 표시 중인지
         "generator_present": generator_present,           # rhwp+chromium CLI 설치 여부
         "source_hwp_present": source_hwp_present,          # 해당 version HWP 원본 보유 여부
-        # 변경 페이지→전체 PDF '검토용' 합성은 연결됨(PyMuPDF 스플라이스). 운영 배포본 교체는 별개.
-        "replace_pipeline_wired": review_splice_available,
-        "can_refresh_now": review_splice_available,
+        "replace_pipeline_wired": False,                  # web 자동 합성 비활성(운영 반영은 업로드→승격으로)
+        "can_refresh_now": False,
         "reason": ("관리자 업로드 검토용 PDF 표시 중(운영 미반영)" if viewer_source == "upload_staging" else
                    "관리자 업로드 운영 PDF(승격본) 표시 중" if viewer_source == "upload_deployed" else
                    "최신 staging PDF 가 있어 그것을 표시 중" if staging else
                    "worker full_pdf artifact 표시 중" if full_artifact else
-                   "변경 페이지를 배포본에 합성한 검토용 PDF 표시 중(운영 미반영)" if review_splice_available else
-                   "변경 페이지 artifact 없음 → 배포본 PDF fallback."),
+                   "업로드 PDF 없음 → 기존 배포본 fallback (web 합성 비활성)."),
     }
 
 
@@ -1235,27 +1232,19 @@ def pg_pdf(manual: str, version: str = "",
     manual_norm = _MANUAL_NORM.get((manual or "").strip())
     if manual_norm:
         try:
-            import hashlib
             from backend.services import manual_update_pg_service as svc
             if svc.pg_enabled():
-                # 2순위: worker/node 가 만든 진짜 full_pdf artifact(검토용 splice 아님)
+                # 2순위: worker/node 가 미리 만든 full_pdf artifact(저장된 blob 만 서빙).
                 worker = svc.get_worker_full_pdf(manual_norm, version or None)
                 if worker:
                     blob = svc.get_pdf_artifact_blob(worker["id"])
                     if blob:
                         return _Resp(content=blob, media_type="application/pdf", headers=_hdr)
-                # 3순위: 변경 페이지 → 배포본 스플라이스 review_splice 합성(검토용)
-                if version and os.path.isfile(deployed_path):
-                    with open(deployed_path, "rb") as f:
-                        base_bytes = f.read()
-                    res = svc.compose_full_pdf_blob(
-                        manual_norm, version, base_bytes,
-                        hashlib.sha256(base_bytes).hexdigest())
-                    if res and res.get("blob"):
-                        return _Resp(content=res["blob"], media_type="application/pdf", headers=_hdr)
+                # ※ OOM 방지: web 요청 중 전체 PDF 합성/스플라이스(compose_full_pdf_blob) 금지.
+                #   업로드본/worker artifact 가 없으면 합성하지 않고 배포본 fallback 으로 간다.
         except Exception:
             pass
-    # 4순위: 배포본 전체 PDF fallback
+    # 3순위: 배포본 전체 PDF fallback (합성 없음)
     if not os.path.isfile(deployed_path):
         raise HTTPException(status_code=404, detail=f"PDF 파일 없음: {kr}")
     return FileResponse(deployed_path, media_type="application/pdf", headers=_hdr)
@@ -1400,6 +1389,28 @@ def pg_list_uploads(manual: str = "", admin: dict = Depends(require_admin)):
         raise HTTPException(status_code=409, detail="PG manual-update 비활성")
     from backend.services import manual_pdf_upload_service as up
     return {"rows": up.list_uploads(manual)}
+
+
+class PgDetectChangesBody(BaseModel):
+    manual: str
+    version: str
+
+
+@router.post("/manual-update/detect-changes")
+def pg_detect_changes(body: PgDetectChangesBody, admin: dict = Depends(require_admin)):
+    """업로드 직후 분리된 '변경 감지 실행' — 업로드 PDF 텍스트 추출 + baseline 비교 + 후보 생성.
+
+    업로드(저장)와 분리된 무거운 단계. 실패해도 업로드 PDF 는 유지된다(viewer 계속 사용 가능)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성")
+    from backend.services import manual_pdf_upload_service as up
+    try:
+        return up.run_change_detection(body.manual, body.version)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # 변경감지 실패 — 업로드 PDF 는 보존, 상태만 실패로 알린다(앱 안 깨짐).
+        raise HTTPException(status_code=500, detail=f"변경 감지 실패: {type(e).__name__}: {e}")
 
 
 @router.get("/manual-update/versions/{version}/candidates/{row_id}/pdf-artifact")

@@ -121,19 +121,40 @@ def _latest_deployed_pages(manual: str) -> Optional[list[dict]]:
     return extract_pages(blob, label)
 
 
-def _replace_staging_artifact(manual: str, version: str) -> None:
-    """같은 manual+version 의 기존 manual_upload staging artifact 제거(재업로드 대비)."""
+def _is_review_splice_artifact(a: dict) -> bool:
+    note = (a.get("note") or "")
+    return (a.get("source") == "review_splice"
+            or "purpose=review_splice" in note or "generator=pymupdf_splice" in note)
+
+
+def _cleanup_prior_uploads(manual_norm: str, keep_artifact_id: int) -> dict:
+    """새 업로드 성공 후 호출 — 같은 manual 의 이전 업로드/검토 임시 PDF 만 정리.
+
+    삭제: 다른 manual_upload staging artifact(이전 업로드본) + review_splice(검토용 합성) artifact.
+    보존: deployed_full_pdf(운영본)·previous(이전 운영본)·baseline·refs·decision history.
+    → 같은 manual 의 active staging 업로드가 1개만 남는다."""
     from backend.services import manual_update_pg_service as svc
-    for a in svc.get_pdf_artifacts(manual=manual, version=version):
-        if a.get("artifact_type") == STAGING_ARTIFACT_TYPE and a.get("source") == UPLOAD_SOURCE:
-            svc.delete_pdf_artifact(a["id"])
+    removed = 0
+    for a in svc.get_pdf_artifacts(manual=manual_norm):
+        aid = a.get("id")
+        if aid == keep_artifact_id:
+            continue
+        is_old_upload = (a.get("artifact_type") == STAGING_ARTIFACT_TYPE and a.get("source") == UPLOAD_SOURCE)
+        if is_old_upload or _is_review_splice_artifact(a):
+            try:
+                svc.delete_pdf_artifact(aid); removed += 1
+            except Exception:
+                pass
+    return {"removed": removed}
 
 
 def process_upload(*, manual: str, version: str, temp_path: str, orig_filename: str = "",
                    uploaded_by: str = "", memo: str = "") -> dict:
-    """업로드 PDF 검증 → blob 저장(staging) → 텍스트 추출 → 변경 감지(PDF-to-PDF) → 후보 생성.
+    """업로드 PDF 검증 → blob 저장(staging) 만 수행(저장 우선, OOM 안전).
 
-    실패는 ValueError 로 던진다(라우터가 400 매핑, 임시파일/부분 artifact 정리)."""
+    무거운 텍스트 추출/변경 감지는 별도 단계(run_change_detection)로 분리한다 — 이 요청에서는
+    전체 페이지 추출/PDF 합성/스플라이스를 하지 않는다. 저장 성공 후에만 이전 업로드본을 정리해
+    실패 시 기존 업로드본을 잃지 않는다. 실패는 ValueError(라우터가 400)."""
     from backend.services import manual_update_pg_service as svc
 
     manual_norm = normalize_manual(manual)
@@ -143,62 +164,67 @@ def process_upload(*, manual: str, version: str, temp_path: str, orig_filename: 
     if not version:
         raise ValueError("version 을 입력하세요 (예: 260616).")
 
-    page_count = validate_pdf_file(temp_path)   # 0페이지/손상 차단
+    page_count = validate_pdf_file(temp_path)   # 0페이지/손상 차단(PyMuPDF open, page_count만)
     with open(temp_path, "rb") as f:
         pdf_bytes = f.read()                     # 검증 통과분만 1회 읽기(크기 제한은 라우터에서)
     sha = hashlib.sha256(pdf_bytes).hexdigest()
     file_size = len(pdf_bytes)
-
-    refs = svc.load_base_refs()
-    label = _ref_label_for(manual_norm, refs)
-    new_pages = extract_pages(pdf_bytes, label)  # 추출 페이지 수 = page_count 여야 함
-    extracted = len(new_pages)
-
-    changed_count = 0
-    candidate_count = 0
-    baseline_init = False
     note = (f"purpose=review_staging;uploaded_by={uploaded_by};sha256={sha};"
-            f"orig={orig_filename};memo={memo}")[:1000]
+            f"orig={orig_filename};memo={memo};change_detection=pending")[:1000]
 
-    # revision_history: baseline diff 없음 — staging blob 만 저장.
-    if manual_norm == "revision_history":
-        _replace_staging_artifact(manual_norm, version)
-        art = svc.save_pdf_artifact(
-            manual=manual_norm, artifact_type=STAGING_ARTIFACT_TYPE, version=version,
-            source=UPLOAD_SOURCE, page_from=1, page_to=page_count, page_numbers=None,
-            pdf_blob=pdf_bytes, pdf_path=None, page_count=page_count,
-            status="generated", note=note,
-        )
-        return {"manual": manual_norm, "manual_kr": manual_kr(manual_norm), "version": version,
-                "page_count": page_count, "extracted_pages": extracted, "file_size": file_size,
-                "changed": 0, "candidates": 0, "baseline_init": False,
-                "artifact_id": art.get("id"), "review_only": True}
-
-    # visa / stay: 이전 deployed 업로드 PDF 와 PDF-to-PDF 비교.
-    baseline_pages = _latest_deployed_pages(manual_norm)
-    if not baseline_pages:
-        baseline_init = True   # 최초 PDF baseline — 비교 대상 없음(promote 시 baseline 승격)
-    else:
-        from backend.scripts.manual_update_local import diff_pages
-        all_changed = diff_pages(baseline_pages, new_pages)
-        non_same = [c for c in all_changed if c.get("change_type") != "same"]
-        candidates = svc.compute_candidates(all_changed, {label: new_pages}, refs)
-        svc.save_version(version, {manual_norm: version}, non_same, candidates, None)
-        svc.merge_decisions_for_version(version, candidates)
-        changed_count = len(non_same)
-        candidate_count = len(candidates)
-
-    _replace_staging_artifact(manual_norm, version)
+    # 1) 새 staging blob 저장 (저장만 — 합성/추출 없음).
     art = svc.save_pdf_artifact(
         manual=manual_norm, artifact_type=STAGING_ARTIFACT_TYPE, version=version,
         source=UPLOAD_SOURCE, page_from=1, page_to=page_count, page_numbers=None,
         pdf_blob=pdf_bytes, pdf_path=None, page_count=page_count,
         status="generated", note=note,
     )
+    # 2) 저장 성공 후에만 이전 업로드본/검토 합성본 정리(deployed 는 보존).
+    cleanup = _cleanup_prior_uploads(manual_norm, art.get("id"))
+
     return {"manual": manual_norm, "manual_kr": manual_kr(manual_norm), "version": version,
-            "page_count": page_count, "extracted_pages": extracted, "file_size": file_size,
-            "changed": changed_count, "candidates": candidate_count,
-            "baseline_init": baseline_init, "artifact_id": art.get("id"), "review_only": True}
+            "page_count": page_count, "file_size": file_size,
+            "artifact_id": art.get("id"), "review_only": True,
+            "change_detection": "pending", "prior_uploads_removed": cleanup.get("removed", 0),
+            "supports_change_detection": manual_norm in ("visa", "stay")}
+
+
+def run_change_detection(manual: str, version: str) -> dict:
+    """업로드된 staging PDF 로 변경 감지 실행(별도 단계). PDF-to-PDF 비교 → 후보 생성.
+
+    업로드 PDF 는 유지된다(실패해도 viewer 사용 가능). 무거운 추출/비교는 이 단계에서만."""
+    from backend.services import manual_update_pg_service as svc
+    manual_norm = normalize_manual(manual)
+    if manual_norm is None:
+        raise ValueError("manual 은 visa / stay / revision_history 중 하나여야 합니다.")
+    version = (version or "").strip()
+    res = get_staging_blob(manual_norm, version)
+    if res is None:
+        raise ValueError("업로드된 검토용 PDF 가 없습니다. 먼저 PDF 를 업로드하세요.")
+    pdf_bytes, _meta = res
+
+    if manual_norm == "revision_history":
+        return {"status": "no_diff", "manual": manual_norm, "version": version,
+                "changed": 0, "candidates": 0,
+                "message": "revision_history 는 변경 감지 대상이 아닙니다(업로드 보관만)."}
+
+    refs = svc.load_base_refs()
+    label = _ref_label_for(manual_norm, refs)
+    new_pages = extract_pages(pdf_bytes, label)
+    extracted = len(new_pages)
+    baseline_pages = _latest_deployed_pages(manual_norm)
+    if not baseline_pages:
+        return {"status": "baseline_init", "manual": manual_norm, "version": version,
+                "extracted_pages": extracted, "changed": 0, "candidates": 0,
+                "message": "초기 PDF baseline — 비교 대상(이전 운영 PDF) 없음. 운영 반영 후 비교 기준이 됩니다."}
+    from backend.scripts.manual_update_local import diff_pages
+    all_changed = diff_pages(baseline_pages, new_pages)
+    non_same = [c for c in all_changed if c.get("change_type") != "same"]
+    candidates = svc.compute_candidates(all_changed, {label: new_pages}, refs)
+    svc.save_version(version, {manual_norm: version}, non_same, candidates, None)
+    svc.merge_decisions_for_version(version, candidates)
+    return {"status": "ok", "manual": manual_norm, "version": version,
+            "extracted_pages": extracted, "changed": len(non_same), "candidates": len(candidates)}
 
 
 def get_staging_blob(manual: str, version: str = "") -> Optional[tuple[bytes, dict]]:
