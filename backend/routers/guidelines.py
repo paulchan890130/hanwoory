@@ -1148,7 +1148,10 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
             if manual_norm:
                 full_artifact = svc.get_worker_full_pdf(manual_norm, version or None)
                 if version:
-                    review_splice_available = bool(svc._changed_components(manual_norm, version))
+                    # 메타데이터만으로 존재 확인(절대 blob 적재 금지 — _changed_components 는 blob 을 읽음).
+                    review_splice_available = any(
+                        a.get("artifact_type") in ("changed_page", "changed_page_bundle")
+                        for a in svc.get_pdf_artifacts(manual_norm, version))
     except Exception:
         pass
     # 0순위: 관리자 업로드 PDF(staging manual_upload → 승격 deployed).

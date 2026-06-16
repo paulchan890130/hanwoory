@@ -192,7 +192,17 @@ def process_upload(*, manual: str, version: str, temp_path: str, orig_filename: 
 def run_change_detection(manual: str, version: str) -> dict:
     """업로드된 staging PDF 로 변경 감지 실행(별도 단계). PDF-to-PDF 비교 → 후보 생성.
 
-    업로드 PDF 는 유지된다(실패해도 viewer 사용 가능). 무거운 추출/비교는 이 단계에서만."""
+    업로드 PDF 는 유지된다(실패해도 viewer 사용 가능). 무거운 추출/비교는 이 단계에서만.
+    DB 연결 오류(SSL EOF 등) 시 1회만 재시도(blob 과다조회는 이미 제거됨 — 재시도로 덮지 않음).
+    save_version 은 멱등 upsert 라 재시도가 중복을 만들지 않는다."""
+    from sqlalchemy.exc import OperationalError
+    try:
+        return _run_change_detection_once(manual, version)
+    except OperationalError:
+        return _run_change_detection_once(manual, version)
+
+
+def _run_change_detection_once(manual: str, version: str) -> dict:
     from backend.services import manual_update_pg_service as svc
     manual_norm = normalize_manual(manual)
     if manual_norm is None:

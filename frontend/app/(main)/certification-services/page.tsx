@@ -423,25 +423,35 @@ export default function CertificationServicesPage() {
       ...formGrps.map(g => ({ value: g.id, label: g.group_name })),
     ];
 
-    // 대분류+중분류 기준 소분류 후보
-    const formRgns = allRegions.filter(r => {
+    // 소분류/지역 옵션 = 소분류/지역 관리에 등록된 active master 전체(절대 distinct/일부로 잘라내지 않음).
+    // 대분류/중분류 매핑(applicable_*)이 있으면 그 지역을 '우선'(앞쪽 정렬)할 뿐 제외하지 않는다.
+    const RGN_PRIORITY = ["지역상관없음", "전국", "중국", "한국"];
+    const isMappedToDraft = (r: CertRegion) => {
       const dirs = (r.applicable_directions ?? "").split(",").map(s => s.trim()).filter(Boolean);
       const grps = (r.applicable_group_ids ?? "").split(",").map(s => s.trim()).filter(Boolean);
-      if (draft.direction) {
-        if (dirs.length > 0 && !dirs.includes(draft.direction)) return false;
-        if ((draft.direction === "중국 → 한국" || draft.direction === "중국 현지 내부처리") && r.name === "한국") return false;
-      }
-      if (draft.group_id) {
-        if (grps.length > 0 && !grps.includes(draft.group_id)) return false;
-      }
-      return true;
-    });
+      const dirOk = !!draft.direction && dirs.length > 0 && dirs.includes(draft.direction);
+      const grpOk = !!draft.group_id && grps.length > 0 && grps.includes(draft.group_id);
+      return dirOk || grpOk;
+    };
+    const rgnRank = (r: CertRegion): [number, number, number] => {
+      const pi = RGN_PRIORITY.indexOf(r.name);
+      if (pi >= 0) return [0, pi, 0];                       // 고정 우선 지역(지역상관없음/전국/중국/한국)
+      return [1, isMappedToDraft(r) ? 0 : 1, Number(r.sort_order) || 0];  // 매핑 지역 우선, 그 외 sort_order
+    };
+    const formRgns = allRegions
+      .filter(r => (r.active ?? "true") !== "false")        // active master 전체
+      .slice()
+      .sort((a, b) => {
+        const ra = rgnRank(a), rb = rgnRank(b);
+        for (let i = 0; i < 3; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+        return a.name.localeCompare(b.name);
+      });
 
-    // 현재 region 이 후보에 없으면 보존
+    // 현재값이 master 에 없을 때만 "현재값: xxx" 를 맨 위에 추가(값 보존). 그 외엔 master 전체 노출.
     const rgnInVisible = !draft.region || formRgns.some(r => r.name === draft.region);
     const formRgnOpts = [
       ...(!rgnInVisible && draft.region
-        ? [{ value: draft.region, label: `현재값: ${draft.region}` }]
+        ? [{ value: draft.region, label: `현재값: ${draft.region} (목록에 없음)` }]
         : []),
       ...formRgns.map(r => ({ value: r.name, label: r.name })),
     ];

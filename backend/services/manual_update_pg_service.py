@@ -1126,7 +1126,9 @@ def _artifact_to_dict(a, *, with_blob: bool = False) -> dict:
         "page_from": a.page_from, "page_to": a.page_to, "page_numbers": a.page_numbers,
         "pdf_path": a.pdf_path, "page_count": a.page_count, "file_size": a.file_size,
         "content_hash": a.content_hash, "status": a.status, "note": a.note,
-        "has_blob": a.pdf_blob is not None,
+        # ⚠ pdf_blob 컬럼을 절대 만지지 않는다(메타 조회 시 거대한 bytea 적재 → SSL EOF/OOM).
+        #   blob 존재 여부는 file_size 프록시로 판정(save 시 blob 있으면 file_size 설정됨).
+        "has_blob": bool(a.file_size),
         "created_at": a.created_at.isoformat() if a.created_at else None,
         "updated_at": a.updated_at.isoformat() if a.updated_at else None,
     }
@@ -1163,14 +1165,17 @@ def save_pdf_artifact(*, manual: str, artifact_type: str, version: str | None = 
 
 
 def get_pdf_artifacts(manual: str | None = None, version: str | None = None) -> list[dict]:
-    """artifact 목록(blob 제외). manual/version 으로 선택 필터."""
+    """artifact 목록(메타데이터만 — pdf_blob 미적재). manual/version 으로 선택 필터.
+
+    ⚠ pdf_blob(bytea)은 절대 함께 SELECT 하지 않는다(여러 PDF blob 동시 적재 → SSL EOF/OOM)."""
     if not pg_enabled():
         return []
     from sqlalchemy import select
+    from sqlalchemy.orm import defer
     from backend.db.models.manual_update import ManualPdfArtifact
     from backend.db.session import get_sessionmaker
     with get_sessionmaker()() as session:
-        stmt = select(ManualPdfArtifact)
+        stmt = select(ManualPdfArtifact).options(defer(ManualPdfArtifact.pdf_blob))
         if manual:
             stmt = stmt.where(ManualPdfArtifact.manual == manual)
         if version:
@@ -1180,18 +1185,40 @@ def get_pdf_artifacts(manual: str | None = None, version: str | None = None) -> 
 
 
 def get_pdf_artifact(artifact_id: int, *, with_blob: bool = False) -> dict | None:
+    """단건 artifact 메타(기본 blob 미적재). with_blob=True 일 때만 그 1건 blob 을 별도로 붙인다."""
     if not pg_enabled():
         return None
+    from sqlalchemy import select
+    from sqlalchemy.orm import defer
     from backend.db.models.manual_update import ManualPdfArtifact
     from backend.db.session import get_sessionmaker
     with get_sessionmaker()() as session:
-        a = session.get(ManualPdfArtifact, artifact_id)
-        return _artifact_to_dict(a, with_blob=with_blob) if a else None
+        a = session.scalars(
+            select(ManualPdfArtifact)
+            .options(defer(ManualPdfArtifact.pdf_blob))
+            .where(ManualPdfArtifact.id == artifact_id)
+        ).first()
+        if not a:
+            return None
+        d = _artifact_to_dict(a)
+        if with_blob:
+            # 선택된 1건의 blob 만 별도 단일 컬럼 조회(목록 조회와 분리).
+            d["pdf_blob"] = session.scalar(
+                select(ManualPdfArtifact.pdf_blob).where(ManualPdfArtifact.id == artifact_id))
+            d["has_blob"] = d["pdf_blob"] is not None
+        return d
 
 
 def get_pdf_artifact_blob(artifact_id: int) -> bytes | None:
-    a = get_pdf_artifact(artifact_id, with_blob=True)
-    return a.get("pdf_blob") if a else None
+    """선택된 id 1건의 pdf_blob 만 단일 컬럼으로 조회(목록/메타 조회와 절대 섞지 않음)."""
+    if not pg_enabled():
+        return None
+    from sqlalchemy import select
+    from backend.db.models.manual_update import ManualPdfArtifact
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        return session.scalar(
+            select(ManualPdfArtifact.pdf_blob).where(ManualPdfArtifact.id == artifact_id))
 
 
 def get_latest_pdf_artifact(manual: str, page_no: int | None = None) -> dict | None:
@@ -1200,11 +1227,13 @@ def get_latest_pdf_artifact(manual: str, page_no: int | None = None) -> dict | N
     if not pg_enabled():
         return None
     from sqlalchemy import select
+    from sqlalchemy.orm import defer
     from backend.db.models.manual_update import ManualPdfArtifact
     from backend.db.session import get_sessionmaker
     with get_sessionmaker()() as session:
         rows = session.scalars(
             select(ManualPdfArtifact)
+            .options(defer(ManualPdfArtifact.pdf_blob))   # blob 미적재(목록 조회)
             .where(ManualPdfArtifact.manual == manual,
                    ManualPdfArtifact.status.in_(("generated", "promoted")))
             .order_by(ManualPdfArtifact.created_at.desc())
@@ -1224,17 +1253,16 @@ def get_latest_pdf_artifact(manual: str, page_no: int | None = None) -> dict | N
 
 
 def delete_pdf_artifact(artifact_id: int) -> bool:
+    """artifact 삭제 — blob 을 메모리에 적재하지 않고 id 로 직접 DELETE."""
     if not pg_enabled():
         return False
+    from sqlalchemy import delete as _delete
     from backend.db.models.manual_update import ManualPdfArtifact
     from backend.db.session import get_sessionmaker
     with get_sessionmaker()() as session:
-        a = session.get(ManualPdfArtifact, artifact_id)
-        if not a:
-            return False
-        session.delete(a)
+        res = session.execute(_delete(ManualPdfArtifact).where(ManualPdfArtifact.id == artifact_id))
         session.commit()
-        return True
+        return (res.rowcount or 0) > 0
 
 
 def pdf_artifact_summary(manual: str | None = None) -> dict:
