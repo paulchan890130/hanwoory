@@ -538,8 +538,8 @@ def _parse_mrz_pair(L1: str, L2: str) -> dict:
             given_raw = after_sep.rstrip("<").replace("<", " ").strip()
             sur = re.sub(r"\s+", " ", sur_raw).strip()
             given = re.sub(r"\s+", " ", given_raw).strip()
-            sur = _strip_mrz_trail(sur)
-            given = _strip_mrz_trail(given)
+            sur = _strip_name_trailing_k(_strip_mrz_trail(sur))
+            given = _strip_name_trailing_k(_strip_mrz_trail(given))
             if sur and not re.search(r"\d", sur):
                 out["성"] = sur
             if given and not re.search(r"\d", given):
@@ -1013,6 +1013,25 @@ def _strip_mrz_trail(name: str) -> str:
     if len(name) >= 3 and name[-1] in ("S", "C"):
         return name[:-1]
     return name
+
+
+def _strip_name_trailing_k(name: str) -> str:
+    """MRZ 이름존의 filler '<'가 OCR에서 'K'로 오인되어 이름 뒤에 'KKKK'가
+    붙는 현상을 보수적으로 정리한다(끝의 반복 K만 대상).
+
+    안전 규칙(실제 K 보존):
+      - 이름 '끝'의 K 반복이 2자 이상이고, 그 앞에 실제 이름 2자 이상이 남을 때만 제거.
+      - 단일 K로 끝나는 이름('PARK','MALIK','NOVAK'), K로 시작하는 이름('KIM','KHAN'),
+        이름 내부의 K는 절대 건드리지 않는다.
+      - 전역 K→'<' 치환을 하지 않는다(문서번호·국적·생년월일·만료일 필드 무관).
+    """
+    if not name:
+        return name
+    m = re.search(r"K{2,}$", name)
+    if not m:
+        return name
+    prefix = name[:m.start()].strip()
+    return prefix if len(prefix) >= 2 else name
 
 
 def _valid_yymmdd6(s: str) -> bool:

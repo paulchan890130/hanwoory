@@ -318,36 +318,63 @@ def clean_reg_back(raw: str) -> str:
     return ""
 
 
+_PROVINCE_RE = r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)"
+
+
 def _clean_address_text(text: str) -> str:
+    """주소 raw OCR → 정리(cleaned) → validation 순.
+
+    핵심: validation은 **cleaned text에만** 적용한다. 느낌표/대괄호/세로줄 같은
+    잡음 때문에 통째로 빈값이 되지 않도록, 먼저 허용 문자만 남긴 뒤 검증한다.
+    허용: 한글·영문·숫자·공백·하이픈(-)·쉼표(,). 그 외는 제거.
+    """
     lines = [re.sub(r"\s+", " ", ln).strip() for ln in (text or "").splitlines() if ln.strip()]
     if not lines:
         return ""
     joined = " ".join(lines)
-    # 세로줄 OCR 잡음 제거: ㅣ(한글 모음) · | · ｜
-    joined = joined.replace("|", " ").replace("｜", " ").replace("ㅣ", " ")
-    # 최종 주소 정책: 한글·숫자·공백·하이픈(-)·쉼표(,)만 허용.
-    #  · 하이픈 유지: '50-1' 같은 번지/지번/건물번호 의미 보존(제거 시 '501'로 왜곡).
-    #  · 쉼표 유지: '… 12, 101호'처럼 도로명+건물번호와 상세주소(동/호) 구분 보존.
-    #  · 영문 OCR 잡음·괄호·점·기타 특수문자는 제거.
-    joined = re.sub(r"[^가-힣0-9\s,\-]", " ", joined)
-    joined = re.sub(r"\s{2,}", " ", joined).strip(" ,")
 
-    m = re.search(r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", joined)
+    # 1) 대괄호/중괄호는 내용까지 제거 — 주소에 쓰이지 않는 OCR 잡음 묶음([잡음] 등).
+    #    소괄호는 동/호 표기에 쓰일 수 있어 '괄호 문자'만 제거하고 내용은 보존.
+    joined = re.sub(r"\[[^\]]*\]", " ", joined)
+    joined = re.sub(r"\{[^}]*\}", " ", joined)
+
+    # 2) 세로줄·명시적 잡음 제거: ㅣ(한글 모음)·|·｜·느낌표·소괄호 문자.
+    for ch in ("|", "｜", "ㅣ", "!", "(", ")"):
+        joined = joined.replace(ch, " ")
+
+    # 3) 허용 문자셋만 남김: 한글·영문·숫자·공백·하이픈·쉼표.
+    #    하이픈 유지('50-1' 번지 의미 보존), 쉼표 유지(동/호 구분 보존),
+    #    영문 허용(ABC빌딩 등). 점·따옴표·기타 특수문자는 제거.
+    joined = re.sub(r"[^가-힣A-Za-z0-9\s,\-]", " ", joined)
+
+    # 4~6) 공백/쉼표 정리.
+    joined = re.sub(r"\s*,\s*", ", ", joined)   # 쉼표 주변 공백 정규화
+    joined = re.sub(r"\s{2,}", " ", joined)      # 다중 공백 → 단일
+    joined = joined.strip(" ,-")                  # 앞뒤 공백·쉼표·하이픈 제거
+
+    # province가 인식되면 그 앞 잡음 제거(기존 동작 유지).
+    m = re.search(_PROVINCE_RE, joined)
     if m:
-        joined = joined[m.start():].strip()
+        joined = joined[m.start():].strip(" ,-")
 
-    # Relaxed gate for workspace ROI path: _looks_like_korean_address requires
-    # road/admin tokens at strict word-boundaries (?:\s|$|\d), but OCR output
-    # from small crops often lacks spaces (e.g. "시흥시정왕동로"), causing false
-    # blanks. Accept text that has a province marker + any admin/road syllable.
-    has_province = bool(re.search(
-        r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", joined
-    ))
-    has_admin_or_road = bool(re.search(
-        r'[가-힣]{1,8}(?:시|군|구|동|읍|면|로|길|대로|번길)', joined
-    ))
-    if not (has_province and has_admin_or_road):
+    if not joined:
         return ""
+
+    # 7) validation — cleaned text에만 적용.
+    #    strong: province 마커 + 행정/도로 토큰(기존 엄격 경로).
+    #    weak  : OCR이 province를 누락('경기'→'도 시흥시…')해도, 충분한 한글 +
+    #            (숫자 또는 주소 접미어)가 있으면 cleaned 후보로 인정 → 빈값 방지.
+    has_province = bool(re.search(_PROVINCE_RE, joined))
+    has_admin_or_road = bool(re.search(r'[가-힣]{1,8}(?:시|군|구|동|읍|면|로|길|대로|번길)', joined))
+    kor_count = len(re.findall(r"[가-힣]", joined))
+    has_suffix = bool(re.search(r"(시|군|구|읍|면|동|리|로|길|번길|호)", joined))
+    has_digit = bool(re.search(r"\d", joined))
+
+    strong = has_province and has_admin_or_road
+    weak = len(joined) >= 8 and kor_count >= 3 and (has_digit or has_suffix)
+    if not (strong or weak):
+        return ""
+
     joined = _dedup_address(joined)
     joined = _apply_hierarchical_region_normalization(joined)
     return joined
