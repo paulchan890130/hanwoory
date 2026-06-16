@@ -966,17 +966,18 @@ def parse_passport(img, fast: bool = False):
 def _extract_kor_name_strict(text: str) -> str:
     if not text:
         return ""
-    m = re.search(r"\(([가-힣]{2,4})\)", text)
+    # 외국인 한글이름은 2~6자로 다양 → 길이 캡을 6자로 완화.
+    m = re.search(r"\(([가-힣]{2,6})\)", text)
     if m:
         cand = m.group(1)
         if cand not in _NAME_BAN and not cand.endswith("출"):
             return cand
-    m = re.search(r"(성명|이름)\s*[:\-]?\s*([가-힣]{2,3})", text)
+    m = re.search(r"(성명|이름)\s*[:\-]?\s*([가-힣]{2,6})", text)
     if m:
         cand = m.group(2)
         if cand not in _NAME_BAN and not cand.endswith("출"):
             return cand
-    toks = re.findall(r"[가-힣]{2,3}", text)
+    toks = re.findall(r"[가-힣]{2,6}", text)
     toks = [t for t in toks if t not in _NAME_BAN and not t.endswith("출")]
     if not toks:
         return ""
@@ -1060,7 +1061,8 @@ def dob_to_arc_front(dob: str) -> str:
 
 def _normalize_hangul_name(s: str) -> str:
     s = re.sub(r"[^가-힣]", "", s or "")
-    return s if 2 <= len(s) <= 4 else ""
+    # 외국인 한글이름 2~6자 대응 (기존 2~4 → 2~6).
+    return s if 2 <= len(s) <= 6 else ""
 
 
 def _looks_like_korean_address(s: str) -> bool:

@@ -249,13 +249,87 @@ def _valid_back7(s: str) -> bool:
     return len(s) == 7 and s[0] in "56789"
 
 
+# ── 필드별 정규화(sanitizer) 계층 ────────────────────────────────────────────
+# raw OCR 텍스트 → 필드 형식에 맞는 값만 "추출"한다(전체 문자열 일치가 아님).
+# OCR 잡음(세로줄 ㅣ|, 괄호, 공백, 노이즈 숫자)에 강하고, 각 함수는 순수함수
+# (문자열 in/out)라 단위 테스트가 가능하다. 실패해도 빈 문자열을 돌려주며,
+# 호출부가 raw 텍스트를 함께 반환하므로 사용자가 직접 보정할 수 있다.
+
+def clean_korean_name(raw: str) -> str:
+    """한글 이름 추출: 괄호/라벨 우선 → 없으면 가장 긴 연속 한글(2~6자) 선택.
+    예) '(홍길동)'→'홍길동', '홍길동ㅣ'→'홍길동', '성명 홍길동'→'홍길동'."""
+    name = _extract_kor_name_strict(raw or "")
+    if name:
+        return name
+    toks = [_normalize_hangul_name(t) for t in re.findall(r"[가-힣]{2,6}", raw or "")]
+    toks = [t for t in toks if t]
+    if not toks:
+        return ""
+    # 가장 긴 연속 한글 후보 우선(외국인 한글이름 길이 다양).
+    toks.sort(key=len, reverse=True)
+    return toks[0]
+
+
+def clean_reg_front(raw: str) -> str:
+    """등록증 앞 6자리(YYMMDD) 추출.
+    - 숫자 사이 공백 제거 후 라인별 숫자열에서 유효 YYMMDD 6자를 슬라이스 탐색.
+    - YYYYMMDD(8자)는 앞 2자를 잘라 YYMMDD로 변환.
+    - 유효 범위 후보가 없으면 정확히 6자리인 첫 후보 반환(사용자 보정 가능).
+    예) '900101ㅣ'→'900101', '1990-01-01'→'900101', '1990.01.01'→'900101'."""
+    # 구분자(./-//)가 있는 YYYY-MM-DD 형태 우선 처리 → YYMMDD.
+    m = re.search(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", raw or "")
+    if m:
+        y, mo, d = m.group(1), int(m.group(2)), int(m.group(3))
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            return f"{y[2:]}{mo:02d}{d:02d}"
+    collapsed = re.sub(r"(?<=\d)[ \t]+(?=\d)", "", raw or "")
+    runs = re.findall(r"\d+", collapsed)
+    for run in runs:
+        if len(run) == 8 and run[:2] in ("19", "20"):
+            cand = run[2:]
+            if _valid_yymmdd6(cand):
+                return cand
+    for run in runs:
+        for i in range(0, len(run) - 5):  # 6자 윈도우
+            cand = run[i:i + 6]
+            if _valid_yymmdd6(cand):
+                return cand
+    for run in runs:
+        if len(run) == 6:
+            return run
+    return ""
+
+
+def clean_reg_back(raw: str) -> str:
+    """등록증 뒤 7자리 추출.
+    - 숫자 사이 공백 제거 후 라인별 숫자열에서 유효(첫자리 5~9) 7자를 슬라이스 탐색.
+    - 유효 후보가 없으면 정확히 7자리인 첫 후보 반환(사용자 보정 가능).
+    예) '1234567ㅣ'→'1234567', '1234567-'→'1234567', '1 2 3 4 5 6 7'→'1234567'."""
+    collapsed = re.sub(r"(?<=\d)[ \t]+(?=\d)", "", raw or "")
+    runs = re.findall(r"\d+", collapsed)
+    for run in runs:
+        for i in range(0, len(run) - 6):  # 7자 윈도우
+            cand = run[i:i + 7]
+            if _valid_back7(cand):
+                return cand
+    for run in runs:
+        if len(run) == 7:
+            return run
+    return ""
+
+
 def _clean_address_text(text: str) -> str:
     lines = [re.sub(r"\s+", " ", ln).strip() for ln in (text or "").splitlines() if ln.strip()]
     if not lines:
         return ""
     joined = " ".join(lines)
-    joined = joined.replace("|", " ").replace("｜", " ")
-    joined = re.sub(r"[^가-힣0-9A-Za-z\s\-\.,#()/~]", " ", joined)
+    # 세로줄 OCR 잡음 제거: ㅣ(한글 모음) · | · ｜
+    joined = joined.replace("|", " ").replace("｜", " ").replace("ㅣ", " ")
+    # 최종 주소 정책: 한글·숫자·공백·하이픈(-)·쉼표(,)만 허용.
+    #  · 하이픈 유지: '50-1' 같은 번지/지번/건물번호 의미 보존(제거 시 '501'로 왜곡).
+    #  · 쉼표 유지: '… 12, 101호'처럼 도로명+건물번호와 상세주소(동/호) 구분 보존.
+    #  · 영문 OCR 잡음·괄호·점·기타 특수문자는 제거.
+    joined = re.sub(r"[^가-힣0-9\s,\-]", " ", joined)
     joined = re.sub(r"\s{2,}", " ", joined).strip(" ,")
 
     m = re.search(r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)", joined)
@@ -307,12 +381,7 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
                 resample=_PILImage.LANCZOS,
             )
         txt = _ocr(_kor_crop, lang="kor+eng", config="--oem 3 --psm 6")
-        name = _extract_kor_name_strict(txt or "")
-        if name:
-            return name, _dbg(txt or "", name)
-        toks = [_normalize_hangul_name(t) for t in re.findall(r"[가-힣]{2,4}", txt or "")]
-        toks = [t for t in toks if t]
-        value = toks[0] if toks else ""
+        value = clean_korean_name(txt or "")
         reason = (
             "" if value
             else ("OCR returned empty text" if not (txt or "").strip()
@@ -322,11 +391,7 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
 
     if field == "등록증":
         txt = _digits_ocr(crop, 7) + "\n" + _digits_ocr(crop, 6)
-        cands = re.findall(r"(?<!\d)(\d{6})(?!\d)", txt)
-        for cand in cands:
-            if _valid_yymmdd6(cand):
-                return cand, _dbg(txt, cand)
-        value = cands[0] if cands else ""
+        value = clean_reg_front(txt)
         reason = (
             "" if value
             else ("OCR returned no digits" if not txt.strip()
@@ -336,11 +401,7 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
 
     if field == "번호":
         txt = _digits_ocr(crop, 7) + "\n" + _digits_ocr(crop, 6)
-        cands = re.findall(r"(?<!\d)(\d{7})(?!\d)", txt)
-        for cand in cands:
-            if _valid_back7(cand):
-                return cand, _dbg(txt, cand)
-        value = cands[0] if cands else ""
+        value = clean_reg_back(txt)
         reason = (
             "" if value
             else ("OCR returned no digits" if not txt.strip()
