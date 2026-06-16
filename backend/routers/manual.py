@@ -163,6 +163,39 @@ def latest_manual_update(user: dict = Depends(get_current_user)):
         return {"version": None, "detected_at": None}
 
 
+# ── 매뉴얼 업데이트 알림(첨부 제목 변동) ────────────────────────────────────────
+@router.get("/alerts/active")
+def get_active_manual_alerts(user: dict = Depends(get_current_user)):
+    """로그인 사용자의 미확인 매뉴얼 업데이트 알림 목록(가벼운 조회 — 감지 미수행).
+
+    is_admin 도 함께 반환해 프론트가 관리자/일반 사용자 버튼을 분기한다."""
+    login_id = user.get("login_id") or user.get("sub", "")
+    try:
+        from backend.services import manual_alert_service as svc
+        alerts = svc.list_active_alerts_for_user(login_id)
+    except Exception:
+        alerts = []
+    return {"alerts": alerts, "is_admin": bool(user.get("is_admin"))}
+
+
+@router.post("/alerts/{event_id}/dismiss")
+def dismiss_manual_alert(event_id: int, user: dict = Depends(get_current_user)):
+    """'이번 업데이트 다시 알리지 않음' — 현재 event 만 본인에게 숨김(영구차단 아님)."""
+    login_id = user.get("login_id") or user.get("sub", "")
+    from backend.services import manual_alert_service as svc
+    res = svc.dismiss_alert(event_id, login_id)
+    if not res.get("ok"):
+        raise HTTPException(status_code=400, detail=res.get("reason", "dismiss 실패"))
+    return res
+
+
+@router.post("/alerts/run-detect")
+def run_manual_alert_detection(admin: dict = Depends(require_admin)):
+    """첨부파일 제목 변동 수동 감지(관리자). cron 미설정 대비. 무거운 작업이므로 admin 전용."""
+    from backend.services import manual_alert_service as svc
+    return svc.run_title_detection()
+
+
 # ── 페이지 변경 검토 목록 ──────────────────────────────────────────────────────
 @router.get("/update-review")
 def get_update_review(admin: dict = Depends(require_admin)):

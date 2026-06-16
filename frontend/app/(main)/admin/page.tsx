@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState, useCallback, Fragment } from "react";
+import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { adminApi, api } from "@/lib/api";
+import { adminApi, api, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import {
@@ -1817,6 +1817,130 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
   );
 }
 
+// ── 관리자 최신 PDF 업로드 카드 (web 합성/렌더 없이 저장+텍스트추출+비교) ──────────
+const _UPLOAD_MANUALS = [
+  { k: "visa", kr: "사증민원" },
+  { k: "stay", kr: "체류민원" },
+  { k: "revision_history", kr: "revision_history" },
+];
+
+function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: () => void }) {
+  const [manual, setManual] = useState("stay");
+  const [version, setVersion] = useState("");
+  const [memo, setMemo] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ManualUploadResult | null>(null);
+  const [viewer, setViewer] = useState<{ manual: string; version: string; kr: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const doUpload = async () => {
+    if (!file) { toast.error("PDF 파일을 선택하세요."); return; }
+    if (!version.trim()) { toast.error("버전을 입력하세요 (예: 260616)."); return; }
+    setBusy(true); setResult(null);
+    try {
+      const r = await manualUpdateApi.uploadPdf(manual, version.trim(), file, memo);
+      setResult(r.data);
+      toast.success("검토용 최신 PDF 업로드됨 (운영 반영 전)");
+      onReload?.();
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail || "업로드 실패");
+    } finally { setBusy(false); }
+  };
+
+  const promote = async () => {
+    if (!result) return;
+    if (!window.confirm(`${result.manual_kr} ${result.version} 을(를) 운영 PDF로 반영(승격)할까요?\n기존 운영 PDF는 previous로 보존됩니다.`)) return;
+    setBusy(true);
+    try {
+      await manualUpdateApi.promotePdf(result.manual, result.version);
+      toast.success("운영 반영(승격) 완료 — 다음 업로드부터 이 PDF가 비교 기준이 됩니다.");
+      onReload?.();
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail || "승격 실패");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="hw-card">
+      <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>📤 최신 PDF 업로드 (관리자 직접 업로드 → 저장·텍스트추출·변경감지)</div>
+      <div className="text-[11px] mb-2" style={{ color: "#718096", lineHeight: 1.6 }}>
+        관리자가 변환한 최신 PDF를 업로드하면 서버는 <b>저장·페이지 텍스트 추출·변경 감지</b>만 합니다(전체 PDF 합성/렌더링 없음 → 메모리 안전).
+        업로드본은 <b>운영 미반영(검토용)</b>이며, 검토 후 <b>운영 반영(승격)</b> 시 적용됩니다.
+      </div>
+
+      {/* 빠른 선택 버튼 */}
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        {_UPLOAD_MANUALS.map((m) => (
+          <button key={m.k} type="button" onClick={() => { setManual(m.k); fileRef.current?.click(); }}
+            className="text-[11px] px-2.5 py-1 rounded" style={{ border: "1px solid #CBD5E0", background: manual === m.k ? "#FFF9E6" : "#fff", color: "#4A5568" }}>
+            {m.kr} 최신 PDF 업로드
+          </button>
+        ))}
+      </div>
+
+      {/* 폼 */}
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <select className="hw-input text-xs" value={manual} onChange={(e) => setManual(e.target.value)} style={{ minWidth: 130 }}>
+          {_UPLOAD_MANUALS.map((m) => <option key={m.k} value={m.k}>{m.kr}</option>)}
+        </select>
+        <input className="hw-input text-xs" placeholder="버전 예: 260616" value={version}
+          onChange={(e) => setVersion(e.target.value)} style={{ width: 120 }} />
+        <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="text-xs"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <input className="hw-input text-xs" placeholder="메모(선택)" value={memo}
+          onChange={(e) => setMemo(e.target.value)} style={{ width: 160 }} />
+        <button type="button" onClick={() => void doUpload()} disabled={busy}
+          className="text-xs px-3 py-1.5 rounded font-bold" style={{ background: "#2F855A", color: "#fff", border: "none", opacity: busy ? 0.6 : 1 }}>
+          {busy ? "처리 중..." : "업로드"}
+        </button>
+      </div>
+      {file && <div className="text-[11px] mb-1" style={{ color: "#718096" }}>선택됨: {file.name} ({Math.round(file.size / 1024)}KB)</div>}
+
+      {/* 업로드 결과/상태 */}
+      {result && (
+        <div className="text-[11px] mt-2 p-2 rounded" style={{ background: "#F0FFF4", border: "1px solid #C6F6D5", color: "#22543D", lineHeight: 1.9 }}>
+          <div><b>✔ 검토용 최신 PDF 업로드됨</b> · <span style={{ color: "#C05621" }}>운영 반영 전</span> · {result.manual_kr} {result.version}</div>
+          <div>페이지 수: {result.page_count} · 텍스트 추출 완료({result.extracted_pages}p) · 파일 {Math.round(result.file_size / 1024)}KB</div>
+          <div>
+            {result.baseline_init
+              ? "초기 PDF baseline — 비교 대상(이전 운영 PDF) 없음. 운영 반영 시 비교 기준이 됩니다."
+              : <>변경 감지 완료 · 변경 페이지 {result.changed} · 후보 {result.candidates}건 생성</>}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            <button type="button" onClick={() => setViewer({ manual: result.manual, version: result.version, kr: result.manual_kr })}
+              className="px-2 py-0.5 rounded" style={{ border: "1px solid #CBD5E0", background: "#fff", color: "#2B6CB0" }}>
+              검토 PDF 열기(전체)
+            </button>
+            <button type="button" onClick={() => void promote()} disabled={busy}
+              className="px-2 py-0.5 rounded font-bold" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>
+              운영 반영(승격)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 검토용 PDF 뷰어 (운영 미반영 배너) */}
+      {viewer && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1100, display: "flex", flexDirection: "column", padding: 20 }}>
+          <div className="hw-card" style={{ flex: 1, display: "flex", flexDirection: "column", background: "#fff", overflow: "hidden" }}>
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="text-sm font-bold" style={{ color: "#C05621" }}>
+                검토용 PDF / 운영 미반영 — {viewer.kr} · {viewer.version}
+              </div>
+              <button type="button" onClick={() => setViewer(null)} className="text-xs px-2 py-1 rounded" style={{ border: "1px solid #E2E8F0", background: "#fff" }}>닫기</button>
+            </div>
+            <iframe title="staging-pdf" style={{ flex: 1, border: "1px solid #E2E8F0", borderRadius: 6 }}
+              src={`/api/guidelines/manual-update/uploaded-pdf?manual=${encodeURIComponent(viewer.manual)}&version=${encodeURIComponent(viewer.version)}&token=${encodeURIComponent(token)}#toolbar=1&view=Fit`} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [versions, setVersions] = useState<PgVersion[]>([]);
   const [version, setVersion] = useState<string>("");
@@ -2238,6 +2362,9 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         </div>
       </div>
 
+      {/* 관리자 최신 PDF 업로드 — 저장/텍스트추출/변경감지 (web 합성 없음) */}
+      <ManualPdfUploadCard token={token} onReload={() => { void reloadState(); void reloadDecisions(); }} />
+
       {/* 매뉴얼 최신화 수동 실행 (진단 / 실제) */}
       <div className="hw-card">
         <div className="text-xs font-semibold mb-2" style={{ color: "#2D3748" }}>매뉴얼 최신화 실행</div>
@@ -2324,7 +2451,10 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                 const ps = pdfStatus[m];
                 if (!ps) return <tr key={m}><td>{m}</td><td colSpan={8} style={{ color: "#A0AEC0" }}>조회 중…</td></tr>;
                 const af = ps.artifacts || {};
-                const vs = ps.viewer_source === "artifact" ? "artifact" : ps.viewer_source === "staging" ? "staging" : "배포본 fallback";
+                const vs = ps.viewer_source === "upload_staging" ? "업로드(검토용·미반영)"
+                  : ps.viewer_source === "upload_deployed" ? "업로드(운영본)"
+                  : ps.viewer_source === "artifact" ? "artifact"
+                  : ps.viewer_source === "staging" ? "staging" : "배포본 fallback";
                 return (
                   <tr key={m}>
                     <td>{m} ({ps.kr_label ?? ps.manual})</td>
@@ -2672,6 +2802,14 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
               <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#F0FFF4", color: "#276749", border: "1px solid #C6F6D5" }}>
                 ✅ 최신 변경 페이지 PDF artifact 표시 중 (staging 생성본)
               </div>
+            ) : pdfView.source === "upload_staging" ? (
+              <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#9B2C2C", border: "1px solid #FEB2B2" }}>
+                🔎 검토용 업로드 PDF — 운영 미반영 (관리자가 업로드한 최신 전체 문서 · 후보 페이지로 이동 · 앞뒤 스크롤 가능). 운영 반영(승격) 전입니다.
+              </div>
+            ) : pdfView.source === "upload_deployed" ? (
+              <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#F0FFF4", color: "#276749", border: "1px solid #C6F6D5" }}>
+                ✅ 현재 운영 PDF (관리자 업로드 승격본 · 전체 문서 · 앞뒤 스크롤 가능)
+              </div>
             ) : pdfView.reviewOnly ? (
               <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#9B2C2C", border: "1px solid #FEB2B2" }}>
                 🔎 검토용 PDF (운영 미반영) — 변경 페이지를 배포본에 합성한 미리보기입니다. 전체 문서이며 앞뒤 스크롤이 가능합니다. 운영 배포 PDF는 아직 교체되지 않았습니다.
@@ -2682,7 +2820,7 @@ function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
               </div>
             ) : (
               <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: "#FFFAF0", color: "#C05621", border: "1px solid #FEEBC8" }}>
-                ℹ 배포본 전체 PDF를 표시 중입니다(앞뒤 스크롤 가능). 이 버전의 변경 페이지 artifact가 아직 없습니다.
+                ℹ 업로드 PDF 없음 — 기존 배포본 fallback (전체 문서 · 앞뒤 스크롤 가능). 최신 PDF를 업로드하면 검토 화면이 그 PDF를 엽니다.
               </div>
             )}
             <iframe key={pdfView.artifactId ? `art-${pdfView.artifactId}` : `${pdfView.manual}-${pdfView.page}`} style={{ flex: 1, border: "1px solid #E2E8F0", borderRadius: 6 }}

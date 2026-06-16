@@ -321,3 +321,55 @@ class ManualPdfArtifact(Base):
     __table_args__ = (
         Index("idx_manual_pdf_artifacts_lookup", "manual", "version", "status"),
     )
+
+
+# ── 매뉴얼 업데이트 알림 (첨부파일 제목 변동 → 전 사용자 최초 로그인 알림) ──────────
+class ManualUpdateAlertEvent(Base):
+    """첨부파일 제목 변동 감지 시 1건 생성되는 알림 이벤트.
+
+    감지는 1일 1회(cron/admin 수동). 같은 manual+new_title_hash 는 멱등하게 1건만 둔다.
+    로그인 시에는 이 테이블의 active 이벤트만 조회한다(무거운 감지 작업 미수행)."""
+    __tablename__ = "manual_update_alert_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    manual: Mapped[str] = mapped_column(Text, nullable=False)          # visa | stay | revision_history
+    old_title: Mapped[str | None] = mapped_column(Text)
+    new_title: Mapped[str | None] = mapped_column(Text)
+    old_title_hash: Mapped[str | None] = mapped_column(Text)
+    new_title_hash: Mapped[str | None] = mapped_column(Text)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    source_url: Mapped[str | None] = mapped_column(Text)
+    version_label: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("manual", "new_title_hash", name="uq_manual_alert_manual_titlehash"),
+        Index("idx_manual_alert_active", "is_active", "detected_at"),
+    )
+
+
+class ManualUpdateAlertDismissal(Base):
+    """사용자별 '이번 업데이트 다시 알리지 않음'. login_id 당 event 1회.
+
+    현재 event 만 숨긴다(전역 영구차단 아님). 새 alert_event 가 생기면 다시 대상이 된다."""
+    __tablename__ = "manual_update_alert_dismissals"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    alert_event_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("manual_update_alert_events.id", ondelete="CASCADE"), nullable=False
+    )
+    login_id: Mapped[str] = mapped_column(Text, nullable=False)
+    dismissed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    dismiss_type: Mapped[str | None] = mapped_column(Text)            # this_update
+
+    __table_args__ = (
+        UniqueConstraint("alert_event_id", "login_id", name="uq_manual_alert_dismissal"),
+        Index("idx_manual_alert_dismissal_user", "login_id"),
+    )

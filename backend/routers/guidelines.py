@@ -1066,6 +1066,23 @@ def pg_pdf_source(manual: str, version: str = "", admin: dict = Depends(require_
     deployed = os.path.join(_MANUALS_DIR, _MANUAL_FILES.get(kr, ""))
     manual_norm = _MANUAL_NORM.get((manual or "").strip())
     page_count, page_count_source = _full_pdf_page_count(kr, version)
+    # 0순위: 관리자 업로드 PDF(있으면 page_count·source 를 그것으로 — 임의페이지 검증도 이 기준).
+    uploaded = None
+    try:
+        from backend.services import manual_pdf_upload_service as _up
+        uploaded = _up.resolve_review_pdf_meta(manual, version)
+    except Exception:
+        uploaded = None
+    if uploaded:
+        return {
+            "manual": manual, "kr_label": kr, "version": version,
+            "is_staging": uploaded["source"] == "upload_staging",
+            "source": uploaded["source"],          # upload_staging | upload_deployed
+            "review_only": bool(uploaded["review_only"]),
+            "page_count": uploaded.get("page_count"),   # 업로드 PDF page_count 우선
+            "page_count_source": uploaded["source"],
+            "available": True,
+        }
     # 소스 판정(스트리밍은 pg_pdf 가 동일 우선순위로 수행)
     source, review_only = "deployed", False
     if staging:
@@ -1135,8 +1152,18 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
                     review_splice_available = bool(svc._changed_components(manual_norm, version))
     except Exception:
         pass
-    # viewer 우선순위: staging 파일 > worker full_pdf > review_splice 합성 > 배포본.
-    if staging:
+    # 0순위: 관리자 업로드 PDF(staging manual_upload → 승격 deployed).
+    uploaded_meta = None
+    try:
+        from backend.services import manual_pdf_upload_service as _up
+        uploaded_meta = _up.resolve_review_pdf_meta(manual, version)
+    except Exception:
+        uploaded_meta = None
+    # viewer 우선순위: 업로드본 > staging 파일 > worker full_pdf > review_splice 합성 > 배포본.
+    if uploaded_meta:
+        viewer_source = uploaded_meta["source"]   # upload_staging | upload_deployed
+        viewer_file = f"upload_artifact#{uploaded_meta.get('artifact_id')}"
+    elif staging:
         viewer_source, viewer_file = "staging", os.path.basename(staging)
     elif full_artifact:
         viewer_source, viewer_file = "worker_artifact", f"artifact#{full_artifact['id']}"
@@ -1154,13 +1181,15 @@ def pg_pdf_status(manual: str, version: str = "", admin: dict = Depends(require_
         "artifacts_total": artifact_summary.get("total", 0),
         "full_pdf_artifact": full_artifact,               # worker full_pdf artifact(있으면 viewer 우선)
         "review_splice_available": review_splice_available,  # 변경 페이지→배포본 스플라이스 합성 가능
-        "review_only": viewer_source == "review_splice",  # 검토용(운영 미반영) 표시 중인지
+        "review_only": viewer_source in ("review_splice", "upload_staging"),  # 검토용(운영 미반영) 표시 중인지
         "generator_present": generator_present,           # rhwp+chromium CLI 설치 여부
         "source_hwp_present": source_hwp_present,          # 해당 version HWP 원본 보유 여부
         # 변경 페이지→전체 PDF '검토용' 합성은 연결됨(PyMuPDF 스플라이스). 운영 배포본 교체는 별개.
         "replace_pipeline_wired": review_splice_available,
         "can_refresh_now": review_splice_available,
-        "reason": ("최신 staging PDF 가 있어 그것을 표시 중" if staging else
+        "reason": ("관리자 업로드 검토용 PDF 표시 중(운영 미반영)" if viewer_source == "upload_staging" else
+                   "관리자 업로드 운영 PDF(승격본) 표시 중" if viewer_source == "upload_deployed" else
+                   "최신 staging PDF 가 있어 그것을 표시 중" if staging else
                    "worker full_pdf artifact 표시 중" if full_artifact else
                    "변경 페이지를 배포본에 합성한 검토용 PDF 표시 중(운영 미반영)" if review_splice_available else
                    "변경 페이지 artifact 없음 → 배포본 PDF fallback."),
@@ -1189,6 +1218,15 @@ def pg_pdf(manual: str, version: str = "",
         "Cache-Control": "private, max-age=600",
         "Content-Disposition": f"inline; filename=\"manual.pdf\"; filename*=UTF-8''{quote(kr + '.pdf', safe='')}",
     }
+    # 0순위: 관리자 업로드 PDF(staging manual_upload → 승격된 deployed). 후보 상세 viewer 가
+    # 옛 배포본이 아니라 '최신 업로드본 전체'를 열도록 최우선. 실패는 graceful(아래 체인으로 폴백).
+    try:
+        from backend.services import manual_pdf_upload_service as _up
+        _uploaded = _up.resolve_review_pdf(manual, version)
+        if _uploaded and _uploaded.get("blob"):
+            return _Resp(content=_uploaded["blob"], media_type="application/pdf", headers=_hdr)
+    except Exception:
+        pass
     # 1순위: staging 전체 PDF(이미 완전한 새 매뉴얼)
     staging = _staging_full_pdf_path(version, kr) if version else None
     if staging and os.path.isfile(staging):
@@ -1264,6 +1302,104 @@ def pg_get_pdf_artifact_content(artifact_id: int,
 
 
 _MANUAL_NORM = {"visa": "visa", "사증민원": "visa", "residence": "stay", "stay": "stay", "체류민원": "stay"}
+
+
+# ── 관리자 최신 PDF 업로드 (web 컨테이너 합성/렌더 없이 저장+텍스트추출+비교) ──────────
+import tempfile as _tempfile
+from fastapi import File as _File, Form as _Form, UploadFile as _UploadFile
+
+
+@router.post("/manual-update/upload-pdf")
+async def pg_upload_pdf(
+    manual: str = _Form(...),
+    version: str = _Form(...),
+    memo: str = _Form(""),
+    file: _UploadFile = _File(...),
+    admin: dict = Depends(require_admin),
+):
+    """관리자가 변환한 최신 PDF 업로드 → staging 저장 + 페이지 텍스트 추출 + 변경 감지.
+
+    메모리 폭발 방지: UploadFile 을 통째로 읽지 않고 1MB chunk 로 임시파일에 저장하며 크기 제한,
+    PyMuPDF 로 열림/page_count 검증, 검증 통과분만 blob 저장. 실패 시 임시파일 정리."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성(FEATURE_PG_MANUAL_UPDATE off)")
+    from backend.services import manual_pdf_upload_service as up
+
+    fd, tmp_path = _tempfile.mkstemp(suffix=".pdf")
+    total = 0
+    try:
+        with os.fdopen(fd, "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > up.MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413,
+                                        detail=f"PDF 가 너무 큽니다(최대 {up.MAX_UPLOAD_BYTES // (1024*1024)}MB).")
+                out.write(chunk)
+        if total == 0:
+            raise HTTPException(status_code=400, detail="빈 파일입니다.")
+        ct = (file.content_type or "").lower()
+        if "pdf" not in ct and not (file.filename or "").lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="PDF 파일만 업로드할 수 있습니다.")
+        try:
+            return up.process_upload(
+                manual=manual, version=version, temp_path=tmp_path,
+                orig_filename=file.filename or "",
+                uploaded_by=admin.get("login_id") or admin.get("sub", ""),
+                memo=memo,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+
+class PgPromotePdfBody(BaseModel):
+    manual: str
+    version: str
+
+
+@router.post("/manual-update/promote-pdf")
+def pg_promote_pdf(body: PgPromotePdfBody, admin: dict = Depends(require_admin)):
+    """검토 완료된 staging 업로드 PDF 를 운영(deployed)으로 승격(기존본은 previous 보존)."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성")
+    from backend.services import manual_pdf_upload_service as up
+    try:
+        return up.promote(body.manual, body.version)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/manual-update/uploaded-pdf")
+def pg_uploaded_pdf(manual: str, version: str = "",
+                    token: Optional[str] = Query(None),
+                    authorization: Optional[str] = Header(None)):
+    """검토용 업로드 PDF(staging) 전체를 그대로 서빙(iframe ?token= 허용). 운영 미반영."""
+    _verify_token_flexible(token, authorization)
+    from fastapi.responses import Response as _Resp
+    from backend.services import manual_pdf_upload_service as up
+    res = up.get_staging_blob(manual, version)
+    if res is None:
+        raise HTTPException(status_code=404, detail="업로드된 검토용 PDF 가 없습니다.")
+    blob, meta = res
+    return _Resp(content=blob, media_type="application/pdf",
+                 headers={"Cache-Control": "private, max-age=120",
+                          "Content-Disposition": f"inline; filename=\"staging_{meta.get('manual')}_{meta.get('version')}.pdf\""})
+
+
+@router.get("/manual-update/uploads")
+def pg_list_uploads(manual: str = "", admin: dict = Depends(require_admin)):
+    """업로드(staging/deployed) PDF 목록(메타) — 관리자 화면 표시용."""
+    if not _pg_manual_enabled():
+        raise HTTPException(status_code=409, detail="PG manual-update 비활성")
+    from backend.services import manual_pdf_upload_service as up
+    return {"rows": up.list_uploads(manual)}
 
 
 @router.get("/manual-update/versions/{version}/candidates/{row_id}/pdf-artifact")

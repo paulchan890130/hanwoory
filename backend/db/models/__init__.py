@@ -33,6 +33,7 @@ from backend.db.models.manual_update import (  # noqa: F401
     ManualUpdateRun, ManualUpdateVersion, ManualUpdateChangedPage,
     ManualUpdateCandidate, ManualReviewDecision, ManualReviewDecisionArchive,
     ManualUpdateState, ManualPdfArtifact,
+    ManualUpdateAlertEvent, ManualUpdateAlertDismissal,
 )
 from backend.db.models.finance import FixedExpense, MonthlyTaxSummary  # noqa: F401
 from backend.db.models.guideline_category import GuidelineCategory, GuidelineCategoryOverride  # noqa: F401

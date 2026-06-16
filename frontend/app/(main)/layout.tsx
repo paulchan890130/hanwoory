@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { isLoggedIn } from "@/lib/auth";
-import { authApi } from "@/lib/api";
+import { isLoggedIn, getUser } from "@/lib/auth";
+import { authApi, manualApi, type ManualAlert } from "@/lib/api";
 import Sidebar, {
   SIDEBAR_EXPANDED_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
@@ -126,6 +126,78 @@ function PinnedCustomerCard({ customer, onClose }: { customer: PinnedCustomer; o
   );
 }
 
+// ── 매뉴얼 업데이트 알림 모달 — 로그인 후 최초 1회(세션당), 미확인 active 알림이 있으면 표시 ──
+function ManualUpdateAlertModal() {
+  const router = useRouter();
+  const [alerts, setAlerts] = useState<ManualAlert[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const u = getUser();
+    const key = `manual_alert_shown_${u?.login_id ?? ""}`;
+    if (sessionStorage.getItem(key) === "1") return;   // 이번 세션엔 이미 확인 → 나브마다 재팝업 방지
+    manualApi.activeAlerts()
+      .then((r) => {
+        if (r.data?.alerts?.length) {
+          setAlerts(r.data.alerts);
+          setIsAdmin(!!r.data.is_admin);
+          setShow(true);
+        }
+        sessionStorage.setItem(key, "1");
+      })
+      .catch(() => {/* 무시 — 알림 실패가 앱을 막지 않게 */});
+  }, []);
+
+  if (!show || alerts.length === 0) return null;
+  const a = alerts[0];
+
+  const dismissAll = async () => {
+    setBusy(true);
+    try { await Promise.all(alerts.map((x) => manualApi.dismissAlert(x.id))); } catch { /* 무시 */ }
+    setBusy(false);
+    setShow(false);
+  };
+  const confirm = () => { setShow(false); if (isAdmin) router.push("/admin"); };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 2000,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: 460, maxWidth: "94vw", background: "#fff", borderRadius: 14,
+        border: "1px solid #EAD9A8", boxShadow: "0 12px 36px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+        <div style={{ background: "#FBF8F0", borderBottom: "1px solid #EAD9A8", padding: "14px 18px" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#8A6D1F" }}>📢 새 매뉴얼 업데이트가 감지되었습니다</div>
+        </div>
+        <div style={{ padding: "16px 18px", fontSize: 13, color: "#2D3748", lineHeight: 1.7 }}>
+          <div style={{ marginBottom: 8 }}>
+            <b>{a.manual_kr}</b> 매뉴얼 첨부파일 제목이 변경되었습니다
+            {a.version_label ? <span style={{ color: "#A0AEC0" }}> (버전 {a.version_label})</span> : null}.
+            {alerts.length > 1 && <span style={{ color: "#A0AEC0" }}> 외 {alerts.length - 1}건</span>}
+          </div>
+          <div style={{ fontSize: 12, color: "#4A5568" }}>
+            {isAdmin
+              ? "관리자 화면에서 최신 PDF를 업로드하고 변경사항을 검토해 주세요."
+              : "업무 기준이 변경되었을 수 있으므로 관리자 확인 전까지 주의해 주세요."}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "0 18px 16px", flexWrap: "wrap" }}>
+          <button type="button" onClick={dismissAll} disabled={busy}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff",
+              color: "#718096", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            이번 업데이트 다시 알리지 않음
+          </button>
+          <button type="button" onClick={confirm} disabled={busy}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#D4A843",
+              color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            {isAdmin ? "매뉴얼 업데이트 확인" : "확인"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const SIDEBAR_COLLAPSED_KEY = "hw_sidebar_collapsed";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -243,6 +315,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
       </div>
+
+      {/* 매뉴얼 업데이트 알림 — 로그인 후 최초 1회(세션당) */}
+      <ManualUpdateAlertModal />
 
       {/* 고객카드 고정 패널 — 모바일에서는 숨김 */}
       {!isMobile && pinnedCustomer && (

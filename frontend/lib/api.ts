@@ -795,12 +795,62 @@ export interface ManualSearchResult {
   answer: string;
 }
 
+export interface ManualAlert {
+  id: number;
+  manual: string;
+  manual_kr: string;
+  new_title: string;
+  version_label: string;
+  detected_at: string | null;
+}
+
 export const manualApi = {
   search: (q: string) =>
     api.get<ManualSearchResult>("/api/manual/search", { params: { q } }),
   // 사용자 알림용: 최신 매뉴얼 업데이트 식별자(비관리자 허용, 데이터 없으면 version=null)
   latest: () =>
     api.get<{ version: string | null; detected_at: string | null }>("/api/manual/latest"),
+  // 매뉴얼 업데이트 알림(첨부 제목 변동) — 로그인 사용자 최초 1회 표시용(가벼운 조회)
+  activeAlerts: () =>
+    api.get<{ alerts: ManualAlert[]; is_admin: boolean }>("/api/manual/alerts/active"),
+  dismissAlert: (eventId: number) =>
+    api.post<{ ok: boolean }>(`/api/manual/alerts/${eventId}/dismiss`),
+  runAlertDetect: () =>
+    api.post<{ status: string; checked?: number; created?: number }>("/api/manual/alerts/run-detect"),
+};
+
+// ── 매뉴얼 업데이트: 관리자 최신 PDF 업로드(PG staging) ────────────────────────
+export interface ManualUploadResult {
+  manual: string;
+  manual_kr: string;
+  version: string;
+  page_count: number;
+  extracted_pages: number;
+  file_size: number;
+  changed: number;
+  candidates: number;
+  baseline_init: boolean;
+  artifact_id: number | null;
+  review_only: boolean;
+}
+
+export const manualUpdateApi = {
+  uploadPdf: (manual: string, version: string, file: File, memo = "") => {
+    const fd = new FormData();
+    fd.append("manual", manual);
+    fd.append("version", version);
+    fd.append("memo", memo);
+    fd.append("file", file);
+    return api.post<ManualUploadResult>("/api/guidelines/manual-update/upload-pdf", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  promotePdf: (manual: string, version: string) =>
+    api.post<{ ok: boolean; deployed_artifact_id: number; previous_count: number }>(
+      "/api/guidelines/manual-update/promote-pdf", { manual, version }),
+  listUploads: (manual = "") =>
+    api.get<{ rows: Array<Record<string, unknown>> }>(
+      "/api/guidelines/manual-update/uploads", { params: manual ? { manual } : {} }),
 };
 
 // ── 원클릭 작성 ──────────────────────────────────────────────────────────────

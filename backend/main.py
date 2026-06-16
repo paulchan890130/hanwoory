@@ -90,6 +90,42 @@ def _register_rhwp_auto_update() -> None:
           f"({utc_hour:02d}:00 UTC). FEATURE_MANUAL_AUTO_UPDATE=true")
 
 
+# ── 매뉴얼 업데이트 알림: 첨부 제목 변동 1일 1회 감시 (auto-update 플래그와 독립) ──────
+_alert_scheduler = BackgroundScheduler()
+
+
+def _alert_title_watch_job() -> None:
+    """1일 1회 첨부 제목 변동 감지 → alert event 기록. 예외/네트워크 실패는 무시(non-fatal)."""
+    try:
+        from backend.services.manual_alert_service import run_title_detection
+        res = run_title_detection()
+        print(f"[manual-alert] title watch: status={res.get('status')} created={res.get('created')}")
+    except Exception as e:
+        print(f"[manual-alert] title watch error (non-fatal): {e}")
+
+
+def _register_manual_alert_watch() -> None:
+    """PG 구성 시 매일 1회(기본 15:30 KST) 제목 변동 감시 잡 등록. 로그인 흐름과 분리."""
+    from datetime import timezone as _tz
+    from apscheduler.triggers.cron import CronTrigger
+    try:
+        hour_kst = int(os.environ.get("MANUAL_ALERT_WATCH_HOUR_KST", "15"))
+    except ValueError:
+        hour_kst = 15
+    utc_hour = (hour_kst - 9) % 24
+    _alert_scheduler.add_job(
+        _alert_title_watch_job,
+        CronTrigger(hour=utc_hour, minute=30, timezone=_tz.utc),
+        id="manual_alert_title_watch",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    _alert_scheduler.start()
+    print(f"[manual-alert] title-watch scheduler started — daily {hour_kst:02d}:30 KST "
+          f"({utc_hour:02d}:30 UTC)")
+
+
 def _is_server_env() -> bool:
     """운영(server) 환경 여부. HANWOORY_ENV 또는 RUN_ENV 가 'server' 이면 True.
 
@@ -141,12 +177,24 @@ async def lifespan(app: FastAPI):
     else:
         print("[manual-auto] rhwp auto-staging disabled (set FEATURE_MANUAL_AUTO_UPDATE=true to enable)")
 
+    # 매뉴얼 업데이트 알림 제목 감시 — PG 구성 시에만(네트워크/감지 실패는 non-fatal).
+    try:
+        from backend.db.session import is_configured as _pg_configured
+        if _pg_configured():
+            _register_manual_alert_watch()
+        else:
+            print("[manual-alert] title-watch disabled (PostgreSQL not configured)")
+    except Exception as e:
+        print(f"[manual-alert] title-watch 등록 실패 (non-fatal): {e}")
+
     yield
     # server 에서는 start 하지 않았으므로, 실행 중일 때만 정리한다.
     if _scheduler.running:
         _scheduler.shutdown(wait=False)
     if _rhwp_scheduler.running:
         _rhwp_scheduler.shutdown(wait=False)
+    if _alert_scheduler.running:
+        _alert_scheduler.shutdown(wait=False)
 
 from backend.routers import (
     auth,
