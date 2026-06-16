@@ -1150,9 +1150,9 @@ export default function DashboardPage() {
         };
         return (
           <>
-            {/* 헤더 */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {/* 헤더 — 모바일에서 액션바가 화면 밖으로 나가지 않도록 wrap 허용 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
                 <div className="hw-card-title" style={{ marginBottom: 0 }}>⚡ 진행업무</div>
                 {incomeSummary && (incomeSummary.today > 0 || incomeSummary.month > 0) && (
                   <span style={{
@@ -1173,11 +1173,15 @@ export default function DashboardPage() {
                   </span>
                 )}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                // 모바일: 액션바를 한 줄 전체로 내려 버튼이 오른쪽 정렬되며 화면 안에 들어오게 한다.
+                ...(isMobile ? { width: "100%", justifyContent: "flex-end" } : {}),
+              }}>
                 <span style={{ fontSize: 11, color: "#A0AEC0" }}>완료/삭제 체크 후 →</span>
                 <button onClick={handleBatchSave} disabled={isBatchPending}
                   className="btn-primary"
-                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: isBatchPending ? 0.5 : 1 }}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: isBatchPending ? 0.5 : 1, flexShrink: 0 }}>
                   <CheckCircle size={12} /> {isBatchPending ? "처리 중..." : "선택 처리"}
                 </button>
               </div>
