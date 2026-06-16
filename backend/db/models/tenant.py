@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, String, Text, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, LargeBinary, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,6 +43,12 @@ class Tenant(Base):
     card_phone: Mapped[str | None] = mapped_column(Text)
     card_address: Mapped[str | None] = mapped_column(Text)
     card_logo_url: Mapped[str | None] = mapped_column(Text)
+    # 업로드 로고(파일) — migration 0016. card_logo_url(외부 URL)보다 우선 표시.
+    card_logo_filename: Mapped[str | None] = mapped_column(Text)
+    card_logo_mime: Mapped[str | None] = mapped_column(Text)
+    card_logo_size: Mapped[int | None] = mapped_column(Integer)
+    card_logo_bytes: Mapped[bytes | None] = mapped_column(LargeBinary)
+    card_logo_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     card_public_slug: Mapped[str | None] = mapped_column(Text, unique=True)
     card_is_public: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")

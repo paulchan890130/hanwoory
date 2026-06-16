@@ -33,6 +33,8 @@ def _clean_work_fields(raw) -> list[str]:
 def _effective(tenant, *, contact_tel: str = "", contact_name: str = "") -> dict:
     """저장값 + (테넌트 자체) fallback 을 적용한 표시용 dict.
     로고/업무분야는 입력값만 사용(특정 사무소 기본값 없음)."""
+    has_logo = bool(tenant.card_logo_bytes) and bool(tenant.card_logo_mime)
+    updated = getattr(tenant, "card_logo_updated_at", None)
     return {
         "office_name": tenant.office_name or "",
         "contact_name": (contact_name or "").strip(),
@@ -40,7 +42,9 @@ def _effective(tenant, *, contact_tel: str = "", contact_name: str = "") -> dict
         "address": (tenant.card_address or "").strip() or (tenant.office_adr or "").strip(),
         "bio": (tenant.card_bio or "").strip(),
         "work_fields": _clean_work_fields(tenant.card_work_fields),   # 입력값만, 없으면 []
-        "logo_url": (tenant.card_logo_url or "").strip(),             # 입력 URL 있을 때만
+        "logo_url": (tenant.card_logo_url or "").strip(),             # 입력 URL 있을 때만(하위호환)
+        "has_logo": has_logo,                                          # 업로드 로고 존재(우선)
+        "logo_updated_at": updated.isoformat() if updated else "",     # 캐시버스트 ?v= 용
         "public_slug": (tenant.card_public_slug or "").strip(),
         "is_public": bool(tenant.card_is_public),
     }
@@ -143,8 +147,85 @@ def get_public_card(slug: str) -> Optional[dict]:
             "bio": eff["bio"],
             "work_fields": eff["work_fields"],
             "logo_url": eff["logo_url"],
+            "has_logo": eff["has_logo"],
+            "logo_updated_at": eff["logo_updated_at"],
             "public_slug": eff["public_slug"],
         }
+
+
+def save_logo(tenant_id: str, *, filename: str, mime: str, data: bytes) -> dict:
+    """업로드 로고를 tenants 에 저장. 검증(형식/용량/실제 이미지)은 라우터에서 끝낸 뒤 호출.
+    반환: 저장 결과 메타(has_logo/mime/size/updated_at)."""
+    from sqlalchemy import func, select
+    from backend.db.models.tenant import Tenant
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if t is None:
+            raise ValueError("tenant not found")
+        t.card_logo_filename = (filename or "").strip()[:200] or None
+        t.card_logo_mime = mime
+        t.card_logo_size = len(data)
+        t.card_logo_bytes = data
+        t.card_logo_updated_at = func.now()
+        session.commit()
+        session.refresh(t)
+        updated = t.card_logo_updated_at
+        return {
+            "has_logo": True,
+            "mime": t.card_logo_mime or "",
+            "size": int(t.card_logo_size or 0),
+            "logo_updated_at": updated.isoformat() if updated else "",
+        }
+
+
+def delete_logo(tenant_id: str) -> dict:
+    """업로드 로고만 제거(외부 card_logo_url / 명함 텍스트는 그대로)."""
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if t is None:
+            raise ValueError("tenant not found")
+        t.card_logo_filename = None
+        t.card_logo_mime = None
+        t.card_logo_size = None
+        t.card_logo_bytes = None
+        t.card_logo_updated_at = None
+        session.commit()
+        return {"has_logo": False}
+
+
+def get_my_logo(tenant_id: str) -> Optional[tuple[bytes, str]]:
+    """소유자 본인 명함의 업로드 로고 (bytes, mime). 없으면 None.
+    공개 여부와 무관(마이페이지 미리보기용, 인증 라우터에서만 호출)."""
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if t is None or not t.card_logo_bytes or not t.card_logo_mime:
+            return None
+        return bytes(t.card_logo_bytes), str(t.card_logo_mime)
+
+
+def get_public_logo(slug: str) -> Optional[tuple[bytes, str]]:
+    """공개(card_is_public=true) 명함의 업로드 로고만 (bytes, mime) 로 반환.
+    비공개/로고없음/slug 없음 → None."""
+    s = (slug or "").strip().lower()
+    if not s:
+        return None
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.session import get_sessionmaker
+    with get_sessionmaker()() as session:
+        t = session.scalar(select(Tenant).where(Tenant.card_public_slug == s))
+        if t is None or not bool(t.card_is_public):
+            return None
+        if not t.card_logo_bytes or not t.card_logo_mime:
+            return None
+        return bytes(t.card_logo_bytes), str(t.card_logo_mime)
 
 
 def list_public_slugs() -> list[str]:

@@ -178,7 +178,9 @@ export interface BusinessCard {
   address: string;      // 표시용(effective): card_address || office_adr
   bio: string;
   work_fields: string[];
-  logo_url: string;
+  logo_url: string;          // 외부 URL(하위호환, 보조)
+  has_logo: boolean;         // 업로드 로고 존재(우선 표시)
+  logo_updated_at: string;   // 캐시버스트 ?v= 용(ISO)
   public_slug: string;
   is_public: boolean;
   // 편집용 원본값(빈 값이면 fallback이 적용됨을 의미 — 입력칸은 이 raw 값으로 채운다)
@@ -195,6 +197,17 @@ export const businessCardApi = {
     phone: string; address: string; bio: string;
     work_fields: string[]; logo_url: string; public_slug: string; is_public: boolean;
   }>) => api.patch<BusinessCard>("/api/my/business-card", data),
+  uploadLogo: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api.post<{ has_logo: boolean; mime: string; size: number; logo_updated_at: string }>(
+      "/api/my/business-card/logo", fd,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+  },
+  deleteLogo: () => api.delete<{ has_logo: boolean }>("/api/my/business-card/logo"),
+  // 소유자 본인 로고 이미지(blob) — 마이페이지 미리보기용(Bearer 인증).
+  getMyLogoBlob: () => api.get<Blob>("/api/my/business-card/logo", { responseType: "blob" }),
 };
 
 // 업무

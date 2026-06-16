@@ -11,7 +11,9 @@ interface PublicCard {
   address: string;
   bio: string;
   work_fields: string[];
-  logo_url: string;
+  logo_url: string;          // 외부 URL(보조, 하위호환)
+  has_logo: boolean;         // 업로드 로고 존재(우선)
+  logo_updated_at: string;   // 캐시버스트
   public_slug: string;
 }
 
@@ -29,11 +31,22 @@ async function getCard(slug: string): Promise<PublicCard | null> {
   }
 }
 
-// 테넌트가 입력한 로고 URL 이 있을 때만 절대 URL 로 변환(없으면 null — 특정 사무소 기본 로고 fallback 없음)
-function absLogo(u: string): string | null {
-  const v = (u || "").trim();
-  if (!v) return null;
-  return v.startsWith("http") ? v : `${BASE_URL}${v.startsWith("/") ? "" : "/"}${v}`;
+// 공개 로고 URL 우선순위: ① 업로드 로고(공개 이미지 엔드포인트)
+// ② 외부 card_logo_url(하위호환) ③ 없음(null — 특정 사무소 기본 로고 fallback 금지).
+// absolute=true → og:image 용(외부 메신저가 로그인 없이 접근 가능한 절대 URL 필수).
+// absolute=false → 페이지 내 <img> 용(상대경로 — 로컬/운영 어느 호스트에서나 로드).
+function logoSrcFor(slug: string, card: PublicCard, absolute: boolean): string | null {
+  if (card.has_logo) {
+    const s = encodeURIComponent(card.public_slug || slug);
+    const v = card.logo_updated_at ? `?v=${encodeURIComponent(card.logo_updated_at)}` : "";
+    const path = `/api/public/business-card/${s}/logo${v}`;
+    return absolute ? `${BASE_URL}${path}` : path;
+  }
+  const u = (card.logo_url || "").trim();
+  if (!u) return null;
+  if (u.startsWith("http")) return u;            // 외부 절대 URL 은 그대로
+  const path = `${u.startsWith("/") ? "" : "/"}${u}`;
+  return absolute ? `${BASE_URL}${path}` : path;
 }
 
 // "행정사 {이름}" 표기. 이름 없으면 빈 문자열(단독 "행정사" 금지). 이미 "행정사" 포함 시 중복 방지.
@@ -58,7 +71,7 @@ export async function generateMetadata({
   ].filter(Boolean);
   const desc = descParts.join(" · ") || "전자명함";
   const url = `${BASE_URL}/card/${card.public_slug || params.slug}`;
-  const logo = absLogo(card.logo_url);
+  const logo = logoSrcFor(params.slug, card, true);   // og:image — 절대 URL
   return {
     title: { absolute: `${name} 전자명함` },
     description: desc,
@@ -115,7 +128,7 @@ export default async function PublicCardPage({
   const card = await getCard(params.slug);
   if (!card) notFound();
 
-  const logo = (card.logo_url || "").trim();
+  const logo = logoSrcFor(params.slug, card, false);   // 표시용 — 상대경로
   const telHref = card.phone ? `tel:${card.phone.replace(/[^0-9+]/g, "")}` : "";
   const initial = (card.office_name || card.contact_name || "·").trim().charAt(0);
 

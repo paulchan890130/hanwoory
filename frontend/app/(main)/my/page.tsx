@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api, businessCardApi, type BusinessCard } from "@/lib/api";
-import { Save, KeyRound, User, Plus, X as XIcon, Copy, ExternalLink } from "lucide-react";
+import { Save, KeyRound, User, Plus, X as XIcon, Copy, ExternalLink, Upload, Trash2, ChevronDown } from "lucide-react";
 import SignatureModal from "@/components/SignatureModal";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -11,6 +11,11 @@ const PUBLIC_BASE = "https://www.hanwory.com";
 
 const GOLD = "#D4A843";
 const BORDER = "#E2E8F0";
+
+// 로고 업로드 정책(프론트 1차 검증 — 서버도 동일 정책으로 재검증)
+const LOGO_MAX_BYTES = 200 * 1024;
+const LOGO_ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
+const LOGO_ACCEPT = LOGO_ALLOWED_MIME.join(",");
 
 interface MyInfo {
   login_id: string;
@@ -68,6 +73,15 @@ function BusinessCardSection() {
   const [fields, setFields] = useState<string[]>(["", "", ""]);
   const { submit: save, isSubmitting: saving } = useSubmit();
 
+  // ── 로고 파일 업로드 상태 ──
+  const [hasLogo, setHasLogo] = useState(false);
+  const [savedPreview, setSavedPreview] = useState<string | null>(null);   // 저장된 로고 blob URL
+  const [pendingFile, setPendingFile] = useState<File | null>(null);       // 선택했으나 미저장
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
   const load = (c: BusinessCard) => {
     setCard(c);
     // 편집칸은 '원본 저장값'(raw)으로 채운다. 비워두면 공개 명함에서 사무소 연락처/주소로
@@ -76,6 +90,7 @@ function BusinessCardSection() {
     setAddress(c.raw?.card_address ?? "");
     setBio(c.bio || "");
     setLogoUrl(c.raw?.card_logo_url ?? "");
+    setHasLogo(!!c.has_logo);
     setSlug(c.public_slug || "");
     setIsPublic(!!c.is_public);
     // 저장된 업무분야만 채우고, 없으면 빈 3칸(placeholder 예시만). 기본값을 실제로 넣지 않는다.
@@ -89,7 +104,25 @@ function BusinessCardSection() {
     businessCardApi.getMine().then((r) => load(r.data)).catch(() => {});
   }, []);
 
+  // 저장된 로고가 있으면(그리고 선택 대기 중인 파일이 없으면) blob 미리보기를 받아온다.
+  useEffect(() => {
+    let revoked: string | null = null;
+    if (hasLogo && !pendingFile) {
+      businessCardApi.getMyLogoBlob()
+        .then((r) => {
+          const url = URL.createObjectURL(r.data);
+          revoked = url;
+          setSavedPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
+        })
+        .catch(() => setSavedPreview(null));
+    } else if (!hasLogo) {
+      setSavedPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    }
+    return () => { if (revoked) { /* keep until replaced */ } };
+  }, [hasLogo, pendingFile, card?.logo_updated_at]);
+
   const publicUrl = slug ? `${PUBLIC_BASE}/card/${slug}` : "";
+  const logoToShow = pendingPreview || savedPreview;
 
   const handleSave = () => {
     save(
@@ -106,6 +139,56 @@ function BusinessCardSection() {
     );
   };
 
+  const onPickFile = (f: File | null) => {
+    if (!f) return;
+    if (!LOGO_ALLOWED_MIME.includes(f.type)) {
+      toast.error("JPG / PNG / WEBP 형식만 업로드할 수 있습니다.");
+      return;
+    }
+    if (f.size > LOGO_MAX_BYTES) {
+      toast.error("로고 파일은 200KB 이하만 업로드할 수 있습니다.");
+      return;
+    }
+    setPendingFile(f);
+    setPendingPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
+  };
+
+  const cancelPending = () => {
+    setPendingPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setPendingFile(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const uploadPending = async () => {
+    if (!pendingFile) return;
+    setLogoBusy(true);
+    try {
+      await businessCardApi.uploadLogo(pendingFile);
+      cancelPending();
+      const r = await businessCardApi.getMine();
+      load(r.data);
+      toast.success("로고가 업로드되었습니다.");
+    } catch {
+      toast.error("로고 업로드 실패 — 형식(JPG/PNG/WEBP)·용량(200KB)을 확인하세요.");
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  const removeLogo = async () => {
+    setLogoBusy(true);
+    try {
+      await businessCardApi.deleteLogo();
+      const r = await businessCardApi.getMine();
+      load(r.data);
+      toast.success("로고가 삭제되었습니다.");
+    } catch {
+      toast.error("로고 삭제 실패");
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
   const copyLink = async () => {
     if (!publicUrl) return;
     try { await navigator.clipboard.writeText(publicUrl); toast.success("공개 링크가 복사되었습니다."); }
@@ -114,8 +197,13 @@ function BusinessCardSection() {
 
   return (
     <Section title="전자명함">
-      <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 14, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 6, lineHeight: 1.6 }}>
         공개로 설정하면 <b>로그인 없이</b> 열람 가능한 명함 링크가 생성됩니다. 내부 계정·권한 정보는 공개되지 않습니다.
+      </div>
+      {/* 저장-반영 안내(내부 마이페이지에만 표시 — 공개 명함에는 표시하지 않음) */}
+      <div style={{ fontSize: 11, color: "#8A6D1F", background: "#FBF8F0", border: `1px solid #EAD9A8`,
+        borderRadius: 8, padding: "8px 11px", marginBottom: 14, lineHeight: 1.6 }}>
+        저장한 내용과 로고는 <b>공개 전자명함 링크에 즉시 반영</b>됩니다. 별도 배포나 관리자 작업이 필요하지 않습니다.
       </div>
 
       <Field label="전화번호" value={phone} onChange={setPhone} placeholder="비워두면 사무소 연락처 사용" />
@@ -155,9 +243,75 @@ function BusinessCardSection() {
         </div>
       </div>
 
-      <Field label="로고 URL (선택)" value={logoUrl} onChange={setLogoUrl} placeholder="https://example.com/logo.png" />
-      <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: -8, marginBottom: 14, lineHeight: 1.6 }}>
-        로고 이미지는 인터넷에서 접근 가능한 이미지 주소(URL)를 입력해야 표시됩니다. 입력하지 않으면 전자명함에 로고가 표시되지 않습니다.
+      {/* ── 로고 (파일 업로드) ── */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 6, fontWeight: 600 }}>로고</label>
+        <input ref={fileRef} type="file" accept={LOGO_ACCEPT} style={{ display: "none" }}
+          onChange={(e) => onPickFile(e.target.files?.[0] ?? null)} />
+
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+          {/* 미리보기 / 없음 */}
+          <div style={{
+            width: 72, height: 72, flexShrink: 0, borderRadius: 12,
+            border: `1px solid ${BORDER}`, background: "#FAFAFA",
+            display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+          }}>
+            {logoToShow
+              ? <img src={logoToShow} alt="로고 미리보기" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              : <span style={{ fontSize: 10, color: "#A0AEC0", textAlign: "center", lineHeight: 1.4 }}>로고<br/>없음</span>}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 160 }}>
+            {pendingFile ? (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={uploadPending} disabled={logoBusy}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                    border: "none", background: GOLD, color: "#fff", fontSize: 12, fontWeight: 700, cursor: logoBusy ? "default" : "pointer", opacity: logoBusy ? 0.6 : 1 }}>
+                  <Upload size={13} /> {logoBusy ? "업로드 중..." : "이 로고 저장"}
+                </button>
+                <button type="button" onClick={cancelPending} disabled={logoBusy}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                    border: `1px solid ${BORDER}`, background: "#fff", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  취소
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={logoBusy}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                    border: `1px solid ${BORDER}`, background: "#fff", color: "#4A5568", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  <Upload size={13} /> {hasLogo ? "로고 변경" : "로고 선택"}
+                </button>
+                {hasLogo && (
+                  <button type="button" onClick={removeLogo} disabled={logoBusy}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
+                      border: `1px solid #FBD5D5`, background: "#fff", color: "#C53030", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    <Trash2 size={13} /> 로고 삭제
+                  </button>
+                )}
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 8, lineHeight: 1.6 }}>
+              권장: 512px × 512px, JPG/PNG/WEBP, 200KB 이하 (정사각형 권장)<br/>
+              로고를 등록하지 않으면 전자명함에는 로고가 표시되지 않습니다.
+            </div>
+          </div>
+        </div>
+
+        {/* 고급 설정 — 외부 로고 URL(보조, 하위호환). 업로드 로고가 우선 표시됨 */}
+        <button type="button" onClick={() => setShowAdvanced((v) => !v)}
+          style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#A0AEC0", background: "none", border: "none", cursor: "pointer" }}>
+          <ChevronDown size={13} style={{ transform: showAdvanced ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+          고급 설정 (외부 로고 URL)
+        </button>
+        {showAdvanced && (
+          <div style={{ marginTop: 8 }}>
+            <Field label="로고 URL (선택, 보조)" value={logoUrl} onChange={setLogoUrl} placeholder="https://example.com/logo.png" />
+            <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: -8, lineHeight: 1.6 }}>
+              업로드한 로고가 있으면 그 로고가 우선 표시됩니다. 외부 URL은 업로드 로고가 없을 때만 사용됩니다.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 공개 설정 */}
