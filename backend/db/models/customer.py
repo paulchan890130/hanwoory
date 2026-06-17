@@ -44,7 +44,13 @@ class Customer(Base):
     gender: Mapped[str | None] = mapped_column(Text)       # 성별
 
     reg_front: Mapped[str | None] = mapped_column(Text)              # 등록증
-    reg_back: Mapped[str | None] = mapped_column(Text)               # 번호 (sensitive)
+    reg_back: Mapped[str | None] = mapped_column(Text)               # 번호 (sensitive; 1차 fallback/마스킹 소스)
+    # 외국인등록번호 뒷자리 암호화 보조 컬럼 (migration 0018). 평문 reg_back 은 유지(fallback).
+    reg_back_encrypted: Mapped[str | None] = mapped_column(Text)        # Fernet 암호문(복호화 소스)
+    reg_back_hash: Mapped[str | None] = mapped_column(Text)            # HMAC 정확검색용
+    reg_back_last4: Mapped[str | None] = mapped_column(Text)           # 뒤 4자리(검색/표시 보조)
+    reg_back_migrated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reg_back_enc_ver: Mapped[str | None] = mapped_column(Text)         # 암호화 버전 태그('v1')
     card_issue_date: Mapped[str | None] = mapped_column(Text)        # 발급일
     card_expiry_date: Mapped[str | None] = mapped_column(Text)       # 만기일
     passport_issue_date: Mapped[str | None] = mapped_column(Text)    # 발급

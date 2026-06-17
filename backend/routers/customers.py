@@ -5,10 +5,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import logging
 import threading
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from backend.auth import get_current_user
 from backend.services.cache_service import cache_get, cache_set, cache_invalidate
+from backend.services import audit_service as _audit
+
+
+def _req_ip_ua(request: "Request | None"):
+    if request is None:
+        return None, None
+    ua = request.headers.get("user-agent")
+    xff = request.headers.get("x-forwarded-for")
+    ip = (xff.split(",")[0].strip() if xff else (request.client.host if request.client else None))
+    return ip, ua
 
 router = APIRouter()
 _log = logging.getLogger("customers.accommodation")
@@ -204,11 +214,32 @@ def get_customers(
         return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
 
     if search:
-        s = search.lower()
-        records = [
+        q = search.strip()
+        s = q.lower()
+        digits = "".join(ch for ch in q if ch.isdigit())
+        # 평문 필드 부분검색 — 마스킹된 번호/해시 보조키는 제외(별표 오매칭·해시노출 방지).
+        _excluded = {"번호", "번호_last4"}
+        text_hits = [
             r for r in records
-            if any(s in str(v).lower() for v in r.values())
+            if any(s in str(v).lower() for k, v in r.items() if k not in _excluded)
         ]
+        # 등록번호 뒷자리 검색: 순수숫자 7자리=HMAC 정확검색, 4자리=last4 (1~3자리 미지원).
+        # 기존 평문필드 검색과 합집합(전화 뒤4자리 등 회귀 방지).
+        reg_hits: list = []
+        if q == digits and len(digits) == 7:
+            from backend.services.customer_pg_service import ids_by_reg_back_hash
+            from backend.services.pii_crypto import hash_pii, hash_secret_available, is_server_env
+            # 운영 fail-closed: HMAC 비밀키 미설정이면 조용한 빈 결과 대신 명확한 503.
+            if is_server_env() and not hash_secret_available():
+                raise HTTPException(status_code=503, detail="등록번호 정확검색을 사용할 수 없습니다(보안 검색 설정 미완료). 관리자에게 문의하세요.")
+            id_set = ids_by_reg_back_hash(tenant_id, hash_pii(tenant_id, digits))
+            reg_hits = [r for r in records if r.get("고객ID", "") in id_set]
+        elif q == digits and len(digits) == 4:
+            reg_hits = [r for r in records if r.get("번호_last4", "") == digits]
+        if reg_hits:
+            seen = {id(r) for r in text_hits}
+            text_hits = text_hits + [r for r in reg_hits if id(r) not in seen]
+        records = text_hits
 
     # 고객ID 내림차순 정렬 (숫자형 안전 처리)
     def _sort_key(r):
@@ -226,7 +257,7 @@ def get_customers(
 
 
 @router.get("/{customer_id}")
-def get_customer(customer_id: str, user: dict = Depends(get_current_user)):
+def get_customer(customer_id: str, user: dict = Depends(get_current_user), request: Request = None):
     """단일 고객 전체 레코드 조회 — 고객카드(CustomerDrawer)를 고유키로 열기 위함.
 
     홈 대시보드 만기 목록/진행업무 카드에서 고객ID만으로 카드를 열 때 사용한다.
@@ -234,9 +265,14 @@ def get_customer(customer_id: str, user: dict = Depends(get_current_user)):
     """
     tenant_id = user["tenant_id"]
     from backend.services.customer_pg_service import find_customer
-    rec = find_customer(tenant_id, str(customer_id).strip())
+    # 상세조회 — 단건만 reg_back 복호화(reveal=True). 고객카드/customer-copy-popup 호환.
+    rec = find_customer(tenant_id, str(customer_id).strip(), reveal=True)
     if rec is None:
         raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+    _ip, _ua = _req_ip_ua(request)
+    _audit.log_event(action="CUSTOMER_VIEW", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                     target_type="customer", target_id=str(customer_id), ip_address=_ip, user_agent=_ua,
+                     payload={"customer_id": str(customer_id), "success": True, "pii_accessed": True})
     return rec
 
 
@@ -248,29 +284,47 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
     from backend.services.customer_pg_service import (
         create_customer, CustomerIdConflict, TenantNotProvisioned,
     )
+    from backend.services.pii_crypto import PiiKeyMissing
     try:
         result = create_customer(tenant_id, data)
     except TenantNotProvisioned as e:
         raise HTTPException(status_code=409, detail=str(e))
     except CustomerIdConflict as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except PiiKeyMissing:
+        # 운영 fail-closed: 암호화 키 미설정 시 평문 저장 금지(키명 비노출).
+        raise HTTPException(status_code=503, detail="개인정보 보안 저장 설정이 완료되지 않아 저장할 수 없습니다. 관리자에게 문의하세요.")
     cache_invalidate(tenant_id, _CACHE_EXPIRY)
     return {"ok": True, "고객ID": result["고객ID"]}
 
 
 @router.put("/{customer_id}")
-def update_customer(customer_id: str, data: dict, user: dict = Depends(get_current_user)):
+def update_customer(customer_id: str, data: dict, user: dict = Depends(get_current_user), request: Request = None):
     # PG-only(Phase C): 고객 수정은 항상 PostgreSQL. Google Sheets fallback 제거.
     tenant_id = user["tenant_id"]
     print(f"[write-path] customers(update): PG tenant={tenant_id!r}")
     from backend.services.customer_pg_service import find_customer, upsert_customer
-    existing = find_customer(tenant_id, str(customer_id).strip())
+    # reveal=True 로 평문 번호를 가져와야 클라이언트가 번호를 안 보낸 경우에도
+    # 마스킹값이 재암호화되어 손상되는 일이 없다(masked 입력은 서비스가 무시하지만 이중 안전).
+    existing = find_customer(tenant_id, str(customer_id).strip(), reveal=True)
     if existing is None:
         raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+    # 마스킹 보조키는 저장 payload 에서 제외(원문 아님).
+    existing.pop("번호_last4", None)
     merged = {**existing, **{k: str(v) for k, v in data.items()}}
     merged["고객ID"] = customer_id
-    upsert_customer(tenant_id, merged)
+    from backend.services.pii_crypto import PiiKeyMissing
+    try:
+        upsert_customer(tenant_id, merged)
+    except PiiKeyMissing:
+        raise HTTPException(status_code=503, detail="개인정보 보안 저장 설정이 완료되지 않아 저장할 수 없습니다. 관리자에게 문의하세요.")
     cache_invalidate(tenant_id, _CACHE_EXPIRY)
+    _ip, _ua = _req_ip_ua(request)
+    _pii_changed = "번호" in data  # 외국인등록번호 뒷자리 변경 여부
+    _audit.log_event(action="CUSTOMER_UPDATE", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                     target_type="customer", target_id=str(customer_id), ip_address=_ip, user_agent=_ua,
+                     payload={"customer_id": str(customer_id), "success": True,
+                              "pii_accessed": _pii_changed, "changed_keys": sorted(data.keys())})
     return {"ok": True}
 
 
@@ -292,7 +346,7 @@ def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_cur
 
 
 @router.delete("/{customer_id}")
-def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
+def delete_customer(customer_id: str, user: dict = Depends(get_current_user), request: Request = None):
     tenant_id = user["tenant_id"]
     # PG-only(Phase C): 고객 삭제는 항상 PostgreSQL. Google Sheets fallback 제거.
     print(f"[write-path] customers(delete): PG tenant={tenant_id!r}")
@@ -301,6 +355,10 @@ def delete_customer(customer_id: str, user: dict = Depends(get_current_user)):
     if not ok:
         raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
     cache_invalidate(tenant_id, _CACHE_EXPIRY)
+    _ip, _ua = _req_ip_ua(request)
+    _audit.log_event(action="CUSTOMER_DELETE", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                     target_type="customer", target_id=str(customer_id), ip_address=_ip, user_agent=_ua,
+                     payload={"customer_id": str(customer_id), "success": True, "pii_accessed": False})
     return {"ok": True}
 
 

@@ -1288,17 +1288,15 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
     # 주소 등 최신 편집분이 PG 에만 있고 Sheets 에는 옛 값(빈칸)이 남아 있으므로,
     # read_sheet 만 쓰면 문서에 옛 주소(빈칸)가 박힌다. 검색 엔드포인트와 동일 분기.
     # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환). Sheets read 제거.
-    from backend.services.customer_pg_service import list_customers
+    from backend.services.customer_pg_service import list_customers, find_customer as _svc_find_customer
     customers = list_customers(tenant_id) or []
 
     def find_customer(cid: Optional[str]) -> Optional[dict]:
+        # 문서출력은 reg_back(번호) 평문이 필요 → 단건만 reveal=True 로 복호화 조회.
+        # (list_customers 는 번호가 마스킹되어 있어 문서에 1****** 가 박힌다.)
         if not cid:
             return None
-        cid = cid.strip()
-        for c in customers:
-            if str(c.get("고객ID", "")).strip() == cid:
-                return c
-        return None
+        return _svc_find_customer(tenant_id, str(cid).strip(), reveal=True)
 
     if req.applicant_id:
         applicant = find_customer(req.applicant_id)
@@ -1561,6 +1559,14 @@ def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)
         skipped_encoded = quote(",".join(skipped), safe=",")
         missing_encoded = quote(",".join(missing), safe=",")
 
+        try:
+            from backend.services import audit_service as _audit
+            _audit.log_event(action="QUICK_DOC_GENERATE", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                             target_type="document", target_id=",".join(req.selected_docs or [])[:200],
+                             payload={"customer_id": str(req.applicant_id or ""), "success": True,
+                                      "pii_accessed": True, "doc_count": len(req.selected_docs or [])})
+        except Exception:
+            pass
         return StreamingResponse(
             buf,
             media_type="application/pdf",

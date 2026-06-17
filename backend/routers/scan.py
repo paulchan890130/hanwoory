@@ -3,7 +3,8 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import io, datetime, asyncio
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
+from backend.services import audit_service as _audit
 
 
 def _file_to_pil(img_bytes: bytes, content_type: str = ""):
@@ -377,6 +378,7 @@ def _normalize_fields(raw: dict) -> dict:
 def scan_register(
     body: dict,
     user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
     """
     OCR 결과를 고객 시트에 upsert (tenant 격리).
@@ -462,10 +464,16 @@ def scan_register(
                     match_reason = f"passport match: 여권={key_passport!r}"
                     break
         if existing is None and key_reg_front and key_reg_back:
+            # reg_back(번호)은 암호화되어 list 의 번호는 마스킹값이므로 직접 비교 불가.
+            # HMAC 해시로 일치 고객ID 집합을 구해 등록증(앞자리)과 함께 매칭한다.
+            # (PII_HASH_SECRET 미설정 시 해시가 비어 매칭 생략 → 신규로 생성될 수 있음, 로컬 한정.)
+            from backend.services.customer_pg_service import ids_by_reg_back_hash
+            from backend.services.pii_crypto import hash_pii
+            _id_set = ids_by_reg_back_hash(tenant_id, hash_pii(tenant_id, key_reg_back))
             for r in rows:
-                if _norm(r.get("등록증")) == key_reg_front and _norm(r.get("번호")) == key_reg_back:
+                if str(r.get("고객ID", "")) in _id_set and _norm(r.get("등록증")) == key_reg_front:
                     existing = r
-                    match_reason = f"reg-number match: 등록증={key_reg_front!r} 번호={key_reg_back!r}"
+                    match_reason = f"reg-number(hash) match: 등록증={key_reg_front!r}"
                     break
 
         # incoming 중 비어있지 않은 필드만 사용 → 빈 OCR 값이 기존 값을 덮어쓰지 않음
@@ -479,6 +487,11 @@ def scan_register(
                 _invalidate_customer_caches()
                 _log.warning("[SCAN][BE][PG] PATH=updated customer_id=%r match=%s",
                              customer_id, match_reason)
+                _ua = request.headers.get("user-agent") if request else None
+                _audit.log_event(action="OCR_UPLOAD", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                                 target_type="customer", target_id=str(customer_id), user_agent=_ua,
+                                 payload={"customer_id": str(customer_id), "success": True,
+                                          "pii_accessed": True, "result": "updated"})
                 return {
                     "status": "updated",
                     "고객ID": customer_id,
@@ -490,6 +503,11 @@ def scan_register(
             upsert_customer(tenant_id, payload)
             _invalidate_customer_caches()
             _log.warning("[SCAN][BE][PG] PATH=created customer_id=%r tenant=%r", new_id, tenant_id)
+            _ua = request.headers.get("user-agent") if request else None
+            _audit.log_event(action="OCR_UPLOAD", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                             target_type="customer", target_id=str(new_id), user_agent=_ua,
+                             payload={"customer_id": str(new_id), "success": True,
+                                      "pii_accessed": True, "result": "created"})
             return {
                 "status": "created",
                 "고객ID": new_id,
@@ -498,8 +516,12 @@ def scan_register(
         except HTTPException:
             raise
         except Exception as e:
+            # 운영 fail-closed: 암호화 키 미설정(PiiKeyMissing) → 평문 저장 대신 503.
+            from backend.services.pii_crypto import PiiKeyMissing
+            if isinstance(e, PiiKeyMissing):
+                raise HTTPException(status_code=503, detail="개인정보 보안 저장 설정이 완료되지 않아 저장할 수 없습니다. 관리자에게 문의하세요.")
             _log.exception("[SCAN][BE][PG] upsert failed")
-            raise HTTPException(status_code=500, detail=f"고객 저장 실패(PG): {e}")
+            raise HTTPException(status_code=500, detail="고객 저장 실패(PG)")
 
     # 도달 불가(PG-only) — 위 if 블록이 항상 반환/예외. Google Sheets 경로 제거됨.
     raise HTTPException(status_code=500, detail="scan_register misrouted (PG-only)")

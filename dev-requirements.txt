@@ -1,0 +1,4 @@
+# 개발/테스트 전용 의존성 (운영 이미지에는 포함하지 않음).
+# 설치: pip install -r dev-requirements.txt
+-r requirements.txt
+pytest>=8.0

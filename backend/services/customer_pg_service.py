@@ -45,13 +45,94 @@ SHEET_TO_PG = {
 PG_TO_SHEET = {v: k for k, v in SHEET_TO_PG.items()}
 PG_TO_SHEET["memo"] = "비고"
 
+# ── 외국인등록번호 뒷자리(reg_back) 암호화 정책 ────────────────────────────────
+# 1차(전환기): 기존 평문 reg_back 컬럼을 fallback/rollback 용으로 **유지**하고, 읽기
+# 경로에서 항상 마스킹/복호화로 분기한다. 2차에서 reg_back 을 마스크('1******')로
+# 덮어쓰면 _row_to_dict(reveal=False)는 mask_reg_back 멱등성으로 동일 동작한다.
+# 이 플래그를 False 로 바꾸면 신규 쓰기 시 reg_back 에 평문 대신 마스크를 저장한다.
+_KEEP_PLAINTEXT_FALLBACK = True
 
-def _row_to_dict(row) -> dict:
-    """Convert a Customer ORM row to a Sheets-shaped dict."""
+
+def _encode_reg_back_into_payload(payload: dict, tenant_id: str) -> None:
+    """payload 의 'reg_back'(평문 입력) → 암호화 보조 컬럼으로 변환(in-place).
+
+    - 'reg_back' 키가 없으면(부분 업데이트) 아무것도 하지 않는다(기존 값 유지).
+    - 입력이 마스킹값('*' 포함)이면 **덮어쓰지 않는다**(상세→저장 왕복 시 암호문 보존).
+    - 빈 값이면 명시적 초기화(암호문/해시/last4 제거).
+    - 키 미설정(PiiKeyMissing) 시 평문 reg_back 보관(현행 동작 유지) — 로그에 평문 금지.
+    """
+    if "reg_back" not in payload:
+        return
+    raw = payload.pop("reg_back")
+    if raw is None:
+        return
+    from backend.services import pii_crypto as _pii
+
+    s = str(raw)
+    if "*" in s:
+        # 마스킹된 표시값이 되돌아온 경우 — 저장된 암호문을 보존(미변경).
+        return
+    norm = _pii.normalize_reg_back(s)
+    if not norm:
+        payload["reg_back"] = ""
+        payload["reg_back_encrypted"] = ""
+        payload["reg_back_hash"] = ""
+        payload["reg_back_last4"] = ""
+        payload["reg_back_enc_ver"] = None
+        return
+    try:
+        from datetime import datetime, timezone
+        payload["reg_back_encrypted"] = _pii.encrypt_pii(norm)
+        payload["reg_back_hash"] = _pii.hash_pii(tenant_id, norm)
+        payload["reg_back_last4"] = _pii.last4_reg_back(norm)
+        payload["reg_back_enc_ver"] = _pii.REG_BACK_ENC_VERSION
+        payload["reg_back_migrated_at"] = datetime.now(timezone.utc)
+        payload["reg_back"] = norm if _KEEP_PLAINTEXT_FALLBACK else _pii.mask_reg_back(norm)
+    except _pii.PiiKeyMissing:
+        # 운영(server): 키 미설정이면 평문 저장을 거부(fail-closed). 라우터가 503 으로 변환.
+        if _pii.is_server_env():
+            raise
+        # 로컬/테스트: 평문 보관으로 graceful fallback. 평문 로그 금지.
+        import logging
+        logging.getLogger("customers.pii").warning(
+            "CUSTOMER_PII_ENCRYPTION_KEY missing — reg_back stored as plaintext (local fallback)"
+        )
+        payload["reg_back"] = norm
+
+
+def _row_to_dict(row, *, reveal: bool = False) -> dict:
+    """Customer ORM row → Sheets-shaped dict.
+
+    reg_back(번호) 특수 처리:
+    - reveal=False(목록/기본): 복호화하지 않고 ``1******`` 마스킹(첫 자리 보존 →
+      만기 세기판별 호환). ``번호_last4`` 보조키 추가.
+    - reveal=True(상세/문서): 암호문 복호화(없으면 평문 fallback). 실패 시 blank.
+    """
     out: dict = {}
     for pg_col, sheet_key in PG_TO_SHEET.items():
         val = getattr(row, pg_col, "")
         out[sheet_key] = "" if val is None else str(val)
+
+    from backend.services import pii_crypto as _pii
+
+    enc = getattr(row, "reg_back_encrypted", "") or ""
+    plain_fallback = str(getattr(row, "reg_back", "") or "")
+    last4 = str(getattr(row, "reg_back_last4", "") or "")
+    if reveal:
+        if enc:
+            try:
+                out["번호"] = _pii.decrypt_pii(enc)
+            except _pii.PiiCryptoError:
+                # 키 미설정/불일치 — 평문 fallback(마스킹 아님)만 사용, 없으면 blank.
+                out["번호"] = "" if "*" in plain_fallback else plain_fallback
+        else:
+            out["번호"] = plain_fallback  # old/unmigrated row
+    else:
+        # 마스킹(평문이면 마스킹, 이미 마스킹돼 있으면 멱등). 첫 자리 보존.
+        out["번호"] = _pii.mask_reg_back(plain_fallback) if plain_fallback else ("*" if enc else "")
+        if not last4 and plain_fallback and "*" not in plain_fallback:
+            last4 = _pii.last4_reg_back(plain_fallback)
+        out["번호_last4"] = last4
     return out
 
 
@@ -73,7 +154,11 @@ def list_customers(tenant_id: str) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
-def find_customer(tenant_id: str, customer_id: str) -> Optional[dict]:
+def find_customer(tenant_id: str, customer_id: str, *, reveal: bool = False) -> Optional[dict]:
+    """단일 고객 조회. reveal=True 면 reg_back(번호)을 복호화한 평문으로 반환(상세/문서용).
+
+    기본(reveal=False)은 마스킹(``1******``)으로 반환 — 목록과 동일 정책.
+    """
     from backend.db.models.customer import Customer
     from backend.db.session import get_sessionmaker
 
@@ -86,7 +171,26 @@ def find_customer(tenant_id: str, customer_id: str) -> Optional[dict]:
                 Customer.deleted_at.is_(None),
             )
         )
-    return _row_to_dict(row) if row else None
+    return _row_to_dict(row, reveal=reveal) if row else None
+
+
+def ids_by_reg_back_hash(tenant_id: str, target_hash: str) -> set:
+    """주어진 HMAC 해시와 일치하는 (비삭제) 고객ID 집합. 검색용. 빈 해시 → 빈 집합."""
+    if not target_hash:
+        return set()
+    from backend.db.models.customer import Customer
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        ids = session.scalars(
+            select(Customer.customer_id).where(
+                Customer.tenant_id == tenant_id,
+                Customer.reg_back_hash == target_hash,
+                Customer.deleted_at.is_(None),
+            )
+        ).all()
+    return {str(x) for x in ids}
 
 
 def _max_customer_number(tenant_id: str) -> int:
@@ -167,6 +271,7 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
 
     SessionLocal = get_sessionmaker()
     base_payload = {SHEET_TO_PG[k]: v for k, v in data.items() if k in SHEET_TO_PG}
+    _encode_reg_back_into_payload(base_payload, tenant_id)
     last_err: Optional[Exception] = None
     for _ in range(max(1, max_retries)):
         cid = next_customer_id(tenant_id)
@@ -225,6 +330,7 @@ def upsert_customer(tenant_id: str, data: dict) -> dict:
     customer_id = str(payload.get("customer_id", "")).strip()
     if not customer_id:
         raise ValueError("고객ID is required")
+    _encode_reg_back_into_payload(payload, tenant_id)
 
     with SessionLocal() as session:
         row = session.scalar(
