@@ -6,6 +6,7 @@ import { Save, KeyRound, User, Plus, X as XIcon, Copy, ExternalLink, Upload, Tra
 import SignatureModal from "@/components/SignatureModal";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
+import MySecuritySection from "@/components/my/MySecuritySection";
 
 const PUBLIC_BASE = "https://www.hanwory.com";
 
@@ -514,6 +515,10 @@ export default function MyPage() {
         >
           {signData ? "서명 재등록" : "서명 등록"}
         </button>
+      </Section>
+
+      <Section title="보안 / 로그인 이력">
+        <MySecuritySection />
       </Section>
 
       {/* 서명 모달 */}

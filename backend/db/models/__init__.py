@@ -42,6 +42,9 @@ from backend.db.models.roi_preset import RoiPreset  # noqa: F401
 from backend.db.models.doc_tree import DocTreeNode, DocRequiredDocument  # noqa: F401
 from backend.db.models.login_attempt import LoginAttempt  # noqa: F401
 from backend.db.models.terms import TermsVersion, UserTermsAcceptance  # noqa: F401
+from backend.db.models.account_security import (  # noqa: F401
+    LoginEvent, AccountSecurity, SecurityNotification,
+)
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -64,4 +67,5 @@ __all__ = [
     "UserSession", "RoiPreset",
     "DocTreeNode", "DocRequiredDocument",
     "LoginAttempt", "TermsVersion", "UserTermsAcceptance",
+    "LoginEvent", "AccountSecurity", "SecurityNotification",
 ]

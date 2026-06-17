@@ -28,6 +28,7 @@ def login(req: LoginRequest, request: Request = None):
     # PG-only(Phase B): 계정은 PostgreSQL(users + tenants)에서만 조회한다.
     from backend.services import login_guard_pg_service as _guard
     from backend.services import audit_service as _audit
+    from backend.services import account_security_pg_service as _sec
 
     _ua = request.headers.get("user-agent") if request else None
     _xff = request.headers.get("x-forwarded-for") if request else None
@@ -39,6 +40,8 @@ def login(req: LoginRequest, request: Request = None):
     if _guard.check_locked(req.login_id):
         _audit.log_event(action="LOGIN_LOCKED", actor_login_id=req.login_id,
                          ip_address=_ip, user_agent=_ua, payload={"success": False})
+        _sec.record_event(login_id=req.login_id, tenant_id=None, event_type=_sec.EV_LOGIN_LOCKED,
+                          ip=_ip, user_agent=_ua, success=False, reason="lockout", risk_level="low")
         raise HTTPException(status_code=429, detail=_LOCKED_MSG)
 
     acc = _find_account(req.login_id) or {}
@@ -48,6 +51,11 @@ def login(req: LoginRequest, request: Request = None):
         _audit.log_event(action="LOGIN_FAILED", actor_login_id=req.login_id,
                          ip_address=_ip, user_agent=_ua,
                          payload={"success": False, "locked": locked})
+        _sec.record_event(login_id=req.login_id, tenant_id=(str(acc.get("tenant_id", "")).strip() or None),
+                          event_type=(_sec.EV_LOGIN_LOCKED if locked else _sec.EV_LOGIN_FAILED),
+                          ip=_ip, user_agent=_ua, success=False,
+                          reason=("lockout" if locked else "bad_credentials"),
+                          risk_level=("low" if locked else "none"))
         if locked:
             raise HTTPException(status_code=429, detail=_LOCKED_MSG)
         raise HTTPException(status_code=401, detail=_GENERIC)
@@ -64,6 +72,11 @@ def login(req: LoginRequest, request: Request = None):
     hashed = str(acc.get("password_hash", "")).strip()
     if not hashed or not _verify_password(req.password, hashed):
         _fail()
+
+    # 비밀번호 정상 — 계정공유 의심 보안차단 확인(비밀번호 맞아도 차단 시 로그인 불가).
+    # is_active(관리자 비활성)와 구분되는 별도 보안차단.
+    if _sec.is_security_blocked(req.login_id):
+        raise HTTPException(status_code=403, detail=_sec.BLOCK_MESSAGE)
 
     # 성공 — 실패 카운터/잠금 해제.
     _guard.record_success(req.login_id)
@@ -89,11 +102,13 @@ def login(req: LoginRequest, request: Request = None):
                 new_session_id, revoke_active_sessions, create_session,
             )
             sid = new_session_id()
-            revoke_active_sessions(req.login_id, reason="new_login", only_non_kiosk=True)
-            ua = request.headers.get("user-agent") if request else None
-            xff = request.headers.get("x-forwarded-for") if request else None
-            ip = (xff.split(",")[0].strip() if xff else (request.client.host if request and request.client else None))
-            create_session(req.login_id, tenant_id, sid, user_agent=ua, ip=ip, is_kiosk=False)
+            _revoked = revoke_active_sessions(req.login_id, reason="new_login", only_non_kiosk=True)
+            if _revoked:
+                # 단일세션으로 기존 세션이 밀려남 → 공유 의심 신호 이벤트.
+                _sec.record_event(login_id=req.login_id, tenant_id=tenant_id,
+                                  event_type=_sec.EV_SESSION_REVOKED_BY_NEW_LOGIN,
+                                  ip=_ip, user_agent=_ua, success=True, reason="new_login", risk_level="low")
+            create_session(req.login_id, tenant_id, sid, user_agent=_ua, ip=_ip, is_kiosk=False)
             claims["sid"] = sid
     except Exception as e:
         # 비치명적: 세션 저장 실패해도 로그인 자체는 진행(가용성). 단 flag on 환경은 0007 적용 필수.
@@ -102,6 +117,10 @@ def login(req: LoginRequest, request: Request = None):
     token = create_access_token(claims)
     _audit.log_event(action="LOGIN_SUCCESS", actor_login_id=req.login_id, tenant_id=tenant_id,
                      ip_address=_ip, user_agent=_ua, payload={"success": True})
+    # 로그인 성공 이벤트 기록 + 계정공유 의심 평가(1회 알림 / 누적 2회 차단).
+    _sec.record_event(login_id=req.login_id, tenant_id=tenant_id, event_type=_sec.EV_LOGIN_SUCCESS,
+                      ip=_ip, user_agent=_ua, success=True, reason="login", risk_level="none")
+    _sec.evaluate_suspicion(login_id=req.login_id, tenant_id=tenant_id, ip=_ip, user_agent=_ua)
     return TokenResponse(
         access_token=token,
         login_id=req.login_id,
@@ -126,6 +145,14 @@ def logout(current_user: dict = Depends(get_current_user)):
                 revoke_session(sid, reason="logout")
     except Exception as e:
         print(f"[auth.logout] {e}")
+    # 로그아웃 이벤트 기록(감지는 LOGOUT 단독 기준 금지 — 보조 신호). best-effort.
+    try:
+        from backend.services import account_security_pg_service as _sec
+        _sec.record_event(login_id=current_user.get("sub", ""),
+                          tenant_id=current_user.get("tenant_id"),
+                          event_type=_sec.EV_LOGOUT, success=True, reason="logout", risk_level="none")
+    except Exception:
+        pass
     return {"ok": True}
 
 

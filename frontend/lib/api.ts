@@ -1184,3 +1184,36 @@ export const certApi = {
   updatePrice: (id: string, data: Partial<CertPrice>) => api.put<CertPrice>(`${CERT_BASE}/prices/${id}`, data),
   deletePrice: (id: string) => api.delete(`${CERT_BASE}/prices/${id}`),
 };
+
+// 계정공유 의심/로그인 이력/보안 알림 (베타)
+export interface LoginEventRow {
+  event_type: string; ip_prefix_masked: string; user_agent_summary: string;
+  success: boolean | null; reason: string; risk_level: string; created_at: string;
+}
+export interface SecurityStatus {
+  security_blocked: boolean; suspicion_count: number; blocked_at: string | null;
+}
+export interface SecurityNotificationRow {
+  id: number; type: string; title: string; body: string; related_login_id: string;
+  is_read: boolean; recipient_role?: string; created_at: string;
+}
+export const accountSecurityApi = {
+  // 관리자
+  adminLoginEvents: (loginId: string, limit = 50) =>
+    api.get<{ events: LoginEventRow[]; status: SecurityStatus }>(
+      "/api/admin/security/login-events", { params: { login_id: loginId, limit } }),
+  adminUnblock: (loginId: string) =>
+    api.post<{ ok: boolean; status: SecurityStatus }>("/api/admin/security/unblock", { login_id: loginId }),
+  adminNotifications: (onlyUnread = false) =>
+    api.get<{ notifications: SecurityNotificationRow[] }>(
+      "/api/admin/security/notifications", { params: { only_unread: onlyUnread } }),
+  // 본인
+  myLoginEvents: (limit = 30) =>
+    api.get<{ events: LoginEventRow[]; status: SecurityStatus }>(
+      "/api/my/login-events", { params: { limit } }),
+  myNotifications: (onlyUnread = false) =>
+    api.get<{ notifications: SecurityNotificationRow[] }>(
+      "/api/my/security-notifications", { params: { only_unread: onlyUnread } }),
+  myMarkRead: (id: number) =>
+    api.post<{ ok: boolean }>(`/api/my/security-notifications/${id}/read`),
+};

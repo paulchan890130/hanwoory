@@ -13,6 +13,7 @@ import {
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
+import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
 
 // ── PG 저장소 상태 helper ────────────────────────────────────────────────────
 // 운영 기준은 PostgreSQL. 계정 목록은 PG 업무 데이터 유무만 "PG 저장소" 칩으로
@@ -3000,7 +3001,7 @@ export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -3165,7 +3166,20 @@ export default function AdminPage() {
           <BookOpen size={12} className="inline mr-1" />
           매뉴얼 업데이트 검토 (레거시)
         </button>
+        {/* 로그인 보안 / 계정공유 의심 (베타) */}
+        <button
+          className={`hw-tab ${activeTab === "security" ? "active" : ""}`}
+          onClick={() => setActiveTab("security")}>
+          <Shield size={12} className="inline mr-1" />
+          로그인 보안
+        </button>
       </div>
+
+      {activeTab === "security" && (
+        <div style={{ marginTop: 12 }}>
+          <AccountSecurityPanel />
+        </div>
+      )}
 
       {/* 문서자동작성 설정 (편집형 선택 트리 + 필요서류) */}
       {activeTab === "doc-config" && <DocConfigTab />}
