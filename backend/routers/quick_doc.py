@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from backend.auth import get_current_user, require_admin
+from backend.services.global_concurrency import DOC_LOCK_KEY, global_limit_sync
 
 router = APIRouter()
 
@@ -1271,6 +1272,12 @@ def admin_remap_required_doc(doc_id: int, _: dict = Depends(require_admin)):
 
 @router.post("/generate-full")
 def generate_full(req: FullDocGenRequest, user: dict = Depends(get_current_user)):
+    """[로컬 PoC] DOC 전역 동시수 1 게이트 후 실제 생성 로직 실행(combined+workers>=2 직렬화)."""
+    with global_limit_sync(DOC_LOCK_KEY):
+        return _generate_full_impl(req, user)
+
+
+def _generate_full_impl(req: FullDocGenRequest, user: dict):
     """
     역할별 고객 데이터 + 행정사 정보 기반 PDF 필드 자동 주입 + 도장 삽입 후 병합 PDF 반환.
     템플릿 파일 없는 서류는 무시(건너뜀).
@@ -1815,6 +1822,12 @@ def _pdf_bytes_to_jpg_or_zip(pdf_bytes: bytes, dpi: int = 200):
 
 @router.post("/quick-poa")
 def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
+    """[로컬 PoC] DOC 전역 동시수 1 게이트 후 실제 원클릭 생성 로직 실행."""
+    with global_limit_sync(DOC_LOCK_KEY):
+        return _quick_poa_impl(req, user)
+
+
+def _quick_poa_impl(req: QuickPoaRequest, user: dict):
     """
     원클릭 작성: selected_outputs에 따라 해당 서류를 빠르게 생성해 반환.
     현재 구현된 출력: 위임장 (JPG/ZIP).
@@ -2018,9 +2031,17 @@ def quick_poa(req: QuickPoaRequest, user: dict = Depends(get_current_user)):
         )
 
 
-# 기존 /generate 엔드포인트 유지 (하위 호환)
+# 기존 /generate 엔드포인트 유지 (하위 호환).
+# 현재 프론트에서 직접 호출하는 화면은 없으나(quickDocApi.generate 미사용), 외부에서 호출
+# 가능한 상태이므로 문서생성 계열과 동일하게 DOC 전역 동시수 1(대기) 정책으로 묶는다.
 @router.post("/generate")
 def generate_documents(req: DocGenRequest, user: dict = Depends(get_current_user)):
+    """[로컬 PoC] DOC 전역 동시수 1 게이트 후 실제 병합 로직 실행."""
+    with global_limit_sync(DOC_LOCK_KEY):
+        return _generate_documents_impl(req, user)
+
+
+def _generate_documents_impl(req: DocGenRequest, user: dict):
     if not req.selected_docs:
         raise HTTPException(status_code=400, detail="선택된 서류가 없습니다.")
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

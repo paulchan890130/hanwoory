@@ -61,7 +61,10 @@ ENV HANWOORY_ENV=server
 ENV NODE_ENV=production
 
 # ── Startup: uvicorn (background, internal only) + next start (foreground) ───
-RUN printf '#!/bin/sh\nuvicorn backend.main:app --host 127.0.0.1 --port 8000 &\ncd /app/frontend && exec node_modules/.bin/next start --port 3000\n' \
+# [로컬 PoC — A안 보강] uvicorn worker 수를 UVICORN_WORKERS env 로 제어.
+# 운영 통제를 위해 기본값은 1(B안) — worker=2 는 Render env 에서 UVICORN_WORKERS=2 를
+# 명시해야 적용된다(코드 push 만으로 운영 동작이 바뀌지 않도록). 로컬은 env 로 1/2/3 스윕.
+RUN printf '#!/bin/sh\nuvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers "${UVICORN_WORKERS:-1}" &\ncd /app/frontend && exec node_modules/.bin/next start --port 3000\n' \
     > /app/start.sh && chmod +x /app/start.sh
 
 EXPOSE 3000
