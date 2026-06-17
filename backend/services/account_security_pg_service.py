@@ -183,14 +183,26 @@ def _count_distinct_ipua_24h(session, login_id: str) -> int:
 
 
 def _suspicion_events_in_window(session, login_id: str) -> int:
+    """차단 판정용 의심 누적 수.
+
+    7일 창 안의 SUSPICIOUS 이벤트를 세되, **마지막 보안해제(UNBLOCKED) 이후**만 센다.
+    (해제 직후 과거 의심으로 즉시 재차단되는 것을 방지 — 관리자가 풀면 카운터가 실효 초기화.)
+    """
     from sqlalchemy import select, func as f
     from backend.db.models.account_security import LoginEvent
     since = _now() - timedelta(days=SUSPICION_BLOCK_WINDOW_DAYS())
+    last_unblock = session.scalar(
+        select(f.max(LoginEvent.created_at)).where(
+            LoginEvent.login_id == login_id,
+            LoginEvent.event_type == EV_UNBLOCKED,
+        )
+    )
+    effective_since = max(since, last_unblock) if last_unblock else since
     return int(session.scalar(
         select(f.count()).select_from(LoginEvent).where(
             LoginEvent.login_id == login_id,
             LoginEvent.event_type == EV_SUSPICIOUS,
-            LoginEvent.created_at >= since,
+            LoginEvent.created_at > effective_since,
         )
     ) or 0)
 
@@ -254,11 +266,18 @@ def evaluate_suspicion(*, login_id: str, tenant_id: Optional[str],
         from backend.db.models.account_security import LoginEvent
         with _sl() as s:
             reasons = []
-            if _count_new_login_revokes_24h(s, lid) >= NEWLOGIN_REVOKE_24H_THRESHOLD():
+            distinct_devices = _count_distinct_ipua_24h(s, lid)
+            # 기준①: 세션이 new_login 으로 밀려난 횟수가 임계 이상 **AND 서로 다른 기기 2곳 이상**.
+            # 단일세션에서 본인이 같은 기기로 반복 로그인하면 distinct_devices=1 → 오탐 제외.
+            if (_count_new_login_revokes_24h(s, lid) >= NEWLOGIN_REVOKE_24H_THRESHOLD()
+                    and distinct_devices >= 2):
                 reasons.append("new_login_revoke_24h")
-            if _count_repeat_logins_30m(s, lid) >= REPEAT_LOGIN_30M_THRESHOLD():
+            # 기준②: 30분 내 반복 로그인/로그아웃도 서로 다른 기기 2곳 이상일 때만(동일기기 오탐 제외).
+            if (_count_repeat_logins_30m(s, lid) >= REPEAT_LOGIN_30M_THRESHOLD()
+                    and distinct_devices >= 2):
                 reasons.append("repeat_login_30m")
-            if _count_distinct_ipua_24h(s, lid) >= DISTINCT_IPUA_24H_THRESHOLD():
+            # 기준③: 24시간 내 서로 다른 기기(ip/ua 조합) 과다.
+            if distinct_devices >= DISTINCT_IPUA_24H_THRESHOLD():
                 reasons.append("distinct_ipua_24h")
             if not reasons:
                 return out
