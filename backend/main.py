@@ -218,6 +218,7 @@ from backend.routers import (
     signature,
     certification,
     business_card,
+    terms,
     health as health_router,
 )
 
@@ -227,6 +228,13 @@ app = FastAPI(
     description="출입국 업무관리 시스템 REST API",
     lifespan=lifespan,
 )
+
+# ── PII 로그 마스킹 필터 부착(주민/외국인등록번호 전체형 자동 마스킹) ──────────────
+try:
+    from backend.services.pii_log_filter import install_pii_log_filter
+    install_pii_log_filter()
+except Exception as _e:  # 부착 실패가 앱 부팅을 막지 않게 한다.
+    print(f"[main] pii log filter install failed (non-fatal): {_e}")
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = os.environ.get(
@@ -264,6 +272,7 @@ app.include_router(marketing.router,  prefix="/api/marketing",  tags=["마케팅
 app.include_router(signature.router,      prefix="/api/signature",               tags=["서명"])
 app.include_router(certification.router,  prefix="/api/certification-services",  tags=["각종공인증"])
 app.include_router(business_card.router,   prefix="/api",                          tags=["전자명함"])
+app.include_router(terms.router,           prefix="/api/terms",                    tags=["약관동의"])
 app.include_router(health_router.router,  prefix="/health",                       tags=["헬스체크"])
 
 # ── Local-beta only: PostgreSQL dev endpoints ─────────────────────────────────

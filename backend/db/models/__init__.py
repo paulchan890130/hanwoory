@@ -40,6 +40,8 @@ from backend.db.models.guideline_category import GuidelineCategory, GuidelineCat
 from backend.db.models.user_session import UserSession  # noqa: F401
 from backend.db.models.roi_preset import RoiPreset  # noqa: F401
 from backend.db.models.doc_tree import DocTreeNode, DocRequiredDocument  # noqa: F401
+from backend.db.models.login_attempt import LoginAttempt  # noqa: F401
+from backend.db.models.terms import TermsVersion, UserTermsAcceptance  # noqa: F401
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -61,4 +63,5 @@ __all__ = [
     "GuidelineCategory", "GuidelineCategoryOverride",
     "UserSession", "RoiPreset",
     "DocTreeNode", "DocRequiredDocument",
+    "LoginAttempt", "TermsVersion", "UserTermsAcceptance",
 ]

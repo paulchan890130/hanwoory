@@ -112,6 +112,19 @@ export default function CustomersPage() {
     onError: () => toast.error("삭제 실패"),
   });
 
+  // 행 클릭 → 상세 열기. 목록 레코드는 외국인등록번호 뒷자리(번호)가 마스킹되어 있으므로,
+  // 단건 reveal 조회(GET /api/customers/{id})로 평문 번호를 받아 드로어에 표시한다.
+  // (대시보드 CustomerCardModal 과 동일 동작 → 고객카드 동일성 유지.)
+  const openCustomerDetail = (c: Record<string, string>) => {
+    setIsNewMode(false);
+    setSelectedCustomer(c); // 즉시 열기(마스킹 상태) → 조회 완료 시 평문으로 교체
+    const id = c["고객ID"] || "";
+    if (!id) return;
+    customersApi.get(id)
+      .then((res) => setSelectedCustomer(res.data))
+      .catch(() => { /* 조회 실패 시 목록 레코드(마스킹) 유지 */ });
+  };
+
   const DATE_FIELDS = ["발급일", "만기일", "발급", "만기"];
   const handleSave = (form: Record<string, string>) => {
     const normalized = { ...form };
@@ -130,7 +143,7 @@ export default function CustomersPage() {
           <Search size={13} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#A0AEC0", pointerEvents:"none" }} />
           <input
             type="text"
-            placeholder="이름, 여권번호, 국적 검색..."
+            placeholder="이름·전화·국적·여권, 등록번호 뒤4자리/7자리"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
@@ -200,7 +213,7 @@ export default function CustomersPage() {
                   const tel = [c["연"] || "", c["락"] || "", c["처"] || ""].filter(Boolean).join("-");
                   const isSelected = selectedCustomer?.["고객ID"] === id;
                   return (
-                    <tr key={id} onClick={() => { setSelectedCustomer(c); setIsNewMode(false); }}
+                    <tr key={id} onClick={() => { openCustomerDetail(c); }}
                       style={{ ...rowHighlight(c), cursor:"pointer", borderBottom:"1px solid #EDF2F7",
                         ...(isSelected ? { background:"rgba(212,168,67,0.08)", outline:"2px solid rgba(212,168,67,0.3)" } : {}) }}>
                       {TABLE_COLS.map((col) => {
