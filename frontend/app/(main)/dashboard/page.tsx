@@ -13,6 +13,7 @@ import TaskSummaryCards from "@/components/tasks/TaskSummaryCards";
 import TaskCategoryFilter from "@/components/tasks/TaskCategoryFilter";
 import TaskCardView, { type MoneyDraft } from "@/components/tasks/TaskCardView";
 import TaskTableView from "@/components/tasks/TaskTableView";
+import CustomerCardModal from "@/components/customers/CustomerCardModal";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -81,7 +82,10 @@ function QuickActions() {
 }
 
 // ── 만기 알림 테이블 (스크롤 제한) ─────────────────────────────────────────────
-function ExpiryTable({ rows, dateField }: { rows: ExpiryAlert[]; dateField: string }) {
+// row 클릭 → 고객ID(고유키)로 고객카드 열기. 이름 매칭이 아니라 고객ID 사용 → 동명이인 안전.
+function ExpiryTable({ rows, dateField, onRowClick }: {
+  rows: ExpiryAlert[]; dateField: string; onRowClick?: (customerId: string) => void;
+}) {
   if (!rows.length) return <p style={{ fontSize: 12, color: "#A0AEC0", padding: "6px 0" }}>(만기 예정 없음)</p>;
   return (
     <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 290 }}>
@@ -96,17 +100,31 @@ function ExpiryTable({ rows, dateField }: { rows: ExpiryAlert[]; dateField: stri
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td style={{ fontWeight: 500 }}>{r.한글이름}</td>
-              <td style={{ color: "#DD6B20", fontWeight: 600 }}>
-                {dateField === "등록증만기일" ? r.등록증만기일 : r.여권만기일}
-              </td>
-              <td>{r.여권번호}</td>
-              <td>{r.생년월일}</td>
-              <td>{r.전화번호}</td>
-            </tr>
-          ))}
+          {rows.map((r, i) => {
+            const cid = r.고객ID || "";
+            const clickable = !!cid && !!onRowClick;
+            return (
+              <tr
+                key={i}
+                onClick={clickable ? () => onRowClick!(cid) : undefined}
+                title={clickable ? "클릭하여 고객카드 열기" : (cid ? undefined : "고객 연결 정보 없음")}
+                style={{ cursor: clickable ? "pointer" : "default", transition: "background 0.12s" }}
+                onMouseEnter={clickable ? (e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#FFF9E6"; } : undefined}
+                onMouseLeave={clickable ? (e) => { (e.currentTarget as HTMLTableRowElement).style.background = ""; } : undefined}
+              >
+                <td style={{ fontWeight: 500 }}>
+                  {r.한글이름}
+                  {!cid && <span style={{ marginLeft: 4, fontSize: 10, color: "#CBD5E0" }}>(미연결)</span>}
+                </td>
+                <td style={{ color: "#DD6B20", fontWeight: 600 }}>
+                  {dateField === "등록증만기일" ? r.등록증만기일 : r.여권만기일}
+                </td>
+                <td>{r.여권번호}</td>
+                <td>{r.생년월일}</td>
+                <td>{r.전화번호}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -417,6 +435,9 @@ export default function DashboardPage() {
   const qc = useQueryClient();
   const user = getUser();
   const router = useRouter();
+
+  // 고객카드(공통 컴포넌트) — 만기 목록 row / 진행업무 카드에서 고객ID로 연다.
+  const [openCustomerId, setOpenCustomerId] = useState<string | null>(null);
 
   const { data: activeTasks = [] } = useQuery({
     queryKey: ["tasks", "active"],
@@ -1043,13 +1064,13 @@ export default function DashboardPage() {
           {/* 등록증 만기 4개월 */}
           <div className="hw-card">
             <div className="hw-card-title">🪪 등록증 만기 4개월 전</div>
-            <ExpiryTable rows={expiryData?.card_alerts ?? []} dateField="등록증만기일" />
+            <ExpiryTable rows={expiryData?.card_alerts ?? []} dateField="등록증만기일" onRowClick={setOpenCustomerId} />
           </div>
 
           {/* 여권 만기 6개월 */}
           <div className="hw-card">
             <div className="hw-card-title">🛂 여권 만기 6개월 전</div>
-            <ExpiryTable rows={expiryData?.passport_alerts ?? []} dateField="여권만기일" />
+            <ExpiryTable rows={expiryData?.passport_alerts ?? []} dateField="여권만기일" onRowClick={setOpenCustomerId} />
           </div>
         </div>
       </div>
@@ -1147,6 +1168,7 @@ export default function DashboardPage() {
           moneyDrafts,
           moneyDirtyIds,
           onMoneyDraftChange: handleMoneyDraftChange,
+          onOpenCustomer: (cid: string) => setOpenCustomerId(cid),
         };
         return (
           <>
@@ -1301,6 +1323,19 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 고객카드 — 만기 목록 row / 진행업무 카드에서 고객ID로 열기(공통 CustomerDrawer 재사용) */}
+      {openCustomerId && (
+        <CustomerCardModal
+          customerId={openCustomerId}
+          onClose={() => setOpenCustomerId(null)}
+          onSaved={() => {
+            // 저장 후 만기 목록 + 진행업무 갱신 (드로어는 유지)
+            qc.invalidateQueries({ queryKey: ["expiry-alerts"] });
+            qc.invalidateQueries({ queryKey: ["tasks", "active"] });
+          }}
+        />
       )}
     </div>
   );

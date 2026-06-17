@@ -170,6 +170,8 @@ def get_expiry_alerts(user: dict = Depends(get_current_user)):
             r = df.loc[i].to_dict()
             eng = f"{str(r.get('성', '')).strip()} {str(r.get('명', '')).strip()}".strip()
             rows.append({
+                # 고객카드를 고유키로 열기 위함 — 이름 매칭 금지(동명이인 방지).
+                "고객ID": str(r.get("고객ID", "")),
                 "한글이름": str(r.get("한글", "")),
                 "영문이름": eng,
                 "여권번호": str(r.get("여권", "")),
@@ -221,6 +223,21 @@ def get_customers(
     items = records[start:start + page_size]
 
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
+
+
+@router.get("/{customer_id}")
+def get_customer(customer_id: str, user: dict = Depends(get_current_user)):
+    """단일 고객 전체 레코드 조회 — 고객카드(CustomerDrawer)를 고유키로 열기 위함.
+
+    홈 대시보드 만기 목록/진행업무 카드에서 고객ID만으로 카드를 열 때 사용한다.
+    이름 검색이 아닌 PG find_customer(고유키) 사용 → 동명이인 오매칭 없음.
+    """
+    tenant_id = user["tenant_id"]
+    from backend.services.customer_pg_service import find_customer
+    rec = find_customer(tenant_id, str(customer_id).strip())
+    if rec is None:
+        raise HTTPException(status_code=404, detail="해당 고객을 찾을 수 없습니다.")
+    return rec
 
 
 @router.post("")

@@ -115,6 +115,8 @@ export interface TaskCardViewProps {
   moneyDrafts?: Record<string, MoneyDraft>;
   moneyDirtyIds?: Set<string>;
   onMoneyDraftChange?: (id: string, field: keyof MoneyDraft, value: number) => void;
+  // 고객카드 열기 — task.customer_id(고유키)가 있을 때만 호출. 없으면 버튼 미표시.
+  onOpenCustomer?: (customerId: string) => void;
 }
 
 // ── compact card (collapsed) — 2줄 압축형 ────────────────────────────────────
@@ -289,7 +291,7 @@ function ExpandedCard({
   task, pendingReception, pendingProcessing, pendingStorage,
   onProgressToggle, onSave, markedComplete, markedDelete,
   onToggleComplete, onToggleDelete, onCollapse, readonly,
-  moneyDraft, moneyDirty, onMoneyDraftChange,
+  moneyDraft, moneyDirty, onMoneyDraftChange, onOpenCustomer,
 }: {
   task: ActiveTask;
   pendingReception: string; pendingProcessing: string; pendingStorage: string;
@@ -303,6 +305,7 @@ function ExpandedCard({
   moneyDraft: MoneyDraft;
   moneyDirty: boolean;
   onMoneyDraftChange?: (field: keyof MoneyDraft, value: number) => void;
+  onOpenCustomer?: (customerId: string) => void;
 }) {
   const [category, setCategory] = useState(task.category ?? "");
   const [date, setDate] = useState(task.date ?? "");
@@ -362,6 +365,42 @@ function ExpandedCard({
             border: "1px solid #E2E8F0", borderRadius: 5, cursor: "pointer", color: "#718096",
           }}>접기 ▲</button>
         </div>
+      </div>
+
+      {/* 주체(고객) 제목 블록 — 세부내용 위에 누구의 업무인지 한눈에 표시 */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid #EDF2F7",
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: task.name ? "#1A202C" : "#A0AEC0", lineHeight: 1.2 }}>
+            {task.name || "고객명 없음"}
+          </div>
+          <div style={{ fontSize: 12, color: "#718096", marginTop: 2 }}>
+            {[task.work, task.category].filter(Boolean).join(" · ") || "업무 정보 없음"}
+          </div>
+        </div>
+        {/* 고객카드 버튼 — 이 기능이 활성(onOpenCustomer 전달)인 화면에서만 표시 */}
+        {onOpenCustomer && (
+          task.customer_id ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onOpenCustomer(task.customer_id!); }}
+              style={{
+                flexShrink: 0, padding: "5px 12px", fontSize: 12, fontWeight: 700,
+                background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #90CDF4",
+                borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap",
+              }}
+              title="연결된 고객카드 열기"
+            >
+              🪪 고객카드
+            </button>
+          ) : (
+            <span style={{ flexShrink: 0, fontSize: 11, color: "#A0AEC0", whiteSpace: "nowrap" }}>
+              고객 미연결
+            </span>
+          )
+        )}
       </div>
 
       {/* 필드 그리드 — 좁은 화면에서 1열로 축소 */}
@@ -470,7 +509,7 @@ function KanbanColumn({
   title, headerColor, tasks, expandedId, onExpand,
   progressPending, onProgressToggle, completedIds, deleteIds,
   onSave, onToggleComplete, onToggleDelete, readonly,
-  moneyDrafts, moneyDirtyIds, onMoneyDraftChange,
+  moneyDrafts, moneyDirtyIds, onMoneyDraftChange, onOpenCustomer,
 }: {
   title: string; headerColor: string; tasks: ActiveTask[];
   expandedId: string | null; onExpand: (id: string | null) => void;
@@ -483,6 +522,7 @@ function KanbanColumn({
   moneyDrafts: Record<string, MoneyDraft>;
   moneyDirtyIds: Set<string>;
   onMoneyDraftChange?: (id: string, field: keyof MoneyDraft, value: number) => void;
+  onOpenCustomer?: (customerId: string) => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -531,6 +571,7 @@ function KanbanColumn({
                 moneyDraft={moneyDrafts[task.id] ?? {}}
                 moneyDirty={moneyDirty}
                 onMoneyDraftChange={onMoneyDraftChange ? (field, value) => onMoneyDraftChange(task.id, field, value) : undefined}
+                onOpenCustomer={onOpenCustomer}
               />
             );
           }
@@ -555,7 +596,7 @@ function KanbanColumn({
 export default function TaskCardView({
   tasks, progressPending, onProgressToggle,
   completedIds, deleteIds, onSave, onToggleComplete, onToggleDelete, readonly,
-  moneyDrafts = {}, moneyDirtyIds = new Set(), onMoneyDraftChange,
+  moneyDrafts = {}, moneyDirtyIds = new Set(), onMoneyDraftChange, onOpenCustomer,
 }: TaskCardViewProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -579,7 +620,7 @@ export default function TaskCardView({
   const colProps = {
     expandedId, onExpand: setExpandedId, progressPending, onProgressToggle,
     completedIds, deleteIds, onSave, onToggleComplete, onToggleDelete, readonly,
-    moneyDrafts, moneyDirtyIds, onMoneyDraftChange,
+    moneyDrafts, moneyDirtyIds, onMoneyDraftChange, onOpenCustomer,
   };
 
   return (

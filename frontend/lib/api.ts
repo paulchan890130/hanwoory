@@ -79,6 +79,7 @@ export interface UserInfo {
 
 export interface ActiveTask {
   id: string;
+  customer_id?: string; // 연결된 고객 고유키(고객ID). 일일결산→진행업무 경로로 생성 시 채워짐. 없으면 고객 미연결.
   category: string;
   date: string;
   name: string;
@@ -248,6 +249,8 @@ export const customersApi = {
   list: (search?: string, page?: number, pageSize?: number, signal?: AbortSignal) =>
     api.get("/api/customers", { params: { search, page, page_size: pageSize }, signal }),
   add: (data: Record<string, string>) => api.post("/api/customers", data),
+  // 단일 고객 전체 레코드 조회 — 고객카드를 고유키(고객ID)로 열 때 사용.
+  get: (id: string) => api.get<Record<string, string>>(`/api/customers/${encodeURIComponent(id)}`),
   update: (id: string, data: Record<string, string>) => api.put(`/api/customers/${id}`, data),
   delete: (id: string) => api.delete(`/api/customers/${id}`),
   expiryAlerts: () => api.get<{ card_alerts: ExpiryAlert[]; passport_alerts: ExpiryAlert[] }>("/api/customers/expiry-alerts"),
@@ -324,6 +327,7 @@ export const guarantorApi = {
 };
 
 export interface ExpiryAlert {
+  고객ID?: string; // 고객카드를 고유키로 열기 위함(이름 매칭 금지)
   한글이름: string;
   영문이름: string;
   여권번호: string;
