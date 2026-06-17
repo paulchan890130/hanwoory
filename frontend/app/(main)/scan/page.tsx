@@ -60,14 +60,6 @@ const smallToolBtnStyle: React.CSSProperties = {
   border: "1px solid #CBD5E0", background: "#EDF2F7", color: "#4A5568",
   fontSize: 12, fontWeight: 500, cursor: "pointer",
 };
-const selBtnStyle: React.CSSProperties = {
-  height: 32, padding: "0 8px", borderRadius: 6,
-  border: "1px solid #3182ce", background: "#ebf8ff", color: "#2b6cb0",
-  fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-};
-const selActiveBtnStyle: React.CSSProperties = {
-  ...selBtnStyle, background: "#3182ce", color: "#fff",
-};
 const overlayBtnStyle: React.CSSProperties = {
   height: 30, minWidth: 52, padding: "0 8px", borderRadius: 5,
   border: "1px solid rgba(255,255,255,0.25)",
@@ -257,7 +249,7 @@ interface DebugOverlay {
 
 function WorkspaceCanvas({
   preview, file, guides, sampleText, sampleSrc, stateRef, debugOverlay,
-  wsMode, selectingFor, onSelectDone, customRois,
+  wsMode, selectingFor, onSelectDone, onSelectField, customRois,
   externalTf, resetTrigger, onTfChange,
   editMode, onBoxChange,
   initialAlign = "center",
@@ -272,6 +264,8 @@ function WorkspaceCanvas({
   wsMode: "이동식" | "선택식";
   selectingFor: string | null;
   onSelectDone: (field: string, rect: ContainerRect) => void;
+  // 선택식 모드: 캔버스 컨트롤(원위치) 아래의 "추출영역 선택" 버튼이 호출 — 대상 필드 토글
+  onSelectField?: (field: string) => void;
   customRois: Record<string, ContainerRect>;
   // [프리셋] tf 외부 주입
   externalTf?: WsTf;
@@ -632,6 +626,37 @@ function WorkspaceCanvas({
           <button type="button" onClick={zoomOut}  onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>축소 −</button>
           <button type="button" onClick={rotate90} onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>90°↻</button>
           <button type="button" onClick={reset}    onMouseDown={(e) => e.stopPropagation()} style={overlayBtnStyle}>원위치</button>
+
+          {/* [선택식] 추출영역 선택 — 원위치 버튼 바로 아래에 항목별 배치 */}
+          {wsMode === "선택식" && onSelectField && (
+            <>
+              <div style={{
+                marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.2)",
+                fontSize: 9, fontWeight: 700, color: "#cbd5e0", textAlign: "center",
+              }}>
+                추출영역 선택
+              </div>
+              {guides.map((g) => {
+                const active = selectingFor === g.key;
+                return (
+                  <button
+                    key={`sel-btn-${g.key}`}
+                    type="button"
+                    onClick={() => onSelectField(g.key)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                      ...overlayBtnStyle,
+                      background: active ? "#3182ce" : "rgba(0,0,0,0.55)",
+                      border: `1px solid ${active ? "#3182ce" : "rgba(255,255,255,0.25)"}`,
+                      color: "#fff",
+                    }}
+                  >
+                    {active ? `${g.label} ✕` : g.label}
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
@@ -975,13 +1000,36 @@ export default function ScanPage() {
     if (preset) { applyPreset(preset); setActiveSlot(slot); }
   }
 
-  // [프리셋] 저장 — 활성 슬롯에 현재 화면 위치 덮어쓰기
+  // [프리셋] 기본값으로 복원 — 활성 슬롯 화면 좌표를 빌트인 기본값으로 되돌림.
+  // 화면/dirty 만 변경하고 PG 저장은 사용자가 "현재 저장"을 눌러야 반영.
+  function handleRestoreDefault() {
+    setPassportMrzBox({
+      x: PASSPORT_MRZ_GUIDE.x, y: PASSPORT_MRZ_GUIDE.y,
+      w: PASSPORT_MRZ_GUIDE.w, h: PASSPORT_MRZ_GUIDE.h,
+    });
+    setArcBoxes(Object.fromEntries(
+      ARC_GUIDE_BOXES.map(b => [b.key, { x: b.x, y: b.y, w: b.w, h: b.h }]),
+    ));
+    // 이미지가 이미 올라와 있으면 사용자의 현재 방향을 유지하기 위해 rot 보존.
+    const ppTf: WsTf = { scale: 1, tx: 0, ty: 0, rot: 0 };
+    setPassportExternalTf(ppTf);
+    setPassportResetTrigger(v => v + 1);
+    const arcTf: WsTf = { scale: 1, tx: 0, ty: 0, rot: arcFileLoadedRef.current ? arcTfRef.current.rot : 0 };
+    setArcExternalTf(arcTf);
+    setArcResetTrigger(v => v + 1);
+    setEditMode(true);
+    setIsDirty(true);
+    toast.message("기본값으로 복원했습니다. '현재 저장'을 눌러 적용하세요.");
+  }
+
+  // [프리셋] 저장 — 활성 슬롯에 현재 화면 위치 덮어쓰기 (슬롯1의 기본값 플래그 보존)
   async function handleSave() {
     try {
       const activePreset = presets[activeSlot - 1];
-      const name = activePreset?.name ?? `슬롯 ${activeSlot}`;
+      const name = activePreset?.name ?? (activeSlot === 1 ? "기본값" : `슬롯 ${activeSlot}`);
+      const isDefault = activePreset?.is_default ?? (activeSlot === 1);
       const data = collectCurrentData();
-      const saved = await saveRoiPreset(activeSlot, name, data, false);
+      const saved = await saveRoiPreset(activeSlot, name, data, isDefault);
       setPresets(prev => {
         const next = [...prev] as (RoiPreset | null)[];
         next[activeSlot - 1] = saved;
@@ -1266,6 +1314,7 @@ export default function ScanPage() {
         onEditModeChange={setEditMode}
         onSave={handleSave}
         onSaveEmpty={handleSaveEmpty}
+        onRestoreDefault={handleRestoreDefault}
         onRename={async (slot, name) => {
           try {
             const updated = await renameRoiPreset(slot, name);
@@ -1352,6 +1401,10 @@ export default function ScanPage() {
             wsMode={wsMode}
             selectingFor={passportSelectingFor}
             onSelectDone={onPassportSelectDone}
+            onSelectField={(field) => {
+              if (passportSelectingFor === field) setActiveSelection(null);
+              else { setPassportCustomRois({}); setActiveSelection({ ws: "passport", field }); }
+            }}
             customRois={passportCustomRois}
             externalTf={passportExternalTf}
             resetTrigger={passportResetTrigger}
@@ -1365,21 +1418,7 @@ export default function ScanPage() {
           {debugMode && passportDebug && <DebugPanel debug={passportDebug} title="여권 MRZ" />}
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-            {wsMode === "선택식" && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (passportSelectingFor === "mrz") setActiveSelection(null);
-                  else {
-                    setPassportCustomRois({});
-                    setActiveSelection({ ws: "passport", field: "mrz" });
-                  }
-                }}
-                style={passportSelectingFor === "mrz" ? selActiveBtnStyle : selBtnStyle}
-              >
-                {passportSelectingFor === "mrz" ? "선택 취소" : "추출영역 선택"}
-              </button>
-            )}
+            {/* "추출영역 선택"은 선택식 모드에서 캔버스 원위치 버튼 아래로 이동 */}
             {passportCustomRois["mrz"] && wsMode === "선택식" && (
               <button type="button" onClick={() => setPassportCustomRois(p => { const n = { ...p }; delete n["mrz"]; return n; })} style={{ ...smallToolBtnStyle, fontSize: 11 }}>
                 선택 초기화
@@ -1471,6 +1510,10 @@ export default function ScanPage() {
             wsMode={wsMode}
             selectingFor={arcSelectingFor}
             onSelectDone={onArcSelectDone}
+            onSelectField={(field) => {
+              if (arcSelectingFor === field) setActiveSelection(null);
+              else { setArcCustomRois({}); setActiveSelection({ ws: "arc", field }); }
+            }}
             customRois={arcCustomRois}
             externalTf={arcExternalTf}
             resetTrigger={arcResetTrigger}
@@ -1498,13 +1541,12 @@ export default function ScanPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {arcFieldRows.map(({ key, value, onChange }) => {
                 const loading = arcLoadingField === key;
-                const isActiveSelect = arcSelectingFor === key;
                 return (
                   <div key={key}>
                     <label style={labelStyle}>{ARC_FIELD_LABELS[key]}</label>
                     <div style={{
                       display: "grid",
-                      gridTemplateColumns: wsMode === "선택식" ? "auto 1fr auto" : "auto 1fr",
+                      gridTemplateColumns: "auto 1fr",
                       gap: 6, alignItems: "center",
                     }}>
                       <button
@@ -1522,22 +1564,8 @@ export default function ScanPage() {
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
                       />
-                      {wsMode === "선택식" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (isActiveSelect) setActiveSelection(null);
-                            else {
-                              setArcCustomRois({});
-                              setActiveSelection({ ws: "arc", field: key });
-                            }
-                          }}
-                          style={isActiveSelect ? selActiveBtnStyle : selBtnStyle}
-                        >
-                          {isActiveSelect ? "취소" : "영역선택"}
-                        </button>
-                      )}
                     </div>
+                    {/* "영역선택"은 선택식 모드에서 캔버스 원위치 버튼 아래로 이동 */}
                     {wsMode === "선택식" && arcCustomRois[key] && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                         <span style={{ fontSize: 10, color: "#6B5314", background: "#FFF9E6", padding: "1px 6px", borderRadius: 4 }}>

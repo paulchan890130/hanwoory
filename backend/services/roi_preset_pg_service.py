@@ -44,7 +44,11 @@ def _to_dict(row) -> dict:
 
 
 def get_all_presets(tenant_id: str) -> list:
-    """슬롯 1/2/3 순서 반환(빈 슬롯=None). 슬롯1 없으면 DEFAULT 자동 시드."""
+    """슬롯 1/2/3 순서 반환. 없거나 깨진 슬롯은 DEFAULT 좌표로 자동 시드.
+
+    슬롯1=기본값(is_default), 슬롯2/3=기본값 복사본(슬롯이 비어 있을 때만 생성).
+    이미 사용자가 저장한 슬롯은 건드리지 않음 → 편집값 유지.
+    """
     from backend.db.models.roi_preset import RoiPreset
     with _SL() as session:
         rows = session.scalars(
@@ -54,6 +58,11 @@ def get_all_presets(tenant_id: str) -> list:
     if 1 not in slot_map:
         slot_map[1] = upsert_preset(tenant_id, slot=1, name="기본값",
                                     data=DEFAULT_PRESET_DATA, is_default=True)
+    # 슬롯 2/3 도 항상 존재하도록 보장 — 비어 있으면 기본값 복사본으로 생성.
+    for s in (2, 3):
+        if s not in slot_map:
+            slot_map[s] = upsert_preset(tenant_id, slot=s, name=f"슬롯 {s}",
+                                        data=DEFAULT_PRESET_DATA, is_default=False)
     return [slot_map.get(i) for i in (1, 2, 3)]
 
 

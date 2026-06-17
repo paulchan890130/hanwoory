@@ -16,6 +16,7 @@ export interface RoiPresetBarProps {
   onSave: () => void;
   onSaveEmpty: (slot: 1 | 2 | 3) => void;
   onRename: (slot: 1 | 2 | 3, name: string) => void;
+  onRestoreDefault: () => void;
 }
 
 // ── 스타일 ───────────────────────────────────────────────────────────────────
@@ -38,12 +39,12 @@ const SLOTS = [1, 2, 3] as const;
 
 export default function RoiPresetBar({
   presets, activeSlot, editMode, isDirty,
-  onSlotChange, onEditModeChange, onSave, onSaveEmpty, onRename,
+  onSlotChange, onEditModeChange, onSave, onSaveEmpty, onRename, onRestoreDefault,
 }: RoiPresetBarProps) {
   // 빈 슬롯 팝오버
   const [emptyPopover, setEmptyPopover] = useState<1 | 2 | 3 | null>(null);
-  // 인라인 이름 편집
-  const [renamingSlot, setRenamingSlot] = useState<2 | 3 | null>(null);
+  // 인라인 이름 편집 — 슬롯 1/2/3 모두 더블클릭으로 이름 변경 가능
+  const [renamingSlot, setRenamingSlot] = useState<1 | 2 | 3 | null>(null);
   const [renameVal, setRenameVal]       = useState("");
   const renameInputRef                  = useRef<HTMLInputElement>(null);
 
@@ -64,20 +65,21 @@ export default function RoiPresetBar({
     if (renamingSlot !== null) renameInputRef.current?.focus();
   }, [renamingSlot]);
 
-  function startRename(slot: 2 | 3) {
-    setRenameVal(presets[slot - 1]?.name ?? `슬롯 ${slot}`);
+  function startRename(slot: 1 | 2 | 3) {
+    setRenameVal(presets[slot - 1]?.name ?? (slot === 1 ? "기본값" : `슬롯 ${slot}`));
     setRenamingSlot(slot);
   }
 
   function commitRename() {
     if (renamingSlot === null) return;
-    const name = renameVal.trim() || presets[renamingSlot - 1]?.name || `슬롯 ${renamingSlot}`;
+    const fallback = renamingSlot === 1 ? "기본값" : `슬롯 ${renamingSlot}`;
+    const name = renameVal.trim() || presets[renamingSlot - 1]?.name || fallback;
     onRename(renamingSlot, name);
     setRenamingSlot(null);
   }
 
-  const isSlot1Active = activeSlot === 1;
-  const saveEnabled   = !isSlot1Active && editMode;
+  // 편집모드는 모든 슬롯에서 사용 가능, 저장은 편집모드일 때 활성화.
+  const saveEnabled   = editMode;
 
   return (
     <div style={{
@@ -97,20 +99,39 @@ export default function RoiPresetBar({
         const isEmpty  = preset === null;
         const dirtyMark = isActive && isDirty ? " *" : "";
 
-        // ── 슬롯 1: 항상 존재, 클릭 = 선택만 ──────────────────────────────
+        // ── 슬롯 1: 항상 존재, 클릭 = 선택 / 더블클릭 = 이름 변경 ──────────
         if (slot === 1) {
-          return (
+          return renamingSlot === 1 ? (
+            <input
+              key={1}
+              ref={renameInputRef}
+              value={renameVal}
+              maxLength={10}
+              onChange={(e) => setRenameVal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter")  { e.preventDefault(); commitRename(); }
+                if (e.key === "Escape") { setRenamingSlot(null); }
+              }}
+              onBlur={commitRename}
+              style={{
+                height: 28, padding: "0 8px", borderRadius: 5, fontSize: 12,
+                border: "2px solid #3182ce", outline: "none", width: 100,
+              }}
+            />
+          ) : (
             <button
               key={1}
               style={isActive ? ACTIVE_BTN : BASE_BTN}
               onClick={() => onSlotChange(1)}
+              onDoubleClick={() => startRename(1)}
+              title="더블클릭으로 이름 변경"
             >
               {isActive ? "●" : "○"} 1: {preset?.name ?? "기본값"}{dirtyMark}
             </button>
           );
         }
 
-        // ── 슬롯 2/3: 빈 슬롯 ─────────────────────────────────────────────
+        // ── 슬롯 2/3: 빈 슬롯 (백엔드가 기본값으로 시드하므로 보통 미발생, 방어용) ─
         if (isEmpty) {
           return (
             <div key={slot} style={{ position: "relative" }} ref={emptyPopover === slot ? popoverRef : null}>
@@ -184,22 +205,33 @@ export default function RoiPresetBar({
         );
       })}
 
-      {/* 우측: 편집모드 + 현재 저장 */}
+      {/* 우측: 편집모드 + 기본값 복원 + 현재 저장 */}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
         <label style={{
           display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-          color: isSlot1Active ? "#CBD5E0" : editMode ? "#D4A843" : "#718096",
+          color: editMode ? "#D4A843" : "#718096",
           fontWeight: editMode ? 600 : 400,
-          cursor: isSlot1Active ? "not-allowed" : "pointer",
+          cursor: "pointer",
         }}>
           <input
             type="checkbox"
             checked={editMode}
-            disabled={isSlot1Active}
             onChange={(e) => onEditModeChange(e.target.checked)}
           />
           편집모드
         </label>
+
+        <button
+          onClick={() => {
+            if (confirm(`현재 선택된 프리셋(${activeSlot})의 좌표를 기본값으로 되돌립니다. (저장하기 전까지 적용되지 않음)`)) {
+              onRestoreDefault();
+            }
+          }}
+          style={{ ...BASE_BTN, color: "#718096" }}
+          title="현재 프리셋 좌표를 기본값으로 복원 (이후 '현재 저장' 필요)"
+        >
+          ↩ 기본값 복원
+        </button>
 
         <button
           disabled={!saveEnabled}
