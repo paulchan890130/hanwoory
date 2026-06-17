@@ -19,6 +19,7 @@ from backend.services.ocr_service import (
     _strip_name_trailing_k,
     find_best_mrz_pair_from_text,
     _mrz_check_digit,
+    _mrz_check_report,
 )
 
 
