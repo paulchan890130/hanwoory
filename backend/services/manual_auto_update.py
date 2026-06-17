@@ -380,8 +380,8 @@ def _run_staging(version: str) -> dict:
 # ── 관리자 알림 (best-effort, 비치명) ────────────────────────────────────────
 def _post_review_notice(changed: list[dict], version: str, summary: dict) -> None:
     """게시판에 '검토 필요' 공지만 생성. '자동 반영 완료'처럼 보이는 문구는 쓰지 않는다.
-    Sheets 실패해도 비치명(상위에서 무시)."""
-    from core.google_sheets import upsert_rows_by_id
+    실패해도 비치명(상위에서 무시)."""
+    from backend.services import board_pg_service
     import uuid
     labels = ", ".join(sorted({c["label"] for c in changed}))
     now = _utc_now_iso()
@@ -409,10 +409,8 @@ def _post_review_notice(changed: list[dict], version: str, summary: dict) -> Non
         "popup_yn": "N",
         "link_url": "",
     }
-    header = ["id", "tenant_id", "author_login", "office_name", "is_notice",
-              "category", "title", "content", "created_at", "updated_at",
-              "popup_yn", "link_url"]
-    upsert_rows_by_id("게시판", header, [row], "id")
+    # 게시판은 PG-only(Phase H) — Sheets(core.google_sheets) 대신 board_pg_service 로 공지 upsert.
+    board_pg_service.upsert_post(row)
 
 
 # ── 메인 진입점 ───────────────────────────────────────────────────────────────

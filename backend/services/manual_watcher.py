@@ -286,12 +286,10 @@ def check_and_update(
 
 def _post_board_notice(changed: list[dict], rematch_summary: dict | None = None) -> None:
     """변경된 매뉴얼을 게시판에 자동 공지."""
-    from core.google_sheets import upsert_rows_by_id
-    from config import SHEET_KEY
+    from backend.services import board_pg_service
     import uuid
-    rows = []
     for c in changed:
-        rows.append({
+        board_pg_service.upsert_post({
             "id":           str(uuid.uuid4()),
             "tenant_id":    "_system",
             "author_login": "_watcher",
@@ -318,10 +316,6 @@ def _post_board_notice(changed: list[dict], rematch_summary: dict | None = None)
             "popup_yn":     "Y",
             "link_url":     HIKOREA_PAGE,
         })
-    POST_HEADER = ["id","tenant_id","author_login","office_name","is_notice",
-                   "category","title","content","created_at","updated_at",
-                   "popup_yn","link_url"]
-    upsert_rows_by_id("게시판", POST_HEADER, rows, "id")
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────
