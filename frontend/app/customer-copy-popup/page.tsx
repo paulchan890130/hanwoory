@@ -1,6 +1,7 @@
 "use client";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { deriveBirthDateFromArc } from "@/lib/birth";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -159,7 +160,8 @@ function Inner() {
   const reg6     = (c["등록증"] || "").trim();
   const reg7     = (c["번호"]   || "").trim();
   const regFull  = reg6 + reg7;
-  const birthdate = reg6 ? "19" + reg6 : "";
+  // 세기(19xx/20xx)는 등록번호 뒷자리 첫 숫자로 판단(공통 helper). 2000년대 출생자 정정.
+  const birthdate = deriveBirthDateFromArc(reg6, reg7);
   const tel       = [c["연"], c["락"], c["처"]].filter(Boolean).join("-");
   const telDigits = [c["연"] || "", c["락"] || "", c["처"] || ""].map(s => s.replace(/\D/g, "")).join("");
   const name      = c["한글"] || `${성} ${명}`.trim() || "고객";

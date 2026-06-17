@@ -19,6 +19,7 @@ import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import VisaStatusSelect from "@/components/VisaStatusSelect";
 import { visaToExtensionWorktype, type ExtensionWorktype } from "@/lib/visa";
+import { deriveBirthDateFromArc } from "@/lib/birth";
 
 function parseDateStr(s: string): Date | null {
   if (!s) return null;
@@ -1467,7 +1468,9 @@ export function CustomerDrawer({
                 {showHikoreaPanel && (() => {
                   const passport  = (form["여권"] || "").trim();
                   const reg6      = (form["등록증"] || "").trim();
-                  const birthdate = reg6 ? "19" + reg6 : "";
+                  const reg7      = (form["번호"]   || "").trim();
+                  // 세기는 등록번호 뒷자리 첫 숫자 기준(공통 helper) — 2000년대 출생자 정정.
+                  const birthdate = deriveBirthDateFromArc(reg6, reg7);
                   const NATION    = "한국계 중국인";
                   const copyVal = (text: string, label: string) => {
                     navigator.clipboard.writeText(text).catch(() => {});
@@ -1493,7 +1496,7 @@ export function CustomerDrawer({
                             )}
                             style={{ fontSize:10, padding:"2px 9px", borderRadius:4, border:"1px solid #9AE6B4", background:"#C6F6D5", color:"#276749", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
                           >
-                            하이코리아 열기
+                            체류만료일 조회
                           </button>
                           <button
                             onClick={() => setShowHikoreaPanel(false)}
@@ -1572,7 +1575,8 @@ export function CustomerDrawer({
                   const engName  = [surname, given].filter(Boolean).join(" ");
                   const reg6     = (form["등록증"] || "").trim();
                   const reg7     = (form["번호"]   || "").trim();
-                  const birthdate = reg6 ? "19" + reg6 : "";
+                  // 세기는 등록번호 뒷자리 첫 숫자 기준(공통 helper) — 2000년대 출생자 정정.
+                  const birthdate = deriveBirthDateFromArc(reg6, reg7);
                   const regNoRaw = reg6 + reg7;
                   const copyVal = (text: string, label: string) => {
                     if (!text) { toast.error(`${label} 값이 없습니다.`); return; }
