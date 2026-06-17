@@ -1202,28 +1202,33 @@ export interface BlockedAccountRow {
   login_id: string; tenant_id: string; suspicion_count: number;
   blocked_at: string | null; blocked_reason: string;
 }
+// 서버 페이지네이션 공통 메타(최신순 page 단위, has_next 로 '다음' 노출 결정).
+export interface PageMeta { page: number; page_size: number; has_next: boolean; }
+const DEFAULT_PAGE_SIZE = 20;
+
 export const accountSecurityApi = {
   // 관리자
-  adminRecentEvents: (onlySuspicious = false, limit = 50) =>
-    api.get<{ events: LoginEventRow[] }>(
-      "/api/admin/security/recent", { params: { only_suspicious: onlySuspicious, limit } }),
-  adminBlockedAccounts: () =>
-    api.get<{ blocked: BlockedAccountRow[] }>("/api/admin/security/blocked"),
-  adminLoginEvents: (loginId: string, limit = 50) =>
-    api.get<{ events: LoginEventRow[]; status: SecurityStatus }>(
-      "/api/admin/security/login-events", { params: { login_id: loginId, limit } }),
+  adminRecentEvents: (onlySuspicious = false, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+    api.get<{ events: LoginEventRow[] } & PageMeta>(
+      "/api/admin/security/recent", { params: { only_suspicious: onlySuspicious, page, page_size: pageSize } }),
+  adminBlockedAccounts: (page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+    api.get<{ blocked: BlockedAccountRow[] } & PageMeta>(
+      "/api/admin/security/blocked", { params: { page, page_size: pageSize } }),
+  adminLoginEvents: (loginId: string, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+    api.get<{ events: LoginEventRow[]; status: SecurityStatus } & PageMeta>(
+      "/api/admin/security/login-events", { params: { login_id: loginId, page, page_size: pageSize } }),
   adminUnblock: (loginId: string) =>
     api.post<{ ok: boolean; status: SecurityStatus }>("/api/admin/security/unblock", { login_id: loginId }),
-  adminNotifications: (onlyUnread = false) =>
-    api.get<{ notifications: SecurityNotificationRow[] }>(
-      "/api/admin/security/notifications", { params: { only_unread: onlyUnread } }),
+  adminNotifications: (onlyUnread = false, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+    api.get<{ notifications: SecurityNotificationRow[] } & PageMeta>(
+      "/api/admin/security/notifications", { params: { only_unread: onlyUnread, page, page_size: pageSize } }),
   // 본인
-  myLoginEvents: (limit = 30) =>
-    api.get<{ events: LoginEventRow[]; status: SecurityStatus }>(
-      "/api/my/login-events", { params: { limit } }),
-  myNotifications: (onlyUnread = false) =>
-    api.get<{ notifications: SecurityNotificationRow[] }>(
-      "/api/my/security-notifications", { params: { only_unread: onlyUnread } }),
+  myLoginEvents: (page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+    api.get<{ events: LoginEventRow[]; status: SecurityStatus } & PageMeta>(
+      "/api/my/login-events", { params: { page, page_size: pageSize } }),
+  myNotifications: (onlyUnread = false, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+    api.get<{ notifications: SecurityNotificationRow[] } & PageMeta>(
+      "/api/my/security-notifications", { params: { only_unread: onlyUnread, page, page_size: pageSize } }),
   myMarkRead: (id: number) =>
     api.post<{ ok: boolean }>(`/api/my/security-notifications/${id}/read`),
 };

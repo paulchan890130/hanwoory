@@ -412,7 +412,7 @@ function CreateAccountModal({
               <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: "#F7FAFC", color: "#4A5568" }}>
                 신규 계정은 PostgreSQL 기준으로 생성됩니다. 위 버튼은 PostgreSQL
                 <code>tenants</code> 행을 초기화하고 계정을 활성화합니다.
-                Google Sheets / Drive는 사용하지 않습니다.
+                외부 시트/드라이브는 사용하지 않습니다.
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
@@ -624,7 +624,7 @@ function AccountDetailPanel({
                 </div>
                 <LegacyFieldNote acc={acc} />
                 <div className="text-[11px]" style={{ color: "#A0AEC0" }}>
-                  운영 데이터는 PostgreSQL에만 저장됩니다. (Google Sheets / Drive 미사용)
+                  운영 데이터는 PostgreSQL에만 저장됩니다. (외부 시트/드라이브 미사용)
                 </div>
               </div>
             </>
@@ -694,7 +694,7 @@ function DeleteConfirmModal({
             </div>
             <div className="text-xs p-3 rounded-lg leading-relaxed" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FEB2B2" }}>
               이 작업은 해당 계정의 로그인을 즉시 차단합니다.<br />
-              고객 데이터와 Google Sheets는 보존됩니다.
+              고객 데이터는 보존됩니다.
             </div>
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -3123,7 +3123,7 @@ export default function AdminPage() {
               }}
               title={
                 isLocalMock
-                  ? "개발 환경 — PostgreSQL + 개발용 mock 어댑터 (운영 아님, Google Sheets/Drive 미호출)"
+                  ? "개발 환경 — PostgreSQL + 개발용 mock 어댑터 (운영 아님, 외부 시트/드라이브 미호출)"
                   : "PostgreSQL 모드"
               }
             >

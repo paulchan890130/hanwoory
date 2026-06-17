@@ -372,7 +372,7 @@ def unblock_account(login_id: str, actor_login_id: Optional[str] = None) -> bool
 
 
 # ── 조회(UI) ──────────────────────────────────────────────────────────────────
-def recent_login_events(login_id: str, limit: int = 50) -> List[dict]:
+def recent_login_events(login_id: str, limit: int = 50, offset: int = 0) -> List[dict]:
     lid = (login_id or "").strip()
     if not lid or not _configured():
         return []
@@ -382,7 +382,8 @@ def recent_login_events(login_id: str, limit: int = 50) -> List[dict]:
         with _sl() as s:
             rows = s.scalars(
                 select(LoginEvent).where(LoginEvent.login_id == lid)
-                .order_by(LoginEvent.created_at.desc()).limit(min(int(limit), 200))
+                .order_by(LoginEvent.created_at.desc())
+                .offset(max(0, int(offset))).limit(min(int(limit), 200))
             ).all()
             return [{
                 "event_type": r.event_type, "ip_prefix_masked": r.ip_prefix_masked or "",
@@ -394,7 +395,7 @@ def recent_login_events(login_id: str, limit: int = 50) -> List[dict]:
         return []
 
 
-def recent_login_events_all(limit: int = 50, only_suspicious: bool = False) -> List[dict]:
+def recent_login_events_all(limit: int = 50, only_suspicious: bool = False, offset: int = 0) -> List[dict]:
     """전 계정 최근 로그인/보안 이벤트(관리자용, 검색 없이 기본 노출). 원문 PII 미반환.
 
     require_admin 라우터에서만 호출(슈퍼관리자는 교차 테넌트 계정관리와 동일 범위). 오류 시 빈 목록.
@@ -408,7 +409,8 @@ def recent_login_events_all(limit: int = 50, only_suspicious: bool = False) -> L
             stmt = select(LoginEvent)
             if only_suspicious:
                 stmt = stmt.where(LoginEvent.risk_level.in_(["suspicious", "blocked"]))
-            stmt = stmt.order_by(LoginEvent.created_at.desc()).limit(min(int(limit), 300))
+            stmt = (stmt.order_by(LoginEvent.created_at.desc())
+                    .offset(max(0, int(offset))).limit(min(int(limit), 300)))
             rows = s.scalars(stmt).all()
             return [{
                 "login_id": r.login_id, "tenant_id": r.tenant_id or "",
@@ -421,7 +423,7 @@ def recent_login_events_all(limit: int = 50, only_suspicious: bool = False) -> L
         return []
 
 
-def list_blocked_accounts(limit: int = 200) -> List[dict]:
+def list_blocked_accounts(limit: int = 200, offset: int = 0) -> List[dict]:
     """보안차단(security_blocked=true) 계정 목록(관리자용). 원문 PII 미반환. 오류 시 빈 목록."""
     if not _configured():
         return []
@@ -431,7 +433,8 @@ def list_blocked_accounts(limit: int = 200) -> List[dict]:
         with _sl() as s:
             rows = s.scalars(
                 select(AccountSecurity).where(AccountSecurity.security_blocked.is_(True))
-                .order_by(AccountSecurity.blocked_at.desc().nullslast()).limit(min(int(limit), 500))
+                .order_by(AccountSecurity.blocked_at.desc().nullslast())
+                .offset(max(0, int(offset))).limit(min(int(limit), 500))
             ).all()
             return [{
                 "login_id": r.login_id, "tenant_id": r.tenant_id or "",
@@ -460,7 +463,7 @@ def security_status(login_id: str) -> dict:
         return {"security_blocked": False, "suspicion_count": 0, "blocked_at": None}
 
 
-def notifications_for(recipient_login_id: str, only_unread: bool = False, limit: int = 50) -> List[dict]:
+def notifications_for(recipient_login_id: str, only_unread: bool = False, limit: int = 50, offset: int = 0) -> List[dict]:
     lid = (recipient_login_id or "").strip()
     if not lid or not _configured():
         return []
@@ -471,7 +474,8 @@ def notifications_for(recipient_login_id: str, only_unread: bool = False, limit:
             stmt = select(SecurityNotification).where(SecurityNotification.recipient_login_id == lid)
             if only_unread:
                 stmt = stmt.where(SecurityNotification.is_read.is_(False))
-            stmt = stmt.order_by(SecurityNotification.created_at.desc()).limit(min(int(limit), 200))
+            stmt = (stmt.order_by(SecurityNotification.created_at.desc())
+                    .offset(max(0, int(offset))).limit(min(int(limit), 200)))
             rows = s.scalars(stmt).all()
             return [{
                 "id": r.id, "type": r.type, "title": r.title or "", "body": r.body or "",

@@ -197,7 +197,7 @@ export default function LoginPage() {
           color: "#A0AEC0",
         }}>
           © 한우리행정사사무소 · K.ID 출입국 업무관리<br />
-          Powered by Google Sheets + FastAPI + Next.js
+          Powered by K.ID 업무관리 시스템
         </div>
       </div>
 

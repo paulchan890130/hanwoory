@@ -13,6 +13,22 @@ from backend.services import account_security_pg_service as _sec
 
 router = APIRouter()
 
+# ── 서버 페이지네이션 공통 ────────────────────────────────────────────────────
+# 전체 로딩 금지: 화면 진입 시 최신순 20건만 내려주고, 다음 페이지는 별도 요청한다.
+# has_next 는 page_size+1 건을 조회해 초과분 존재 여부로 판정(추가 count 쿼리 불필요).
+PAGE_SIZE_DEFAULT = 20
+PAGE_SIZE_MAX = 50
+
+
+def _paginate(fetch, page: int, page_size: int):
+    """fetch(limit, offset) -> rows(list). page_size+1 조회 후 has_next 판정·trim."""
+    page = max(1, int(page))
+    page_size = max(1, min(int(page_size), PAGE_SIZE_MAX))
+    offset = (page - 1) * page_size
+    rows = fetch(page_size + 1, offset) or []
+    has_next = len(rows) > page_size
+    return rows[:page_size], page, page_size, has_next
+
 
 class UnblockBody(BaseModel):
     login_id: str
@@ -20,23 +36,36 @@ class UnblockBody(BaseModel):
 
 # ── 관리자 ────────────────────────────────────────────────────────────────────
 @router.get("/admin/security/login-events")
-def admin_login_events(login_id: str = Query(...), limit: int = Query(50),
+def admin_login_events(login_id: str = Query(...),
+                       page: int = Query(1, ge=1),
+                       page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
                        user: dict = Depends(require_admin)):
-    return {"events": _sec.recent_login_events(login_id, limit=limit),
-            "status": _sec.security_status(login_id)}
+    rows, p, ps, has_next = _paginate(
+        lambda lim, off: _sec.recent_login_events(login_id, limit=lim, offset=off), page, page_size)
+    return {"events": rows, "status": _sec.security_status(login_id),
+            "page": p, "page_size": ps, "has_next": has_next}
 
 
 @router.get("/admin/security/recent")
-def admin_recent_events(limit: int = Query(50), only_suspicious: bool = Query(False),
+def admin_recent_events(page: int = Query(1, ge=1),
+                        page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                        only_suspicious: bool = Query(False),
                         user: dict = Depends(require_admin)):
-    """검색 없이 기본 노출용 — 전 계정 최근 로그인/보안 이벤트(원문 PII 미반환)."""
-    return {"events": _sec.recent_login_events_all(limit=limit, only_suspicious=only_suspicious)}
+    """검색 없이 기본 노출용 — 전 계정 최근 로그인/보안 이벤트(최신순, 페이지 단위, 원문 PII 미반환)."""
+    rows, p, ps, has_next = _paginate(
+        lambda lim, off: _sec.recent_login_events_all(limit=lim, only_suspicious=only_suspicious, offset=off),
+        page, page_size)
+    return {"events": rows, "page": p, "page_size": ps, "has_next": has_next}
 
 
 @router.get("/admin/security/blocked")
-def admin_blocked_accounts(user: dict = Depends(require_admin)):
-    """보안차단 계정 목록 — 목록에서 바로 해제 가능하도록."""
-    return {"blocked": _sec.list_blocked_accounts()}
+def admin_blocked_accounts(page: int = Query(1, ge=1),
+                           page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                           user: dict = Depends(require_admin)):
+    """보안차단 계정 목록(최신순, 페이지 단위) — 목록에서 바로 해제 가능하도록."""
+    rows, p, ps, has_next = _paginate(
+        lambda lim, off: _sec.list_blocked_accounts(limit=lim, offset=off), page, page_size)
+    return {"blocked": rows, "page": p, "page_size": ps, "has_next": has_next}
 
 
 @router.get("/admin/security/status")
@@ -46,30 +75,48 @@ def admin_security_status(login_id: str = Query(...), user: dict = Depends(requi
 
 @router.post("/admin/security/unblock")
 def admin_security_unblock(body: UnblockBody, user: dict = Depends(require_admin)):
-    ok = _sec.unblock_account(body.login_id, actor_login_id=user.get("sub"))
+    ok = _sec.unblock_account(body.login_id, actor_login_id=user.get("login_id"))
     if not ok:
         raise HTTPException(status_code=503, detail="보안 해제를 처리할 수 없습니다(보안 기능 미구성).")
     return {"ok": True, "status": _sec.security_status(body.login_id)}
 
 
 @router.get("/admin/security/notifications")
-def admin_security_notifications(only_unread: bool = Query(False), user: dict = Depends(require_admin)):
-    return {"notifications": _sec.notifications_for(user.get("sub", ""), only_unread=only_unread)}
+def admin_security_notifications(page: int = Query(1, ge=1),
+                                 page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                                 only_unread: bool = Query(False),
+                                 user: dict = Depends(require_admin)):
+    rows, p, ps, has_next = _paginate(
+        lambda lim, off: _sec.notifications_for(user.get("login_id", ""), only_unread=only_unread, limit=lim, offset=off),
+        page, page_size)
+    return {"notifications": rows, "page": p, "page_size": ps, "has_next": has_next}
 
 
 # ── 사용자 본인 ───────────────────────────────────────────────────────────────
 @router.get("/my/login-events")
-def my_login_events(limit: int = Query(30), user: dict = Depends(get_current_user)):
-    return {"events": _sec.recent_login_events(user.get("sub", ""), limit=limit),
-            "status": _sec.security_status(user.get("sub", ""))}
+def my_login_events(page: int = Query(1, ge=1),
+                    page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                    user: dict = Depends(get_current_user)):
+    lid = user.get("login_id", "")
+    rows, p, ps, has_next = _paginate(
+        lambda lim, off: _sec.recent_login_events(lid, limit=lim, offset=off), page, page_size)
+    return {"events": rows, "status": _sec.security_status(lid),
+            "page": p, "page_size": ps, "has_next": has_next}
 
 
 @router.get("/my/security-notifications")
-def my_security_notifications(only_unread: bool = Query(False), user: dict = Depends(get_current_user)):
-    return {"notifications": _sec.notifications_for(user.get("sub", ""), only_unread=only_unread)}
+def my_security_notifications(page: int = Query(1, ge=1),
+                              page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                              only_unread: bool = Query(False),
+                              user: dict = Depends(get_current_user)):
+    lid = user.get("login_id", "")
+    rows, p, ps, has_next = _paginate(
+        lambda lim, off: _sec.notifications_for(lid, only_unread=only_unread, limit=lim, offset=off),
+        page, page_size)
+    return {"notifications": rows, "page": p, "page_size": ps, "has_next": has_next}
 
 
 @router.post("/my/security-notifications/{notif_id}/read")
 def my_mark_read(notif_id: int, user: dict = Depends(get_current_user)):
-    ok = _sec.mark_notification_read(notif_id, user.get("sub", ""))
+    ok = _sec.mark_notification_read(notif_id, user.get("login_id", ""))
     return {"ok": ok}

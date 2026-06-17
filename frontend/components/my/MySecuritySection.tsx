@@ -21,19 +21,28 @@ function fmt(iso: string): string {
 
 export default function MySecuritySection() {
   const [events, setEvents] = useState<LoginEventRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasNext, setHasNext] = useState(false);
   const [status, setStatus] = useState<SecurityStatus | null>(null);
   const [notifs, setNotifs] = useState<SecurityNotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(() => {
+  // 로그인 이력: 서버 페이지네이션(최신순 20건/페이지, 이전·다음). 본인 것만.
+  const loadEvents = useCallback((p: number) => {
     setLoading(true);
-    Promise.all([accountSecurityApi.myLoginEvents(30), accountSecurityApi.myNotifications(false)])
-      .then(([ev, nt]) => { setEvents(ev.data.events); setStatus(ev.data.status); setNotifs(nt.data.notifications); })
-      .catch(() => { /* graceful: 0021 미적용 등 → 빈 상태 유지 */ })
+    accountSecurityApi.myLoginEvents(p)
+      .then((ev) => { setEvents(ev.data.events); setStatus(ev.data.status); setPage(ev.data.page); setHasNext(ev.data.has_next); })
+      .catch(() => { /* graceful: 미적용/오류 → 빈 상태 유지 */ })
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadNotifs = useCallback(() => {
+    accountSecurityApi.myNotifications(false)
+      .then((nt) => setNotifs(nt.data.notifications))
+      .catch(() => { /* graceful */ });
+  }, []);
+
+  useEffect(() => { loadEvents(1); loadNotifs(); }, [loadEvents, loadNotifs]);
 
   const markRead = (id: number) => {
     accountSecurityApi.myMarkRead(id)
@@ -111,6 +120,19 @@ export default function MySecuritySection() {
             </tbody>
           </table>
         </div>
+        {(page > 1 || hasNext) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, justifyContent: "flex-end" }}>
+            <button disabled={page <= 1 || loading} onClick={() => loadEvents(page - 1)}
+              style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
+                background: page <= 1 || loading ? "#F7FAFC" : "#fff", color: page <= 1 || loading ? "#CBD5E0" : "#4A5568",
+                cursor: page <= 1 || loading ? "not-allowed" : "pointer" }}>이전</button>
+            <span style={{ fontSize: 12, color: "#718096" }}>페이지 {page}</span>
+            <button disabled={!hasNext || loading} onClick={() => loadEvents(page + 1)}
+              style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
+                background: !hasNext || loading ? "#F7FAFC" : "#fff", color: !hasNext || loading ? "#CBD5E0" : "#4A5568",
+                cursor: !hasNext || loading ? "not-allowed" : "pointer" }}>다음</button>
+          </div>
+        )}
       </div>
     </div>
   );
