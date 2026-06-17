@@ -67,6 +67,18 @@ export default function CustomerCardModal({
     updateMut.mutate({ id, payload: normalized });
   };
 
+  // 삭제 — 기존 DELETE /api/customers/{id} 재사용(고객관리와 동일). 성공 시 닫고 목록 refresh.
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => customersApi.delete(id),
+    onSuccess: () => {
+      toast.success("삭제됨");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      onSaved?.();
+      onClose();
+    },
+    onError: () => toast.error("삭제 실패"),
+  });
+
   // 로딩 중 — 드로어와 동일한 우측 패널 위치에 간단한 로딩 표시.
   if (!record) {
     if (isLoading) {
@@ -88,6 +100,7 @@ export default function CustomerCardModal({
       isNew={false}
       onClose={onClose}
       onSave={handleSave}
+      onDelete={(id) => deleteMut.mutate(id)}
       isSaving={updateMut.isPending}
     />
   );

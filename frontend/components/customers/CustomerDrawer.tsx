@@ -3,7 +3,7 @@
 // 고객카드(고객 상세/편집 드로어) + 하위 모달(숙소제공자/신원보증인/완료업무) + 만기 D-Day helper.
 // 고객관리 페이지(app/(main)/customers/page.tsx)에서 분리한 공통 컴포넌트.
 // 고객관리 페이지와 홈 대시보드 양쪽에서 동일 컴포넌트를 재사용한다(중복 구현 금지).
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -13,9 +13,12 @@ import {
 } from "@/lib/api";
 import { Search, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield } from "lucide-react";
 import SignatureModal from "@/components/SignatureModal";
+import QuickDocPanel from "@/components/QuickDocPanel";
+import QuickPoaPanel from "@/components/QuickPoaPanel";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import VisaStatusSelect from "@/components/VisaStatusSelect";
+import { visaToExtensionWorktype, type ExtensionWorktype } from "@/lib/visa";
 
 function parseDateStr(s: string): Date | null {
   if (!s) return null;
@@ -960,7 +963,6 @@ function AccommodationProviderModal({
 // ── 우측 드로어 ────────────────────────────────────────────────────────────────
 export function CustomerDrawer({
   customer, isNew, onClose, onSave, onDelete, isSaving,
-  onOpenDocOverlay, onOpenQuickPoaOverlay, onOpenDocExtension,
 }: {
   customer: Record<string, string> | null;
   isNew: boolean;
@@ -968,12 +970,14 @@ export function CustomerDrawer({
   onSave: (d: Record<string, string>) => void;
   onDelete?: (id: string) => void;
   isSaving: boolean;
-  onOpenDocOverlay?: () => void;
-  onOpenQuickPoaOverlay?: () => void;
-  onOpenDocExtension?: (visaRaw: string) => void;
 }) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
+
+  // ── 문서자동작성 / 원클릭 작성 오버레이 (컴포넌트 자체가 책임 → 어느 화면에서 열어도 동일) ──
+  const [docOverlayOpen, setDocOverlayOpen] = useState(false);
+  const [docPreset, setDocPreset] = useState<ExtensionWorktype | null>(null);
+  const [quickPoaOverlayOpen, setQuickPoaOverlayOpen] = useState(false);
 
   // ── 서명 상태 ──
   const [hasSignature, setHasSignature] = useState<boolean | null>(null);
@@ -1027,6 +1031,9 @@ export function CustomerDrawer({
       setShowHikoreaPanel(false);
       setHikoreaExpiry("");
       setShowIdFindPanel(false);
+      setDocOverlayOpen(false);
+      setQuickPoaOverlayOpen(false);
+      setDocPreset(null);
     }
   }, [customer]);
 
@@ -1308,11 +1315,11 @@ export function CustomerDrawer({
                             onChange={(v) => change(f.key, v)}
                           />
                         </div>
-                        {!isNew && onOpenDocExtension && (
+                        {!isNew && (
                           <div style={{ minWidth:0, display:"flex", alignItems:"flex-end" }}>
                             <button
                               type="button"
-                              onClick={() => onOpenDocExtension(form["V"] ?? "")}
+                              onClick={() => { setQuickPoaOverlayOpen(false); setDocPreset(visaToExtensionWorktype(form["V"] ?? "")); setDocOverlayOpen(true); }}
                               title="체류기간 연장 문서 작성으로 이동"
                               style={{
                                 height:32, padding:"0 16px", borderRadius:6,
@@ -1347,19 +1354,17 @@ export function CustomerDrawer({
               {grp.title === "기본정보" && !isNew && (
                 <>
                 <div style={{ marginTop:8, display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {onOpenDocOverlay && (
-                    <button
-                      onClick={onOpenDocOverlay}
-                      style={{
-                        display:"flex", alignItems:"center", gap:5,
-                        fontSize:11, padding:"5px 12px", borderRadius:6,
-                        border:"1px solid #D4A843", color:"#6B5314",
-                        background:"#FFF9E6", cursor:"pointer", fontWeight:600,
-                      }}
-                    >
-                      <FileText size={11} /> 문서자동작성
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setQuickPoaOverlayOpen(false); setDocPreset(null); setDocOverlayOpen(true); }}
+                    style={{
+                      display:"flex", alignItems:"center", gap:5,
+                      fontSize:11, padding:"5px 12px", borderRadius:6,
+                      border:"1px solid #D4A843", color:"#6B5314",
+                      background:"#FFF9E6", cursor:"pointer", fontWeight:600,
+                    }}
+                  >
+                    <FileText size={11} /> 문서자동작성
+                  </button>
                   {(() => {
                     // broken 행은 사용자 입장에서 "연결 안 됨" 과 동일하게 취급한다.
                     // 빨간 경고 뱃지를 보여주는 대신 평범한 회색 "숙소제공자"
@@ -1412,21 +1417,19 @@ export function CustomerDrawer({
                       </button>
                     );
                   })()}
-                  {onOpenQuickPoaOverlay && (
-                    <button
-                      onClick={onOpenQuickPoaOverlay}
-                      title="원클릭 작성"
-                      style={{
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        width:28, height:28, borderRadius:6,
-                        border:"1px solid #BEE3F8",
-                        background:"#EBF8FF", color:"#2B6CB0",
-                        cursor:"pointer", flexShrink:0,
-                      }}
-                    >
-                      <Zap size={12} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(true); }}
+                    title="원클릭 작성"
+                    style={{
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      width:28, height:28, borderRadius:6,
+                      border:"1px solid #BEE3F8",
+                      background:"#EBF8FF", color:"#2B6CB0",
+                      cursor:"pointer", flexShrink:0,
+                    }}
+                  >
+                    <Zap size={12} />
+                  </button>
                   {!isNew && (
                     <button
                       onClick={() => { setShowHikoreaPanel(v => !v); setShowIdFindPanel(false); }}
@@ -1973,6 +1976,114 @@ export function CustomerDrawer({
           hasNameDuplicate={workSummary?.has_name_duplicate ?? false}
           onClose={() => setShowCompletedPopup(false)}
         />
+      )}
+
+      {/* 문서자동작성 오버레이 — position:fixed, 사이드바·상단바 미침범 (드로어가 자체 소유) */}
+      {docOverlayOpen && customer && !isNew && (
+        <div style={{
+          position:"fixed",
+          top:120,                           // 상단바(56px) + 툴바(~64px) 아래
+          bottom:0,
+          left:"var(--hw-main-left, 0px)",   // 사이드바 오른쪽부터
+          right:"min(480px, 100vw)",         // 고객카드 480px 제외
+          zIndex:45,
+          background:"#fff",
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.14)",
+          overflow:"hidden",
+        }}>
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"11px 18px", borderBottom:"1px solid #E2E8F0",
+            flexShrink:0, background:"#FFF9E6",
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <FileText size={15} style={{ color:"#D4A843" }} />
+              <span style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>문서 자동작성</span>
+              <span style={{ fontSize:12, color:"#718096" }}>
+                — {customer["한글"] || [customer["성"], customer["명"]].filter(Boolean).join(" ") || "고객"}
+              </span>
+            </div>
+            <button
+              onClick={() => setDocOverlayOpen(false)}
+              style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"20px" }}>
+            <Suspense>
+              <QuickDocPanel
+                initialCustomer={{
+                  id:      customer["고객ID"] || "",
+                  name:    customer["한글"] || "",
+                  name_en: [customer["성"], customer["명"]].filter(Boolean).join(" ") || undefined,
+                  label:   customer["한글"] || customer["고객ID"] || "",
+                  reg_no:  [customer["등록증"], customer["번호"]].filter(Boolean).join("-"),
+                }}
+                presetWorktype={docPreset}
+                embedded
+                onClose={() => setDocOverlayOpen(false)}
+              />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
+      {/* 원클릭 작성 오버레이 — position:fixed, 사이드바·상단바 미침범 (드로어가 자체 소유) */}
+      {quickPoaOverlayOpen && customer && !isNew && (
+        <div style={{
+          position:"fixed",
+          top:120,
+          bottom:0,
+          left:"var(--hw-main-left, 0px)",
+          right:"min(480px, 100vw)",
+          zIndex:45,
+          background:"#fff",
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.14)",
+          overflow:"hidden",
+        }}>
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"11px 18px", borderBottom:"1px solid #E2E8F0",
+            flexShrink:0, background:"#EBF8FF",
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <Zap size={15} style={{ color:"#2B6CB0" }} />
+              <span style={{ fontSize:14, fontWeight:700, color:"#1A202C" }}>원클릭 작성</span>
+              <span style={{ fontSize:12, color:"#718096" }}>
+                — {customer["한글"] || [customer["성"], customer["명"]].filter(Boolean).join(" ") || "고객"}
+              </span>
+            </div>
+            <button
+              onClick={() => setQuickPoaOverlayOpen(false)}
+              style={{ padding:4, color:"#718096", background:"none", border:"none", cursor:"pointer" }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"16px 20px" }}>
+            <QuickPoaPanel
+              initialCustomer={{
+                customer_id: customer["고객ID"]  || undefined,
+                kor_name:    customer["한글"]    || "",
+                surname:     customer["성"]      || "",
+                given:       customer["명"]      || "",
+                stay_status: customer["V"]       || "",
+                reg6:        customer["등록증"]   || "",
+                no7:         customer["번호"]    || "",
+                addr:        customer["주소"]    || "",
+                phone1:      customer["연"]      || "010",
+                phone2:      customer["락"]      || "",
+                phone3:      customer["처"]      || "",
+                passport:    customer["여권"]    || "",
+              }}
+              embedded
+              onClose={() => setQuickPoaOverlayOpen(false)}
+            />
+          </div>
+        </div>
       )}
     </>
   );
