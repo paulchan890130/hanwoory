@@ -26,18 +26,47 @@ router = APIRouter()
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, request: Request = None):
     # PG-only(Phase B): 계정은 PostgreSQL(users + tenants)에서만 조회한다.
-    # Google Sheets Accounts fallback 없음 — PG 미존재 시 그대로 인증 실패.
+    from backend.services import login_guard_pg_service as _guard
+    from backend.services import audit_service as _audit
+
+    _ua = request.headers.get("user-agent") if request else None
+    _xff = request.headers.get("x-forwarded-for") if request else None
+    _ip = (_xff.split(",")[0].strip() if _xff else (request.client.host if request and request.client else None))
+    _GENERIC = "ID 또는 비밀번호가 올바르지 않습니다."  # 계정 존재 여부 비노출(통일 메시지)
+    _LOCKED_MSG = "로그인 시도가 너무 많습니다. 약 10분 후 다시 시도해 주세요."
+
+    # 1) 잠금 확인(인증 이전). fail-open: PG 오류 시 None.
+    if _guard.check_locked(req.login_id):
+        _audit.log_event(action="LOGIN_LOCKED", actor_login_id=req.login_id,
+                         ip_address=_ip, user_agent=_ua, payload={"success": False})
+        raise HTTPException(status_code=429, detail=_LOCKED_MSG)
+
     acc = _find_account(req.login_id) or {}
+
+    def _fail():
+        locked = _guard.record_failure(req.login_id, ip=_ip, user_agent=_ua)
+        _audit.log_event(action="LOGIN_FAILED", actor_login_id=req.login_id,
+                         ip_address=_ip, user_agent=_ua,
+                         payload={"success": False, "locked": locked})
+        if locked:
+            raise HTTPException(status_code=429, detail=_LOCKED_MSG)
+        raise HTTPException(status_code=401, detail=_GENERIC)
+
+    # 계정 미존재 — 존재 여부를 드러내지 않도록 잘못된 자격증명과 동일 처리(+실패 카운트).
     if not acc:
-        raise HTTPException(status_code=401, detail="계정이 존재하지 않습니다.")
+        _fail()
 
     is_active = str(acc.get("is_active", "")).strip().lower() in ("true", "1", "y")
     if not is_active:
+        # 승인 대기/비활성은 별도 안내(UX). 잠금 카운트에는 포함하지 않음.
         raise HTTPException(status_code=403, detail="관리자 승인 전이거나 비활성화된 계정입니다.")
 
     hashed = str(acc.get("password_hash", "")).strip()
     if not hashed or not _verify_password(req.password, hashed):
-        raise HTTPException(status_code=401, detail="ID 또는 비밀번호가 올바르지 않습니다.")
+        _fail()
+
+    # 성공 — 실패 카운터/잠금 해제.
+    _guard.record_success(req.login_id)
 
     is_admin  = str(acc.get("is_admin", "")).strip().lower() in ("true", "1", "y")
     tenant_id = str(acc.get("tenant_id", "")).strip() or req.login_id
@@ -71,6 +100,8 @@ def login(req: LoginRequest, request: Request = None):
         print(f"[auth.login] single-session setup failed (non-fatal): {e}")
 
     token = create_access_token(claims)
+    _audit.log_event(action="LOGIN_SUCCESS", actor_login_id=req.login_id, tenant_id=tenant_id,
+                     ip_address=_ip, user_agent=_ua, payload={"success": True})
     return TokenResponse(
         access_token=token,
         login_id=req.login_id,
