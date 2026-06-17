@@ -26,6 +26,19 @@ def admin_login_events(login_id: str = Query(...), limit: int = Query(50),
             "status": _sec.security_status(login_id)}
 
 
+@router.get("/admin/security/recent")
+def admin_recent_events(limit: int = Query(50), only_suspicious: bool = Query(False),
+                        user: dict = Depends(require_admin)):
+    """검색 없이 기본 노출용 — 전 계정 최근 로그인/보안 이벤트(원문 PII 미반환)."""
+    return {"events": _sec.recent_login_events_all(limit=limit, only_suspicious=only_suspicious)}
+
+
+@router.get("/admin/security/blocked")
+def admin_blocked_accounts(user: dict = Depends(require_admin)):
+    """보안차단 계정 목록 — 목록에서 바로 해제 가능하도록."""
+    return {"blocked": _sec.list_blocked_accounts()}
+
+
 @router.get("/admin/security/status")
 def admin_security_status(login_id: str = Query(...), user: dict = Depends(require_admin)):
     return _sec.security_status(login_id)

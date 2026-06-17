@@ -1189,6 +1189,7 @@ export const certApi = {
 export interface LoginEventRow {
   event_type: string; ip_prefix_masked: string; user_agent_summary: string;
   success: boolean | null; reason: string; risk_level: string; created_at: string;
+  login_id?: string; tenant_id?: string;  // /recent(전 계정) 응답에만 포함
 }
 export interface SecurityStatus {
   security_blocked: boolean; suspicion_count: number; blocked_at: string | null;
@@ -1197,8 +1198,17 @@ export interface SecurityNotificationRow {
   id: number; type: string; title: string; body: string; related_login_id: string;
   is_read: boolean; recipient_role?: string; created_at: string;
 }
+export interface BlockedAccountRow {
+  login_id: string; tenant_id: string; suspicion_count: number;
+  blocked_at: string | null; blocked_reason: string;
+}
 export const accountSecurityApi = {
   // 관리자
+  adminRecentEvents: (onlySuspicious = false, limit = 50) =>
+    api.get<{ events: LoginEventRow[] }>(
+      "/api/admin/security/recent", { params: { only_suspicious: onlySuspicious, limit } }),
+  adminBlockedAccounts: () =>
+    api.get<{ blocked: BlockedAccountRow[] }>("/api/admin/security/blocked"),
   adminLoginEvents: (loginId: string, limit = 50) =>
     api.get<{ events: LoginEventRow[]; status: SecurityStatus }>(
       "/api/admin/security/login-events", { params: { login_id: loginId, limit } }),

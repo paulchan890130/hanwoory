@@ -138,12 +138,20 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
     (expiryData?.card_alerts?.length ?? 0) +
     (expiryData?.passport_alerts?.length ?? 0);
 
-  const handleLogout = () => {
-    // 단일 세션 모드: 현재 세션 revoke (best-effort). off면 서버 no-op.
-    authApi.logout().catch(() => { /* 무시 — 로컬 정리는 계속 */ });
-    qc.clear();
-    clearUser();
-    router.replace("/login");
+  const handleLogout = async () => {
+    // 토큰 제거 전에 서버 로그아웃 요청 완료까지 대기해야 LOGOUT 이벤트가 안정적으로 기록된다.
+    // (기존엔 fire-and-forget 직후 clearUser+이동 → Authorization 헤더 소실/요청 취소로 LOGOUT 누락)
+    // 서버 지연 시 UI가 멈추지 않도록 최대 3초만 대기 후 로컬 정리는 항상 진행(finally).
+    try {
+      await Promise.race([
+        authApi.logout().catch(() => { /* 무시 — 로컬 정리는 계속 */ }),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+    } finally {
+      qc.clear();
+      clearUser();
+      router.replace("/login");
+    }
   };
 
   return (

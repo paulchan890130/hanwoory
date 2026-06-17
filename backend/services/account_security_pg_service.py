@@ -375,6 +375,55 @@ def recent_login_events(login_id: str, limit: int = 50) -> List[dict]:
         return []
 
 
+def recent_login_events_all(limit: int = 50, only_suspicious: bool = False) -> List[dict]:
+    """전 계정 최근 로그인/보안 이벤트(관리자용, 검색 없이 기본 노출). 원문 PII 미반환.
+
+    require_admin 라우터에서만 호출(슈퍼관리자는 교차 테넌트 계정관리와 동일 범위). 오류 시 빈 목록.
+    """
+    if not _configured():
+        return []
+    try:
+        from sqlalchemy import select
+        from backend.db.models.account_security import LoginEvent
+        with _sl() as s:
+            stmt = select(LoginEvent)
+            if only_suspicious:
+                stmt = stmt.where(LoginEvent.risk_level.in_(["suspicious", "blocked"]))
+            stmt = stmt.order_by(LoginEvent.created_at.desc()).limit(min(int(limit), 300))
+            rows = s.scalars(stmt).all()
+            return [{
+                "login_id": r.login_id, "tenant_id": r.tenant_id or "",
+                "event_type": r.event_type, "ip_prefix_masked": r.ip_prefix_masked or "",
+                "user_agent_summary": r.user_agent_summary or "", "success": r.success,
+                "reason": r.reason or "", "risk_level": r.risk_level or "none",
+                "created_at": r.created_at.isoformat() if r.created_at else "",
+            } for r in rows]
+    except Exception:
+        return []
+
+
+def list_blocked_accounts(limit: int = 200) -> List[dict]:
+    """보안차단(security_blocked=true) 계정 목록(관리자용). 원문 PII 미반환. 오류 시 빈 목록."""
+    if not _configured():
+        return []
+    try:
+        from sqlalchemy import select
+        from backend.db.models.account_security import AccountSecurity
+        with _sl() as s:
+            rows = s.scalars(
+                select(AccountSecurity).where(AccountSecurity.security_blocked.is_(True))
+                .order_by(AccountSecurity.blocked_at.desc().nullslast()).limit(min(int(limit), 500))
+            ).all()
+            return [{
+                "login_id": r.login_id, "tenant_id": r.tenant_id or "",
+                "suspicion_count": int(r.suspicion_count or 0),
+                "blocked_at": r.blocked_at.isoformat() if r.blocked_at else None,
+                "blocked_reason": r.blocked_reason or "",
+            } for r in rows]
+    except Exception:
+        return []
+
+
 def security_status(login_id: str) -> dict:
     lid = (login_id or "").strip()
     if not lid or not _configured():
