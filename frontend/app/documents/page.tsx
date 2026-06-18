@@ -3,6 +3,9 @@ import Link from "next/link";
 import { DocumentsClient } from "./DocumentsClient";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
 
+// 요청 시점 서버 렌더(빌드 시 백엔드 미가동 → 빈 배열 정적 베이크 방지). 홈/sitemap 과 동일 패턴.
+export const dynamic = "force-dynamic";
+
 interface Post {
   id: string;
   title: string;
