@@ -68,8 +68,18 @@ def diagnose(eng, login_id: str) -> None:
               f"distinct(prefix+UA) in shown LOGIN_SUCCESS={len(distinct)} -> {sorted(distinct)}")
 
         print(f"\n=== security_notifications (최근 30 관련, {login_id}) ===")
+        # 스키마가 환경마다 다를 수 있어(읽음표시 컬럼이 is_read/read_at 등) 실제 존재하는
+        # 컬럼만 골라 조회한다 — 없는 컬럼을 SELECT 해 전체 진단이 실패하는 것을 방지.
+        existing = {row[0] for row in c.execute(text(
+            "select column_name from information_schema.columns "
+            "where table_name='security_notifications'"))}
+        wanted = ["recipient_role", "type", "title", "created_at", "is_read", "read_at"]
+        cols = [col for col in wanted if col in existing]
+        if not cols:  # information_schema 미지원/권한 없음 → 보수적 최소 컬럼.
+            cols = ["type", "title", "created_at"]
+        col_sql = ", ".join(cols)
         for r in c.execute(text(
-            "select recipient_role, type, title, created_at, read_at from security_notifications "
+            f"select {col_sql} from security_notifications "
             "where related_login_id=:lid order by created_at desc limit 30"), {"lid": login_id}):
             print(dict(r._mapping))
 
