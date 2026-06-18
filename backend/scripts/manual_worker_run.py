@@ -3,11 +3,12 @@
 매뉴얼 업데이트의 **최종 방향은 서버 자동화**다. 이 스크립트는 Render Cron Job(또는
 Worker)에서 1회 실행되어:
 
-    감지 → 다운로드 → rhwp extract → diff → candidates → PG 저장
-        → (chromium) 변경 페이지 PDF artifact 생성 → PG blob 저장 → /tmp 삭제 → 종료
+    감지 → 첨부 메타데이터 비교 → 변경 알림 생성(needs_review) → /tmp 삭제 → 종료
 
-를 수행한다. 로컬 수동 실행은 개발/검증용일 뿐 최종안이 아니며, 사용자 업로드 방식이나
-Windows 한컴 COM 방식으로 되돌리지 않는다.
+PDF 는 **사용자가 수동 업로드**한다(최신 설계). 운영 cron 은 "감지 + 알림 전용"이며
+HWP/HWPX/PDF 변환이나 PDF batch 생성을 하지 않는다. ``--with-pdf`` 는 로컬/dev 백필 전용이고,
+``HANWOORY_ENV=server`` 에서는 코드 가드로 PDF batch 가 차단된다(운영 cron 에서 pdf_batch_plan
+이벤트가 발생하지 않음). Windows 한컴 COM 방식으로 되돌리지 않는다.
 
 핵심 동작은 ``backend.services.manual_auto_update.run_worker_cycle`` 한 곳에 있고, 여기서는
 인자 파싱 + 결과 JSON 출력 + 종료코드만 담당한다(중복 로직 없음).
@@ -17,11 +18,13 @@ Windows 한컴 COM 방식으로 되돌리지 않는다.
         staging 에 전이되지 않는다)
     1 — staging 이 error/skipped 등(자동화 실패로 간주)
 
-실행 예 (Render Cron Job command):
-    python -m backend.scripts.manual_worker_run --pg --with-pdf
+실행 예 (Render Cron Job command — 감지+알림 전용, --with-pdf 미사용):
+    python -m backend.scripts.manual_worker_run --pg
 
 필요 env: DATABASE_URL, FEATURE_PG_MANUAL_UPDATE=1, FEATURE_MANUAL_AUTO_UPDATE=1,
-          CHROME_PATH(예: /usr/bin/chromium), HANWOORY_ENV=server
+          HANWOORY_ENV=server
+(운영 cron 에는 --with-pdf / CHROME_PATH 불필요 — PDF 는 수동 업로드. --with-pdf 가
+ 실수로 들어가도 HANWOORY_ENV=server 가드로 PDF batch 는 실행되지 않는다.)
 """
 from __future__ import annotations
 

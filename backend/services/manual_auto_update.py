@@ -1038,6 +1038,19 @@ def _process_label_adaptive(*, label: str, manual: str, hwp, cands: list[dict],
                                       log_path=genpdf_log)
 
 
+def _server_pdf_disabled() -> tuple[bool, str]:
+    """운영(Render) 서버/Cron 에서 PDF 자동생성 금지(최신 설계: PDF 는 수동 업로드).
+
+    HANWOORY_ENV/RUN_ENV == 'server' 이면 PDF batch(HWP→PDF 변환/대량 생성)를 차단한다.
+    일회성 로컬/dev 백필이 꼭 필요하면 ``ALLOW_SERVER_PDF_BACKFILL=1`` 로 명시 허용(기본 비활성).
+    → 운영 cron 에서는 pdf_batch_plan 이벤트가 절대 발생하지 않는다."""
+    is_server = str(os.environ.get("HANWOORY_ENV") or os.environ.get("RUN_ENV") or "").strip().lower() == "server"
+    allow = str(os.environ.get("ALLOW_SERVER_PDF_BACKFILL") or "").strip().lower() in ("1", "true", "yes", "y", "on")
+    if is_server and not allow:
+        return True, "server_pdf_generation_disabled (HANWOORY_ENV=server; set ALLOW_SERVER_PDF_BACKFILL=1 to override)"
+    return False, ""
+
+
 def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: int = 1,
                                        limit: int | None = None,
                                        row_ids: list[str] | None = None,
@@ -1068,6 +1081,11 @@ def generate_pdf_artifacts_for_version(version: str | None = None, *, neighbor: 
     from backend.services import manual_update_pg_service as svc
     if not svc.pg_enabled():
         return {"status": "skipped", "reason": "pg_disabled"}
+    # 운영 가드: 서버/Cron 에서는 PDF 자동생성 금지(수동 업로드 설계). pdf_batch_plan 이전에 차단.
+    blocked, reason = _server_pdf_disabled()
+    if blocked:
+        _log("pdf_generation_skipped_server", reason=reason, version=version)
+        return {"status": "skipped", "reason": reason}
     version = version or svc.get_state_dict().get("last_staging_version")
     if not version:
         return {"status": "skipped", "reason": "no staging version"}
@@ -1203,7 +1221,7 @@ def _backfill_pdf_artifacts(*, limit: int | None = None, neighbor: int = 1) -> d
     return res
 
 
-def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
+def run_worker_cycle(*, force: bool = False, with_pdf: bool = False,
                      notify: bool = True, limit: int | None = None,
                      trigger: str = "cron") -> dict:
     """Render Cron Job / Worker 1사이클 — 서버 자동화 진입점.
@@ -1226,6 +1244,11 @@ def run_worker_cycle(*, force: bool = False, with_pdf: bool = True,
     out = {"staging": staging, "pdf": None}
     if not with_pdf:
         out["pdf"] = {"status": "skipped", "reason": "with_pdf=False"}
+        return out
+    # 운영 가드: with_pdf 가 들어와도 서버/Cron 에서는 PDF batch 를 실행하지 않는다.
+    blocked, reason = _server_pdf_disabled()
+    if blocked:
+        out["pdf"] = {"status": "skipped", "reason": reason}
         return out
     status = staging.get("status") if isinstance(staging, dict) else None
     if status == "staged":
