@@ -1,6 +1,6 @@
 """Feature flags for PostgreSQL-backed code paths (local beta).
 
-All flags default to **off** so existing Google Sheets behavior is preserved
+All flags default to **off** so existing behavior is preserved
 unless the caller explicitly opts in via env var. Truthy values are
 ``1``/``true``/``yes``/``y``/``on`` (case-insensitive); anything else, plus
 absence and empty string, is false.
@@ -33,7 +33,7 @@ def pg_audit_enabled() -> bool:
 
 
 def pg_customers_enabled() -> bool:
-    """If true, customers router reads/writes go to PG instead of Sheets."""
+    """If true, customers router reads/writes go to PostgreSQL."""
     return _bool("FEATURE_PG_CUSTOMERS")
 
 

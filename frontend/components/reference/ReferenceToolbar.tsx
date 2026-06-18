@@ -1,15 +1,12 @@
 "use client";
 // frontend/components/reference/ReferenceToolbar.tsx
 
-import { ExternalLink } from "lucide-react";
-
 interface Props {
   editMode: boolean;
   onEditModeChange: (v: boolean) => void;
-  sheetEditUrl: string | null;
 }
 
-export default function ReferenceToolbar({ editMode, onEditModeChange, sheetEditUrl }: Props) {
+export default function ReferenceToolbar({ editMode, onEditModeChange }: Props) {
   return (
     <>
       {/* 편집 모드 배너 */}
@@ -19,7 +16,7 @@ export default function ReferenceToolbar({ editMode, onEditModeChange, sheetEdit
           padding: "8px 16px", display: "flex", alignItems: "center",
           justifyContent: "space-between", fontSize: 12, color: "#6B5314",
         }}>
-          <span>⚠ 편집 모드 — 변경사항이 즉시 구글시트에 반영됩니다</span>
+          <span>⚠ 편집 모드 — 변경사항이 즉시 저장됩니다</span>
           <button
             onClick={() => onEditModeChange(false)}
             style={{
@@ -47,22 +44,6 @@ export default function ReferenceToolbar({ editMode, onEditModeChange, sheetEdit
         >
           ✏ 편집
         </button>
-        {sheetEditUrl && (
-          <a
-            href={sheetEditUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              fontSize: 12, padding: "5px 12px", borderRadius: 6,
-              color: "#3182CE", background: "#EBF8FF", border: "1px solid #BEE3F8",
-              textDecoration: "none",
-            }}
-          >
-            <ExternalLink size={12} />
-            원본 시트 열기
-          </a>
-        )}
       </div>
     </>
   );

@@ -3,7 +3,7 @@
 This package exists to provide a SQLAlchemy engine, declarative base, and a
 FastAPI dependency for obtaining a session. **No business tables are defined
 here yet** — Phase 1 intentionally limits itself to the connection layer so
-that the rest of the application (Google Sheets / Drive) is unaffected.
+that the rest of the application is unaffected.
 
 Importing this package must not connect to the database. The engine is only
 constructed when something actively asks for it (lazy initialization in

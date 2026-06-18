@@ -1040,7 +1040,8 @@ export const marketingApi = {
     // /api/upload-image 는 Next.js API Route (app/api/upload-image/route.ts).
     // rewrites()를 통한 multipart 포워딩이 불안정하므로 이 경로를 사용.
     // Content-Type 헤더를 명시하지 않아야 axios가 boundary를 자동 생성함.
-    return api.post<{ url: string; file_id: string }>("/api/upload-image", form);
+    // PG 저장 전환(0022): 응답은 내부 URL + id. (구 Drive file_id 제거 — image_file_id 에 넣지 않음)
+    return api.post<{ url: string; id: string; content_type: string; size_bytes: number }>("/api/upload-image", form);
   },
 };
 
@@ -1222,11 +1223,11 @@ export const accountSecurityApi = {
   adminNotifications: (onlyUnread = false, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
     api.get<{ notifications: SecurityNotificationRow[] } & PageMeta>(
       "/api/admin/security/notifications", { params: { only_unread: onlyUnread, page, page_size: pageSize } }),
-  // 본인
-  myLoginEvents: (page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+  // 본인(마이페이지) — 서버 페이지네이션: 로그인 이력 10건/페이지, 보안 알림 5건/페이지(상한 10).
+  myLoginEvents: (page = 1, pageSize = 10) =>
     api.get<{ events: LoginEventRow[]; status: SecurityStatus } & PageMeta>(
       "/api/my/login-events", { params: { page, page_size: pageSize } }),
-  myNotifications: (onlyUnread = false, page = 1, pageSize = DEFAULT_PAGE_SIZE) =>
+  myNotifications: (onlyUnread = false, page = 1, pageSize = 5) =>
     api.get<{ notifications: SecurityNotificationRow[] } & PageMeta>(
       "/api/my/security-notifications", { params: { only_unread: onlyUnread, page, page_size: pageSize } }),
   myMarkRead: (id: number) =>

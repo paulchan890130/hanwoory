@@ -389,9 +389,7 @@ def scan_register(
     - 기존 고객 → 변경 필드만 batch_update (만기일만 바뀐 경우 안전)
     - 신규 고객 → 고객ID 발급 후 append
 
-    core/customer_service.py의 upsert_customer_from_scan()은 Streamlit
-    session_state를 직접 참조하므로 FastAPI에서 직접 호출 불가.
-    tenant_service.get_worksheet()로 동일 로직 구현.
+    Streamlit 레거시(core/customer_service.py)와 분리된 독립 구현.
     """
     import logging
     _log = logging.getLogger("scan.register")
@@ -425,9 +423,7 @@ def scan_register(
     def _invalidate_customer_caches():
         """저장 성공 직후 고객 관련 캐시를 비워, 고객관리 목록이 즉시 갱신되도록 한다.
 
-        특히 Sheets 경로는 raw worksheet(batch_update/append_row)로 직접 쓰므로
-        tenant_service.read_sheet 의 120초 read 캐시를 우회한다 → 명시적 무효화 필요.
-        PG 경로에서는 해당 키가 없어 no-op (안전)."""
+        PG 경로에서는 해당 캐시 키가 없어 no-op (안전)."""
         try:
             from backend.services.tenant_service import invalidate_read_cache
             invalidate_read_cache(tenant_id, CUSTOMER_SHEET_NAME)
@@ -442,8 +438,8 @@ def scan_register(
     # ── PG 경로 (현재 PostgreSQL 런타임) ────────────────────────────────────
     # customers 라우터(add_customer/update_customer)와 동일하게 feature flag 를
     # 존중하고 동일 서비스(customer_pg_service)로 라우팅한다. 플래그가 꺼져 있으면
-    # 아래 기존 Google Sheets 경로로 폴백(하위호환). row-level INSERT/UPDATE 만 수행.
-    # PG-only(Phase C): OCR 고객등록은 항상 PostgreSQL. Google Sheets fallback 제거.
+    # row-level INSERT/UPDATE 만 수행.
+    # PG-only(Phase C): OCR 고객등록은 항상 PostgreSQL.
     if True:
         print(f"[write-path] customers(scan): PG tenant={tenant_id!r}")
         from backend.services.customer_pg_service import (
@@ -523,5 +519,5 @@ def scan_register(
             _log.exception("[SCAN][BE][PG] upsert failed")
             raise HTTPException(status_code=500, detail="고객 저장 실패(PG)")
 
-    # 도달 불가(PG-only) — 위 if 블록이 항상 반환/예외. Google Sheets 경로 제거됨.
+    # 도달 불가(PG-only) — 위 if 블록이 항상 반환/예외.
     raise HTTPException(status_code=500, detail="scan_register misrouted (PG-only)")

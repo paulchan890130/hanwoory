@@ -30,7 +30,7 @@ def _safe_int(v) -> int:
 
 
 def _entry_to_dict(row) -> dict:
-    """Convert a DailyEntry ORM row to a Sheets-shaped dict."""
+    """Convert a DailyEntry ORM row to a 표준(한글 키) dict."""
     return {
         "id": row.entry_id or "",
         "date": row.date or "",

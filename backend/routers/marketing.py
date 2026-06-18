@@ -8,31 +8,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import uuid
 import io
 import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
 from pydantic import BaseModel
 from typing import Optional
 
 from backend.auth import get_current_user
 
-# 마케팅 게시물 이미지 전용 Google Drive 폴더 (공개 접근 설정됨)
-_MARKETING_IMG_FOLDER_ID = "1XuoDA0YHyeOGEVeKA7nTe0qTY-xllFNn"
-
-
-def _get_drive():
-    """Google Drive API 서비스 객체 반환"""
-    from google.oauth2.service_account import Credentials
-    from googleapiclient.discovery import build
-    import config
-    creds = Credentials.from_service_account_file(
-        config.KEY_PATH,
-        scopes=["https://www.googleapis.com/auth/drive"],
-    )
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
-
-
-def _get_img_folder() -> str:
-    """마케팅 이미지 업로드 대상 폴더 ID 반환"""
-    return _MARKETING_IMG_FOLDER_ID
+# 마케팅 이미지는 PostgreSQL(marketing_images, BYTEA)에 저장한다(Google Drive 미사용, migration 0022).
+# 업로드 응답 url = 내부 URL(/api/marketing/images/{id}), 공개 서빙은 GET /images/{id}(무인증).
 
 router = APIRouter()
 
@@ -50,7 +33,7 @@ def _sheet_name():
     return MARKETING_POSTS_SHEET_NAME
 
 
-# PG-only(Phase H): 마케팅 글 metadata 는 marketing_pg_service. Google Sheets fallback 제거.
+# PG-only(Phase H): 마케팅 글 metadata 는 marketing_pg_service.
 # (이미지 파일은 Google Drive 외부 리소스 — upload_image 별도, DB 데이터와 분리.)
 def _read_posts():
     from backend.services.marketing_pg_service import list_admin
@@ -129,51 +112,67 @@ def public_get_post(post_id: str):
 
 # ── 관리자 전용 엔드포인트 ─────────────────────────────────────────────────────
 
+# 업로드 허용 형식(서버가 Pillow 로 디코딩해 실제 판별 — 확장자/Content-Type 불신).
+_IMG_FMT_MIME = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
+_IMG_MAX_BYTES = 3 * 1024 * 1024  # 3MB
+
+
 @router.post("/admin/upload-image")
 async def upload_image(
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
-    """이미지 파일을 Google Drive marketing-images 폴더에 업로드하고 공개 URL 반환"""
+    """이미지를 PostgreSQL(marketing_images, BYTEA)에 저장하고 내부 URL 반환. (Google Drive 미사용)
+
+    신규 이미지는 image_url(내부 URL)만 사용한다 — image_file_id(레거시 Drive id)에는 넣지 않는다.
+    """
     if not user.get("is_admin"):
         raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
 
-    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다 (jpg/png/gif/webp).")
-
     contents = await file.read()
-    if len(contents) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="파일 크기는 5MB 이하여야 합니다.")
+    if len(contents) > _IMG_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="이미지 파일은 3MB 이하만 업로드할 수 있습니다.")
 
+    # 실제 이미지인지 Pillow 로 디코딩 검증 + 형식 판별(JPG/PNG/WEBP 만 — GIF/SVG/기타 거절).
     try:
-        from googleapiclient.http import MediaIoBaseUpload
-        drive = _get_drive()
-        folder_id = _get_img_folder()
+        from PIL import Image
+        probe = Image.open(io.BytesIO(contents))
+        fmt = (probe.format or "").upper()
+        probe.verify()
+    except Exception:
+        raise HTTPException(status_code=415, detail="유효한 이미지 파일이 아닙니다 (JPG/PNG/WEBP).")
+    if fmt not in _IMG_FMT_MIME:
+        raise HTTPException(status_code=415, detail="JPG / PNG / WEBP 형식만 업로드할 수 있습니다. (GIF/SVG 등 미지원)")
 
-        safe_name = file.filename or "image"
-        ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else "jpg"
-        fname = f"mkt_{str(uuid.uuid4())[:8]}.{ext}"
-
-        media = MediaIoBaseUpload(io.BytesIO(contents), mimetype=file.content_type)
-        uploaded = drive.files().create(
-            body={"name": fname, "parents": [folder_id]},
-            media_body=media,
-            fields="id",
-        ).execute()
-
-        file_id = uploaded["id"]
-        drive.permissions().create(
-            fileId=file_id,
-            body={"type": "anyone", "role": "reader"},
-        ).execute()
-
-        url = f"https://drive.google.com/uc?export=view&id={file_id}"
-        return {"url": url, "file_id": file_id}
-    except HTTPException:
-        raise
+    content_type = _IMG_FMT_MIME[fmt]
+    from backend.services import marketing_image_pg_service as _img
+    try:
+        meta = _img.save_image(
+            tenant_id=user.get("tenant_id", ""),
+            created_by=user.get("login_id", ""),
+            filename=file.filename or "image",
+            content_type=content_type,
+            data=contents,
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"이미지 업로드 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"이미지 저장 실패: {e}")
+    return {
+        "url": f"/api/marketing/images/{meta['id']}",
+        "id": meta["id"],
+        "content_type": meta["content_type"],
+        "size_bytes": meta["size_bytes"],
+    }
+
+
+@router.get("/images/{image_id}")
+def get_marketing_image(image_id: str):
+    """공개 마케팅 이미지 서빙(무인증) — 공개 게시판 표시용. 없음/삭제 → 404."""
+    from backend.services import marketing_image_pg_service as _img
+    res = _img.get_image(image_id)
+    if res is None:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    data, mime = res
+    return Response(content=data, media_type=mime, headers={"Cache-Control": "public, max-age=600"})
 
 
 @router.get("/admin/posts")

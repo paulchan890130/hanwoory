@@ -409,7 +409,7 @@ def _post_review_notice(changed: list[dict], version: str, summary: dict) -> Non
         "popup_yn": "N",
         "link_url": "",
     }
-    # 게시판은 PG-only(Phase H) — Sheets(core.google_sheets) 대신 board_pg_service 로 공지 upsert.
+    # 게시판은 PG-only(Phase H) — board_pg_service 로 공지 upsert.
     board_pg_service.upsert_post(row)
 
 

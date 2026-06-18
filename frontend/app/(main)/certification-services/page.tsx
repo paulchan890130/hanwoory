@@ -167,7 +167,7 @@ export default function CertificationServicesPage() {
     } catch (e: any) {
       const status = (e as any).response?.status;
       if (status === 429) {
-        setError("구글시트 읽기 한도를 초과했습니다. 잠시 후 다시 시도하거나 새로고침 횟수를 줄여주세요.");
+        setError("데이터 조회 한도를 초과했습니다. 잠시 후 다시 시도하거나 새로고침 횟수를 줄여주세요.");
       } else {
         setError((e as any).response?.data?.detail || "데이터 로드 실패");
       }

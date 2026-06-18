@@ -1,11 +1,11 @@
 """Three task tables: active / planned / completed.
 
-These mirror the corresponding Sheets tabs exactly (same column names) so
+These keep the established column names (same column names) so
 the repository can hand dicts straight to the existing router/frontend
 without any key renaming.
 
 Money columns (``transfer``, ``cash``, ``card``, ``stamp``, ``receivable``,
-``planned_expense``) are TEXT, not INTEGER, because the Sheets path passes
+``planned_expense``) are TEXT, not INTEGER, because the app passes
 them through as strings and the frontend's money-draft pattern relies on
 that — empty string, "0", "1,000" all need to round-trip.
 """

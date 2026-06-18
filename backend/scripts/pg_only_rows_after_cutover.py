@@ -1,7 +1,7 @@
-"""Read-only report: PG rows that are NOT in the latest Google Sheets xlsx.
+"""Read-only report: PG rows that are NOT in the latest exported xlsx.
 
-Reverse of ``diff_latest_sheets_vs_pg.py``. After the cutover apply, PG has a
-few more rows than the sheet in some domains. This tool lists those **PG-only**
+Reverse of ``diff_latest_xlsx_vs_pg.py``. After the cutover apply, PG has a
+few more rows than the snapshot in some domains. This tool lists those **PG-only**
 rows so they can be classified as: prior-import fallback rows, app-generated
 rows, duplicates, or genuine rows worth keeping.
 

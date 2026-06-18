@@ -1,11 +1,11 @@
 """업무참고/업무정리 인라인 편집 — PostgreSQL 전용(Phase G).
 
-``reference_edit_service``(Google Sheets gspread)의 PG 대체. 동일한 함수 시그니처를
+편집 서비스의 PG 구현. 동일한 함수 시그니처를
 제공하여 ``reference.py`` 의 편집 엔드포인트가 드롭인으로 PG 를 사용한다.
 
 저장 구조 (work_data 모델, JSONB row 기반 — 신규 테이블 없이 기존 구조 사용):
   - ``work_reference_sheets``: (tenant_id, sheet_name) 당 1행. ``headers``(JSONB list,
-    열 순서) + ``meta``(JSONB, 열 너비/행 높이 = Sheets dimension 대응, migration 0009).
+    열 순서) + ``meta``(JSONB, 열 너비/행 높이, migration 0009).
   - ``work_reference_rows``: (tenant_id, sheet_name, row_index 0-based) 당 1행. ``data``
     (JSONB, header→cell 값).
 
@@ -13,7 +13,7 @@
 열은 header 이름(col_key)으로 식별. 행 삽입/삭제/이동·열 삽입/삭제 시 row_index/headers 를
 0..n 연속으로 재작성(rewrite)하여 unique 제약 충돌을 피한다.
 
-PG 미구성 시 get_sessionmaker() 가 RuntimeError → 조용한 Sheets fallback 없음.
+PG 미구성 시 get_sessionmaker() 가 RuntimeError → 조용한 fallback 없음.
 """
 from __future__ import annotations
 

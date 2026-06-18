@@ -33,7 +33,7 @@ COMMENT_HEADER = [
 ]
 
 
-# PG-only(Phase H): 게시판은 board_pg_service 만 사용. Google Sheets(core.google_sheets) helper 제거.
+# PG-only(Phase H): 게시판은 board_pg_service 만 사용.
 
 
 @router.get("/popup")

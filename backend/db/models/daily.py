@@ -1,10 +1,10 @@
 """Daily report entries + balance.
 
-``daily_entries`` mirrors the Sheets ``일일결산`` rows. Money fields are
+``daily_entries`` stores the daily-settlement rows. Money fields are
 stored as INTEGER (cents-free won amounts are always integral in the
-current app); the Sheets path also coerces them via ``_safe_int``.
+current app); the app also coerces them via ``_safe_int``.
 
-``daily_balances`` collapses the two-row Sheets "잔액" tab into a single
+``daily_balances`` collapses the two-row "잔액" layout into a single
 row per tenant (cash, profit) — much simpler to keep consistent.
 """
 from __future__ import annotations

@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 def get_events_map(tenant_id: str) -> dict[str, list[str]]:
     """Return {date_str: [event_text, ...]} for this tenant.
 
-    Mirrors the Sheets router's ``get_events`` response shape exactly.
+    Matches the existing router's ``get_events`` response shape exactly.
     """
     from backend.db.models.event import Event
     from backend.db.session import get_sessionmaker

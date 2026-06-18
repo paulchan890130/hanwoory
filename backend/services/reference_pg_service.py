@@ -1,7 +1,7 @@
 """PG repository for work-reference tabs (업무참고 / 업무정리 / …).
 
 Only READ paths are exposed — the existing edit endpoints in
-``reference_edit_service`` go through gspread directly and remain Sheets-only
+the edit path is implemented directly on PostgreSQL
 for this round (those edits do cell-precise updates that don't translate
 cleanly to a row-based PG schema in one pass).
 """
@@ -17,7 +17,7 @@ def list_sheets(tenant_id: str) -> dict:
 
     PG 모드에는 실제 Google 스프레드시트 ID가 없다. 과거에는 ``local-work-{tenant_id}``
     synthetic sentinel 을 돌려줬으나, 이 값이 프론트의 "원본 시트 열기" 링크로 이어져
-    깨진 Google Sheets URL 을 만들었다. PG 전환 원칙상 Sheets 링크를 만들지 않으므로
+    외부 링크를 만들지 않으므로
     ``sheet_key`` 는 빈 문자열로 둔다 → 프론트는 빈 값이면 링크를 숨긴다.
     """
     from backend.db.models.work_data import WorkReferenceSheet
@@ -64,7 +64,7 @@ def get_sheet_data(tenant_id: str, sheet_name: str) -> dict:
 
     headers = sheet.headers or []
     rows = [r.data or {} for r in rows_orm]
-    # PG-only(Phase G): Sheets dimension 대응 UI 메타(열 너비/행 높이). 추가 필드(하위호환).
+    # PG-only(Phase G): UI 메타(열 너비/행 높이). 추가 필드(하위호환).
     return {
         "sheet": sheet_name, "headers": headers, "rows": rows,
         "column_widths": (meta.get("col_widths") or {}),

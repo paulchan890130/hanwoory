@@ -1,6 +1,6 @@
 """Board posts + comments (shared across all tenants in the production system).
 
-The Sheets workbook used to hold these is the admin master (``SHEET_KEY``).
+These rows live in PostgreSQL (board tables).
 In PG they live in standalone tables, keyed by ``tenant_id`` but readable
 across tenants (matching the existing public-board semantics).
 """

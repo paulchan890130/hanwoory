@@ -23,14 +23,14 @@ def _req_ip_ua(request: "Request | None"):
 router = APIRouter()
 _log = logging.getLogger("customers.accommodation")
 
-# ── process-level worksheet header validation cache ───────────────────────────
-# key: (sheet_key, worksheet_name) — 서버 재시작 시 초기화 허용
+# ── process-level header validation cache ───────────────────────────
+# key: (sheet_key, name) — 서버 재시작 시 초기화 허용
 _VALIDATED_CUSTOMER_WORKSHEETS: set = set()
 
 # ── relationship sheet read cache (accommodation / guarantor) ─────────────────
 # Prevents thundering-herd 429 when CustomerDrawer + QuickDocPanel fire
-# concurrent get_all_values() calls for the same worksheet.
-# Pattern mirrors tenant_service.read_sheet(): TTL cache + per-key lock.
+# concurrent reads for the same table.
+# TTL cache + per-key lock (thundering-herd 방지).
 _RELATIONSHIP_READ_TTL = 60.0  # seconds
 _RELATIONSHIP_READ_LOCKS: dict = {}
 _RELATIONSHIP_READ_LOCKS_MUTEX = threading.Lock()
@@ -45,12 +45,12 @@ def _get_relationship_lock(lock_key: str) -> threading.Lock:
 
 
 def _raise_if_quota(e: Exception) -> None:
-    """gspread APIError에서 429/Quota를 감지하면 HTTP 503으로 변환."""
+    """외부 API 429/Quota 오류를 HTTP 503으로 변환(방어적)."""
     s = str(e)
     if "429" in s or "Quota exceeded" in s or "quota" in s.lower():
         raise HTTPException(
             status_code=503,
-            detail="Google Sheets 읽기 한도 초과입니다. 잠시 후 다시 시도해 주세요.",
+            detail="데이터 조회 한도 초과입니다. 잠시 후 다시 시도해 주세요.",
         ) from e
 
 _CACHE_EXPIRY = "customers:expiry-alerts"
@@ -84,7 +84,7 @@ _DEFAULT_CUSTOMER_HEADERS = [
 
 
 def _sanitize_record(r: dict) -> dict:
-    """gspread 레코드를 JSON-safe 문자열 dict로 변환.
+    """레코드를 JSON-safe 문자열 dict로 변환.
     주의: get_all_values() 사용 시 모두 str로 오므로 float 변환은 안전망용."""
     import math
     out = {}
@@ -103,12 +103,10 @@ def _sanitize_record(r: dict) -> dict:
 
 
 def _get_records(tenant_id: str) -> list:
-    """tenant_service.read_sheet 경유로 고객 레코드 목록 반환 (JSON-safe).
+    """고객 레코드 목록 반환 (JSON-safe) — PostgreSQL 전용.
 
-    FEATURE_PG_CUSTOMERS=true일 때는 로컬 PostgreSQL에서 읽어 같은 형태의
-    dict 리스트를 반환한다. 플래그 off면 기존 Sheets 경로 그대로.
+    PG-only(Phase C): 항상 PostgreSQL 에서 읽어 dict 리스트를 반환한다.
     """
-    # PG-only(Phase C): 고객 레코드는 항상 PostgreSQL. Google Sheets fallback 제거.
     from backend.services.customer_pg_service import list_customers
     return list_customers(tenant_id)
 
@@ -300,7 +298,7 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
 
 @router.put("/{customer_id}")
 def update_customer(customer_id: str, data: dict, user: dict = Depends(get_current_user), request: Request = None):
-    # PG-only(Phase C): 고객 수정은 항상 PostgreSQL. Google Sheets fallback 제거.
+    # PG-only(Phase C): 고객 수정은 항상 PostgreSQL.
     tenant_id = user["tenant_id"]
     print(f"[write-path] customers(update): PG tenant={tenant_id!r}")
     from backend.services.customer_pg_service import find_customer, upsert_customer
@@ -336,7 +334,7 @@ def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_cur
         raise HTTPException(status_code=422, detail="entry 필드가 비어있습니다.")
 
     tenant_id = user["tenant_id"]
-    # PG-only(Phase C): 위임내역 추가는 항상 PostgreSQL. Google Sheets fallback 제거.
+    # PG-only(Phase C): 위임내역 추가는 항상 PostgreSQL.
     from backend.services.customer_pg_service import append_delegation as _pg_append
     updated = _pg_append(tenant_id, str(customer_id).strip(), entry)
     if updated is None:
@@ -348,7 +346,7 @@ def append_delegation(customer_id: str, data: dict, user: dict = Depends(get_cur
 @router.delete("/{customer_id}")
 def delete_customer(customer_id: str, user: dict = Depends(get_current_user), request: Request = None):
     tenant_id = user["tenant_id"]
-    # PG-only(Phase C): 고객 삭제는 항상 PostgreSQL. Google Sheets fallback 제거.
+    # PG-only(Phase C): 고객 삭제는 항상 PostgreSQL.
     print(f"[write-path] customers(delete): PG tenant={tenant_id!r}")
     from backend.services.customer_pg_service import delete_customer as _pg_delete
     ok = _pg_delete(tenant_id, str(customer_id).strip())
@@ -384,7 +382,7 @@ def _load_completed_active_for_tenant(tenant_id: str) -> tuple[list[dict], list[
     """Return (completed, active) lists for the tenant.
 
     PG mode (``FEATURE_PG_TASKS=true``) reads from PostgreSQL via
-    ``tasks_pg_service``; otherwise falls back to the Sheets path.
+    ``tasks_pg_service``; otherwise uses the default path.
 
     Both ``/work-summary`` and ``/completed-tasks`` MUST use this single
     helper so the summary counts and the detail-modal list never diverge.
@@ -466,7 +464,7 @@ def get_work_summary(
       - ``has_name_duplicate`` — 동명이인 경고용
 
     Local PG mode (``FEATURE_PG_TASKS=true``) 는 PG 의 active_tasks /
-    completed_tasks / customers 를 직접 조회. 운영 Sheets 경로는 그대로 폴백.
+    completed_tasks / customers 를 직접 조회. 기본 경로로 폴백.
     """
     resolved = _resolve_customer_tasks(user["tenant_id"], customer_id, name)
     groups: dict = {k: 0 for k in _EMPTY_GROUPS}
@@ -576,7 +574,7 @@ _ACCOMMODATION_HEADERS = [
 def _fill_relation_from_customer(tenant_id: str, customer_db_id: str, record: dict,
                                  *, name_map: dict, phone_key: str) -> None:
     """provider_type/guarantor_type == 'customer_db' 일 때 PG 고객에서 record 의 빈 필드를 보완.
-    PG-only(Phase C) — Google Sheets 고객 데이터 미사용. name_map = {record_key: 고객컬럼}."""
+    PG-only(Phase C). name_map = {record_key: 고객컬럼}."""
     cid = str(customer_db_id or "").strip()
     if not cid:
         return

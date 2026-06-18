@@ -1,12 +1,12 @@
 """Customer model — one row per (tenant_id, customer_id).
 
-The Sheets-backed flow keeps Korean header names in dicts that are passed
+The data flow keeps Korean header names in dicts that are passed
 straight to the React frontend (e.g. ``한글``, ``여권``, ``등록증``). For PG
 ergonomics this model uses English column names; the repository layer
 (``backend/services/customer_pg_service.py``) translates between the two
 shapes so the existing router and frontend keep working unchanged.
 
-Date columns are stored as TEXT (not DATE) because the Sheets path returns
+Date columns are stored as TEXT (not DATE) because the app returns
 date strings as-is — and frontends already tolerate ``YYYY-MM-DD``,
 ``YYYY.MM.DD``, blanks, etc. Storing as TEXT preserves round-trip fidelity
 and avoids surprise reformatting.

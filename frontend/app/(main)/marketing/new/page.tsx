@@ -72,8 +72,9 @@ export default function MarketingNewPage() {
     setImgUploading(true);
     try {
       const res = await marketingApi.uploadImage(file);
+      // PG 저장 전환(0022): 내부 URL 만 사용. image_file_id(레거시 Drive id)에는 넣지 않는다.
       set("image_url",     res.data.url);
-      set("image_file_id", res.data.file_id);
+      set("image_file_id", "");
       toast.success("이미지 업로드 완료");
     } catch {
       toast.error("이미지 업로드 실패");

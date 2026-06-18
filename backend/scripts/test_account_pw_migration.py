@@ -76,7 +76,7 @@ check("A dry-run did NOT change row", get_hash(S) == "WRONGPLACEHOLDERHASH====")
 rc = run(["--login-id","jpup","--apply"])
 check("A apply rc=0", rc == 0)
 check("A apply restored legacy hash", get_hash(S) == jpup_hash)
-eng.dispose(); 
+eng.dispose();
 try: os.unlink(path)
 except OSError: pass
 

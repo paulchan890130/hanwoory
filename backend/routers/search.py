@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from backend.auth import get_current_user
-# PG-only(Phase F-1): 통합검색 전 소스가 PG read 서비스만 사용 → tenant_service.read_sheet 및
-# Sheets 시트명(config) import 제거. Google Sheets 우회 검색 경로 없음.
+# PG-only(Phase F-1): 통합검색 전 소스가 PG read 서비스만 사용 → PG read 서비스만 사용.
+# 우회 검색 경로 없음.
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ def _match(row: dict, q: str) -> bool:
 
 def _search_customers(q: str, tenant_id: str) -> List[SearchResult]:
     """고객 데이터 검색 — PG-only. tenant_id 기반 격리(customer_pg_service)."""
-    # PG-only(Phase F-1): 고객 검색은 항상 PostgreSQL(Phase C 전환 도메인). Sheets fallback 제거.
+    # PG-only(Phase F-1): 고객 검색은 항상 PostgreSQL(Phase C 전환 도메인). 직접 PostgreSQL 사용.
     from backend.services.customer_pg_service import list_customers
     rows = list_customers(tenant_id) or []
     results = []
@@ -78,9 +78,9 @@ def _search_tasks(q: str, tenant_id: str) -> List[SearchResult]:
 
     FEATURE_PG_TASKS=true 이면 PG(active/planned/completed_tasks)에서 읽는다.
     PG dict 는 영문 키(name/work/category)라 기존 한글 키 추출에 영문 fallback을 추가했다
-    (Sheets 행에는 해당 영문 키가 없어 동작 변화 없음). 플래그 off면 기존 Sheets fallback.
+    (영문 키 보강 — 동작 변화 없음).
     """
-    # PG-only(Phase F-1): 업무 검색은 항상 PostgreSQL(Phase D 전환 도메인). Sheets fallback 제거.
+    # PG-only(Phase F-1): 업무 검색은 항상 PostgreSQL(Phase D 전환 도메인). 직접 PostgreSQL 사용.
     from backend.services.tasks_pg_service import (
         list_planned as _pg_planned,
         list_active as _pg_active,
@@ -96,7 +96,7 @@ def _search_tasks(q: str, tenant_id: str) -> List[SearchResult]:
         for r in rows:
             if not _match(r, q):
                 continue
-            # 업무 시트의 이름 컬럼: "이름"/"한글"/"고객명"(Sheets) → "name"(PG) fallback
+            # 이름 컬럼: "이름"/"한글"/"고객명" → "name" fallback
             name = (
                 str(r.get("이름",   "")).strip() or
                 str(r.get("한글",   "")).strip() or
@@ -123,8 +123,8 @@ def _search_board(q: str, tenant_id: str) -> List[SearchResult]:
     FEATURE_PG_BOARD=true 이면 PG(board posts)에서 읽는다. PG dict 는 영문 키지만
     아래 루프가 title/content/id fallback을 이미 갖고 있어 shape 변화 없음.
     """
-    # PG-only(Phase F-1): 게시판 검색은 PG read 서비스만 사용(Sheets fallback 제거).
-    # 게시판 도메인 본전환은 Phase H이나, 검색은 read-only PG 경로로 통일(우회 Sheets 차단).
+    # PG-only(Phase F-1): 게시판 검색은 PG read 서비스만 사용(직접 PostgreSQL 사용).
+    # 게시판 도메인 본전환은 Phase H이나, 검색은 read-only PG 경로로 통일.
     from backend.services.board_pg_service import list_posts
     rows = list_posts() or []
     results = []
@@ -149,11 +149,11 @@ def _search_reference(q: str, tenant_id: str) -> List[SearchResult]:
     """업무참고 시트 검색 — tenant 격리 (업무정리 워크북 기준).
 
     FEATURE_PG_REFERENCE=true 이면 PG(work_reference_rows)의 행을 읽는다
-    (get_sheet_data 의 'rows' 는 header→값 dict 리스트라 Sheets 행과 동일 shape).
-    주의: reference '편집' 경로는 의도적으로 Sheets 유지(문서화됨) — 여기선 읽기만 분기.
+    (get_sheet_data 의 'rows' 는 header→값 dict 리스트).
+    주의: 여기선 읽기만 분기.
     """
-    # PG-only(Phase F-1): 업무참고 검색은 PG read 서비스만 사용(Sheets fallback 제거).
-    # 업무참고 '편집' 본전환은 Phase G이나, 검색은 read-only PG 경로로 통일(우회 Sheets 차단).
+    # PG-only(Phase F-1): 업무참고 검색은 PG read 서비스만 사용(직접 PostgreSQL 사용).
+    # 업무참고 '편집' 본전환은 Phase G이나, 검색은 read-only PG 경로로 통일.
     from backend.services.reference_pg_service import get_sheet_data
     rows = (get_sheet_data(tenant_id, "업무참고") or {}).get("rows", []) or []
     results = []
@@ -176,7 +176,7 @@ def _search_reference(q: str, tenant_id: str) -> List[SearchResult]:
 
 
 def _search_memo(q: str, tenant_id: str) -> List[SearchResult]:
-    """장기/중기 메모 검색 — tenant 격리. **PG-only(Phase F)**. Google Sheets 미사용."""
+    """장기/중기 메모 검색 — tenant 격리. **PG-only(Phase F)**."""
     from backend.services.memos_pg_service import get_memo as _pg_get_memo
     results = []
     for label, kind in [

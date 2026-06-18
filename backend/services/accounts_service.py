@@ -2,12 +2,12 @@
 accounts_service.py — 계정(Accounts) 공용 helper
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Phase B 전환: 계정 조회/생성/사무소명은 **PostgreSQL(users + tenants) 전용**이다.
-런타임에서 Google Sheets Accounts 탭을 읽거나 쓰지 않는다. PG 미구성 시 조용한 Sheets
+런타임에서 외부 계정 저장소를 읽거나 쓰지 않는다. PG 미구성 시 조용한
 fallback 없이 ``get_sessionmaker()`` 가 명확한 RuntimeError 를 낸다.
 
-Sheets 접근 helper(``_get_ws`` / ``_get_ws_readonly`` / ``ensure_header``)는 **일회성 이관
-스크립트 전용**으로만 남겨두며, ``sheets_guard.assert_sheets_runtime_allowed()`` 로 보호된다
-(``ALLOW_SHEETS_MIGRATION=1`` 없이는 호출 시 즉시 실패). 운영/일반 런타임에서는 호출 금지.
+Google 제거(2026-06): 과거 외부 저장소 접근 helper(``_get_ws`` / ``_get_ws_readonly`` /
+``ensure_header`` / ``dict_to_row``)는 **삭제**되었다. 계정 데이터는 PG-only 이며 일회성
+이관은 이미 완료되어 런타임/스크립트 모두 외부 저장소를 읽지 않는다.
 
 설계 원칙
 ─────────
@@ -95,7 +95,7 @@ def _row_from_pg(u, t) -> dict:
 
 
 def find_account(login_id: str) -> dict | None:
-    """login_id 로 계정 조회 (PG users + tenants). 없으면 None. Google Sheets 미사용."""
+    """login_id 로 계정 조회 (PG users + tenants). 없으면 None."""
     from sqlalchemy import select
     from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
@@ -111,7 +111,7 @@ def find_account(login_id: str) -> dict | None:
 
 
 def get_office_name(tenant_id: str) -> str:
-    """tenant_id 의 사무소명 (PG tenants). 없으면 빈 문자열. Google Sheets 미사용."""
+    """tenant_id 의 사무소명 (PG tenants). 없으면 빈 문자열."""
     from sqlalchemy import select
     from backend.db.models.tenant import Tenant
     from backend.db.session import get_sessionmaker
@@ -156,7 +156,7 @@ def _truthy(v) -> bool:
 
 
 def append_account(account_dict: dict) -> None:
-    """계정 1건을 PG(users + tenants)에 upsert. Google Sheets 미사용.
+    """계정 1건을 PG(users + tenants)에 upsert.
     tenants: office_name/adr/biz_reg_no/folder_id/sheet_keys/is_active.
     users:   login_id/tenant_id/password_hash/contact_name/contact_tel/is_admin/is_active.
     agent_rrn 원본은 저장하지 않는다(PDF 는 수동입력)."""
@@ -210,46 +210,5 @@ def append_account(account_dict: dict) -> None:
         session.commit()
 
 
-# ── 이관 스크립트 전용 Sheets helper (런타임 차단) ───────────────────────────────
-# ALLOW_SHEETS_MIGRATION=1 (또는 ALLOW_GOOGLE_SHEETS_RUNTIME=1) 없이 호출되면 즉시 실패한다.
-# migrate_accounts_to_pg.py 등 일회성 이관 도구에서만 사용.
-
-def dict_to_row(account_dict: dict) -> list:
-    """ACCOUNTS_SCHEMA 순서 list (이관/내보내기용 — 순수 변환, Sheets 미접근)."""
-    return [str(account_dict.get(col, "")) for col in ACCOUNTS_SCHEMA]
-
-
-def _get_ws():
-    from backend.services.sheets_guard import assert_sheets_runtime_allowed
-    assert_sheets_runtime_allowed("accounts_service._get_ws")
-    from config import SHEET_KEY, ACCOUNTS_SHEET_NAME
-    from backend.services.tenant_service import _get_gspread_client
-    gc = _get_gspread_client()
-    sh = gc.open_by_key(SHEET_KEY)
-    try:
-        return sh.worksheet(ACCOUNTS_SHEET_NAME)
-    except Exception:
-        return sh.add_worksheet(title=ACCOUNTS_SHEET_NAME, rows=500, cols=len(ACCOUNTS_SCHEMA) + 2)
-
-
-def _get_ws_readonly():
-    from backend.services.sheets_guard import assert_sheets_runtime_allowed
-    assert_sheets_runtime_allowed("accounts_service._get_ws_readonly")
-    from config import SHEET_KEY, ACCOUNTS_SHEET_NAME
-    from backend.services.tenant_service import _get_gspread_client
-    gc = _get_gspread_client()
-    sh = gc.open_by_key(SHEET_KEY)
-    return sh.worksheet(ACCOUNTS_SHEET_NAME)
-
-
-def ensure_header(ws=None) -> None:
-    from backend.services.sheets_guard import assert_sheets_runtime_allowed
-    assert_sheets_runtime_allowed("accounts_service.ensure_header")
-    if ws is None:
-        ws = _get_ws()
-    try:
-        first_row = ws.row_values(1)
-    except Exception:
-        first_row = []
-    if first_row != ACCOUNTS_SCHEMA:
-        ws.update("A1", [ACCOUNTS_SCHEMA], value_input_option="RAW")
+# 과거 이관 전용 외부 저장소 helper(dict_to_row / _get_ws / _get_ws_readonly /
+# ensure_header)는 Google 제거 단계에서 삭제되었다. 계정은 PG-only(users + tenants).

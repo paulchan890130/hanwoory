@@ -241,7 +241,7 @@ ROLE_SIGN_WIDGETS: dict = {
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
 def _load_account(tenant_id: str) -> Optional[dict]:
-    """행정사/사무소 계정 조회 — **PG-only(Phase B)**. Google Sheets Accounts 미사용.
+    """행정사/사무소 계정 조회 — **PG-only(Phase B)**.
 
     PG(tenants + 대표 user)에서 office_name/office_adr/biz_reg_no/contact_name/contact_tel 을
     조회한다. 행정사 주민번호(``agent_rrn``)는 tenants.agent_rrn_encrypted(암호문)를 **복호화**해
@@ -1292,9 +1292,9 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
 
     # ── 고객 데이터 조회 ──
     # 저장 경로(고객관리)와 동일한 저장소를 읽어야 한다. FEATURE_PG_CUSTOMERS=true 이면
-    # 주소 등 최신 편집분이 PG 에만 있고 Sheets 에는 옛 값(빈칸)이 남아 있으므로,
-    # read_sheet 만 쓰면 문서에 옛 주소(빈칸)가 박힌다. 검색 엔드포인트와 동일 분기.
-    # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환). Sheets read 제거.
+    # 주소 등 최신 편집분이 PG 기준이므로,
+    # 검색 엔드포인트와 동일 분기.
+    # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환).
     from backend.services.customer_pg_service import list_customers, find_customer as _svc_find_customer
     customers = list_customers(tenant_id) or []
 
@@ -1431,7 +1431,7 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
         if not cid:
             return None
         try:
-            # PG-only: 서명은 tenant 단위로 PG 에 저장 → tenant_id 로 직접 조회(Sheets csk 조회 제거).
+            # PG-only: 서명은 tenant 단위로 PG 에 저장 → tenant_id 로 직접 조회.
             return _sign_b64_to_bytes(_get_cust_sign(tenant_id, cid))
         except Exception:
             return None
@@ -1668,7 +1668,7 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
     forgets the client-side guard, no rows leak out.
 
     In local PG mode (``FEATURE_PG_CUSTOMERS=true``) reads from
-    ``customers`` via ``customer_pg_service``; falls back to Sheets in
+    ``customers`` via ``customer_pg_service``; uses the default path in
     production. Result rows include 생년월일 (등록증 앞 6자리에서 추정) and
     전화 so callers can disambiguate same-name people.
     """
@@ -1682,7 +1682,7 @@ def search_customers(q: str = "", user: dict = Depends(get_current_user)):
     if not allowed:
         return []
 
-    # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환). Sheets read 제거.
+    # PG-only(Phase I): 고객 데이터는 항상 PostgreSQL(Phase C 전환).
     from backend.services.customer_pg_service import list_customers
     customers = list_customers(tenant_id) or []
 
@@ -1970,7 +1970,7 @@ def _quick_poa_impl(req: QuickPoaRequest, user: dict):
         # 고객 서명: customer_id가 있으면 DB에서 조회
         if req.apply_applicant_sign and req.customer_id:
             try:
-                # PG-only: tenant_id 로 직접 조회(Sheets csk 조회 제거).
+                # PG-only: tenant_id 로 직접 조회.
                 _poa_sign_bytes["applicant"] = _b64tobytes(_get_cust_sign(tenant_id, req.customer_id))
             except Exception:
                 _poa_sign_bytes["applicant"] = None

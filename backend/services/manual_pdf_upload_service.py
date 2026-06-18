@@ -7,7 +7,7 @@
     섞지 않는다 → 추출기 차이로 인한 false positive 방지. 동일 추출기/정규화로 양쪽을 만든다.
   * 후보/검토/승인은 기존 로직(compute_candidates / save_version / merge_decisions) 재사용.
   * 운영 반영(promote) 전까지 업로드 PDF 는 source='manual_upload'(검토용/운영 미반영).
-  * Google Drive/Sheets/Git 저장 안 함. node/playwright/generate_pdf.mjs 미사용.
+  * 외부 저장소/Git 저장 안 함. node/playwright/generate_pdf.mjs 미사용.
 """
 from __future__ import annotations
 

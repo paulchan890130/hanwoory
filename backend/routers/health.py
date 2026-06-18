@@ -35,7 +35,7 @@ def health_db() -> JSONResponse:
                 "db": "unconfigured",
                 "detail": f"{DATABASE_URL_ENV} is not set. PostgreSQL is "
                           "not yet wired up; the app is running on Google "
-                          "Sheets as before.",
+                          "PostgreSQL as before.",
             },
         )
 

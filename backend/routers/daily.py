@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 
 from backend.auth import get_current_user
 from backend.models import DailyEntry, BalanceData
-# PG-only(Phase E): tenant_service Sheets I/O(read_sheet/upsert_sheet/get_worksheet 등) import 제거.
+# PG-only(Phase E): tenant_service I/O import 제거.
 
 router = APIRouter()
 
@@ -56,7 +56,7 @@ def _entry_card_expense(rec: dict) -> int:
 
 
 def _fetch_daily_records(tenant_id: str) -> list:
-    """일일결산 레코드 조회 — PG-only(Phase E). Google Sheets 미사용."""
+    """일일결산 레코드 조회 — PG-only(Phase E)."""
     from backend.services.daily_pg_service import list_entries
     return list_entries(tenant_id) or []
 
@@ -970,21 +970,20 @@ _ACTIVE_HEADER = [
 ]
 
 
-# [Phase E] dead Sheets bridge 함수(_append_delegation_to_customer) 제거됨 — PG mirror(_append_delegation_to_customer_pg) 사용.
+# [Phase E] PG mirror(_append_delegation_to_customer_pg) 사용.
 
 
-# [Phase E] dead Sheets dedup helper(_DedupeResult/_dedupe_active_rows_by_source) 제거됨.
+# [Phase E] dedup helper(_DedupeResult/_dedupe_active_rows_by_source) 제거됨.
 
 
-# [Phase E] dead Sheets bridge 함수(_apply_daily_to_active) 제거됨 — PG mirror(_apply_daily_to_active_pg) 사용.
+# [Phase E] PG mirror(_apply_daily_to_active_pg) 사용.
 
 
 # ── PG mirror of daily→active / daily→customer-delegation (PG-only) ─────────────
 #
-# The Sheets versions above operate on ``read_sheet`` / ``upsert_sheet`` which
-# hit Google. In local PG beta these would fail (or, worse, hit a stale Sheets
-# response). The PG versions implement the same business rules but talk only
-# to PostgreSQL via the existing tenant-aware repository services.
+# These PG mirrors implement the daily→active / daily→customer-delegation
+# business rules talking only to PostgreSQL via the tenant-aware repository
+# services.
 
 
 def _apply_daily_to_active_pg(rec: dict, tenant_id: str) -> None:
@@ -993,8 +992,8 @@ def _apply_daily_to_active_pg(rec: dict, tenant_id: str) -> None:
     Reads existing ``active_tasks`` rows from PG, decides whether to update an
     existing one (by ``source_daily_id`` or content match) or insert a new row,
     then writes via :func:`tasks_pg_service.upsert_active`. Money deltas are
-    accumulated using the same memo-encoded slot rules used in the Sheets
-    branch.
+    accumulated using the same memo-encoded slot rules as the original
+    implementation.
     """
     import re as _re
     from backend.services import tasks_pg_service as _tasks
@@ -1117,7 +1116,7 @@ def _append_delegation_to_customer_pg(rec: dict, tenant_id: str) -> None:
     Uses ``customer_pg_service.append_delegation`` which already implements
     the "append a newline-separated line to the existing 위임내역" behavior.
     Falls back to a Korean-name search when ``customer_id`` is empty (mirrors
-    the Sheets-path name fallback).
+    the name fallback).
     """
     from backend.services import customer_pg_service as _cust
 
@@ -1430,7 +1429,7 @@ def get_yearly_overview(
 # ── 고정지출 / 신고·부가세 (PostgreSQL 전용 — FEATURE_PG_DAILY) ────────────────
 
 def _require_pg_daily():
-    # PG-only(Phase E): PostgreSQL 구성 필수. 미구성 시 503(조용한 Sheets fallback 없음).
+    # PG-only(Phase E): PostgreSQL 구성 필수. 미구성 시 503(조용한 fallback 없음).
     from backend.db.session import is_configured
     if not is_configured():
         raise HTTPException(

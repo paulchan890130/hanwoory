@@ -1,8 +1,8 @@
-"""Apply ONLY the missing latest-sheet rows into PostgreSQL (hanwoory cutover).
+"""Apply ONLY the missing latest-snapshot rows into PostgreSQL (hanwoory cutover).
 
-Companion to ``diff_latest_sheets_vs_pg.py``. It re-computes the diff live and
+Companion to ``diff_latest_xlsx_vs_pg.py``. It re-computes the diff live and
 **inserts only the rows whose natural key is absent from PG**. It is the narrow,
-auditable "catch-up" path for the 43 rows the latest Google Sheets snapshot has
+auditable "catch-up" path for the 43 rows the latest exported snapshot has
 that Render PG does not yet have.
 
 Hard safety contract
@@ -20,17 +20,17 @@ Hard safety contract
   일정(events) / 숙소제공자연결(lodging) / 신원보증인연결(guarantor).
   It never opens the work workbook, so certification / 기타업무참고 / work_ref
   are untouched; jpup, accounts, tenants, board, marketing, manual_ref, and
-  Google Sheets are never read or written.
+  No external API is read or written.
 * Logs only counts + safe IDs (고객ID / task_id / entry_id / target_customer_id /
   date). Never prints DATABASE_URL, secrets, or full row contents.
 
 CLI
 ---
     # dry-run (default; still reads PG to recompute the missing set)
-    .venv\\Scripts\\python.exe -X utf8 backend\\scripts\\apply_missing_sheets_rows_to_pg_cutover.py --tenant hanwoory --dry-run
+    .venv\\Scripts\\python.exe -X utf8 backend\\scripts\\apply_missing_xlsx_rows_to_pg_cutover.py --tenant hanwoory --dry-run
 
     # apply (triple-gated)
-    .venv\\Scripts\\python.exe -X utf8 backend\\scripts\\apply_missing_sheets_rows_to_pg_cutover.py --tenant hanwoory --apply --allow-remote-render-pg --confirm "I-UNDERSTAND-APPLY-MISSING-SHEETS-ROWS-TO-RENDER-PG"
+    .venv\\Scripts\\python.exe -X utf8 backend\\scripts\\apply_missing_xlsx_rows_to_pg_cutover.py --tenant hanwoory --apply --allow-remote-render-pg --confirm "I-UNDERSTAND-APPLY-MISSING-XLSX-ROWS-TO-RENDER-PG"
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ from backend.db.local_guard import (  # noqa: E402
     LOCAL_HOSTS, database_host, mask_host, looks_render_host,
 )
 
-APPLY_CONFIRM_STRING = "I-UNDERSTAND-APPLY-MISSING-SHEETS-ROWS-TO-RENDER-PG"
+APPLY_CONFIRM_STRING = "I-UNDERSTAND-APPLY-MISSING-XLSX-ROWS-TO-RENDER-PG"
 SCOPE_TENANT = "hanwoory"
 CUSTOMERS_FILE = "신 고객 데이터.xlsx"   # holds customers/tasks/daily/events/relationships tabs
 

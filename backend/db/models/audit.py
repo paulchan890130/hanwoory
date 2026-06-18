@@ -3,7 +3,7 @@
 Intentionally not foreign-keyed to ``tenants`` or ``users`` — audit rows must
 survive even when the actor's account is deleted, and rows can be written
 for tenants that don't yet exist in PG (during the transition window when
-the source of truth is still Google Sheets).
+the source of truth is PostgreSQL).
 
 ``payload`` uses ``JSONB`` so we can index into specific keys later if a
 query pattern emerges. ``ip_address`` uses ``INET`` (PG-native) for the

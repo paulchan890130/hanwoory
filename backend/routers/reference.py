@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from backend.auth import get_current_user
 # PG-only(Phase G): 업무참고 조회/편집 모두 PostgreSQL(reference_pg_service / reference_edit_pg_service).
-# tenant_service Sheets(get_work_sheet_key/_get_spreadsheet) 및 cache import 제거.
+# tenant_service 라우팅/캐시 import 제거.
 
 router = APIRouter()
 
@@ -101,7 +101,7 @@ def get_sheet_data(
 # 기존 GET 엔드포인트 수정 없이 아래에 추가.
 
 def _edit_svc():
-    """편집 서비스 — PG-only(Phase G). Google Sheets 편집(reference_edit_service) 미사용."""
+    """편집 서비스 — PG-only(Phase G). 외부 편집 서비스 미사용."""
     from backend.services import reference_edit_pg_service as svc
     return svc
 
@@ -114,7 +114,7 @@ def _tenant(user: dict) -> str:
 
 @router.patch("/cell")
 def patch_cell(body: CellUpdateBody, user: dict = Depends(get_current_user)):
-    """셀 1개 수정 — 해당 셀만 Sheets API로 업데이트."""
+    """셀 1개 수정."""
     try:
         svc = _edit_svc()
         val = svc.update_single_cell(

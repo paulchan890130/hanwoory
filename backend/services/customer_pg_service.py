@@ -1,4 +1,4 @@
-"""PG repository for customers — returns dicts shaped like the Sheets path.
+"""PG repository for customers — returns dicts with stable Korean-keyed columns.
 
 The existing customers router and frontend expect Korean-keyed dicts
 (``고객ID``, ``한글``, ``여권``, ...). The PG table uses English column
@@ -11,7 +11,7 @@ from typing import Optional
 from sqlalchemy import select
 
 # Sheet-key ↔ PG-column mapping. Order matches _DEFAULT_CUSTOMER_HEADERS so
-# the response shape is identical to the Sheets path.
+# the response shape is stable across callers.
 SHEET_TO_PG = {
     "고객ID": "customer_id",
     "한글": "korean_name",
@@ -101,7 +101,7 @@ def _encode_reg_back_into_payload(payload: dict, tenant_id: str) -> None:
 
 
 def _row_to_dict(row, *, reveal: bool = False) -> dict:
-    """Customer ORM row → Sheets-shaped dict.
+    """Customer ORM row → 표준(한글 키) dict.
 
     reg_back(번호) 특수 처리:
     - reveal=False(목록/기본): 복호화하지 않고 ``1******`` 마스킹(첫 자리 보존 →
@@ -137,9 +137,9 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
 
 
 def list_customers(tenant_id: str) -> list[dict]:
-    """Return all non-deleted customers for this tenant as Sheets-shaped dicts.
+    """Return all non-deleted customers for this tenant as 표준(한글 키) dicts.
 
-    Sorted by ``customer_id`` descending (matching the Sheets router behavior).
+    Sorted by ``customer_id`` descending (matching the existing router behavior).
     """
     from backend.db.models.customer import Customer
     from backend.db.session import get_sessionmaker
@@ -315,9 +315,9 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
 
 
 def upsert_customer(tenant_id: str, data: dict) -> dict:
-    """Insert or update one customer. Returns the resulting Sheets-shaped dict.
+    """Insert or update one customer. Returns the resulting 표준(한글 키) dict.
 
-    ``data`` is expected to have Sheets keys (``고객ID``, ``한글``, ...).
+    ``data`` is expected to have Korean keys (``고객ID``, ``한글``, ...).
     Unknown keys are silently ignored. Missing fields are left untouched
     on update, or stored as ``None`` (rendered as empty string) on insert.
     """

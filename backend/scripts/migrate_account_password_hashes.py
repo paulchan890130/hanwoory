@@ -10,7 +10,7 @@ Source of truth
 ---------------
 The legacy ``password_hash`` is read from the local Excel snapshot
 (``migration_input/*.xlsx`` → ``Accounts`` tab) — the same source the importer
-already uses. Google Sheets is never contacted. The hash format is the project's
+already uses. No external API is contacted. The hash format is the project's
 standard PBKDF2-HMAC-SHA256 + base64(salt+dk), which ``verify_password`` accepts
 unchanged.
 

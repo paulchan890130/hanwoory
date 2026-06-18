@@ -1,14 +1,14 @@
 """Local Excel snapshot → local PostgreSQL importer.
 
 Reads ``migration_input/*.xlsx`` (user-supplied snapshots of the live Google
-Sheets workbooks) and upserts them into the local Docker Postgres.
+xlsx workbooks) and upserts them into the local Docker Postgres.
 
 Safety contract
 ---------------
 * Refuses to run unless ``DATABASE_URL`` host is loopback.
 * Default mode is **dry-run** (no DB writes).
 * ``--execute`` is required for actual writes.
-* **Never imports gspread / google-api libraries.** Excel is the only source.
+* **Never imports external API libraries.** Excel is the only source.
 * Every domain is wrapped in try/except so one failure does not kill the rest.
 
 CLI

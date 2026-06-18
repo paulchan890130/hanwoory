@@ -23,26 +23,33 @@ export default function MySecuritySection() {
   const [events, setEvents] = useState<LoginEventRow[]>([]);
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [status, setStatus] = useState<SecurityStatus | null>(null);
+  // 보안 알림: 로그인 이력과 별개의 페이지 상태(서버에서 5건/페이지만 조회). 본인 것만.
   const [notifs, setNotifs] = useState<SecurityNotificationRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [notifPage, setNotifPage] = useState(1);
+  const [notifHasNext, setNotifHasNext] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(true);
 
-  // 로그인 이력: 서버 페이지네이션(최신순 20건/페이지, 이전·다음). 본인 것만.
+  // 로그인 이력: 서버 페이지네이션(최신순 10건/페이지, 이전·다음). 본인 것만.
   const loadEvents = useCallback((p: number) => {
-    setLoading(true);
+    setEventsLoading(true);
     accountSecurityApi.myLoginEvents(p)
       .then((ev) => { setEvents(ev.data.events); setStatus(ev.data.status); setPage(ev.data.page); setHasNext(ev.data.has_next); })
       .catch(() => { /* graceful: 미적용/오류 → 빈 상태 유지 */ })
-      .finally(() => setLoading(false));
+      .finally(() => setEventsLoading(false));
   }, []);
 
-  const loadNotifs = useCallback(() => {
-    accountSecurityApi.myNotifications(false)
-      .then((nt) => setNotifs(nt.data.notifications))
-      .catch(() => { /* graceful */ });
+  // 보안 알림: 서버 페이지네이션(최신순 5건/페이지, 이전·다음). 해당 목록만 재요청.
+  const loadNotifs = useCallback((p: number) => {
+    setNotifLoading(true);
+    accountSecurityApi.myNotifications(false, p)
+      .then((nt) => { setNotifs(nt.data.notifications); setNotifPage(nt.data.page); setNotifHasNext(nt.data.has_next); })
+      .catch(() => { /* graceful */ })
+      .finally(() => setNotifLoading(false));
   }, []);
 
-  useEffect(() => { loadEvents(1); loadNotifs(); }, [loadEvents, loadNotifs]);
+  useEffect(() => { loadEvents(1); loadNotifs(1); }, [loadEvents, loadNotifs]);
 
   const markRead = (id: number) => {
     accountSecurityApi.myMarkRead(id)
@@ -62,9 +69,9 @@ export default function MySecuritySection() {
 
       {/* 보안 알림 */}
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>내 보안 알림</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>내 보안 알림 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(최근 5개)</span></div>
         {notifs.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#A0AEC0" }}>{loading ? "불러오는 중…" : "알림이 없습니다."}</div>
+          <div style={{ fontSize: 12, color: "#A0AEC0" }}>{notifLoading ? "불러오는 중…" : "알림이 없습니다."}</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {notifs.map((n) => (
@@ -89,11 +96,24 @@ export default function MySecuritySection() {
             ))}
           </div>
         )}
+        {(notifPage > 1 || notifHasNext) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, justifyContent: "flex-end" }}>
+            <button disabled={notifPage <= 1 || notifLoading} onClick={() => loadNotifs(notifPage - 1)}
+              style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
+                background: notifPage <= 1 || notifLoading ? "#F7FAFC" : "#fff", color: notifPage <= 1 || notifLoading ? "#CBD5E0" : "#4A5568",
+                cursor: notifPage <= 1 || notifLoading ? "not-allowed" : "pointer" }}>이전</button>
+            <span style={{ fontSize: 12, color: "#718096" }}>페이지 {notifPage}</span>
+            <button disabled={!notifHasNext || notifLoading} onClick={() => loadNotifs(notifPage + 1)}
+              style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
+                background: !notifHasNext || notifLoading ? "#F7FAFC" : "#fff", color: !notifHasNext || notifLoading ? "#CBD5E0" : "#4A5568",
+                cursor: !notifHasNext || notifLoading ? "not-allowed" : "pointer" }}>다음</button>
+          </div>
+        )}
       </div>
 
       {/* 로그인 이력 */}
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>내 최근 로그인 이력</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>내 최근 로그인 이력 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(최근 10개)</span></div>
         <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -106,7 +126,7 @@ export default function MySecuritySection() {
             </thead>
             <tbody>
               {events.length === 0 ? (
-                <tr><td style={cell} colSpan={4}>{loading ? "불러오는 중…" : "이력이 없습니다."}</td></tr>
+                <tr><td style={cell} colSpan={4}>{eventsLoading ? "불러오는 중…" : "이력이 없습니다."}</td></tr>
               ) : events.map((e, i) => (
                 <tr key={i}>
                   <td style={{ ...cell, color: e.risk_level === "suspicious" || e.risk_level === "blocked" ? "#C53030" : "#2D3748" }}>
@@ -122,15 +142,15 @@ export default function MySecuritySection() {
         </div>
         {(page > 1 || hasNext) && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, justifyContent: "flex-end" }}>
-            <button disabled={page <= 1 || loading} onClick={() => loadEvents(page - 1)}
+            <button disabled={page <= 1 || eventsLoading} onClick={() => loadEvents(page - 1)}
               style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
-                background: page <= 1 || loading ? "#F7FAFC" : "#fff", color: page <= 1 || loading ? "#CBD5E0" : "#4A5568",
-                cursor: page <= 1 || loading ? "not-allowed" : "pointer" }}>이전</button>
+                background: page <= 1 || eventsLoading ? "#F7FAFC" : "#fff", color: page <= 1 || eventsLoading ? "#CBD5E0" : "#4A5568",
+                cursor: page <= 1 || eventsLoading ? "not-allowed" : "pointer" }}>이전</button>
             <span style={{ fontSize: 12, color: "#718096" }}>페이지 {page}</span>
-            <button disabled={!hasNext || loading} onClick={() => loadEvents(page + 1)}
+            <button disabled={!hasNext || eventsLoading} onClick={() => loadEvents(page + 1)}
               style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
-                background: !hasNext || loading ? "#F7FAFC" : "#fff", color: !hasNext || loading ? "#CBD5E0" : "#4A5568",
-                cursor: !hasNext || loading ? "not-allowed" : "pointer" }}>다음</button>
+                background: !hasNext || eventsLoading ? "#F7FAFC" : "#fff", color: !hasNext || eventsLoading ? "#CBD5E0" : "#4A5568",
+                cursor: !hasNext || eventsLoading ? "not-allowed" : "pointer" }}>다음</button>
           </div>
         )}
       </div>

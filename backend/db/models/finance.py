@@ -1,6 +1,6 @@
 """Finance models — fixed expenses ledger + monthly tax/VAT summary.
 
-PostgreSQL-only (no Sheets origin). Exposed only when ``FEATURE_PG_DAILY`` is on.
+PostgreSQL-only. Exposed only when ``FEATURE_PG_DAILY`` is on.
 
 * ``fixed_expenses`` — one row per (tenant, month, expense). Recurring items are
   materialized as explicit monthly rows ("전월 복사" helper), keeping the ledger

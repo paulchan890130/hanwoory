@@ -51,14 +51,14 @@ def _delete(tenant_id: str, model, eid: str) -> bool:
         return (result.rowcount or 0) > 0
 
 
-# ── 삭제 제약 (Phase G-1) — Sheets certification_service 와 동일 의미를 PG 로 구현 ──
+# ── 삭제 제약 (Phase G-1) — PG 로 구현 ──
 # price 가 참조하는 vendor/direction/group/region 은 삭제 차단(409) 또는 soft-delete.
 #   vendor : price.vendor_id == vendor.id     → soft-delete(active=false)
 #   group  : price.group_id  == group.id      → 409
 #   dir    : price.direction == direction.name → 409 (price 는 이름으로 참조)
 #   region : price.region    == region.name    → 409 (price 는 이름으로 참조)
 # 충돌 예외는 router 가 catch 하는 certification_service.ReferenceConflictError 를 그대로 사용
-# (예외 클래스 import 만 — Sheets 런타임 호출 없음).
+# (예외 클래스 import 만 — 외부 런타임 호출 없음).
 
 def _all_prices(tenant_id: str) -> list[dict]:
     from backend.db.models.certification import CertPrice
@@ -106,7 +106,7 @@ def save_vendor(tenant_id: str, body: dict):
     return _upsert(tenant_id, CertVendor, VENDOR_FIELDS, body)
 
 def delete_vendor(tenant_id: str, vid: str):
-    """가격조건이 연결된 업체 → soft-delete(active=false). 없으면 hard-delete. (Sheets 동일)"""
+    """가격조건이 연결된 업체 → soft-delete(active=false). 없으면 hard-delete."""
     from backend.db.models.certification import CertVendor
     from backend.db.session import get_sessionmaker
     ref = sum(1 for p in _all_prices(tenant_id) if p.get("vendor_id") == vid)

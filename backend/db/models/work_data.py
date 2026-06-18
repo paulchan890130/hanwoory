@@ -10,10 +10,10 @@ heterogeneous rows without losing fidelity.
   data column is JSONB keyed by header → cell text.
 
 Read-side router (``GET /api/reference/sheets`` and ``/data``) goes through
-PG when ``FEATURE_PG_REFERENCE`` is on. Edit endpoints stay on Sheets
+PG when ``FEATURE_PG_REFERENCE`` is on. Edit endpoints stay on the legacy store
 because the existing ``reference_edit_service`` performs cell-precise
-gspread updates that are too elaborate to fully replicate this round —
-those edits are documented as Sheets-only.
+updates that are too elaborate to fully replicate this round —
+those edits remain on the legacy store.
 """
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 """로그인 세션 원장 — 단일 세션(새 로그인 우선) 정책.
 
 일반 로그인 세션만 대상. is_kiosk=true 세션(추후 서명 키오스크/QR 토큰)은 분리.
-login_id/tenant_id 는 Sheets·PG 어느 경로든 동작하도록 FK 없이 Text 로 보관.
+login_id/tenant_id 는 FK 없이 Text 로 보관.
 """
 from __future__ import annotations
 

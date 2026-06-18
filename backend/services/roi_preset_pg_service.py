@@ -1,8 +1,8 @@
-"""ROI 프리셋 — PostgreSQL 전용(Phase I). ``roi_preset_sheet.py``(Google Sheets) 대체.
+"""ROI 프리셋 — PostgreSQL 전용(Phase I).
 
 테넌트당 슬롯 1/2/3. 슬롯1=시스템 기본값(삭제 불가, 리셋만). is_default 는 테넌트 내 1개만.
 ``scan_roi_preset`` 라우터가 동일 함수명(get_all_presets/upsert_preset/delete_preset/
-rename_preset)으로 드롭인 사용. PG 미구성 시 get_sessionmaker() 가 RuntimeError(Sheets fallback 없음).
+rename_preset)으로 드롭인 사용. PG 미구성 시 get_sessionmaker() 가 RuntimeError.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Optional
 from sqlalchemy import select
 
 
-# 기존 하드코딩 좌표(roi_preset_sheet.DEFAULT_PRESET_DATA 와 동일) — Sheets 모듈 의존 제거 위해 복제.
+# 기존 하드코딩 좌표(roi_preset_sheet.DEFAULT_PRESET_DATA 와 동일) — 모듈 의존 제거 위해 복제.
 DEFAULT_PRESET_DATA: dict = {
     "passport": {
         "mrz": {"x": 0.129, "y": 0.635, "w": 0.693, "h": 0.085},

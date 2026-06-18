@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import get_current_user
-# 각종공인증은 PG-only(Phase G). certification_service(Sheets)는 미사용(dead, sheets_guard 차단).
-# ReferenceConflictError 예외 클래스만 import(런타임 Sheets 호출 없음).
+# 각종공인증은 PG-only(Phase G). certification_service 는 미사용(dead).
+# ReferenceConflictError 예외 클래스만 import(런타임 외부 호출 없음).
 from backend.services.certification_service import ReferenceConflictError
 
 router = APIRouter()
@@ -16,7 +16,7 @@ def _tenant(user=Depends(get_current_user)) -> str:
 
 
 def _svc():
-    """PG-only(Phase G): 각종공인증은 항상 PostgreSQL(certification_pg_service). Sheets fallback 제거."""
+    """PG-only(Phase G): 각종공인증은 항상 PostgreSQL(certification_pg_service). 직접 PostgreSQL 사용."""
     import backend.services.certification_pg_service as _pg
     return _pg
 

@@ -1,14 +1,14 @@
 """서명 데이터 저장/조회 서비스 — PostgreSQL 전용 (PG-only).
 
 Phase A 전환: 행정사서명 / 고객서명 / 임시서명(1·2·3) 모두 **PostgreSQL 만** 사용한다.
-Google Sheets 서명 탭(행정사서명·고객서명·서명임시저장)은 런타임에서 읽거나 쓰지 않으며,
-이 모듈에는 더 이상 gspread/worksheet 호출이 존재하지 않는다. PG 미구성(DATABASE_URL 없음)
-시 조용한 Sheets fallback 없이 ``get_sessionmaker()`` 가 명확한 RuntimeError 를 낸다.
+서명 데이터는 PostgreSQL 에만 저장되며,
+외부 저장소 호출은 존재하지 않는다. PG 미구성(DATABASE_URL 없음)
+시 조용한 fallback 없이 ``get_sessionmaker()`` 가 명확한 RuntimeError 를 낸다.
 
 공개 함수 시그니처/반환 구조는 기존과 100% 동일하게 유지한다(라우터·quick_doc 무변경 호환):
 - 고객 서명 함수의 첫 인자는 과거 ``customer_sheet_key`` 였으나, 이제는 **tenant_id 또는 csk**
-  어느 쪽이 와도 ``_resolve_tenant()`` 가 PG ``tenants`` 로 정규화한다(Sheets 미사용).
-  호출측은 tenant_id 를 직접 넘기는 것을 권장(=Sheets 의 csk 조회 자체를 제거).
+  어느 쪽이 와도 ``_resolve_tenant()`` 가 PG ``tenants`` 로 정규화한다.
+  호출측은 tenant_id 를 직접 넘기는 것을 권장(=csk 조회 자체를 제거).
 """
 import base64
 import datetime
@@ -26,7 +26,7 @@ class SignatureLookupError(Exception):
 
 def _csk_to_tenant_id(customer_sheet_key: str) -> "str | None":
     """customer_sheet_key → tenant_id (PG ``tenants`` 테이블). 매핑 없으면 None.
-    Google Sheets 를 읽지 않는다."""
+    외부 저장소를 읽지 않는다."""
     try:
         from sqlalchemy import select
         from backend.db.models.tenant import Tenant
@@ -44,7 +44,7 @@ def _csk_to_tenant_id(customer_sheet_key: str) -> "str | None":
 
 def _resolve_tenant(tenant_or_csk: str) -> str:
     """첫 인자를 tenant_id 로 정규화. tenant_id 가 직접 오면 그대로(매핑 미존재),
-    과거식 csk 가 오면 PG 매핑으로 tenant_id 변환. 둘 다 Sheets 미사용."""
+    과거식 csk 가 오면 PG 매핑으로 tenant_id 변환."""
     return _csk_to_tenant_id(tenant_or_csk) or tenant_or_csk
 
 

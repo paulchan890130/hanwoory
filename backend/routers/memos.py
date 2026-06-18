@@ -1,8 +1,7 @@
 """메모 라우터 (테넌트 인식) — PG-only(Phase F).
 
-장기/중기/단기메모(long/mid/short)는 PostgreSQL(memos_pg_service)만 사용한다. Google Sheets
-(장기·중기·단기메모 탭, A1 단일셀) 런타임 read/write 및 work_sheet_key 기반 라우팅은 제거됐다.
-PG 미구성 시 조용한 Sheets fallback 없이 RuntimeError를 낸다. 응답 구조는 기존과 동일
+장기/중기/단기메모(long/mid/short)는 PostgreSQL(memos_pg_service)만 사용한다.
+PG 미구성 시 조용한 fallback 없이 RuntimeError를 낸다. 응답 구조는 기존과 동일
 ({"memo_type": ..., "content": ...}).
 """
 import sys, os

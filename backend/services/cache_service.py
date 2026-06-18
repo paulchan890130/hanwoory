@@ -1,7 +1,7 @@
 """
 backend/services/cache_service.py
 ----------------------------------
-Lightweight in-memory TTL cache for Google Sheets API response caching.
+Lightweight in-memory TTL cache for API response caching.
 
 Tenant-safe: all cache keys include tenant_id — no cross-tenant leakage.
 Thread-safe: single threading.Lock around all _store mutations.

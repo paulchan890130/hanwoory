@@ -480,7 +480,13 @@ def security_status(login_id: str) -> dict:
         return {"security_blocked": False, "suspicion_count": 0, "blocked_at": None}
 
 
-def notifications_for(recipient_login_id: str, only_unread: bool = False, limit: int = 50, offset: int = 0) -> List[dict]:
+def notifications_for(recipient_login_id: str, only_unread: bool = False, limit: int = 50, offset: int = 0,
+                      recipient_role: Optional[str] = None) -> List[dict]:
+    """``recipient_login_id`` 로 받은 알림(최신순). ``recipient_role`` 지정 시 해당 역할만.
+
+    마이페이지(본인 전용)는 ``recipient_role="user"`` 로 호출해 본인 계정 알림만 노출하고,
+    관리자에게 온 타계정 보안 알림(role="admin")은 관리자 화면에서만 보이도록 분리한다.
+    """
     lid = (recipient_login_id or "").strip()
     if not lid or not _configured():
         return []
@@ -489,6 +495,8 @@ def notifications_for(recipient_login_id: str, only_unread: bool = False, limit:
         from backend.db.models.account_security import SecurityNotification
         with _sl() as s:
             stmt = select(SecurityNotification).where(SecurityNotification.recipient_login_id == lid)
+            if recipient_role:
+                stmt = stmt.where(SecurityNotification.recipient_role == recipient_role)
             if only_unread:
                 stmt = stmt.where(SecurityNotification.is_read.is_(False))
             stmt = (stmt.order_by(SecurityNotification.created_at.desc())

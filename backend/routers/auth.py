@@ -213,7 +213,7 @@ def signup(req: SignupRequest):
     rrn_fields = _prepare_agent_rrn_fields(req.agent_rrn)
 
     # ── PG-only(Phase B) ─────────────────────────────────────────────────
-    # 가입신청은 PostgreSQL(tenants + users)에만 기록한다. Google Sheets 미사용.
+    # 가입신청은 PostgreSQL(tenants + users)에만 기록한다.
     # is_active=False → 관리자 승인 후 활성화.
     # 행정사 주민번호(agent_rrn)는 입력되면 **암호화**해 tenants.agent_rrn_encrypted 에 저장한다
     # (평문/해시는 저장하지 않음). tenant+user 는 단일 commit 으로 원자적으로 생성된다.

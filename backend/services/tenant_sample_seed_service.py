@@ -17,7 +17,7 @@ Guarantees
 * **No production data touched**: writes go only into the new tenant's own
   (empty) PG rows. Existing tenants are never seeded automatically.
 
-This module is PG-only by design (the current local runtime). The Google Sheets
+This module is PG-only by design (the current local runtime). The legacy
 template path already ships tab structure and is out of scope here.
 """
 from __future__ import annotations

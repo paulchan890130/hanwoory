@@ -155,7 +155,7 @@ class PadSaveBody(BaseModel):
 
 def _resolve_customer_sheet_key(tenant_id: str, provided: Optional[str] = None) -> str:
     """PG-only 라우팅 키 반환. 고객서명은 tenant 단위로 PostgreSQL 에 저장되므로 라우팅 키 =
-    JWT tenant_id 이며, 과거의 Google Sheets customer_sheet_key 조회(get_customer_sheet_key)
+    JWT tenant_id 이며, 과거의 customer_sheet_key 조회(get_customer_sheet_key)
     를 더 이상 수행하지 않는다. provided(쿼리 파라미터)는 cross-tenant 방지를 위해 무시한다.
     (함수명은 호환을 위해 유지 — 반환값은 이제 tenant_id 다.)"""
     return tenant_id
@@ -183,7 +183,7 @@ def request_signature(
     office_name = _office_name(user)
 
     if body.type == "customer":
-        # PG-only: csk(Sheets 조회) 대신 JWT tenant_id 를 라우팅 키로 사용 → 토큰에 tenant_id 가 실린다.
+        # PG-only: csk 대신 JWT tenant_id 를 라우팅 키로 사용 → 토큰에 tenant_id 가 실린다.
         customer_sheet_key = tenant_id
         _cleanup()
         token = _encode_customer_token(body.customer_id, customer_sheet_key, office_name)
@@ -238,7 +238,7 @@ def get_signature_info(token: str):
 def poll_signature(token: str, user: dict = Depends(get_current_user)):
     """서명 완료 여부 폴링."""
     # stateless customer token: poll via _pending[rid] to isolate each request.
-    # Never check Sheets directly — a pre-existing signature must NOT trigger "saved".
+    # Never check the store directly — a pre-existing signature must NOT trigger "saved".
     payload = _decode_customer_token(token)
     if payload is not None:
         rid = payload.get("rid", "")
@@ -255,7 +255,7 @@ def poll_signature(token: str, user: dict = Depends(get_current_user)):
                           token_hint, rid, cid)
                 return {"status": "pending", "request_id": rid}
             # Pending entry gone (server restart or already cleaned up after save).
-            # Do NOT fall back to Sheets — that would re-trigger the old signature bug.
+            # Do NOT fall back to the store — that would re-trigger the old signature bug.
             _log.warning("[poll] token=%s rid=%s customer_id=%s pending_entry_missing — returning pending",
                          token_hint, rid, cid)
             return {"status": "pending"}
@@ -274,7 +274,7 @@ def poll_signature(token: str, user: dict = Depends(get_current_user)):
     if entry is None or _is_expired(entry):
         return {"status": "expired"}
     if entry.get("data") is None:
-        # agent 즉시 저장 완료 → "done" 반환 (data는 save/{token}에서 Sheets에서 읽음)
+        # agent 즉시 저장 완료 → "done" 반환 (data는 save/{token}에서 저장소에서 읽음)
         if entry.get("type") == "agent" and entry.get("status") == "saved":
             return {"status": "done"}
         return {"status": "waiting"}
@@ -318,7 +318,7 @@ def submit_signature(token: str, body: SignatureSubmitBody):
                           token_hint, rid, customer_id)
             else:
                 _log.warning("[submit] token=%s rid=%s customer_id=%s pending_entry_missing "
-                             "(server restart?) — signature saved to Sheets but poll cannot notify",
+                             "(server restart?) — signature saved but poll cannot notify",
                              token_hint, rid, customer_id)
         else:
             _log.warning("[submit] token=%s customer_id=%s no_rid_in_token (pre-fix token)",
@@ -334,7 +334,7 @@ def submit_signature(token: str, body: SignatureSubmitBody):
     t_hint = token[:8] + "…"
 
     if entry.get("type") == "agent":
-        # agent 서명: _pending 의존 없이 즉시 Sheets 영구 저장 (서버 재시작 내성)
+        # agent 서명: _pending 의존 없이 즉시 영구 저장 (서버 재시작 내성)
         tid = entry.get("tenant_id", "")
         _log.info("[submit] token=%s type=agent tenant=%s step=saving_immediately", t_hint, tid)
         from backend.services.signature_service import save_agent_signature
@@ -345,17 +345,17 @@ def submit_signature(token: str, body: SignatureSubmitBody):
             _log.error("[submit] token=%s type=agent step=save_failed exc=%s msg=%s",
                        t_hint, type(e).__name__, e)
             raise HTTPException(status_code=500, detail=f"행정사 서명 저장 실패: {e}")
-        # _pending에는 Sheets 저장 완료 메타데이터만 유지 (poll / save 응답용)
+        # _pending에는 저장 완료 메타데이터만 유지 (poll / save 응답용)
         _pending[token] = {
             "type":       "agent",
             "tenant_id":  tid,
             "office_name": entry.get("office_name", ""),
-            "status":     "saved",        # data는 Sheets에 있으므로 여기 보관 불필요
+            "status":     "saved",        # data는 저장소에 있으므로 여기 보관 불필요
             "created_at": entry["created_at"],
         }
         return {"status": "ok"}
     else:
-        # temp: 기존 동작 유지 — /temp-slots/{slot}/save/{token}에서 Sheets 저장
+        # temp: 기존 동작 유지 — /temp-slots/{slot}/save/{token}에서 저장
         _pending[token]["data"] = compressed
         return {"status": "ok"}
 
@@ -376,7 +376,7 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
 
         if rid:
             # New token format: gate on _pending[rid]["submitted"].
-            # A pre-existing signature in Sheets must never be auto-saved here.
+            # A pre-existing signature must never be auto-saved here.
             entry = _pending.get(rid)
             has_pending = entry is not None and bool(entry.get("submitted"))
             _log.info("[save] token=%s rid=%s customer_id=%s has_pending_submission=%s",
@@ -389,7 +389,7 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
                     status_code=409,
                     detail="이 서명 요청에 제출된 서명이 없습니다. 고객이 아직 서명하지 않았거나 세션이 만료되었습니다.",
                 )
-            # Confirmed: this specific request was submitted. Fetch from Sheets.
+            # Confirmed: this specific request was submitted. Fetch from the store.
             from backend.services.signature_service import (
                 has_customer_signature, get_customer_signature, SignatureLookupError,
             )
@@ -438,7 +438,7 @@ def save_signature(token: str, user: dict = Depends(get_current_user)):
             detail="아직 저장된 서명이 없습니다. 고객에게 서명 제출을 요청하세요.",
         )
 
-    # ── agent: submit에서 이미 Sheets 즉시 저장됨 — 조회/확인만 (idempotent) ───
+    # ── agent: submit에서 이미 즉시 저장됨 — 조회/확인만 (idempotent) ───
     # _pending이 살아있으면 tenant_id 확인 후 정리. 서버 재시작으로 없어도 user로 조회.
     tenant_id_for_lookup = user.get("tenant_id") or user.get("sub", "")
     entry = _pending.get(token)
@@ -480,7 +480,7 @@ def get_agent_signature(user: dict = Depends(get_current_user)):
     """현재 로그인 테넌트의 행정사 서명 조회.
     서명 없음: HTTP 200 {"data": null}
     서명 존재: HTTP 200 {"data": "base64..."}
-    Sheets/API 오류: HTTP 503 (프론트엔드가 error 상태로 표시)"""
+    저장소/API 오류: HTTP 503 (프론트엔드가 error 상태로 표시)"""
     from backend.services.signature_service import get_agent_signature as _get
     tenant_id = user.get("tenant_id") or user.get("sub", "")
     try:
@@ -753,7 +753,7 @@ def check_customer_signature_exists(
 ):
     """고객 서명 존재 여부 확인.
     - exists:true/false → 조회 성공 (있음/없음)
-    - HTTP 503 → Sheets 조회 실패 (frontend가 error로 처리해야 함, false 해석 금지)
+    - HTTP 503 → 조회 실패 (frontend가 error로 처리해야 함, false 해석 금지)
     """
     from backend.services.signature_service import has_customer_signature, SignatureLookupError
     tenant_id = user.get("tenant_id") or user.get("sub", "")

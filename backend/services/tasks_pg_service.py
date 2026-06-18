@@ -1,6 +1,6 @@
 """PG repository for tasks (active / planned / completed).
 
-Each row converts to a dict whose keys match the existing Sheets router
+Each row converts to a dict whose keys match the existing router
 output exactly — no schema bridging needed in the router.
 """
 from __future__ import annotations

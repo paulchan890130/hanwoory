@@ -1,4 +1,4 @@
-"""Read-only diff: latest Google Sheets xlsx snapshot vs PostgreSQL.
+"""Read-only diff: latest exported xlsx snapshot vs PostgreSQL.
 
 Computes rows that are present in the latest xlsx workbooks but **missing
 from PostgreSQL**. This is a *reporting* tool only.
@@ -24,10 +24,10 @@ If ``DATABASE_URL`` is unset it refuses to run (no DB to compare against).
 CLI
 ---
     # set DATABASE_URL first (local PG, or a read-only Render URL)
-    python backend/scripts/diff_latest_sheets_vs_pg.py
-    python backend/scripts/diff_latest_sheets_vs_pg.py --only hanwoory
-    python backend/scripts/diff_latest_sheets_vs_pg.py --only jpup --sample 30
-    python backend/scripts/diff_latest_sheets_vs_pg.py --out analysis/sheets_vs_pg_diff_20260604.md
+    python backend/scripts/diff_latest_xlsx_vs_pg.py
+    python backend/scripts/diff_latest_xlsx_vs_pg.py --only hanwoory
+    python backend/scripts/diff_latest_xlsx_vs_pg.py --only jpup --sample 30
+    python backend/scripts/diff_latest_xlsx_vs_pg.py --out analysis/xlsx_vs_pg_diff_20260604.md
 """
 from __future__ import annotations
 

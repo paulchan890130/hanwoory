@@ -14,10 +14,14 @@ from backend.services import account_security_pg_service as _sec
 router = APIRouter()
 
 # ── 서버 페이지네이션 공통 ────────────────────────────────────────────────────
-# 전체 로딩 금지: 화면 진입 시 최신순 20건만 내려주고, 다음 페이지는 별도 요청한다.
+# 전체 로딩 금지: 화면 진입 시 최신순 N건만 내려주고, 다음 페이지는 별도 요청한다.
 # has_next 는 page_size+1 건을 조회해 초과분 존재 여부로 판정(추가 count 쿼리 불필요).
-PAGE_SIZE_DEFAULT = 20
-PAGE_SIZE_MAX = 50
+PAGE_SIZE_DEFAULT = 20        # 관리자 화면 기본
+PAGE_SIZE_MAX = 50            # 관리자 화면 상한
+# 마이페이지(본인 전용) — 화면/서버 부담 축소: 알림 5건, 로그인 이력 10건, 상한 10.
+MY_NOTIF_PAGE_SIZE = 5
+MY_EVENTS_PAGE_SIZE = 10
+MY_PAGE_SIZE_MAX = 10
 
 
 def _paginate(fetch, page: int, page_size: int):
@@ -95,8 +99,9 @@ def admin_security_notifications(page: int = Query(1, ge=1),
 # ── 사용자 본인 ───────────────────────────────────────────────────────────────
 @router.get("/my/login-events")
 def my_login_events(page: int = Query(1, ge=1),
-                    page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                    page_size: int = Query(MY_EVENTS_PAGE_SIZE, ge=1, le=MY_PAGE_SIZE_MAX),
                     user: dict = Depends(get_current_user)):
+    # 본인 계정만: login_id 는 항상 토큰(current_user)에서 강제 — 클라이언트 입력 불신.
     lid = user.get("login_id", "")
     rows, p, ps, has_next = _paginate(
         lambda lim, off: _sec.recent_login_events(lid, limit=lim, offset=off), page, page_size)
@@ -106,12 +111,16 @@ def my_login_events(page: int = Query(1, ge=1),
 
 @router.get("/my/security-notifications")
 def my_security_notifications(page: int = Query(1, ge=1),
-                              page_size: int = Query(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX),
+                              page_size: int = Query(MY_NOTIF_PAGE_SIZE, ge=1, le=MY_PAGE_SIZE_MAX),
                               only_unread: bool = Query(False),
                               user: dict = Depends(get_current_user)):
+    # 마이페이지는 **본인 계정 기준**: recipient_role="user" 만 노출한다.
+    # 관리자에게 발송된 타계정 보안 알림(recipient_role="admin")은 여기서 제외되고
+    # 관리자 > 로그인보안 화면(/admin/security/notifications)에서만 보인다.
     lid = user.get("login_id", "")
     rows, p, ps, has_next = _paginate(
-        lambda lim, off: _sec.notifications_for(lid, only_unread=only_unread, limit=lim, offset=off),
+        lambda lim, off: _sec.notifications_for(lid, only_unread=only_unread,
+                                                recipient_role="user", limit=lim, offset=off),
         page, page_size)
     return {"notifications": rows, "page": p, "page_size": ps, "has_next": has_next}
 

@@ -7,7 +7,7 @@ business key and is UNIQUE.
 
 Sheet keys (``customer_sheet_key`` / ``work_sheet_key``) and Drive folder ID
 are mirrored here during the transition window so the PG row carries enough
-context to talk to the existing Google layer when needed. Once Sheets is
+context for tenant routing when needed. Once the legacy layer is
 retired, those columns can be dropped.
 """
 from __future__ import annotations

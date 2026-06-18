@@ -1,6 +1,6 @@
 """Calendar event row — one row per (tenant_id, date_str, line).
 
-The Sheets path stores events as a flat list of (date_str, event_text)
+Rows store events as a flat list of (date_str, event_text)
 rows; the frontend then groups by date_str. We keep the same shape in PG
 to make the repository translation trivial — no schema mismatch to bridge.
 """

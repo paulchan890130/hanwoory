@@ -2,15 +2,15 @@
 
 When a tenant's data is stored in PostgreSQL (FEATURE_PG_CUSTOMERS et al.),
 every ``customers``/``tasks``/… row carries a FK to ``tenants.tenant_id``.
-Accounts that were created Sheets-only (e.g. admin ``create_account``) never
+Accounts created before PG provisioning (e.g. admin ``create_account``) never
 got a PG ``tenants`` row, so the first PG write fails with
 ``customers_tenant_id_fkey``. This helper closes that gap without changing
-the Sheets-backed login/account flow.
+the login/account flow.
 
 Design
 ------
 * **Idempotent**: existing tenant rows are never touched (check-then-insert).
-* **No-op without PG**: when ``DATABASE_URL`` is unset (pure-Sheets boxes),
+* **No-op without PG**: when ``DATABASE_URL`` is unset,
   this returns ``False`` and never connects — existing behavior unchanged.
 * **Additive**: only inserts a missing tenant row; never updates or deletes.
 """

@@ -387,9 +387,7 @@ function CreateAccountModal({
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-[11px] font-semibold uppercase px-2 py-1 rounded" style={{ color: "#718096", background: "#F7FAFC" }}>
-                {pgMode
-                  ? (isLocalMock ? "워크스페이스 (PostgreSQL · 개발용 mock)" : "워크스페이스 (PostgreSQL)")
-                  : "Google Sheets 연동"}
+                {isLocalMock ? "워크스페이스 (PostgreSQL · 개발용 mock)" : "워크스페이스 (PostgreSQL)"}
               </div>
               <SubmitButton
                 type="button"
@@ -408,20 +406,11 @@ function CreateAccountModal({
                 ✅ 워크스페이스 초기화 완료
               </div>
             )}
-            {pgMode ? (
-              <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: "#F7FAFC", color: "#4A5568" }}>
-                신규 계정은 PostgreSQL 기준으로 생성됩니다. 위 버튼은 PostgreSQL
-                <code>tenants</code> 행을 초기화하고 계정을 활성화합니다.
-                외부 시트/드라이브는 사용하지 않습니다.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">{F("customer_sheet_key", "고객 데이터 시트키", "스프레드시트 ID", true)}</div>
-                <div className="col-span-2">{F("work_sheet_key", "업무정리 시트키", "업무정리 스프레드시트 ID", true)}</div>
-                {F("folder_id", "Drive 폴더 ID", "Google Drive 폴더 ID", true)}
-                {F("sheet_key", "마스터 시트키", "공용 시트 ID (일반적으로 비워둠)", true)}
-              </div>
-            )}
+            <div className="text-[11px] px-3 py-2 rounded-lg" style={{ background: "#F7FAFC", color: "#4A5568" }}>
+              신규 계정은 PostgreSQL 기준으로 생성됩니다. 위 버튼은 PostgreSQL
+              <code>tenants</code> 행을 초기화하고 계정을 활성화합니다.
+              외부 시트/드라이브는 사용하지 않습니다.
+            </div>
           </div>
 
           {/* 관리자 여부 */}
@@ -614,31 +603,17 @@ function AccountDetailPanel({
             <AgentRrnField loginId={acc.login_id} />
           </div>
 
-          {pgMode ? (
-            <>
-              <div className="hw-section-divider mt-4">저장소 상태</div>
-              <div className="text-xs space-y-2" style={{ color: "#4A5568" }}>
-                <div>
-                  <span style={{ color: "#718096" }}>PostgreSQL: </span>
-                  <span className="font-mono">{acc.pg_storage_label || "(없음)"}</span>
-                </div>
-                <LegacyFieldNote acc={acc} />
-                <div className="text-[11px]" style={{ color: "#A0AEC0" }}>
-                  운영 데이터는 PostgreSQL에만 저장됩니다. (외부 시트/드라이브 미사용)
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="hw-section-divider mt-4">Google Sheets 연동</div>
-              <div className="space-y-2">
-                {F("customer_sheet_key", "고객 데이터 시트키", true)}
-                {F("work_sheet_key", "업무정리 시트키", true)}
-                {F("folder_id", "Drive 폴더 ID", true)}
-                {F("sheet_key", "마스터 시트키", true)}
-              </div>
-            </>
-          )}
+          <div className="hw-section-divider mt-4">저장소 상태</div>
+          <div className="text-xs space-y-2" style={{ color: "#4A5568" }}>
+            <div>
+              <span style={{ color: "#718096" }}>PostgreSQL: </span>
+              <span className="font-mono">{acc.pg_storage_label || "(없음)"}</span>
+            </div>
+            <LegacyFieldNote acc={acc} />
+            <div className="text-[11px]" style={{ color: "#A0AEC0" }}>
+              운영 데이터는 PostgreSQL에만 저장됩니다. (외부 시트/드라이브 미사용)
+            </div>
+          </div>
 
           <div className="hw-section-divider mt-4">메타데이터</div>
           <div>

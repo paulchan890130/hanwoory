@@ -1,6 +1,6 @@
 """Memo model — one row per (tenant_id, kind).
 
-The Sheets path stores memos as the literal A1 cell of a per-kind tab.
+Rows store memos as the literal A1 cell of a per-kind tab.
 Here we collapse the three kinds (short / mid / long) into a single
 relational table, one row per kind per tenant.
 """

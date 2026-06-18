@@ -1,8 +1,7 @@
 """업무 라우터 - 예정/진행/완료 업무 CRUD (테넌트 인식) — PG-only(Phase D).
 
-업무 3종(진행/예정/완료)은 PostgreSQL(tasks_pg_service)만 사용한다. Google Sheets
-(진행업무/예정업무/완료업무 탭) 런타임 read/write 및 work_sheet_key 기반 라우팅은 제거됐다.
-PG 미구성 시 조용한 Sheets fallback 없이 get_sessionmaker()가 RuntimeError를 낸다.
+업무 3종(진행/예정/완료)은 PostgreSQL(tasks_pg_service)만 사용한다.
+PG 미구성 시 조용한 fallback 없이 get_sessionmaker()가 RuntimeError를 낸다.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))

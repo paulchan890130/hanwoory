@@ -1,6 +1,6 @@
 """ROI 프리셋 — 스캔(OCR) 좌표 프리셋. 테넌트당 슬롯 1/2/3 (슬롯1=기본값).
 
-``ROI_프리셋`` Google Sheets 탭(roi_preset_sheet.py)을 대체하는 PG 테이블(Phase I).
+ROI 프리셋 PG 테이블(Phase I).
 data 는 passport/arc 좌표 등 임의 구조라 JSONB. (tenant_id, slot) 유니크.
 """
 from __future__ import annotations

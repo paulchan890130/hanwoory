@@ -34,9 +34,6 @@ export default function ReferencePage() {
   });
 
   const sheets     = sheetInfo?.sheets ?? [];
-  const sheetEditUrl = sheetInfo?.sheet_key
-    ? `https://docs.google.com/spreadsheets/d/${sheetInfo.sheet_key}/edit`
-    : null;
 
   // 첫 시트 자동 선택
   useEffect(() => {
@@ -95,7 +92,6 @@ export default function ReferencePage() {
         <ReferenceToolbar
           editMode={editMode}
           onEditModeChange={setEditMode}
-          sheetEditUrl={sheetEditUrl}
         />
       </div>
 
@@ -106,7 +102,7 @@ export default function ReferencePage() {
           padding: "8px 16px", display: "flex", alignItems: "center",
           justifyContent: "space-between", fontSize: 12, color: "#6B5314",
         }}>
-          <span>⚠ 편집 모드 — 변경사항이 즉시 구글시트에 반영됩니다</span>
+          <span>⚠ 편집 모드 — 변경사항이 즉시 저장됩니다</span>
           <button
             onClick={() => setEditMode(false)}
             style={{ padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: "#fff", border: "1px solid #D4A843", color: "#6B5314", cursor: "pointer" }}

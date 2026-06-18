@@ -10,7 +10,7 @@ Hard safety contract
   2 (date_str, event_text) pairs below. No pattern/range/broad delete anywhere.
 * **No** table clear / truncate / reset. Touches only ``active_tasks`` (and
   ``events`` when explicitly opted in). Never touches completed_tasks,
-  customers, daily_*, work_ref, certification, accounts, tenants, or Sheets.
+  customers, daily_*, work_ref, certification, accounts, or tenants.
 * **Dry-run by default.** Deleting active rows requires ALL of:
     --apply  --allow-remote-render-pg  --confirm "I-UNDERSTAND-CLEANUP-PG-ONLY-STALE-ROWS"
 * **Events are preview-only by default.** Per the cutover decision they must be

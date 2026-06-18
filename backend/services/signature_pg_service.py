@@ -1,7 +1,7 @@
 """PG repository for signatures — agent / customer / temp slots.
 
 The HMAC token logic in ``backend/routers/signature.py`` is stateless and
-stays as-is. Only the storage layer swaps from Sheets to PG when
+stays as-is. The storage layer is PostgreSQL when
 ``FEATURE_PG_SIGNATURES`` is on.
 """
 from __future__ import annotations

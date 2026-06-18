@@ -3,9 +3,7 @@
 Safety contract (same as ``migrate_accounts_to_pg.py``):
 * Refuses unless ``DATABASE_URL`` host is loopback (``localhost``/``127.0.0.1``/``::1``).
 * Dry-run by default; ``--execute`` is required for any DB write.
-* **Never writes to Google Sheets or Drive.** The default ``--source synthetic``
-  doesn't even read from Google. ``--source sheets`` (opt-in) reads from
-  the production Sheets read-only.
+* **No external access at all.** Seeds synthetic data only.
 
 Domains seeded:
 * tenants + users (delegates to migrate_accounts_to_pg.py logic)
@@ -316,7 +314,7 @@ def main() -> int:
     if not args.execute:
         print()
         print("[dry-run] Would seed the listed domains with synthetic data into local PG.")
-        print("[dry-run] No Google Sheets or Drive access. No DB writes.")
+        print("[dry-run] No external access. No DB writes.")
         print("[dry-run] Re-run with --execute to actually write.")
         return 0
 

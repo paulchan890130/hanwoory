@@ -6,23 +6,15 @@ Safety contract
   (``localhost`` / ``127.0.0.1`` / ``::1``). See ``backend.db.local_guard``.
 * Defaults to **dry-run** — prints what would be imported and exits.
   ``--execute`` is required for any actual ``INSERT``/``UPDATE``.
-* Never writes to Google Sheets. The only Sheets access path used is
-  ``backend.services.accounts_service._get_ws_readonly()``, which reads but
-  cannot mutate.
-* ``--seed-synthetic`` bypasses Google entirely and uses a tiny hardcoded
-  dataset — the safest way to verify the import code path without involving
-  any production data at all.
+* Google 제거(2026-06): 운영 Accounts 시트 **직접 읽기 경로는 삭제**되었다.
+  이제 ``--seed-synthetic`` (하드코딩 합성 데이터)만 지원하며 Google 은 전혀 접근하지 않는다.
+  과거 운영 시트 → PG 이관은 이미 완료되었다.
 
 CLI
 ---
-    # Dry-run from prod Accounts sheet (read-only)
-    python backend/scripts/migrate_accounts_to_pg.py
-
-    # Actually insert from prod sheet into local PG
-    python backend/scripts/migrate_accounts_to_pg.py --execute
-
-    # Code-path smoke test with 3 synthetic rows (no Sheets read at all)
-    python backend/scripts/migrate_accounts_to_pg.py --seed-synthetic --execute
+    # Code-path smoke test with 3 synthetic rows (no Google access at all)
+    python backend/scripts/migrate_accounts_to_pg.py --seed-synthetic            # dry-run
+    python backend/scripts/migrate_accounts_to_pg.py --seed-synthetic --execute  # insert
 
 The synthetic dataset's password is ``beta_test_password_123`` — used to
 verify ``/api/dev/pg/login-test`` round-trips correctly.
@@ -114,16 +106,6 @@ def _build_synthetic_rows() -> list[dict]:
     ]
 
 
-def _read_accounts_from_sheet() -> list[dict]:
-    print("[read] reading Accounts sheet (READ-ONLY — no writes)...")
-    from backend.services.accounts_service import _get_ws_readonly
-
-    ws = _get_ws_readonly()
-    rows = ws.get_all_records()
-    print(f"[read] {len(rows)} rows fetched")
-    return rows
-
-
 def main() -> int:
     # Windows console defaults to cp949 — force UTF-8 so em-dash etc. don't crash.
     try:
@@ -145,7 +127,7 @@ def main() -> int:
     ap.add_argument(
         "--seed-synthetic",
         action="store_true",
-        help="Use 3 hardcoded synthetic rows; skip Google Sheets entirely.",
+        help="Use 3 hardcoded synthetic rows (no external source).",
     )
     args = ap.parse_args()
 
@@ -158,11 +140,14 @@ def main() -> int:
 
     # 2) Load source rows
     if args.seed_synthetic:
-        print("[source] synthetic — Google Sheets NOT accessed.")
+        print("[source] synthetic — no external source accessed.")
         rows = _build_synthetic_rows()
         print(f"[source] {len(rows)} synthetic rows prepared")
     else:
-        rows = _read_accounts_from_sheet()
+        print("[abort] 외부 직접 읽기 경로는 제거되었습니다.")
+        print("        --seed-synthetic 로 합성 데이터를 쓰거나, 운영 데이터는")
+        print("        import_excel_snapshot_to_pg_local.py 등 스냅샷 도구를 사용하세요.")
+        return 2
 
     if not rows:
         print("[abort] no rows to process")
@@ -228,8 +213,6 @@ def main() -> int:
     if not args.execute:
         print()
         print("[dry-run] no DB changes made. Re-run with --execute to insert.")
-        if not args.seed_synthetic:
-            print("[dry-run] (Google Sheets was read READ-ONLY; nothing modified there.)")
         return 0
 
     # 4) Apply
