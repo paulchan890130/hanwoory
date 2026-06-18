@@ -21,7 +21,7 @@ export default async function BoardListPage({
   searchParams?: { category?: string };
 }) {
   // 홈/documents 와 **동일한 공유 함수** 사용(복제 아님).
-  const posts = await getPublishedMarketingPosts("board");
+  const posts = await getPublishedMarketingPosts();
   const initialCategory = searchParams?.category ?? "";
 
   return (

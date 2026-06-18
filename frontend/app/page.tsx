@@ -7,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   // /board 와 **동일한 공유 함수**로 published 글을 서버에서 가져온다.
-  const posts = await getPublishedMarketingPosts("home");
+  const posts = await getPublishedMarketingPosts();
   return <HomeClient initialPosts={posts} />;
 }

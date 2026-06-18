@@ -35,7 +35,7 @@ const breadcrumbJsonLd = {
 };
 
 export default async function DocumentsPage() {
-  const posts = await getPublishedMarketingPosts("documents");
+  const posts = await getPublishedMarketingPosts();
   return (
     <>
       <PublicMobileNav />
