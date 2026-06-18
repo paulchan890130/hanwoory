@@ -35,16 +35,20 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    v = os.environ.get(name)
+    if v is None or not v.strip():
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "y", "on")
+
+
 # ── 감지 임계값(상수 + env override) ──────────────────────────────────────────
-def NEWLOGIN_REVOKE_24H_THRESHOLD() -> int:
-    return _int_env("SEC_NEWLOGIN_REVOKE_24H", 2)
-
-
-def REPEAT_LOGIN_30M_THRESHOLD() -> int:
-    return _int_env("SEC_REPEAT_LOGIN_30M", 3)
-
-
 def DISTINCT_IPUA_24H_THRESHOLD() -> int:
+    """24h 내 서로 다른 기기(ip_prefix + ua_summary 조합) 과다 임계.
+
+    오탐 방지를 위해 **전체 IP가 아닌 마스킹 prefix**로 기기를 식별한다(아래 주석 참조).
+    동적 IP가 바뀌어도 같은 PC면 prefix/UA 가 유지 → 1개 기기로 본다.
+    """
     return _int_env("SEC_DISTINCT_IPUA_24H", 3)
 
 
@@ -54,6 +58,15 @@ def SUSPICION_BLOCK_WINDOW_DAYS() -> int:
 
 def SUSPICION_BLOCK_THRESHOLD() -> int:
     return _int_env("SEC_BLOCK_THRESHOLD", 2)
+
+
+def AUTO_BLOCK_ENABLED() -> bool:
+    """자동 차단 활성 여부. **베타 기본 비활성(False)**.
+
+    비활성이면 의심 신호는 기록·알림만 하고 ``security_blocked`` 는 절대 설정하지 않는다.
+    상용화 시점에만 env ``ACCOUNT_SECURITY_AUTO_BLOCK=true`` 로 명시 활성화한다.
+    """
+    return _bool_env("ACCOUNT_SECURITY_AUTO_BLOCK", False)
 
 
 def _now() -> datetime:
@@ -140,39 +153,19 @@ def record_event(*, login_id: str, tenant_id: Optional[str], event_type: str,
 
 
 # ── 감지 ──────────────────────────────────────────────────────────────────────
-def _count_new_login_revokes_24h(session, login_id: str) -> int:
-    """단일세션 신호: 최근 24h 내 new_login 으로 밀려난 세션 수(user_sessions)."""
-    from sqlalchemy import select, func as f
-    from backend.db.models.user_session import UserSession
-    since = _now() - timedelta(hours=24)
-    return int(session.scalar(
-        select(f.count()).select_from(UserSession).where(
-            UserSession.login_id == login_id,
-            UserSession.revoked_reason == "new_login",
-            UserSession.revoked_at >= since,
-        )
-    ) or 0)
+def _count_distinct_devices_24h(session, login_id: str) -> int:
+    """24h 내 서로 다른 기기 수 — **마스킹 prefix(ip_prefix_masked) + UA 요약(user_agent_summary)** 조합으로 식별.
 
-
-def _count_repeat_logins_30m(session, login_id: str) -> int:
-    from sqlalchemy import select, func as f
-    from backend.db.models.account_security import LoginEvent
-    since = _now() - timedelta(minutes=30)
-    return int(session.scalar(
-        select(f.count()).select_from(LoginEvent).where(
-            LoginEvent.login_id == login_id,
-            LoginEvent.event_type.in_([EV_LOGIN_SUCCESS, EV_LOGOUT]),
-            LoginEvent.created_at >= since,
-        )
-    ) or 0)
-
-
-def _count_distinct_ipua_24h(session, login_id: str) -> int:
-    from sqlalchemy import select, func as f
+    의도: 같은 PC/같은 사무실이면 동적 IP가 바뀌어도(통신사 재할당/모바일/IPv6) prefix·UA 가
+    유지되므로 1개 기기로 본다. 과거엔 **전체 IP 해시**로 셌기 때문에 같은 PC라도 IP가 바뀌면
+    distinct 가 늘어나 정상 1인 사용을 계정공유로 오탐했다(이번 사고 원인). 서로 다른 지역/PC 일
+    때만 prefix·UA 조합이 늘어난다.
+    """
+    from sqlalchemy import select
     from backend.db.models.account_security import LoginEvent
     since = _now() - timedelta(hours=24)
     rows = session.execute(
-        select(LoginEvent.ip_hash, LoginEvent.user_agent_hash).where(
+        select(LoginEvent.ip_prefix_masked, LoginEvent.user_agent_summary).where(
             LoginEvent.login_id == login_id,
             LoginEvent.event_type == EV_LOGIN_SUCCESS,
             LoginEvent.created_at >= since,
@@ -205,6 +198,18 @@ def _suspicion_events_in_window(session, login_id: str) -> int:
             LoginEvent.created_at > effective_since,
         )
     ) or 0)
+
+
+def _is_admin(session, login_id: str) -> bool:
+    """해당 계정이 관리자인지. 조회 실패 시 보수적으로 False(=일반 사용자 취급)."""
+    try:
+        from sqlalchemy import select
+        from backend.db.models.user import AccountUser
+        return bool(session.scalar(
+            select(AccountUser.is_admin).where(AccountUser.login_id == login_id)
+        ))
+    except Exception:
+        return False
 
 
 def _admin_login_ids(session) -> List[str]:
@@ -254,7 +259,17 @@ def is_security_blocked(login_id: str) -> bool:
 
 def evaluate_suspicion(*, login_id: str, tenant_id: Optional[str],
                        ip: Optional[str] = None, user_agent: Optional[str] = None) -> dict:
-    """로그인 직후 호출. 의심 신호 평가 → 1회 알림 / 누적 2회 차단.
+    """로그인 직후 호출. **강한 증거**만 의심으로 본다(기록·알림 중심).
+
+    정책(2026-06-18 재점검 — 정상 1인 사용 오탐/과민 차단 사고 후):
+    - 의심 기준은 **단 하나**: 24h 내 서로 다른 기기(ip prefix + UA 요약 조합)가 임계(기본 3) 이상.
+      → 같은 PC/같은 사무실/같은 브라우저 재로그인·세션 밀림·동적 IP 변경은 1개 기기로 보아 **제외**.
+    - 폐기된 과거 기준(오탐 원인, 더 이상 의심으로 세지 않음):
+        · SESSION_REVOKED_BY_NEW_LOGIN(단일세션 밀림) — 이력으로만 기록.
+        · 30분 내 반복 로그인/로그아웃 — 정상 재로그인/토큰만료 재로그인 포함이라 제외.
+        · 전체 IP 해시 기반 distinct(동적 IP가 바뀌면 같은 PC도 다중 기기로 오탐) — prefix 기반으로 교체.
+    - 차단은 **AUTO_BLOCK_ENABLED()** 가 true 일 때만(베타 기본 false → 기록·알림만).
+    - **관리자 계정은 자동 차단 제외**(_block 내부에서 break-glass 처리).
 
     반환: {"suspicious": bool, "blocked": bool}. graceful(오류 → no-op).
     """
@@ -265,25 +280,13 @@ def evaluate_suspicion(*, login_id: str, tenant_id: Optional[str],
     try:
         from backend.db.models.account_security import LoginEvent
         with _sl() as s:
-            reasons = []
-            distinct_devices = _count_distinct_ipua_24h(s, lid)
-            # 기준①: 세션이 new_login 으로 밀려난 횟수가 임계 이상 **AND 서로 다른 기기 2곳 이상**.
-            # 단일세션에서 본인이 같은 기기로 반복 로그인하면 distinct_devices=1 → 오탐 제외.
-            if (_count_new_login_revokes_24h(s, lid) >= NEWLOGIN_REVOKE_24H_THRESHOLD()
-                    and distinct_devices >= 2):
-                reasons.append("new_login_revoke_24h")
-            # 기준②: 30분 내 반복 로그인/로그아웃도 서로 다른 기기 2곳 이상일 때만(동일기기 오탐 제외).
-            if (_count_repeat_logins_30m(s, lid) >= REPEAT_LOGIN_30M_THRESHOLD()
-                    and distinct_devices >= 2):
-                reasons.append("repeat_login_30m")
-            # 기준③: 24시간 내 서로 다른 기기(ip/ua 조합) 과다.
-            if distinct_devices >= DISTINCT_IPUA_24H_THRESHOLD():
-                reasons.append("distinct_ipua_24h")
-            if not reasons:
+            distinct_devices = _count_distinct_devices_24h(s, lid)
+            # 유일 기준: 24시간 내 서로 다른 기기(prefix+UA) 과다 = 강한 증거.
+            if distinct_devices < DISTINCT_IPUA_24H_THRESHOLD():
                 return out
+            reason_str = f"distinct_devices_24h={distinct_devices}"
 
-            # 1회 의심 — 이벤트 + 카운트 + 알림(본인+관리자). 차단은 아래에서 판단.
-            reason_str = ",".join(reasons)
+            # 1회 의심 — 이벤트 + 카운트 + 알림(본인+관리자). 차단은 아래에서 별도 판단.
             s.add(LoginEvent(login_id=lid, tenant_id=tenant_id, event_type=EV_SUSPICIOUS,
                              ip_hash=_hash(ip), ip_prefix_masked=mask_ip(ip),
                              user_agent_hash=_hash(user_agent), user_agent_summary=summarize_ua(user_agent),
@@ -304,10 +307,11 @@ def evaluate_suspicion(*, login_id: str, tenant_id: Optional[str],
                         related_login_id=lid)
             s.commit()
 
-            # 7일 내 의심 누적 2회 → 차단
-            with _sl() as s2:
-                if _suspicion_events_in_window(s2, lid) >= SUSPICION_BLOCK_THRESHOLD():
-                    out["blocked"] = _block(s2, lid, tenant_id, reason_str)
+            # 자동 차단은 베타 기본 비활성. 활성 시에도 7일 내 누적 임계 이상 + 관리자 예외(_block).
+            if AUTO_BLOCK_ENABLED():
+                with _sl() as s2:
+                    if _suspicion_events_in_window(s2, lid) >= SUSPICION_BLOCK_THRESHOLD():
+                        out["blocked"] = _block(s2, lid, tenant_id, reason_str)
         return out
     except Exception:
         return out
@@ -315,6 +319,19 @@ def evaluate_suspicion(*, login_id: str, tenant_id: Optional[str],
 
 def _block(session, login_id: str, tenant_id: Optional[str], reason: str) -> bool:
     from backend.db.models.account_security import LoginEvent
+    # 관리자 break-glass: 관리자 계정은 자동 차단하지 않는다(차단되면 전체 시스템 관리 불가).
+    # 대신 강한 경고를 관리자 전원에게 알린다. security_blocked 는 설정하지 않음.
+    if _is_admin(session, login_id):
+        session.add(LoginEvent(login_id=login_id, tenant_id=tenant_id, event_type=EV_SUSPICIOUS,
+                               success=False, reason=f"admin_block_skipped:{reason}", risk_level="suspicious"))
+        for admin_lid in _admin_login_ids(session):
+            _notify(session, recipient_login_id=admin_lid, recipient_role="admin", tenant_id=tenant_id,
+                    ntype="suspicious", title=f"[보안] 관리자 계정 의심 누적(자동차단 제외): {login_id}",
+                    body=(f"{login_id}(관리자) 계정에서 계정공유 의심이 누적되었습니다. "
+                          f"관리자 계정은 자동 차단되지 않으니 직접 확인하세요."),
+                    related_login_id=login_id)
+        session.commit()
+        return False
     sec = _get_or_create_security(session, login_id, tenant_id)
     if sec.security_blocked:
         return True
