@@ -67,7 +67,11 @@ export default function GuidelineCategoriesAdminPage() {
   const childLevel = (lv: string) => (lv === "major" ? "middle" : lv === "middle" ? "minor" : null);
 
   function CatRow({ c, depth }: { c: GuidelineCategory; depth: number }) {
-    const [name, setName] = useState(c.display_name);
+    // 표시명 입력 기본값: 사용자가 바꾼 한글이 있으면 그대로 두고,
+    // 아직 내부코드(예: CHANGE/F)이거나 비어 있으면 한글 추천으로 시작한다.
+    const code = c.code ?? "";
+    const initialName = (c.display_name && c.display_name !== code) ? c.display_name : (c.suggested_label || c.display_name);
+    const [name, setName] = useState(initialName);
     const [order, setOrder] = useState(String(c.sort_order));
     const [addName, setAddName] = useState("");
     const cl = childLevel(c.level);
@@ -80,7 +84,13 @@ export default function GuidelineCategoriesAdminPage() {
           background: c.is_active ? "#fff" : "#FFF5F5",
         }}>
           <span style={{ fontSize: 10, color: "#A0AEC0", width: 40 }}>{LEVEL_LABEL[c.level] ?? c.level}</span>
+          <span title="내부 코드(문서 매핑 키 · 읽기전용)"
+            style={{ fontSize: 10, fontFamily: "monospace", color: "#718096", background: "#EDF2F7",
+              border: `1px solid ${BORDER}`, borderRadius: 4, padding: "2px 6px", minWidth: 60, textAlign: "center" }}>
+            {code || (c.is_custom ? "커스텀" : "—")}
+          </span>
           <input value={name} onChange={(e) => setName(e.target.value)}
+            placeholder={c.suggested_label || code || "표시명(한글)"} title="사용자 표시명(한글) — 이 값을 수정하세요"
             style={{ fontSize: 13, padding: "4px 8px", border: `1px solid ${BORDER}`, borderRadius: 6, minWidth: 200 }} />
           <input value={order} onChange={(e) => setOrder(e.target.value)} title="순서" inputMode="numeric"
             style={{ width: 56, fontSize: 12, padding: "4px 6px", border: `1px solid ${BORDER}`, borderRadius: 6, textAlign: "right" }} />
@@ -116,7 +126,8 @@ export default function GuidelineCategoriesAdminPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1A202C", margin: 0 }}>🗂 실무지침 분류 관리</h1>
-          <p style={{ fontSize: 12, color: "#718096", marginTop: 4 }}>대분류 → 주분류 → 소분류. 이름·순서·활성/비활성·추가. 원본 데이터는 변경되지 않습니다.</p>
+          <p style={{ fontSize: 12, color: "#718096", marginTop: 4 }}>대분류 → 주분류 → 소분류. 사용자에게 보이는 <b>표시명(한글)</b>·순서·활성/비활성·추가. 원본 데이터는 변경되지 않습니다.</p>
+          <p style={{ fontSize: 11, color: "#A0AEC0", marginTop: 2 }}>좌측 <span style={{ fontFamily: "monospace" }}>내부 코드</span>는 문서 매핑 키라 <b>읽기전용</b>입니다. 수정할 값은 <b>표시명</b>이며, 사용자 업무찾기 화면에 그대로 보입니다.</p>
         </div>
         <button onClick={() => mSeed.mutate()} disabled={mSeed.isPending} className="btn-secondary" style={{ fontSize: 12, padding: "6px 14px" }}>
           {mSeed.isPending ? "생성 중..." : "기본 분류 생성(JSON 기준)"}

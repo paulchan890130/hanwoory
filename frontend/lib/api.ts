@@ -1091,7 +1091,9 @@ export interface GuidelineCategory {
   parent_id: number | null;
   level: "major" | "middle" | "minor" | string;
   source_key: string;
+  code?: string;            // 내부 매핑 코드(읽기전용, source_key 파생)
   display_name: string;
+  suggested_label?: string; // 한글 추천 표시명(표시명이 비었거나 코드와 같을 때 prefill용)
   sort_order: number;
   is_active: boolean;
   is_custom: boolean;

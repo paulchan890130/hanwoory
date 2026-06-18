@@ -71,6 +71,32 @@ def row_source_keys(row: dict) -> dict:
     }
 
 
+# ── 내부 코드 디코드 / 한글 추천 (관리자 표시용, 읽기전용) ────────────────────
+def decode_source_key(source_key: Optional[str]) -> str:
+    """source_key → 사람이 읽는 내부 코드(읽기전용 표시용). 커스텀(없음)→"".
+    M|{action}→action, m|{action}|{family}→family, s|{action}|{family}|{mid}→mid."""
+    sk = str(source_key or "")
+    if not sk:
+        return ""
+    parts = sk.split("|")
+    if parts[0] == "M" and len(parts) >= 2:
+        return parts[1]
+    if parts[0] == "m" and len(parts) >= 3:
+        return parts[2]
+    if parts[0] == "s" and len(parts) >= 4:
+        return parts[3]
+    return ""
+
+
+def suggested_label_for(level: str, source_key: Optional[str]) -> str:
+    """관리자 화면 한글 추천 표시명. 대분류는 ACTION_KO, 주/소분류는 구조적 코드 그대로
+    (주/소분류는 detailed_code 파생 그룹이라 별도 한글 업무명이 없음)."""
+    code = decode_source_key(source_key)
+    if str(level) == "major":
+        return ACTION_KO.get(code, code)
+    return code
+
+
 # ── dict 변환 ────────────────────────────────────────────────────────────────
 def _to_dict(row) -> dict:
     return {
@@ -78,7 +104,11 @@ def _to_dict(row) -> dict:
         "parent_id": row.parent_id,
         "level": row.level or "",
         "source_key": row.source_key or "",
+        # code: 내부 매핑 키(읽기전용 표시용). display_name 과 분리 — 코드는 절대 편집 대상 아님.
+        "code": decode_source_key(row.source_key),
         "display_name": row.display_name or "",
+        # suggested_label: 표시명이 비었거나 내부코드와 같을 때 관리자 UI 가 보여줄 한글 추천.
+        "suggested_label": suggested_label_for(row.level or "", row.source_key),
         "sort_order": int(row.sort_order or 0),
         "is_active": bool(row.is_active),
         "is_custom": bool(row.is_custom),
