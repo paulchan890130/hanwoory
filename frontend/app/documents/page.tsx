@@ -2,30 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentsClient } from "./DocumentsClient";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
+import { getPublishedMarketingPosts } from "@/lib/marketingPosts";
 
 // 요청 시점 서버 렌더(빌드 시 백엔드 미가동 → 빈 배열 정적 베이크 방지). 홈/sitemap 과 동일 패턴.
 export const dynamic = "force-dynamic";
-
-interface Post {
-  id: string;
-  title: string;
-  slug: string;
-  tags?: string;
-}
-
-async function getPosts(): Promise<Post[]> {
-  try {
-    const base = process.env.API_URL || "http://127.0.0.1:8000";
-    const res = await fetch(`${base}/api/marketing/posts`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
-}
 
 export const metadata: Metadata = {
   title: "업무별 준비서류",
@@ -55,7 +35,7 @@ const breadcrumbJsonLd = {
 };
 
 export default async function DocumentsPage() {
-  const posts = await getPosts();
+  const posts = await getPublishedMarketingPosts("documents");
   return (
     <>
       <PublicMobileNav />

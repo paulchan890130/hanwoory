@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BoardClient } from "./BoardClient";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
+import { getPublishedMarketingPosts } from "@/lib/marketingPosts";
 
 export const metadata: Metadata = {
   title: "업무 안내",
@@ -14,38 +15,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.hanwory.com/board" },
 };
 
-interface Post {
-  id: string;
-  title: string;
-  slug: string;
-  category: string;
-  summary: string;
-  thumbnail_url?: string;
-  tags?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-async function getPosts(): Promise<Post[]> {
-  try {
-    const base = process.env.API_URL || "http://127.0.0.1:8000";
-    const res = await fetch(`${base}/api/marketing/posts`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
-}
-
 export default async function BoardListPage({
   searchParams,
 }: {
   searchParams?: { category?: string };
 }) {
-  const posts = await getPosts();
+  // 홈/documents 와 **동일한 공유 함수** 사용(복제 아님).
+  const posts = await getPublishedMarketingPosts("board");
   const initialCategory = searchParams?.category ?? "";
 
   return (

@@ -399,7 +399,10 @@ export default function HomePage({ initialPosts = [] }: { initialPosts?: Post[] 
       </section>
 
       {/* BOARD */}
-      <section id="board" className="section-alt" aria-labelledby="board-title">
+      <section id="board" className="section-alt" aria-labelledby="board-title"
+        data-deploy-marker="diag-shared-getposts"
+        data-posts-count={posts.length}
+        data-board-count={boardPosts.length}>
         <div className="container">
           <p className="section-label fade-in">Notice</p>
           <h2 className="section-title fade-in" id="board-title">업무 안내</h2>
