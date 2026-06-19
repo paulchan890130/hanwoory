@@ -186,12 +186,13 @@ const ARC_GUIDE_BOXES: Array<{
   color: string;
   labelPos: "inside" | "above" | "below" | "right";
 }> = [
+  // 표시 순서: 한글 이름 → 등록증 앞 → 등록증 뒤 (좌표는 불변, 버튼/가이드 표시 순서만 조정)
+  // C. 한글 이름 — 위로 50% 이동, 좌로 10% 이동
+  { key: "한글",   label: "한글 이름",  x: 0.368, y: 0.232, w: 0.058, h: 0.018, color: "#e53e3e", labelPos: "below" },
   // A. 등록증 앞 — 우로 20% 확장
   { key: "등록증", label: "등록증 앞",  x: 0.368, y: 0.174, w: 0.090, h: 0.024, color: "#dd6b20", labelPos: "above" },
   // B. 등록증 뒤 — 우로 30% 이동, 우로 30% 확장
   { key: "번호",   label: "등록증 뒤",  x: 0.478, y: 0.174, w: 0.117, h: 0.024, color: "#D4A843", labelPos: "above" },
-  // C. 한글 이름 — 위로 50% 이동, 좌로 10% 이동
-  { key: "한글",   label: "한글 이름",  x: 0.368, y: 0.232, w: 0.058, h: 0.018, color: "#e53e3e", labelPos: "below" },
   // D. 발급일 — 위로 10% 이동, 우로 180% 이동, 우측 80%로 축소
   { key: "발급일", label: "발급일",    x: 0.675, y: 0.336, w: 0.088, h: 0.028, color: "#38a169", labelPos: "above" },
   // E. 만기일 — 우측 60%로 축소
