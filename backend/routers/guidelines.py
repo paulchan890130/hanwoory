@@ -1635,7 +1635,8 @@ def list_guidelines(
     return _paginate(items, page, limit)
 
 
-_EDITABLE_FIELDS = {"form_docs", "supporting_docs", "fee_rule", "practical_notes"}
+_EDITABLE_FIELDS = {"form_docs", "supporting_docs", "fee_rule", "practical_notes",
+                    "exceptions_summary", "basis_section"}
 
 
 class GuidelineFieldPatch(BaseModel):
@@ -1649,7 +1650,9 @@ def patch_guideline_field(
     body: GuidelineFieldPatch,
     admin: dict = Depends(require_admin),
 ):
-    """관리자 전용: 실무지침 단일 필드 수정 (form_docs/supporting_docs/fee_rule/practical_notes만 허용)."""
+    """관리자 전용(require_admin → 일반 계정 403): 실무지침 단일 필드 수정.
+    허용 필드: form_docs/supporting_docs/fee_rule/practical_notes/exceptions_summary/basis_section.
+    값은 verbatim 저장(빈 값 허용, 줄바꿈 보존). 실무지침은 tenant 분리 없는 공통 자료다."""
     if body.field not in _EDITABLE_FIELDS:
         raise HTTPException(
             status_code=400,

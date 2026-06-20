@@ -840,6 +840,8 @@ function DetailPanel({
   const [editSupportingDocs, setEditSupportingDocs] = useState<string[]>([]);
   const [editFeeRule, setEditFeeRule] = useState(row.fee_rule ?? "");
   const [editPracticalNotes, setEditPracticalNotes] = useState<string[]>([]);
+  const [editExceptions, setEditExceptions] = useState<string[]>([]);
+  const [editBasis, setEditBasis] = useState(row.basis_section ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -850,6 +852,8 @@ function DetailPanel({
     setEditSupportingDocs((row.supporting_docs ?? "").split("|").map(s => s.trim()).filter(Boolean));
     setEditFeeRule(row.fee_rule ?? "");
     setEditPracticalNotes((row.practical_notes ?? "").split("|").map(s => s.trim()).filter(Boolean));
+    setEditExceptions((row.exceptions_summary ?? "").split("|").map(s => s.trim()).filter(Boolean));
+    setEditBasis(row.basis_section ?? "");
     guidelinesApi.getDetail(row.row_id)
       .then(res => {
         const data = res.data as GuidelineRow & { related_exceptions?: { exc_id: string; trigger_condition?: string; add_supporting_docs?: string; add_form_docs?: string }[] };
@@ -864,6 +868,8 @@ function DetailPanel({
     if (field === "supporting_docs") setEditSupportingDocs((row.supporting_docs ?? "").split("|").map(s => s.trim()).filter(Boolean));
     if (field === "fee_rule") setEditFeeRule(row.fee_rule ?? "");
     if (field === "practical_notes") setEditPracticalNotes((row.practical_notes ?? "").split("|").map(s => s.trim()).filter(Boolean));
+    if (field === "exceptions_summary") setEditExceptions((row.exceptions_summary ?? "").split("|").map(s => s.trim()).filter(Boolean));
+    if (field === "basis_section") setEditBasis(row.basis_section ?? "");
   };
 
   const cancelEdit = () => setEditingField(null);
@@ -1087,18 +1093,31 @@ function DetailPanel({
           )}
         </div>
 
-        {/* 예외사항 */}
-        {exceptions.length > 0 && (
+        {/* 예외사항 (관리자 편집 가능) */}
+        {(isAdmin || exceptions.length > 0) && (
           <div>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
-              <AlertCircle size={13} style={{color:"#ED8936"}}/>
-              <span style={{ fontSize:12, fontWeight:700, color:"#ED8936" }}>예외사항</span>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {exceptions.map((exc, i) => (
-                <div key={i} style={{ fontSize:12, padding:"8px 12px", borderRadius:8, background:"#FFFAF0", color:"#7B341E", border:"1px solid #FBD38D", lineHeight:1.6 }}>{exc}</div>
-              ))}
-            </div>
+            <EditableHeader
+              title="예외사항"
+              icon={<AlertCircle size={13} style={{color:"#ED8936"}}/>}
+              color="#ED8936"
+              isAdmin={isAdmin}
+              isEditing={editingField === "exceptions_summary"}
+              onToggle={() => startEdit("exceptions_summary")}
+              onSave={() => saveField("exceptions_summary", editExceptions.map(s => s.trim()).filter(Boolean).join(" | "))}
+              onCancel={cancelEdit}
+              saving={saving}
+            />
+            {editingField === "exceptions_summary" ? (
+              <PipeEditor items={editExceptions} onChange={setEditExceptions} />
+            ) : exceptions.length > 0 ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {exceptions.map((exc, i) => (
+                  <div key={i} style={{ fontSize:12, padding:"8px 12px", borderRadius:8, background:"#FFFAF0", color:"#7B341E", border:"1px solid #FBD38D", lineHeight:1.6 }}>{exc}</div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize:12, color:"#CBD5E0" }}>—</div>
+            )}
           </div>
         )}
 
@@ -1139,14 +1158,33 @@ function DetailPanel({
           </div>
         )}
 
-        {/* 근거 */}
-        {row.basis_section && (
+        {/* 근거 (관리자 편집 가능) */}
+        {(isAdmin || row.basis_section) && (
           <div>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-              <BookMarked size={13} style={{color:"#9F7AEA"}}/>
-              <span style={{ fontSize:12, fontWeight:700, color:"#9F7AEA" }}>근거</span>
-            </div>
-            <div style={{ fontSize:12, color:"#718096", lineHeight:1.7, wordBreak:"break-word", overflowWrap:"break-word" }}>{row.basis_section}</div>
+            <EditableHeader
+              title="근거"
+              icon={<BookMarked size={13} style={{color:"#9F7AEA"}}/>}
+              color="#9F7AEA"
+              isAdmin={isAdmin}
+              isEditing={editingField === "basis_section"}
+              onToggle={() => startEdit("basis_section")}
+              onSave={() => saveField("basis_section", editBasis)}
+              onCancel={cancelEdit}
+              saving={saving}
+            />
+            {editingField === "basis_section" ? (
+              <textarea
+                value={editBasis}
+                onChange={e => setEditBasis(e.target.value)}
+                rows={4}
+                placeholder="근거 (빈 값 저장 가능, 줄바꿈 유지)"
+                style={{ width:"100%", fontSize:12, padding:"8px 10px", border:"1px solid #CBD5E0", borderRadius:8, outline:"none", lineHeight:1.6, resize:"vertical", boxSizing:"border-box" }}
+              />
+            ) : row.basis_section ? (
+              <div style={{ fontSize:12, color:"#718096", lineHeight:1.7, whiteSpace:"pre-wrap", wordBreak:"break-word", overflowWrap:"break-word" }}>{row.basis_section}</div>
+            ) : (
+              <div style={{ fontSize:12, color:"#CBD5E0" }}>—</div>
+            )}
           </div>
         )}
 

@@ -520,6 +520,17 @@ export default function CertificationServicesPage() {
       list = list.filter(p => [vendorMap[p.vendor_id] ?? "", groupMap[p.group_id] ?? "",
         p.direction, p.region, p.condition].join(" ").toLowerCase().includes(kw));
     }
+    // 기본 정렬: 가능 항목 우선 → 가격 오름차순(숫자 기준) → 가격 없는 항목은 아래 → 동가는 업체명 안정 정렬.
+    // (행 추가/수정/삭제는 data.prices 를 갱신하므로 매 렌더 재계산되어 즉시 재정렬된다.)
+    list.sort((a, b) => {
+      const po = (POSSIBLE_ORDER[a.possible] ?? 1) - (POSSIBLE_ORDER[b.possible] ?? 1);
+      if (po !== 0) return po;
+      const pa = parseInt(a.price || "0", 10), pb = parseInt(b.price || "0", 10);
+      const za = pa > 0 ? 0 : 1, zb = pb > 0 ? 0 : 1;     // 가격 없음(0/빈값)은 아래로
+      if (za !== zb) return za - zb;
+      if (pa !== pb) return pa - pb;                       // 숫자 기준 오름차순
+      return (vendorMap[a.vendor_id] ?? "").localeCompare(vendorMap[b.vendor_id] ?? "");
+    });
     return list;
   })();
 

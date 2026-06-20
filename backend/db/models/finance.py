@@ -69,6 +69,11 @@ class MonthlyTaxSummary(Base):
     year_month: Mapped[str] = mapped_column(Text, nullable=False)  # "YYYY-MM"
     reported_revenue: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     reported_expense: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # 신고/부가세 입력 분해 (migration 0018) — 모두 공급대가(부가세 포함), 원 단위 정수.
+    manual_tax_invoice_revenue: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    manual_other_revenue: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    business_card_expense: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    non_deductible_expense: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     reported_output_vat: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     reported_input_vat: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     expected_vat_payable: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

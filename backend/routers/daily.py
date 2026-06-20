@@ -92,6 +92,13 @@ def _entry_reported_sales(rec: dict) -> int:
     return _entry_sales(rec) if (is_card or is_tax) else 0
 
 
+def _entry_card_income(rec: dict) -> int:
+    """일일결산 1건의 '카드' 수입 금액(원). 결제수단이 카드(inc=카드)인 행의
+    수입(income_cash+income_etc)을 반환, 아니면 0. 월간결산 '자동 카드매출' 합산용.
+    읽기 전용 — 일일결산 데이터 구조를 변경하지 않는다."""
+    return _entry_sales(rec) if _entry_kid_parts(rec).get("inc", "") == "카드" else 0
+
+
 def _ym_to_int(s) -> Optional[int]:
     """'YYYY-MM' → 정렬/비교용 정수(year*12+month). 형식 불량이면 None."""
     s = str(s or "").strip()
@@ -309,10 +316,15 @@ def _build_yearly_overview(records: list, year: int, month: int,
         key=lambda x: -x["cur"],
     )
 
-    # 세무 자동 신고매출(선택월): 카드수입 + 세금계산서 발행 체크 수입 (행당 1회)
+    # 세무 자동 신고매출(선택월): 카드수입 + 세금계산서 발행 체크 수입 (행당 1회, 레거시 호환)
     sel_prefix = f"{year}-{month:02d}"
     auto_reported_sales = sum(
         _entry_reported_sales(r) for r in records
+        if str(r.get("date", "")).startswith(sel_prefix)
+    )
+    # 자동 카드매출(선택월): 결제수단이 카드인 수입 합계 (신고/부가세 단순화 기준)
+    auto_card_sales = sum(
+        _entry_card_income(r) for r in records
         if str(r.get("date", "")).startswith(sel_prefix)
     )
 
@@ -329,6 +341,7 @@ def _build_yearly_overview(records: list, year: int, month: int,
             "current": tax_cur or None,
             "prev": tax_prev or None,
             "auto_reported_sales": auto_reported_sales,
+            "auto_card_sales": auto_card_sales,
         },
         "diagnosis": _diagnose(same_month, same_quarter, ytd, category_compare, year, month, q,
                                tax_cur=tax_cur, tax_prev=tax_prev),
@@ -1508,6 +1521,18 @@ def copy_fixed_expenses_ep(
     return {"copied": n, "from": from_ym, "to": to_ym}
 
 
+def _auto_card_sales_for_month(tenant_id: str, year_month: str) -> int:
+    """선택월(YYYY-MM)의 자동 카드매출 = 일일결산 카드수입 합계(읽기 전용)."""
+    prefix = str(year_month or "").strip()[:7]
+    if len(prefix) < 7:
+        return 0
+    records = _fetch_daily_records(tenant_id)
+    return sum(
+        _entry_card_income(r) for r in records
+        if str(r.get("date", "")).startswith(prefix)
+    )
+
+
 @router.get("/tax-summary")
 def get_tax_summary_ep(
     year_month: str = Query(..., description="YYYY-MM"),
@@ -1515,13 +1540,16 @@ def get_tax_summary_ep(
 ):
     _require_pg_daily()
     from backend.services.monthly_tax_pg_service import get_tax_summary
-    return get_tax_summary(user["tenant_id"], year_month) or {}
+    auto_card = _auto_card_sales_for_month(user["tenant_id"], year_month)
+    return get_tax_summary(user["tenant_id"], year_month, auto_card_sales=auto_card) or {}
 
 
 @router.put("/tax-summary")
 def upsert_tax_summary_ep(data: dict, user: dict = Depends(get_current_user)):
     _require_pg_daily()
-    if not str(data.get("year_month", "")).strip():
+    year_month = str(data.get("year_month", "")).strip()
+    if not year_month:
         raise HTTPException(status_code=400, detail="year_month는 필수입니다.")
     from backend.services.monthly_tax_pg_service import upsert_tax_summary
-    return upsert_tax_summary(user["tenant_id"], data)
+    auto_card = _auto_card_sales_for_month(user["tenant_id"], year_month)
+    return upsert_tax_summary(user["tenant_id"], data, auto_card_sales=auto_card)

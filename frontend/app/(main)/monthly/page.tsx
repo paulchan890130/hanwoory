@@ -637,7 +637,7 @@ function FixedExpensePanel({ year, month, pgOn }: { year: number; month: number;
   );
 }
 
-function TaxReportPanel({ year, month, pgOn, autoReportedSales = 0 }: { year: number; month: number; pgOn: boolean; autoReportedSales?: number }) {
+function TaxReportPanel({ year, month, pgOn, autoCardSales = 0 }: { year: number; month: number; pgOn: boolean; autoCardSales?: number }) {
   const qc = useQueryClient();
   const ym = `${year}-${String(month).padStart(2, "0")}`;
   const { data } = useQuery({
@@ -645,10 +645,10 @@ function TaxReportPanel({ year, month, pgOn, autoReportedSales = 0 }: { year: nu
     queryFn: () => dailyApi.getTaxSummary(ym).then((r) => r.data),
     enabled: pgOn,
   });
-  const [f, setF] = useState<Partial<TaxSummary>>({ vat_basis: "tax_included" });
+  const [f, setF] = useState<Partial<TaxSummary>>({});
   useEffect(() => {
     const d = data as TaxSummary | undefined;
-    setF(d && d.year_month ? d : { vat_basis: "tax_included" });
+    setF(d && d.year_month ? d : {});
   }, [data, ym]);
   const saveMut = useMutation({
     mutationFn: () => dailyApi.saveTaxSummary({ ...f, year_month: ym }),
@@ -658,62 +658,74 @@ function TaxReportPanel({ year, month, pgOn, autoReportedSales = 0 }: { year: nu
 
   if (!pgOn) return <Card title="🧾 신고 기준 / 부가세"><PgNeeded /></Card>;
 
-  const basis = f.vat_basis || "tax_included";
-  // 자동(카드수입+세금계산서) + 수동 조정 = 합계 신고매출. 부가세는 합계 기준.
-  const manualSales = num(f.reported_revenue);
-  const totalSales = autoReportedSales + manualSales;
-  const vatOf = (amt: number) => basis === "supply_price" ? Math.round(amt * 0.1) : amt - Math.round(amt / 1.1);
-  const supplyOf = (amt: number) => basis === "supply_price" ? amt : Math.round(amt / 1.1);
-  const outVat = num(f.reported_output_vat) || vatOf(totalSales);
-  const inVat = num(f.reported_input_vat) || vatOf(num(f.reported_expense));
-  const supply = supplyOf(totalSales);
+  // 모든 입력은 공급대가(부가세 포함), 원 단위 정수, 음수 불허. 부가세 = 금액 − round(금액/1.1).
+  const autoCard = Math.max(0, num(autoCardSales));
+  const invoice = Math.max(0, num(f.manual_tax_invoice_revenue));
+  const other = Math.max(0, num(f.manual_other_revenue));
+  const cardExpense = Math.max(0, num(f.business_card_expense));
+  const nonDeduct = Math.max(0, num(f.non_deductible_expense));
+
+  const totalSales = autoCard + invoice + other;
+  const deductible = Math.max(cardExpense - nonDeduct, 0);
+  const vatOf = (amt: number) => (amt <= 0 ? 0 : amt - Math.round(amt / 1.1));
+  const outVat = vatOf(totalSales);
+  const inVat = vatOf(deductible);
   const expected = outVat - inVat;
+
   const cell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
   const lbl: React.CSSProperties = { fontSize: 11, color: "#718096" };
+  const roBox: React.CSSProperties = { ...fieldStyle, textAlign: "right", background: "#F7FAFC", color: "#2D3748", fontWeight: 600 };
+  const clampSet = (key: keyof TaxSummary) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setF((p) => ({ ...p, [key]: Math.max(0, num(e.target.value)) }));
 
   return (
     <Card title="🧾 신고 기준 / 부가세">
       <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 12 }}>
-        ※ 일반과세 10% 기준 <b>관리용 예상 계산</b>입니다. 실제 신고 확정값과 다를 수 있습니다.
-        자동 신고매출 = 일일결산의 <b>카드수입 + 세금계산서 발행 체크 수입</b> (행당 1회).
+        ※ 일반과세 10% 기준 <b>관리용 예상 계산</b>입니다(실제 신고 확정값과 다를 수 있음). 모든 금액은 <b>공급대가(부가세 포함)</b> 기준.
+        자동 카드매출 = 일일결산의 <b>카드 결제수단 수입 합계</b>. 세금계산서 매출은 자동 합산되지 않으니 아래에 직접 입력하세요.
       </div>
 
       {/* 신고매출 구성 요약 */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", marginBottom: 12, padding: "10px 14px", background: "#EBF8FF", border: "1px solid #BEE3F8", borderRadius: 8, fontSize: 13 }}>
-        <span>① 자동 신고매출 <b title={`${fmt(autoReportedSales)}원`}>{man(autoReportedSales)}</b></span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", marginBottom: 12, padding: "10px 14px", background: "#EBF8FF", border: "1px solid #BEE3F8", borderRadius: 8, fontSize: 13 }}>
+        <span>자동 카드매출 <b title={`${fmt(autoCard)}원`}>{man(autoCard)}</b></span>
         <span style={{ color: "#CBD5E0" }}>+</span>
-        <span>② 수동 추가/조정 <b title={`${fmt(manualSales)}원`}>{man(manualSales)}</b></span>
+        <span>세금계산서 <b title={`${fmt(invoice)}원`}>{man(invoice)}</b></span>
+        <span style={{ color: "#CBD5E0" }}>+</span>
+        <span>기타조정 <b title={`${fmt(other)}원`}>{man(other)}</b></span>
         <span style={{ color: "#CBD5E0" }}>=</span>
-        <span>③ 합계 신고매출 <b style={{ color: "#2B6CB0" }} title={`${fmt(totalSales)}원`}>{man(totalSales)}</b></span>
-        <span style={{ color: "#CBD5E0" }}>·</span>
-        <span>예상 공급가액 <b title={`${fmt(supply)}원`}>{man(supply)}</b></span>
+        <span>신고 매출 합계 <b style={{ color: "#2B6CB0" }} title={`${fmt(totalSales)}원`}>{man(totalSales)}</b></span>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         <div style={cell}>
-          <span style={lbl}>부가세 기준</span>
-          <select style={fieldStyle} value={basis} onChange={(e) => setF((p) => ({ ...p, vat_basis: e.target.value as TaxSummary["vat_basis"] }))}>
-            <option value="tax_included">공급대가(부가세 포함) 입력</option>
-            <option value="supply_price">공급가액 입력</option>
-          </select>
+          <span style={lbl}>자동 카드매출 (원, 자동)</span>
+          <input style={roBox} value={fmt(autoCard)} readOnly tabIndex={-1} />
         </div>
         <div style={cell}>
-          <span style={lbl}>수동 추가/조정 신고매출 (원)</span>
-          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.reported_revenue ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_revenue: num(e.target.value) }))} />
+          <span style={lbl}>수동 세금계산서 매출액 (원)</span>
+          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.manual_tax_invoice_revenue ?? ""} onChange={clampSet("manual_tax_invoice_revenue")} />
         </div>
         <div style={cell}>
-          <span style={lbl}>신고 매입/지출액 (원)</span>
-          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.reported_expense ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_expense: num(e.target.value) }))} />
+          <span style={lbl}>기타 수동 조정 매출액 (원)</span>
+          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.manual_other_revenue ?? ""} onChange={clampSet("manual_other_revenue")} />
         </div>
         <div style={cell}>
-          <span style={lbl}>매출세액 (비우면 합계 기준 자동)</span>
-          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" placeholder={`자동 ${fmt(vatOf(totalSales))}`} value={f.reported_output_vat ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_output_vat: num(e.target.value) }))} />
+          <span style={lbl}>신고 매출 합계 (원, 자동)</span>
+          <input style={roBox} value={fmt(totalSales)} readOnly tabIndex={-1} />
         </div>
         <div style={cell}>
-          <span style={lbl}>매입세액 (비우면 자동)</span>
-          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" placeholder={`자동 ${fmt(vatOf(num(f.reported_expense)))}`} value={f.reported_input_vat ?? ""} onChange={(e) => setF((p) => ({ ...p, reported_input_vat: num(e.target.value) }))} />
+          <span style={lbl}>사업용 카드 사용액 (원)</span>
+          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.business_card_expense ?? ""} onChange={clampSet("business_card_expense")} />
         </div>
         <div style={cell}>
+          <span style={lbl}>불공제/개인사용 제외액 (원)</span>
+          <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.non_deductible_expense ?? ""} onChange={clampSet("non_deductible_expense")} />
+        </div>
+        <div style={cell}>
+          <span style={lbl}>공제대상 매입액 (원, 자동)</span>
+          <input style={roBox} value={fmt(deductible)} readOnly tabIndex={-1} />
+        </div>
+        <div style={{ ...cell, gridColumn: "span 2" }}>
           <span style={lbl}>신고 메모</span>
           <input style={fieldStyle} value={f.memo ?? ""} onChange={(e) => setF((p) => ({ ...p, memo: e.target.value }))} />
         </div>
@@ -722,7 +734,11 @@ function TaxReportPanel({ year, month, pgOn, autoReportedSales = 0 }: { year: nu
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", marginTop: 14, padding: "10px 14px", background: GRAY_BG, borderRadius: 8, fontSize: 13 }}>
         <span>매출세액 <b title={`${fmt(outVat)}원`}>{man(outVat)}</b></span>
         <span>매입세액 <b title={`${fmt(inVat)}원`}>{man(inVat)}</b></span>
-        <span>예상 납부 부가세 <b style={{ color: expected >= 0 ? "#C53030" : "#276749" }} title={`${fmt(expected)}원`}>{man(expected)}</b></span>
+        {expected >= 0 ? (
+          <span>예상 납부 부가세 <b style={{ color: "#C53030" }} title={`${fmt(expected)}원`}>{man(expected)}</b></span>
+        ) : (
+          <span>예상 납부 부가세 <b style={{ color: "#276749" }} title={`${fmt(expected)}원`}>예상 환급/이월 검토 ({man(expected)})</b></span>
+        )}
         <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary" style={{ fontSize: 12, padding: "6px 16px", marginLeft: "auto" }}>저장</button>
       </div>
     </Card>
@@ -1315,7 +1331,7 @@ export default function MonthlyPage() {
 
             {/* 고정지출 관리 + 신고/부가세 (PG 전용) */}
             <FixedExpensePanel year={year} month={month} pgOn={!!overview.pg_daily} />
-            <TaxReportPanel year={year} month={month} pgOn={!!overview.pg_daily} autoReportedSales={overview.tax?.auto_reported_sales ?? 0} />
+            <TaxReportPanel year={year} month={month} pgOn={!!overview.pg_daily} autoCardSales={overview.tax?.auto_card_sales ?? 0} />
           </div>
         );
       })()}

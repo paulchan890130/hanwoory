@@ -387,6 +387,15 @@ export interface FixedExpense {
 
 export interface TaxSummary {
   year_month: string;
+  // 입력 구성값 (모두 공급대가, 원 단위 정수, 음수 불허)
+  manual_tax_invoice_revenue: number;
+  manual_other_revenue: number;
+  business_card_expense: number;
+  non_deductible_expense: number;
+  // 파생/스냅샷 (read-only)
+  auto_card_sales?: number;
+  total_reported_sales?: number;
+  deductible_expense?: number;
   reported_revenue: number;
   reported_expense: number;
   reported_output_vat: number;
@@ -520,7 +529,7 @@ export interface YearlyOverview {
   same_quarter: YearlyAggRow[];
   ytd: YearlyAggRow[];
   category_compare: { name: string; cur: number; prev: number; delta: number }[];
-  tax?: { current: TaxSummary | null; prev: TaxSummary | null; auto_reported_sales?: number };
+  tax?: { current: TaxSummary | null; prev: TaxSummary | null; auto_reported_sales?: number; auto_card_sales?: number };
   diagnosis: { good: string[]; bad: string[] };
   // 신규 (요구사항 1·3·5·6)
   period?: PeriodBlock;
