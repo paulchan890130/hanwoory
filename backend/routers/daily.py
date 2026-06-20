@@ -92,11 +92,21 @@ def _entry_reported_sales(rec: dict) -> int:
     return _entry_sales(rec) if (is_card or is_tax) else 0
 
 
+def _is_card_income_method(v) -> bool:
+    """수입 결제수단이 '카드' 류인지 판정. 입력 UI(INCOME_METHODS)는 '카드'만
+    저장하지만, 표기 변형(신용카드/체크카드/영문 card)도 방어적으로 인식한다.
+    공백/대소문자 무시. 지출(e1/e2)이 아니라 수입 결제수단(inc)에만 적용한다."""
+    s = str(v or "").strip().lower()
+    if not s:
+        return False
+    return ("카드" in s) or (s in ("card", "creditcard", "credit card", "debitcard"))
+
+
 def _entry_card_income(rec: dict) -> int:
-    """일일결산 1건의 '카드' 수입 금액(원). 결제수단이 카드(inc=카드)인 행의
+    """일일결산 1건의 '카드' 수입 금액(원). 수입 결제수단이 카드인 행의
     수입(income_cash+income_etc)을 반환, 아니면 0. 월간결산 '자동 카드매출' 합산용.
     읽기 전용 — 일일결산 데이터 구조를 변경하지 않는다."""
-    return _entry_sales(rec) if _entry_kid_parts(rec).get("inc", "") == "카드" else 0
+    return _entry_sales(rec) if _is_card_income_method(_entry_kid_parts(rec).get("inc", "")) else 0
 
 
 def _ym_to_int(s) -> Optional[int]:
@@ -322,10 +332,14 @@ def _build_yearly_overview(records: list, year: int, month: int,
         _entry_reported_sales(r) for r in records
         if str(r.get("date", "")).startswith(sel_prefix)
     )
-    # 자동 카드매출(선택월): 결제수단이 카드인 수입 합계 (신고/부가세 단순화 기준)
+    # 자동 카드매출(선택월): 결제수단이 카드인 수입 합계 + 건수 (신고/부가세 단순화 기준)
     auto_card_sales = sum(
         _entry_card_income(r) for r in records
         if str(r.get("date", "")).startswith(sel_prefix)
+    )
+    auto_card_count = sum(
+        1 for r in records
+        if str(r.get("date", "")).startswith(sel_prefix) and _entry_card_income(r) > 0
     )
 
     return {
@@ -342,6 +356,7 @@ def _build_yearly_overview(records: list, year: int, month: int,
             "prev": tax_prev or None,
             "auto_reported_sales": auto_reported_sales,
             "auto_card_sales": auto_card_sales,
+            "auto_card_count": auto_card_count,
         },
         "diagnosis": _diagnose(same_month, same_quarter, ytd, category_compare, year, month, q,
                                tax_cur=tax_cur, tax_prev=tax_prev),
@@ -1521,16 +1536,45 @@ def copy_fixed_expenses_ep(
     return {"copied": n, "from": from_ym, "to": to_ym}
 
 
-def _auto_card_sales_for_month(tenant_id: str, year_month: str) -> int:
-    """선택월(YYYY-MM)의 자동 카드매출 = 일일결산 카드수입 합계(읽기 전용)."""
+def _auto_card_stats_for_month(tenant_id: str, year_month: str) -> tuple[int, int]:
+    """선택월(YYYY-MM)의 자동 카드매출 (합계원, 건수). 일일결산 중 수입 결제수단이
+    카드이고 수입>0 인 행만 집계(읽기 전용). 일일결산은 하드삭제라 별도 무효상태
+    컬럼이 없으므로 조회 결과(live rows)만 합산한다 — migration/컬럼변경 없음."""
     prefix = str(year_month or "").strip()[:7]
     if len(prefix) < 7:
-        return 0
+        return 0, 0
     records = _fetch_daily_records(tenant_id)
-    return sum(
-        _entry_card_income(r) for r in records
-        if str(r.get("date", "")).startswith(prefix)
-    )
+    sales = 0
+    count = 0
+    for r in records:
+        if not str(r.get("date", "")).startswith(prefix):
+            continue
+        amt = _entry_card_income(r)
+        if amt > 0:
+            sales += amt
+            count += 1
+    return sales, count
+
+
+def _auto_card_sales_for_month(tenant_id: str, year_month: str) -> int:
+    """선택월 자동 카드매출 합계(원). 건수까지 필요하면 _auto_card_stats_for_month 사용."""
+    return _auto_card_stats_for_month(tenant_id, year_month)[0]
+
+
+def _enrich_tax_response(base: dict, auto_card_revenue: int, auto_card_count: int) -> dict:
+    """tax-summary 응답에 자동 카드 건수 + 명시적 이름의 파생 키를 보강한다.
+    기존 키(auto_card_sales/total_reported_sales/reported_output_vat/...)는 호환 위해 유지.
+    DB 컬럼 변경/마이그레이션 없음 — 일일결산 조회 결과에서 계산해 응답만 보강한다."""
+    out = dict(base or {})
+    out["auto_card_revenue"] = auto_card_revenue
+    out["auto_card_sales"] = auto_card_revenue            # 기존 키 호환
+    out["auto_card_count"] = auto_card_count
+    out["reported_revenue_total"] = out.get("total_reported_sales", out.get("reported_revenue", 0))
+    out["deductible_purchase"] = out.get("deductible_expense", out.get("reported_expense", 0))
+    out["output_vat"] = out.get("reported_output_vat", 0)
+    out["input_vat"] = out.get("reported_input_vat", 0)
+    out["estimated_vat_payable"] = out.get("expected_vat_payable", 0)
+    return out
 
 
 @router.get("/tax-summary")
@@ -1539,9 +1583,13 @@ def get_tax_summary_ep(
     user: dict = Depends(get_current_user),
 ):
     _require_pg_daily()
-    from backend.services.monthly_tax_pg_service import get_tax_summary
-    auto_card = _auto_card_sales_for_month(user["tenant_id"], year_month)
-    return get_tax_summary(user["tenant_id"], year_month, auto_card_sales=auto_card) or {}
+    from backend.services.monthly_tax_pg_service import get_tax_summary, compute_tax
+    auto_card, auto_count = _auto_card_stats_for_month(user["tenant_id"], year_month)
+    base = get_tax_summary(user["tenant_id"], year_month, auto_card_sales=auto_card)
+    if base is None:
+        # 저장된 행이 없어도 자동 카드매출 기준 파생값을 계산해 반환(빈 월도 계산판 표시).
+        base = compute_tax({"year_month": year_month}, auto_card_sales=auto_card)
+    return _enrich_tax_response(base, auto_card, auto_count)
 
 
 @router.put("/tax-summary")
@@ -1551,5 +1599,6 @@ def upsert_tax_summary_ep(data: dict, user: dict = Depends(get_current_user)):
     if not year_month:
         raise HTTPException(status_code=400, detail="year_month는 필수입니다.")
     from backend.services.monthly_tax_pg_service import upsert_tax_summary
-    auto_card = _auto_card_sales_for_month(user["tenant_id"], year_month)
-    return upsert_tax_summary(user["tenant_id"], data, auto_card_sales=auto_card)
+    auto_card, auto_count = _auto_card_stats_for_month(user["tenant_id"], year_month)
+    saved = upsert_tax_summary(user["tenant_id"], data, auto_card_sales=auto_card)
+    return _enrich_tax_response(saved, auto_card, auto_count)

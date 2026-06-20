@@ -394,8 +394,15 @@ export interface TaxSummary {
   non_deductible_expense: number;
   // 파생/스냅샷 (read-only)
   auto_card_sales?: number;
+  auto_card_revenue?: number;   // = auto_card_sales (명시적 이름)
+  auto_card_count?: number;     // 선택월 카드 결제수단 수입 건수
   total_reported_sales?: number;
+  reported_revenue_total?: number;  // = total_reported_sales (명시적 이름)
   deductible_expense?: number;
+  deductible_purchase?: number;     // = deductible_expense (명시적 이름)
+  output_vat?: number;              // = reported_output_vat
+  input_vat?: number;               // = reported_input_vat
+  estimated_vat_payable?: number;   // = expected_vat_payable
   reported_revenue: number;
   reported_expense: number;
   reported_output_vat: number;
@@ -529,7 +536,7 @@ export interface YearlyOverview {
   same_quarter: YearlyAggRow[];
   ytd: YearlyAggRow[];
   category_compare: { name: string; cur: number; prev: number; delta: number }[];
-  tax?: { current: TaxSummary | null; prev: TaxSummary | null; auto_reported_sales?: number; auto_card_sales?: number };
+  tax?: { current: TaxSummary | null; prev: TaxSummary | null; auto_reported_sales?: number; auto_card_sales?: number; auto_card_count?: number };
   diagnosis: { good: string[]; bad: string[] };
   // 신규 (요구사항 1·3·5·6)
   period?: PeriodBlock;
