@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { dailyApi, type YearlyOverview, type YearlyMonthCell, type FixedExpense, type TaxSummary, type DailyPoint } from "@/lib/api";
+import { dailyApi, type YearlyOverview, type YearlyMonthCell, type FixedExpense, type TaxSummary, type HalfYearSummary, type DailyPoint } from "@/lib/api";
 import { formatManwon, formatNumber } from "@/lib/utils";
 import { getUser } from "@/lib/auth";
 
@@ -656,124 +656,157 @@ function TaxReportPanel({ year, month, pgOn, autoCardSales = 0, autoCardCount = 
     onError: () => toast.error("저장 실패"),
   });
 
-  if (!pgOn) return <Card title="🧾 신고 기준 / 부가세"><PgNeeded /></Card>;
+  if (!pgOn) return <Card title="🧾 부가세 반기 누계"><PgNeeded /></Card>;
 
   const d = data as TaxSummary | undefined;
-  // 자동 카드매출/건수: tax-summary 응답이 우선(선택월 일일결산 기준), 없으면 overview prop fallback.
-  const autoCard = Math.max(0, num(d?.auto_card_revenue ?? d?.auto_card_sales ?? autoCardSales));
-  const autoCount = Math.max(0, num(d?.auto_card_count ?? autoCardCount));
+  const pad = (m: number) => String(m).padStart(2, "0");
+  const label = d?.half_year_label ?? (month <= 6 ? "1기" : "2기");
+  const sm = d?.half_year_start_month ?? (month <= 6 ? 1 : 7);
+  const em = d?.half_year_end_month ?? (month <= 6 ? 6 : 12);
+  const sy = d?.selected_year ?? year;
+  const hy = d?.half_year_summary;
+  const months = d?.half_year_months ?? [];
+  // 선택 월 자동 카드매출/건수 (current_month 우선, overview prop fallback).
+  const thisAutoCard = Math.max(0, num(d?.current_month?.auto_card_revenue ?? d?.auto_card_revenue ?? autoCardSales));
+  const thisAutoCount = Math.max(0, num(d?.current_month?.auto_card_count ?? d?.auto_card_count ?? autoCardCount));
+  const H = (k: keyof HalfYearSummary) => num(hy?.[k]);
+  const halfPayable = H("half_estimated_vat_payable");
 
-  // 모든 입력은 공급대가(부가세 포함), 원 단위 정수, 음수 불허. 부가세 = 금액 − round(금액/1.1).
   const invoice = Math.max(0, num(f.manual_tax_invoice_revenue));
-  const other = Math.max(0, num(f.manual_other_revenue));
   const cardExpense = Math.max(0, num(f.business_card_expense));
-  const nonDeduct = Math.max(0, num(f.non_deductible_expense));
-
-  const totalSales = autoCard + invoice + other;
-  const deductible = Math.max(cardExpense - nonDeduct, 0);
-  const vatOf = (amt: number) => (amt <= 0 ? 0 : amt - Math.round(amt / 1.1));
-  const outVat = vatOf(totalSales);
-  const inVat = vatOf(deductible);
-  const expected = outVat - inVat;
 
   const cell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
   const lbl: React.CSSProperties = { fontSize: 11, color: "#718096" };
-  const roBox: React.CSSProperties = { ...fieldStyle, textAlign: "right", background: "#F7FAFC", color: "#2D3748", fontWeight: 600 };
   const hint: React.CSSProperties = { fontSize: 10.5, color: "#A0AEC0" };
-  const secHead: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "#2D3748", marginBottom: 2 };
-  const secBox: React.CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 };
-  const dRow: React.CSSProperties = { display: "flex", justifyContent: "space-between", fontSize: 13 };
+  const secHead: React.CSSProperties = { fontSize: 12.5, fontWeight: 800, color: "#2D3748", marginBottom: 6 };
+  const secBox: React.CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 8, padding: "12px 14px", marginBottom: 12 };
+  const sumRow: React.CSSProperties = { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" };
   const clampSet = (key: keyof TaxSummary) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setF((p) => ({ ...p, [key]: Math.max(0, num(e.target.value)) }));
   const won = (n: number) => `${fmt(n)}원`;
+  const th: React.CSSProperties = { padding: "6px 7px", fontWeight: 700, color: "#4A5568", borderBottom: `2px solid ${BORDER}`, whiteSpace: "nowrap", textAlign: "right" };
+  const td: React.CSSProperties = { padding: "5px 7px", borderBottom: `1px solid ${BORDER}`, textAlign: "right", whiteSpace: "nowrap" };
 
   return (
-    <Card title="🧾 신고 기준 / 부가세 (대략 자동계산)">
+    <Card title="🧾 부가세 반기 누계">
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#2B6CB0", marginBottom: 2 }}>
+        {sy}년 {label}: {sy}-{pad(sm)} ~ {sy}-{pad(em)}
+      </div>
       <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 12 }}>
-        ※ 일반과세 10% 기준 <b>관리용 예상 계산판</b>입니다(실제 신고 확정값과 다를 수 있음). 모든 금액은 <b>공급대가(부가세 포함)</b> · 원 단위.
+        선택한 월이 속한 반기 전체를 기준으로 누적 계산합니다. 반기 누계는 선택 월이 속한 1~6월(1기) 또는 7~12월(2기) 전체를 기준으로 계산됩니다.
+        일반과세 10% 기준 <b>관리용 예상 계산</b>(실제 신고 확정값과 다를 수 있음), 모든 금액은 <b>공급대가(부가세 포함)</b> · 원 단위.
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        {/* A. 자동 매출 */}
-        <div style={secBox}>
-          <div style={secHead}>A. 자동 매출 <span style={{ fontWeight: 500, color: "#A0AEC0", fontSize: 10.5 }}>(수정 불가 · 일일결산 자동 합산)</span></div>
-          <div style={{ fontSize: 14 }}>
-            일일결산 카드매출 자동합계: <b style={{ color: "#2B6CB0" }} title={won(autoCard)}>{won(autoCard)}</b>
-            <span style={{ color: "#718096" }}> / {autoCount}건</span>
-          </div>
-          {autoCount === 0 && (
-            <div style={{ fontSize: 11.5, color: "#DD6B20", background: "#FFFAF0", border: "1px solid #FBD38D", borderRadius: 6, padding: "6px 10px" }}>
-              선택한 월의 일일결산 중 결제수단이 카드인 수입 건이 없습니다. (현금·이체·인지 수입은 자동 카드매출에 포함되지 않습니다.)
-            </div>
-          )}
+      {/* A. 선택 월 입력 */}
+      <div style={secBox}>
+        <div style={secHead}>선택 월 입력 <span style={{ fontWeight: 500, color: "#A0AEC0", fontSize: 10.5 }}>({ym})</span></div>
+        <div style={{ fontSize: 12, color: "#718096", marginBottom: 8 }}>
+          이번 달 카드매출(자동): <b style={{ color: "#2B6CB0" }}>{won(thisAutoCard)}</b> / {thisAutoCount}건
+          {thisAutoCount === 0 && <span style={{ color: "#DD6B20" }}> · 이 달은 카드 수입 건이 없습니다</span>}
         </div>
-
-        {/* B. 수동 매출 */}
-        <div style={secBox}>
-          <div style={secHead}>B. 수동 매출</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           <div style={cell}>
-            <span style={lbl}>수동 세금계산서 매출액 (원)</span>
+            <span style={lbl}>이번 달 세금계산서 매출 (원)</span>
             <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.manual_tax_invoice_revenue ?? ""} onChange={clampSet("manual_tax_invoice_revenue")} />
             {invoice === 0 && <span style={hint}>필요 시 직접 입력 (외부 발행 세금계산서 분)</span>}
           </div>
           <div style={cell}>
-            <span style={lbl}>기타 수동 조정 매출액 (원)</span>
+            <span style={lbl}>이번 달 기타 조정 매출 (원)</span>
             <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.manual_other_revenue ?? ""} onChange={clampSet("manual_other_revenue")} />
           </div>
-          <span style={hint}>세금계산서 매출은 외부 발행분이 있을 수 있어 직접 입력합니다.</span>
-        </div>
-
-        {/* C. 매입 공제 */}
-        <div style={secBox}>
-          <div style={secHead}>C. 매입 공제</div>
           <div style={cell}>
-            <span style={lbl}>사업용 카드 사용액 (원)</span>
+            <span style={lbl}>이번 달 사업용 카드 사용액 (원)</span>
             <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.business_card_expense ?? ""} onChange={clampSet("business_card_expense")} />
             {cardExpense === 0 && <span style={{ ...hint, color: "#DD6B20" }}>수동 입력 필요</span>}
           </div>
           <div style={cell}>
-            <span style={lbl}>불공제/개인사용 제외액 (원)</span>
+            <span style={lbl}>이번 달 불공제/개인사용 제외액 (원)</span>
             <input style={{ ...fieldStyle, textAlign: "right" }} inputMode="numeric" value={f.non_deductible_expense ?? ""} onChange={clampSet("non_deductible_expense")} />
           </div>
-          <div style={cell}>
-            <span style={lbl}>공제 대상 매입액 (원, 자동)</span>
-            <input style={roBox} value={won(deductible)} readOnly tabIndex={-1} />
+          <div style={{ ...cell, gridColumn: "span 2" }}>
+            <span style={lbl}>메모</span>
+            <input style={fieldStyle} value={f.memo ?? ""} onChange={(e) => setF((p) => ({ ...p, memo: e.target.value }))} />
           </div>
-          <span style={hint}>자격사 업종은 매입이 많지 않으므로 월별 사업용 카드 사용액을 기준으로 대략 계산합니다.</span>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
+          <span style={hint}>이 값은 선택한 월에 저장되고 반기 누계에 합산됩니다.</span>
+          <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary" style={{ fontSize: 12, padding: "7px 18px", marginLeft: "auto" }}>저장</button>
+        </div>
+      </div>
 
-        {/* D. 예상 부가세 */}
-        <div style={{ ...secBox, background: "#EBF8FF", borderColor: "#BEE3F8" }}>
-          <div style={secHead}>D. 예상 부가세</div>
-          <div style={dRow}><span>신고 매출 합계</span><b title={won(totalSales)}>{won(totalSales)}</b></div>
-          <div style={dRow}><span>매출세액</span><b title={won(outVat)}>{won(outVat)}</b></div>
-          <div style={dRow}><span>매입세액</span><b title={won(inVat)}>{won(inVat)}</b></div>
-          <div style={{ ...dRow, borderTop: "1px dashed #BEE3F8", paddingTop: 8 }}>
-            <span>예상 납부 부가세</span>
-            {expected >= 0
-              ? <b style={{ color: "#C53030" }} title={won(expected)}>{won(expected)}</b>
-              : <b style={{ color: "#276749" }} title={won(expected)}>환급/이월 가능성 ({won(expected)})</b>}
+      {/* B. 반기 자동 누계 */}
+      <div style={{ ...secBox, background: "#EBF8FF", borderColor: "#BEE3F8" }}>
+        <div style={secHead}>반기 누계 <span style={{ fontWeight: 500, color: "#718096", fontSize: 10.5 }}>({sy}년 {label} · {sy}-{pad(sm)}~{pad(em)})</span></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+          <div style={sumRow}><span>반기 카드매출 자동합계</span><b>{won(H("half_auto_card_revenue"))} / {H("half_auto_card_count")}건</b></div>
+          <div style={sumRow}><span>반기 세금계산서 매출 합계</span><b>{won(H("half_manual_tax_invoice_revenue"))}</b></div>
+          <div style={sumRow}><span>반기 기타조정 매출 합계</span><b>{won(H("half_manual_other_revenue"))}</b></div>
+          <div style={sumRow}><span>반기 신고매출 합계</span><b style={{ color: "#2B6CB0" }}>{won(H("half_reported_revenue_total"))}</b></div>
+          <div style={sumRow}><span>반기 사업용 카드 사용액 합계</span><b>{won(H("half_business_card_expense"))}</b></div>
+          <div style={sumRow}><span>반기 불공제/개인사용 제외액 합계</span><b>{won(H("half_non_deductible_expense"))}</b></div>
+          <div style={sumRow}><span>반기 공제대상 매입액</span><b>{won(H("half_deductible_purchase"))}</b></div>
+          <div style={sumRow}><span>반기 매출세액</span><b>{won(H("half_output_vat"))}</b></div>
+          <div style={sumRow}><span>반기 매입세액</span><b>{won(H("half_input_vat"))}</b></div>
+          <div style={{ ...sumRow, borderTop: "1px dashed #BEE3F8", marginTop: 4, paddingTop: 7 }}>
+            <span>반기 예상 납부 부가세</span>
+            {halfPayable >= 0
+              ? <b style={{ color: "#C53030" }}>{won(halfPayable)}</b>
+              : <b style={{ color: "#276749" }}>환급/이월 가능성 ({won(halfPayable)})</b>}
           </div>
         </div>
       </div>
 
-      {/* 신고 메모 + 저장 */}
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginTop: 12 }}>
-        <div style={{ ...cell, flex: 1 }}>
-          <span style={lbl}>신고 메모</span>
-          <input style={fieldStyle} value={f.memo ?? ""} onChange={(e) => setF((p) => ({ ...p, memo: e.target.value }))} />
+      {/* C. 반기 월별 구성표 */}
+      <div style={secBox}>
+        <div style={secHead}>반기 월별 구성</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
+            <thead>
+              <tr style={{ background: GRAY_BG }}>
+                <th style={{ ...th, textAlign: "center" }}>월</th>
+                <th style={th}>카드매출</th>
+                <th style={th}>카드건수</th>
+                <th style={th}>세금계산서</th>
+                <th style={th}>기타조정</th>
+                <th style={th}>신고매출 합계</th>
+                <th style={th}>사업용카드</th>
+                <th style={th}>불공제</th>
+                <th style={th}>공제대상매입</th>
+                <th style={th}>예상납부</th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m) => {
+                const sel = m.month === month;
+                return (
+                  <tr key={m.year_month} style={sel ? { background: "#FFFFF0" } : undefined}>
+                    <td style={{ ...td, textAlign: "center", fontWeight: sel ? 700 : 400 }}>{m.month}월{sel ? " ◀" : ""}</td>
+                    <td style={td}>{won(m.auto_card_revenue)}</td>
+                    <td style={td}>{m.auto_card_count}건</td>
+                    <td style={td}>{won(m.manual_tax_invoice_revenue)}</td>
+                    <td style={td}>{won(m.manual_other_revenue)}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>{won(m.reported_revenue_total)}</td>
+                    <td style={td}>{won(m.business_card_expense)}</td>
+                    <td style={td}>{won(m.non_deductible_expense)}</td>
+                    <td style={td}>{won(m.deductible_purchase)}</td>
+                    <td style={{ ...td, color: m.estimated_vat_payable < 0 ? "#276749" : "#2D3748" }}>{won(m.estimated_vat_payable)}</td>
+                  </tr>
+                );
+              })}
+              {months.length === 0 && <tr><td colSpan={10} style={{ textAlign: "center", padding: 14, color: "#A0AEC0" }}>불러오는 중…</td></tr>}
+            </tbody>
+          </table>
         </div>
-        <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary" style={{ fontSize: 12, padding: "8px 18px", whiteSpace: "nowrap" }}>저장</button>
       </div>
 
       {/* 자동계산식 */}
-      <div style={{ marginTop: 12, fontSize: 10.5, color: "#A0AEC0", lineHeight: 1.7, background: GRAY_BG, borderRadius: 6, padding: "8px 12px" }}>
-        <b>자동계산식</b><br />
-        · 신고 매출 합계 = 일일결산 카드매출 자동합계 + 수동 세금계산서 매출 + 기타 조정 매출<br />
-        · 매출세액 = 신고 매출 합계 × 10 / 110<br />
-        · 공제 대상 매입액 = 사업용 카드 사용액 − 불공제/개인사용 제외액<br />
-        · 매입세액 = 공제 대상 매입액 × 10 / 110<br />
-        · 예상 납부 부가세 = 매출세액 − 매입세액 (음수면 환급/이월 가능성)
+      <div style={{ fontSize: 10.5, color: "#A0AEC0", lineHeight: 1.7, background: GRAY_BG, borderRadius: 6, padding: "8px 12px" }}>
+        <b>반기 자동계산식</b><br />
+        · 반기 신고매출 합계 = 반기 카드매출 자동합계 + 반기 세금계산서 매출 + 반기 기타조정 매출<br />
+        · 반기 매출세액 = 반기 신고매출 합계 × 10 / 110<br />
+        · 반기 공제대상 매입액 = max(반기 사업용 카드 사용액 − 반기 불공제/개인사용 제외액, 0)<br />
+        · 반기 매입세액 = 반기 공제대상 매입액 × 10 / 110<br />
+        · 반기 예상 납부 부가세 = 반기 매출세액 − 반기 매입세액 (음수면 환급/이월 가능성)
       </div>
     </Card>
   );

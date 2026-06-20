@@ -1536,14 +1536,12 @@ def copy_fixed_expenses_ep(
     return {"copied": n, "from": from_ym, "to": to_ym}
 
 
-def _auto_card_stats_for_month(tenant_id: str, year_month: str) -> tuple[int, int]:
-    """선택월(YYYY-MM)의 자동 카드매출 (합계원, 건수). 일일결산 중 수입 결제수단이
-    카드이고 수입>0 인 행만 집계(읽기 전용). 일일결산은 하드삭제라 별도 무효상태
-    컬럼이 없으므로 조회 결과(live rows)만 합산한다 — migration/컬럼변경 없음."""
+def _auto_card_stats_from_records(records: list, year_month: str) -> tuple[int, int]:
+    """주어진 일일결산 레코드에서 선택월(YYYY-MM)의 카드매출 (합계원, 건수).
+    반기 6개월을 돌 때 records 를 1회만 조회해 재사용하기 위한 분리."""
     prefix = str(year_month or "").strip()[:7]
     if len(prefix) < 7:
         return 0, 0
-    records = _fetch_daily_records(tenant_id)
     sales = 0
     count = 0
     for r in records:
@@ -1554,6 +1552,21 @@ def _auto_card_stats_for_month(tenant_id: str, year_month: str) -> tuple[int, in
             sales += amt
             count += 1
     return sales, count
+
+
+def _auto_card_stats_for_month(tenant_id: str, year_month: str) -> tuple[int, int]:
+    """선택월(YYYY-MM)의 자동 카드매출 (합계원, 건수). 일일결산 중 수입 결제수단이
+    카드이고 수입>0 인 행만 집계(읽기 전용). 일일결산은 하드삭제라 별도 무효상태
+    컬럼이 없으므로 조회 결과(live rows)만 합산한다 — migration/컬럼변경 없음."""
+    if len(str(year_month or "").strip()) < 7:
+        return 0, 0
+    return _auto_card_stats_from_records(_fetch_daily_records(tenant_id), year_month)
+
+
+def _half_year_bounds(month: int) -> tuple[str, int, int]:
+    """선택 월 → (반기명, 시작월, 종료월). 1~6월=1기, 7~12월=2기.
+    예정고지/분기/연간/사업자유형 개념은 v1 에 넣지 않는다(반기 누계만)."""
+    return ("1기", 1, 6) if month <= 6 else ("2기", 7, 12)
 
 
 def _auto_card_sales_for_month(tenant_id: str, year_month: str) -> int:
@@ -1577,6 +1590,14 @@ def _enrich_tax_response(base: dict, auto_card_revenue: int, auto_card_count: in
     return out
 
 
+def _month_tax_row(tenant_id, year_month, auto_card, get_fn, compute_fn) -> dict:
+    """선택월 저장행(없으면 빈 입력 기준 계산)을 compute_tax 보강 dict 로 반환."""
+    row = get_fn(tenant_id, year_month, auto_card_sales=auto_card)
+    if row is None:
+        row = compute_fn({"year_month": year_month}, auto_card_sales=auto_card)
+    return row
+
+
 @router.get("/tax-summary")
 def get_tax_summary_ep(
     year_month: str = Query(..., description="YYYY-MM"),
@@ -1584,12 +1605,88 @@ def get_tax_summary_ep(
 ):
     _require_pg_daily()
     from backend.services.monthly_tax_pg_service import get_tax_summary, compute_tax
-    auto_card, auto_count = _auto_card_stats_for_month(user["tenant_id"], year_month)
-    base = get_tax_summary(user["tenant_id"], year_month, auto_card_sales=auto_card)
-    if base is None:
-        # 저장된 행이 없어도 자동 카드매출 기준 파생값을 계산해 반환(빈 월도 계산판 표시).
-        base = compute_tax({"year_month": year_month}, auto_card_sales=auto_card)
-    return _enrich_tax_response(base, auto_card, auto_count)
+    tenant = user["tenant_id"]
+
+    # 선택월(입력 기준) — 기존 월별 응답은 그대로 유지(하위호환).
+    auto_card, auto_count = _auto_card_stats_for_month(tenant, year_month)
+    base = _enrich_tax_response(
+        _month_tax_row(tenant, year_month, auto_card, get_tax_summary, compute_tax),
+        auto_card, auto_count,
+    )
+
+    # 반기 판단 — year_month 파싱 실패 시 선택월 단건만 반환.
+    ys = str(year_month or "").strip()
+    try:
+        year = int(ys[:4]); month = int(ys[5:7])
+        if not (1 <= month <= 12):
+            return base
+    except Exception:
+        return base
+
+    label, sm, em = _half_year_bounds(month)
+    records = _fetch_daily_records(tenant)   # 반기 6개월 카드집계용 1회 조회
+
+    months = []
+    h_auto = h_cnt = h_inv = h_oth = h_cardexp = h_nond = 0
+    for m in range(sm, em + 1):
+        mym = f"{year}-{m:02d}"
+        m_auto, m_cnt = _auto_card_stats_from_records(records, mym)
+        m_row = _month_tax_row(tenant, mym, m_auto, get_tax_summary, compute_tax)
+        inv = int(m_row.get("manual_tax_invoice_revenue", 0) or 0)
+        oth = int(m_row.get("manual_other_revenue", 0) or 0)
+        cardexp = int(m_row.get("business_card_expense", 0) or 0)
+        nond = int(m_row.get("non_deductible_expense", 0) or 0)
+        months.append({
+            "year_month": mym, "month": m,
+            "auto_card_revenue": m_auto, "auto_card_count": m_cnt,
+            "manual_tax_invoice_revenue": inv, "manual_other_revenue": oth,
+            "reported_revenue_total": int(m_row.get("total_reported_sales", 0) or 0),
+            "business_card_expense": cardexp, "non_deductible_expense": nond,
+            "deductible_purchase": int(m_row.get("deductible_expense", 0) or 0),
+            "output_vat": int(m_row.get("reported_output_vat", 0) or 0),
+            "estimated_vat_payable": int(m_row.get("expected_vat_payable", 0) or 0),
+        })
+        h_auto += m_auto; h_cnt += m_cnt; h_inv += inv; h_oth += oth
+        h_cardexp += cardexp; h_nond += nond
+
+    # 반기 누계는 '반기 총액 위에서 한 번' 계산(월별 세액 합이 아니라 반기 합계 × 10/110).
+    hc = compute_tax({
+        "year_month": f"{year}-{label}",
+        "manual_tax_invoice_revenue": h_inv,
+        "manual_other_revenue": h_oth,
+        "business_card_expense": h_cardexp,
+        "non_deductible_expense": h_nond,
+    }, auto_card_sales=h_auto)
+
+    base["selected_year"] = year
+    base["selected_month"] = month
+    base["half_year_label"] = label
+    base["half_year_start_month"] = sm
+    base["half_year_end_month"] = em
+    base["current_month"] = {
+        "auto_card_revenue": auto_card,
+        "auto_card_count": auto_count,
+        "manual_tax_invoice_revenue": int(base.get("manual_tax_invoice_revenue", 0) or 0),
+        "manual_other_revenue": int(base.get("manual_other_revenue", 0) or 0),
+        "business_card_expense": int(base.get("business_card_expense", 0) or 0),
+        "non_deductible_expense": int(base.get("non_deductible_expense", 0) or 0),
+        "memo": base.get("memo", ""),
+    }
+    base["half_year_summary"] = {
+        "half_auto_card_revenue": h_auto,
+        "half_auto_card_count": h_cnt,
+        "half_manual_tax_invoice_revenue": h_inv,
+        "half_manual_other_revenue": h_oth,
+        "half_reported_revenue_total": int(hc["total_reported_sales"]),
+        "half_business_card_expense": h_cardexp,
+        "half_non_deductible_expense": h_nond,
+        "half_deductible_purchase": int(hc["deductible_expense"]),
+        "half_output_vat": int(hc["reported_output_vat"]),
+        "half_input_vat": int(hc["reported_input_vat"]),
+        "half_estimated_vat_payable": int(hc["expected_vat_payable"]),
+    }
+    base["half_year_months"] = months
+    return base
 
 
 @router.put("/tax-summary")

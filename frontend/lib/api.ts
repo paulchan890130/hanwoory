@@ -385,6 +385,35 @@ export interface FixedExpense {
   end_month: string;
 }
 
+// 반기(1기 1~6월 / 2기 7~12월) 누계 — 조회 시 계산, DB 저장 없음.
+export interface HalfYearMonthRow {
+  year_month: string;
+  month: number;
+  auto_card_revenue: number;
+  auto_card_count: number;
+  manual_tax_invoice_revenue: number;
+  manual_other_revenue: number;
+  reported_revenue_total: number;
+  business_card_expense: number;
+  non_deductible_expense: number;
+  deductible_purchase: number;
+  output_vat: number;
+  estimated_vat_payable: number;
+}
+export interface HalfYearSummary {
+  half_auto_card_revenue: number;
+  half_auto_card_count: number;
+  half_manual_tax_invoice_revenue: number;
+  half_manual_other_revenue: number;
+  half_reported_revenue_total: number;
+  half_business_card_expense: number;
+  half_non_deductible_expense: number;
+  half_deductible_purchase: number;
+  half_output_vat: number;
+  half_input_vat: number;
+  half_estimated_vat_payable: number;
+}
+
 export interface TaxSummary {
   year_month: string;
   // 입력 구성값 (모두 공급대가, 원 단위 정수, 음수 불허)
@@ -410,6 +439,23 @@ export interface TaxSummary {
   expected_vat_payable: number;
   vat_basis: "supply_price" | "tax_included";
   memo: string;
+  // 반기 누계 (조회 시 계산해 추가됨)
+  selected_year?: number;
+  selected_month?: number;
+  half_year_label?: string;        // "1기" | "2기"
+  half_year_start_month?: number;
+  half_year_end_month?: number;
+  current_month?: {
+    auto_card_revenue: number;
+    auto_card_count: number;
+    manual_tax_invoice_revenue: number;
+    manual_other_revenue: number;
+    business_card_expense: number;
+    non_deductible_expense: number;
+    memo: string;
+  };
+  half_year_summary?: HalfYearSummary;
+  half_year_months?: HalfYearMonthRow[];
 }
 
 export interface CardExpenseSummary {
