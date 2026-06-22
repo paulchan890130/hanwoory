@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getUser } from "@/lib/auth";
+import { getUser, isFullAdmin, canManageContent } from "@/lib/auth";
 import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, Search, FileEdit,
@@ -182,7 +182,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
             {showExpanded && <span className="truncate">{MY_ITEM.label}</span>}
           </Link>
 
-          {user?.is_admin && (
+          {canManageContent(user) && (
             <Link
               href={MARKETING_ITEM.href}
               title={!showExpanded ? MARKETING_ITEM.label : undefined}
@@ -193,7 +193,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               {showExpanded && <span className="truncate">{MARKETING_ITEM.label}</span>}
             </Link>
           )}
-          {user?.is_admin && (
+          {isFullAdmin(user) && (
             <Link
               href={ADMIN_ITEM.href}
               title={!showExpanded ? ADMIN_ITEM.label : undefined}

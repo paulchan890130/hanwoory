@@ -72,6 +72,9 @@ export interface UserInfo {
   login_id: string;
   tenant_id: string;
   is_admin: boolean;
+  role?: string;          // 'user' | 'sub_admin' | 'admin'
+  is_master?: boolean;    // 마스터 계정(wkdwhfl) 여부
+  is_sub_admin?: boolean; // /me 응답에서 제공(준 관리자)
   office_name: string;
   access_token: string;
   contact_name?: string;
@@ -651,6 +654,9 @@ export const adminApi = {
     api.delete(`/api/admin/accounts/${loginId}`),
   restoreAccount: (loginId: string) =>
     api.post(`/api/admin/accounts/${loginId}/restore`),
+  // 준 관리자 권한 부여/회수 — role: 'sub_admin' | 'user'.
+  setAccountRole: (loginId: string, role: "sub_admin" | "user") =>
+    api.put(`/api/admin/accounts/${loginId}/role`, { role }),
   hardDeleteAccount: (loginId: string, confirmLoginId: string) =>
     api.delete(`/api/admin/accounts/${loginId}/hard`, { params: { confirm_login_id: confirmLoginId } }),
   // 행정사 주민등록번호 — 상태만 조회/저장(원문 미노출). 빈 값 저장 = 삭제.

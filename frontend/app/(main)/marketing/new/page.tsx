@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { getUser } from "@/lib/auth";
+import { getUser, canManageContent } from "@/lib/auth";
 import { marketingApi } from "@/lib/api";
 import { RichEditor } from "@/components/RichEditor";
 
@@ -43,7 +43,7 @@ export default function MarketingNewPage() {
   });
 
   useEffect(() => {
-    if (!user?.is_admin) router.replace("/dashboard");
+    if (!canManageContent(user)) router.replace("/dashboard");
   }, []);
 
   const set = (k: string, v: string | boolean) =>
@@ -101,7 +101,7 @@ export default function MarketingNewPage() {
     }
   };
 
-  if (!user?.is_admin) return null;
+  if (!canManageContent(user)) return null;
 
   return (
     <div style={{ padding: "32px 24px", maxWidth: 820, margin: "0 auto" }}>

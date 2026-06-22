@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { GuidelineSubType, ManualRef } from "@/lib/api";
 import { guidelinesApi, guidelineCategoriesApi, GuidelineRow, GuidelineEntryPoint, api } from "@/lib/api";
-import { getUser } from "@/lib/auth";
+import { getUser, canManageContent } from "@/lib/auth";
 import { toast } from "sonner";
 
 // ── 업무유형 한글 라벨 ────────────────────────────────────────────────────────
@@ -1331,7 +1331,8 @@ function TreeSelectButton({ label, subtitle, color, selected, onClick }: { label
 // ── 메인 페이지 ───────────────────────────────────────────────────────────────
 export default function GuidelinesPage() {
   const user = useMemo(() => getUser(), []);
-  const isAdmin = !!user?.is_admin;
+  // 실무지침 수정은 관리자/준 관리자 허용(백엔드 require_guideline_editor 와 일치).
+  const isAdmin = canManageContent(user);
   const pageRouter = useRouter();
 
   const [entryPoints, setEntryPoints]       = useState<GuidelineEntryPoint[]>(ENTRY_POINTS);
@@ -1636,9 +1637,9 @@ export default function GuidelinesPage() {
         <h1 className="hw-page-title" style={{margin:0}}>실무지침</h1>
         {loadingAll && <Loader2 size={13} className="animate-spin" style={{color:"#A0AEC0"}}/>}
         {hasSearched && !isSearching && <span style={{fontSize:13,color:"#A0AEC0"}}>{searchTotal}건</span>}
-        {user?.is_admin && (
+        {canManageContent(user) && (
           <button onClick={() => pageRouter.push("/admin/guideline-categories")}
-            title="관리자 전용 — 실무지침 대/주/소분류 편집"
+            title="관리자/준 관리자 — 실무지침 대/주/소분류 편집"
             style={{ fontSize:12, fontWeight:600, color:"#6B5314", background:"#FFF9E6", border:"1px solid #D4A843", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>
             🗂 분류 관리
           </button>

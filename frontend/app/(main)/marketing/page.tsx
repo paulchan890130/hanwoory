@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { getUser } from "@/lib/auth";
+import { getUser, canManageContent } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
 
 export default function MarketingPage() {
@@ -15,7 +15,7 @@ export default function MarketingPage() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user?.is_admin) {
+    if (!canManageContent(user)) {
       router.replace("/dashboard");
       return;
     }
@@ -69,7 +69,7 @@ export default function MarketingPage() {
     return new Date(iso).toLocaleDateString("ko-KR");
   };
 
-  if (!user?.is_admin) return null;
+  if (!canManageContent(user)) return null;
 
   return (
     <div style={{ padding: "32px 24px", maxWidth: 900, margin: "0 auto" }}>

@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 from backend.models import LoginRequest, SignupRequest, TokenResponse
-from backend.auth import create_access_token, get_current_user
+from backend.auth import create_access_token, get_current_user, is_master_login
 
 # ── 공용 helper (모든 Accounts 읽기·쓰기는 accounts_service 경유) ─────────────
 from backend.services.accounts_service import (
@@ -86,10 +86,27 @@ def login(req: LoginRequest, request: Request = None):
     office_name = str(acc.get("office_name", "")).strip()
     contact_name = str(acc.get("contact_name", "")).strip()
 
+    # 권한(role) 산정 — 마스터는 항상 admin, 그 외는 PG role 조회(없으면 is_admin 기반).
+    is_master = is_master_login(req.login_id)
+    if is_master:
+        is_admin = True
+    role = "admin" if is_admin else "user"
+    try:
+        from backend.db.session import is_configured
+        if is_configured():
+            from backend.services.auth_pg_service import account_auth_status
+            _info = account_auth_status(req.login_id)
+            if _info["status"] != "missing":
+                is_admin = bool(_info["is_admin"]) or is_master
+                role = "admin" if is_admin else str(_info["role"] or "user")
+    except Exception:
+        pass
+
     claims = {
         "sub":         req.login_id,
         "tenant_id":   tenant_id,
         "is_admin":    is_admin,
+        "role":        role,
         "office_name": office_name,
         "contact_name": contact_name,
     }
@@ -126,6 +143,8 @@ def login(req: LoginRequest, request: Request = None):
         login_id=req.login_id,
         tenant_id=tenant_id,
         is_admin=is_admin,
+        role=role,
+        is_master=is_master,
         office_name=office_name,
         contact_name=contact_name,
     )

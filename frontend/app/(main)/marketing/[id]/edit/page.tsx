@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { getUser } from "@/lib/auth";
+import { getUser, canManageContent } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
 import { RichEditor } from "@/components/RichEditor";
 
@@ -47,7 +47,7 @@ export default function MarketingEditPage() {
   });
 
   useEffect(() => {
-    if (!user?.is_admin) { router.replace("/dashboard"); return; }
+    if (!canManageContent(user)) { router.replace("/dashboard"); return; }
     loadPost();
   }, []);
 
@@ -134,7 +134,7 @@ export default function MarketingEditPage() {
     }
   };
 
-  if (!user?.is_admin) return null;
+  if (!canManageContent(user)) return null;
   if (loading) return (
     <div style={{ padding: 40, textAlign: "center", color: "#718096" }}>불러오는 중...</div>
   );

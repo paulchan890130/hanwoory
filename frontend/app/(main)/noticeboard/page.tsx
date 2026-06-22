@@ -3,13 +3,14 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { boardApi, type BoardPost } from "@/lib/api";
-import { getUser } from "@/lib/auth";
+import { getUser, canManageContent } from "@/lib/auth";
 import { Plus, Trash2, MessageSquare, ChevronLeft, Pin, RefreshCw, Pencil, Loader2 } from "lucide-react";
 
 export default function BoardPage() {
   const qc = useQueryClient();
   const user = getUser();
-  const isAdmin = user?.is_admin === true;
+  // 게시판 게시글 관리(공지/팝업 지정·타인 글 관리)는 관리자/준 관리자 허용.
+  const isAdmin = canManageContent(user);
 
   const [view, setView] = useState<"list" | "write" | "edit" | "detail">("list");
   const [selectedPost, setSelectedPost] = useState<BoardPost | null>(null);

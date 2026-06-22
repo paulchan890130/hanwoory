@@ -3050,6 +3050,24 @@ export default function AdminPage() {
     updateMut.mutate({ loginId, data: { [field]: newVal } });
   };
 
+  // 준 관리자 권한 부여/회수 — role: 'sub_admin' | 'user'.
+  const setRoleMut = useMutation({
+    mutationFn: ({ loginId, role }: { loginId: string; role: "sub_admin" | "user" }) =>
+      adminApi.setAccountRole(loginId, role),
+    onSuccess: (_, { role }) => {
+      toast.success(role === "sub_admin" ? "준 관리자 권한 부여됨" : "준 관리자 권한 회수됨");
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e: unknown) => toast.error(adminErr(e, "권한 변경 실패")),
+    onSettled: () => setTogglingId(null),
+  });
+
+  const toggleSubAdmin = (loginId: string, currentRole: string) => {
+    if (togglingId) return;
+    setTogglingId(loginId);
+    setRoleMut.mutate({ loginId, role: currentRole === "sub_admin" ? "user" : "sub_admin" });
+  };
+
   const handleRowWorkspace = async (acc: Record<string, string>) => {
     setWsLoadingId(acc.login_id);
     try {
@@ -3212,6 +3230,9 @@ export default function AdminPage() {
                 {accounts.map((acc) => {
                   const isActive = acc.is_active?.toLowerCase() === "true" || acc.is_active === "1";
                   const isAdm = acc.is_admin?.toLowerCase() === "true" || acc.is_admin === "1";
+                  const isMaster = String((acc as Record<string, unknown>).is_master) === "true";
+                  const accRole = String((acc as Record<string, unknown>).role || "user");
+                  const isSubAdm = !isAdm && !isMaster && accRole === "sub_admin";
 
                   const InlineEdit = ({
                     field, width = "w-28",
@@ -3254,24 +3275,48 @@ export default function AdminPage() {
                               toggle(acc.login_id, "is_active", acc.is_active || "");
                             }
                           }}
-                          disabled={togglingId === acc.login_id}
+                          disabled={togglingId === acc.login_id || isMaster}
                           className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
-                          style={{ opacity: togglingId === acc.login_id ? 0.5 : 1 }}
+                          style={{ opacity: togglingId === acc.login_id ? 0.5 : 1, cursor: isMaster ? "not-allowed" : undefined }}
+                          title={isMaster ? "마스터 계정은 비활성화할 수 없습니다" : undefined}
                         >
                           {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
                           {isActive ? "활성" : "비활성"}
                         </button>
                       </td>
                       <td>
-                        <button
-                          onClick={() => toggle(acc.login_id, "is_admin", acc.is_admin || "")}
-                          disabled={togglingId === acc.login_id}
-                          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isAdm ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}
-                          style={{ opacity: togglingId === acc.login_id ? 0.5 : 1 }}
-                        >
-                          {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : <Shield size={11} />}
-                          {isAdm ? "관리자" : "일반"}
-                        </button>
+                        {isMaster ? (
+                          <span
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-full"
+                            style={{ background: "#FEF3C7", color: "#92400E", fontWeight: 700, border: "1px solid #D4A843" }}
+                            title="마스터 계정 — 비활성화/삭제/강등 불가"
+                          >
+                            <Shield size={11} /> 마스터
+                          </span>
+                        ) : (
+                          <div className="flex flex-col gap-1 items-start">
+                            <button
+                              onClick={() => toggle(acc.login_id, "is_admin", acc.is_admin || "")}
+                              disabled={togglingId === acc.login_id}
+                              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isAdm ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}
+                              style={{ opacity: togglingId === acc.login_id ? 0.5 : 1 }}
+                            >
+                              {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : <Shield size={11} />}
+                              {isAdm ? "관리자" : "일반"}
+                            </button>
+                            {!isAdm && (
+                              <button
+                                onClick={() => toggleSubAdmin(acc.login_id, accRole)}
+                                disabled={togglingId === acc.login_id}
+                                className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isSubAdm ? "bg-blue-100 text-blue-700" : "bg-gray-50 text-gray-400 border border-gray-200"}`}
+                                style={{ opacity: togglingId === acc.login_id ? 0.5 : 1 }}
+                                title={isSubAdm ? "준 관리자 권한 회수(일반 사용자로)" : "준 관리자 권한 부여(실무지침·게시판 관리)"}
+                              >
+                                {isSubAdm ? "준 관리자" : "준관리자 부여"}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       {pgMode ? (
                         <td><PgStorageChip acc={acc as Record<string, unknown>} /></td>
@@ -3373,10 +3418,10 @@ export default function AdminPage() {
                           // 활성 계정: 비활성화만(완전삭제 숨김)
                           <button
                             onClick={() => setConfirmDeleteTarget(acc)}
-                            disabled={acc.login_id === user?.login_id}
+                            disabled={acc.login_id === user?.login_id || isMaster}
                             className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             style={{ borderColor: "#FEB2B2", color: "#C53030", background: "#FFF5F5" }}
-                            title={acc.login_id === user?.login_id ? "자신의 계정은 비활성화할 수 없습니다" : "계정 비활성화"}
+                            title={isMaster ? "마스터 계정은 비활성화할 수 없습니다" : acc.login_id === user?.login_id ? "자신의 계정은 비활성화할 수 없습니다" : "계정 비활성화"}
                           >
                             <XCircle size={11} /> 비활성화
                           </button>

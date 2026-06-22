@@ -11,6 +11,13 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-in-production-use-long-
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8시간
 
+# 마스터 계정 — 절대 비활성화/삭제/강등 불가(서버 강제). 항상 full admin 으로 취급한다.
+MASTER_ADMIN_LOGIN_ID = "wkdwhfl"
+
+
+def is_master_login(login_id: str) -> bool:
+    return str(login_id or "").strip() == MASTER_ADMIN_LOGIN_ID
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
@@ -41,27 +48,36 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if not login_id:
         raise HTTPException(status_code=401, detail="인증 정보가 없습니다.")
 
-    # ── 계정 비활성/삭제 즉시 차단 ──────────────────────────────────────────
-    # JWT 디코드만으로 통과시키지 않는다. 매 요청 PG 의 is_active 를 재확인해,
-    # 관리자가 비활성화/삭제한 계정의 기존 토큰(최대 8h)이 계속 쓰이는 것을 막는다.
-    # PG 미구성 환경(레거시)에서는 건너뛴다. 조회 실패는 가용성 우선(통과).
+    # ── 계정 비활성/삭제 즉시 차단 + 권한(role) 재확인 ──────────────────────
+    # JWT 디코드만으로 통과시키지 않는다. 매 요청 PG 의 is_active/role 을 재확인해,
+    # 관리자가 비활성화/삭제/강등한 계정의 기존 토큰(최대 8h)이 계속 쓰이는 것을 막는다.
+    # PG 미구성 환경(레거시)에서는 JWT 값을 그대로 사용한다(가용성 우선).
+    role: str = str(payload.get("role", "") or ("admin" if is_admin else "user"))
     try:
         from backend.db.session import is_configured
         if is_configured():
-            from backend.services.auth_pg_service import account_active_status
-            acct_status = account_active_status(login_id)
-            if acct_status in ("disabled", "missing"):
+            from backend.services.auth_pg_service import account_auth_status
+            info = account_auth_status(login_id)
+            if info["status"] in ("disabled", "missing"):
                 raise HTTPException(
                     status_code=401,
                     detail={"code": "ACCOUNT_DISABLED",
                             "message": "계정이 비활성화되었습니다. 관리자에게 문의하십시오."},
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            # PG 가 권한의 source of truth — 강등/승격이 즉시 반영되도록 PG 값으로 덮어쓴다.
+            is_admin = bool(info["is_admin"])
+            role = str(info["role"] or role)
     except HTTPException:
         raise
     except Exception:
         # PG 조회 실패 시 인증을 막지 않는다(가용성 우선) — 기존 세션검사 정책과 동일.
         pass
+
+    # 마스터 계정은 항상 full admin 으로 취급(서버 강제).
+    if is_master_login(login_id):
+        is_admin = True
+        role = "admin"
 
     # ── 단일 세션(새 로그인 우선) 강제 — FEATURE_SINGLE_SESSION on 일 때만 ──
     # off면 sid 검사 자체를 건너뛰어 기존 토큰/로그인 동작과 100% 동일.
@@ -94,10 +110,16 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 
     office_name  = str(payload.get("office_name", "")).strip()
     contact_name = str(payload.get("contact_name", "")).strip()
+    is_master = is_master_login(login_id)
+    # 준 관리자: full admin 이 아니면서 role=='sub_admin'.
+    is_sub_admin = (not is_admin) and (role == "sub_admin")
     return {
         "login_id":     login_id,
         "tenant_id":    tenant_id,
         "is_admin":     is_admin,
+        "role":         role,
+        "is_master":    is_master,
+        "is_sub_admin": is_sub_admin,
         "office_name":  office_name,
         "contact_name": contact_name,
         "session_id":   payload.get("sid", ""),
@@ -105,6 +127,21 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 
 
 def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    if not current_user.get("is_admin"):
+    """full admin(또는 마스터) 전용. 준 관리자(sub_admin)는 통과하지 못한다."""
+    if not (current_user.get("is_admin") or current_user.get("is_master")):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
     return current_user
+
+
+def require_admin_or_sub_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """full admin / 마스터 / 준 관리자 허용 — 실무지침 수정·게시판 관리 공통 권한."""
+    if not (current_user.get("is_admin") or current_user.get("is_master")
+            or current_user.get("is_sub_admin")):
+        raise HTTPException(status_code=403, detail="관리자 또는 준 관리자 권한이 필요합니다.")
+    return current_user
+
+
+# 준 관리자에게 허용되는 두 영역의 권한 dependency(의미를 명확히 하기 위한 별칭).
+# 둘 다 admin/master/sub_admin 을 허용한다(계정관리·보안설정 등은 require_admin 유지).
+require_guideline_editor = require_admin_or_sub_admin
+require_board_manager = require_admin_or_sub_admin

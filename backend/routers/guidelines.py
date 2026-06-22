@@ -21,7 +21,7 @@ import json
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from pydantic import BaseModel
-from backend.auth import get_current_user, require_admin
+from backend.auth import get_current_user, require_admin, require_guideline_editor
 
 router = APIRouter()
 
@@ -1648,9 +1648,9 @@ class GuidelineFieldPatch(BaseModel):
 def patch_guideline_field(
     row_id: str,
     body: GuidelineFieldPatch,
-    admin: dict = Depends(require_admin),
+    admin: dict = Depends(require_guideline_editor),
 ):
-    """관리자 전용(require_admin → 일반 계정 403): 실무지침 단일 필드 수정.
+    """관리자/준 관리자 허용(require_guideline_editor → 일반 계정 403): 실무지침 단일 필드 수정.
     허용 필드: form_docs/supporting_docs/fee_rule/practical_notes/exceptions_summary/basis_section.
     값은 verbatim 저장(빈 값 허용, 줄바꿈 보존). 실무지침은 tenant 분리 없는 공통 자료다."""
     if body.field not in _EDITABLE_FIELDS:

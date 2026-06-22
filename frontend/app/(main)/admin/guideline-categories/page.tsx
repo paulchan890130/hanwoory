@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getUser } from "@/lib/auth";
+import { getUser, canManageContent } from "@/lib/auth";
 import { guidelineCategoriesApi, type GuidelineCategory } from "@/lib/api";
 
 const LEVEL_LABEL: Record<string, string> = { major: "대분류", middle: "주분류", minor: "소분류" };
@@ -13,7 +13,7 @@ export default function GuidelineCategoriesAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const user = getUser();
-  const isAdmin = !!user?.is_admin;
+  const isAdmin = canManageContent(user);   // 분류 관리 = 실무지침 수정(관리자/준 관리자)
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["guideline-categories", "admin"],
@@ -61,7 +61,7 @@ export default function GuidelineCategoriesAdminPage() {
   });
 
   if (!isAdmin) {
-    return <div style={{ padding: 40, color: "#C53030" }}>관리자만 접근할 수 있습니다. <button onClick={() => router.replace("/dashboard")} style={{ marginLeft: 8 }}>홈으로</button></div>;
+    return <div style={{ padding: 40, color: "#C53030" }}>관리자 또는 준 관리자만 접근할 수 있습니다. <button onClick={() => router.replace("/dashboard")} style={{ marginLeft: 8 }}>홈으로</button></div>;
   }
 
   const childLevel = (lv: string) => (lv === "major" ? "middle" : lv === "middle" ? "minor" : null);

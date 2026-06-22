@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Respons
 from pydantic import BaseModel
 from typing import Optional
 
-from backend.auth import get_current_user
+from backend.auth import get_current_user, require_board_manager
 
 # 마케팅 이미지는 PostgreSQL(marketing_images, BYTEA)에 저장한다(Google Drive 미사용, migration 0022).
 # 업로드 응답 url = 내부 URL(/api/marketing/images/{id}), 공개 서빙은 GET /images/{id}(무인증).
@@ -120,14 +120,12 @@ _IMG_MAX_BYTES = 3 * 1024 * 1024  # 3MB
 @router.post("/admin/upload-image")
 async def upload_image(
     file: UploadFile = File(...),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_board_manager),
 ):
     """이미지를 PostgreSQL(marketing_images, BYTEA)에 저장하고 내부 URL 반환. (Google Drive 미사용)
 
     신규 이미지는 image_url(내부 URL)만 사용한다 — image_file_id(레거시 Drive id)에는 넣지 않는다.
     """
-    if not user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
 
     contents = await file.read()
     if len(contents) > _IMG_MAX_BYTES:
@@ -176,18 +174,14 @@ def get_marketing_image(image_id: str):
 
 
 @router.get("/admin/posts")
-def admin_list_posts(user: dict = Depends(get_current_user)):
-    if not user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
+def admin_list_posts(user: dict = Depends(require_board_manager)):
     posts = _read_posts()
     posts.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return posts
 
 
 @router.post("/admin/posts")
-def create_post(body: PostCreate, user: dict = Depends(get_current_user)):
-    if not user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
+def create_post(body: PostCreate, user: dict = Depends(require_board_manager)):
     now = datetime.datetime.now().isoformat()
     post = {
         "id": str(uuid.uuid4()),
@@ -213,9 +207,7 @@ def create_post(body: PostCreate, user: dict = Depends(get_current_user)):
 
 
 @router.put("/admin/posts/{post_id}")
-def update_post(post_id: str, body: PostUpdate, user: dict = Depends(get_current_user)):
-    if not user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
+def update_post(post_id: str, body: PostUpdate, user: dict = Depends(require_board_manager)):
     posts = _read_posts()
     existing = next((p for p in posts if p.get("id") == post_id), None)
     if not existing:
@@ -234,17 +226,13 @@ def update_post(post_id: str, body: PostUpdate, user: dict = Depends(get_current
 
 
 @router.delete("/admin/posts/{post_id}")
-def delete_post(post_id: str, user: dict = Depends(get_current_user)):
-    if not user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
+def delete_post(post_id: str, user: dict = Depends(require_board_manager)):
     _delete([post_id])
     return {"ok": True}
 
 
 @router.patch("/admin/posts/{post_id}/publish")
-def toggle_publish(post_id: str, user: dict = Depends(get_current_user)):
-    if not user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
+def toggle_publish(post_id: str, user: dict = Depends(require_board_manager)):
     posts = _read_posts()
     existing = next((p for p in posts if p.get("id") == post_id), None)
     if not existing:

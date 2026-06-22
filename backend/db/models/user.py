@@ -41,6 +41,13 @@ class AccountUser(Base):
     is_admin: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("FALSE")
     )
+    # 'user'(기본) | 'sub_admin'(준 관리자) | 'admin'. full admin 여부는 is_admin 이
+    # source of truth 이고, role 은 sub_admin 구분용 추가 컬럼이다(migration 0024).
+    # deferred=True: 기본 full-row SELECT 에 포함하지 않는다 → 0024 미적용 DB 에서도
+    # 기존 select(AccountUser) 가 깨지지 않는다(role 은 명시 접근 시에만, 가드와 함께 읽음).
+    role: Mapped[str] = mapped_column(
+        Text, nullable=False, default="user", server_default=text("'user'"), deferred=True
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("TRUE")
     )

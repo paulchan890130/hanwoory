@@ -1,7 +1,7 @@
 """실무지침 분류 오버레이 라우터 (A+ 방식).
 
 - 조회(GET)는 로그인 사용자 누구나(조회 트리 오버레이 렌더용).
-- 쓰기(POST/PUT/PATCH/DELETE)는 require_admin 으로 **백엔드에서 관리자 강제**.
+- 쓰기(POST/PUT/PATCH/DELETE)는 require_guideline_editor 로 **백엔드에서 관리자/준 관리자 강제**.
 - PG 전용(FEATURE_PG_GUIDELINES off면 비활성). 원본 JSON 무수정.
 """
 import sys, os
@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.auth import get_current_user, require_admin
+from backend.auth import get_current_user, require_admin, require_guideline_editor
 
 router = APIRouter()
 
@@ -69,7 +69,7 @@ def list_categories_ep(include_inactive: bool = False, user: dict = Depends(get_
 
 # ── 분류 CRUD (관리자) ────────────────────────────────────────────────────────
 @router.post("")
-def create_category_ep(body: CategoryCreate, _: dict = Depends(require_admin)):
+def create_category_ep(body: CategoryCreate, _: dict = Depends(require_guideline_editor)):
     _require_pg()
     if not body.display_name.strip():
         raise HTTPException(status_code=400, detail="display_name은 필수입니다.")
@@ -78,7 +78,7 @@ def create_category_ep(body: CategoryCreate, _: dict = Depends(require_admin)):
 
 
 @router.put("/{cat_id}")
-def update_category_ep(cat_id: int, body: CategoryUpdate, _: dict = Depends(require_admin)):
+def update_category_ep(cat_id: int, body: CategoryUpdate, _: dict = Depends(require_guideline_editor)):
     _require_pg()
     from backend.services.guideline_category_pg_service import update_category
     res = update_category(cat_id, body.model_dump(exclude_none=True))
@@ -88,7 +88,7 @@ def update_category_ep(cat_id: int, body: CategoryUpdate, _: dict = Depends(requ
 
 
 @router.patch("/{cat_id}/deactivate")
-def deactivate_category_ep(cat_id: int, _: dict = Depends(require_admin)):
+def deactivate_category_ep(cat_id: int, _: dict = Depends(require_guideline_editor)):
     """기본 삭제 동작 = 비활성화(물리삭제 아님). 연결 row가 있어도 안전."""
     _require_pg()
     from backend.services.guideline_category_pg_service import deactivate_category
@@ -99,7 +99,7 @@ def deactivate_category_ep(cat_id: int, _: dict = Depends(require_admin)):
 
 
 @router.put("/{cat_id}/move")
-def move_category_ep(cat_id: int, body: CategoryMove, _: dict = Depends(require_admin)):
+def move_category_ep(cat_id: int, body: CategoryMove, _: dict = Depends(require_guideline_editor)):
     _require_pg()
     from backend.services.guideline_category_pg_service import move_category
     res = move_category(cat_id, body.parent_id, body.sort_order)
@@ -110,7 +110,7 @@ def move_category_ep(cat_id: int, body: CategoryMove, _: dict = Depends(require_
 
 # ── override (관리자) ─────────────────────────────────────────────────────────
 @router.post("/overrides")
-def set_override_ep(body: OverrideSet, _: dict = Depends(require_admin)):
+def set_override_ep(body: OverrideSet, _: dict = Depends(require_guideline_editor)):
     """특정 row_id 를 지정 category_id 아래로 재배치(JSON 무수정)."""
     _require_pg()
     from backend.services.guideline_category_pg_service import set_override
@@ -121,7 +121,7 @@ def set_override_ep(body: OverrideSet, _: dict = Depends(require_admin)):
 
 
 @router.delete("/overrides/{row_id}")
-def clear_override_ep(row_id: str, _: dict = Depends(require_admin)):
+def clear_override_ep(row_id: str, _: dict = Depends(require_guideline_editor)):
     """override 해제 → 원래 JSON 파생 분류로 복귀."""
     _require_pg()
     from backend.services.guideline_category_pg_service import clear_override
@@ -131,7 +131,7 @@ def clear_override_ep(row_id: str, _: dict = Depends(require_admin)):
 
 # ── seed (관리자) ─────────────────────────────────────────────────────────────
 @router.post("/seed-from-json")
-def seed_from_json_ep(_: dict = Depends(require_admin)):
+def seed_from_json_ep(_: dict = Depends(require_guideline_editor)):
     """JSON 파생 분류(major/middle/minor)를 누락분만 생성(멱등). 앱 부팅 시 자동실행 아님."""
     _require_pg()
     from backend.routers.guidelines import _MASTER_ROWS

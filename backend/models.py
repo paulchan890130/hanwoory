@@ -25,6 +25,8 @@ class TokenResponse(BaseModel):
     login_id: str
     tenant_id: str
     is_admin: bool
+    role: str = "user"          # 'user' | 'sub_admin' | 'admin'
+    is_master: bool = False     # 마스터 계정(wkdwhfl) 여부
     office_name: str
     contact_name: str = ""
 
@@ -187,6 +189,11 @@ class AccountUpdate(BaseModel):
     biz_reg_no: Optional[str] = None
     agent_rrn: Optional[str] = None
     sheet_key: Optional[str] = None
+
+
+class AccountRoleUpdate(BaseModel):
+    """준 관리자 권한 부여/회수 — 'sub_admin' 또는 'user' 만 허용."""
+    role: str
 
 
 class AccountCreate(BaseModel):

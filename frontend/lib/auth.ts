@@ -31,3 +31,21 @@ export function clearUser(): void {
 export function isLoggedIn(): boolean {
   return !!getUser();
 }
+
+// ── 권한 헬퍼 ────────────────────────────────────────────────────────────────
+// 백엔드가 권한의 source of truth(메뉴 숨김은 UX일 뿐). 아래는 표시용 게이트.
+
+/** full admin 또는 마스터 — 계정관리/보안설정 등 전체 관리자 기능. */
+export function isFullAdmin(u: UserInfo | null): boolean {
+  return !!(u && (u.is_admin || u.is_master));
+}
+
+/** 준 관리자(sub_admin) — full admin 이 아니면서 sub_admin 권한. */
+export function isSubAdmin(u: UserInfo | null): boolean {
+  return !!(u && !u.is_admin && !u.is_master && (u.role === "sub_admin" || u.is_sub_admin));
+}
+
+/** 실무지침 수정 / 게시판·마케팅 관리 — admin/master/sub_admin 허용. */
+export function canManageContent(u: UserInfo | null): boolean {
+  return isFullAdmin(u) || isSubAdmin(u);
+}

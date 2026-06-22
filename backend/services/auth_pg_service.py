@@ -45,6 +45,44 @@ def account_active_status(login_id: str) -> str:
         return "active" if bool(row.is_active) else "disabled"
 
 
+def account_auth_status(login_id: str) -> dict:
+    """매 요청 인증용 — 상태 + 권한을 1회 조회.
+
+    반환: ``{"status": "active"|"disabled"|"missing", "is_admin": bool, "role": str}``.
+    role 컬럼(migration 0024)이 아직 없는 DB 에서도 깨지지 않도록 role 은 별도 가드 조회로
+    읽고, 실패하면 is_admin 기반 기본값('admin'/'user')으로 폴백한다(가용성 우선).
+    조회 실패(연결 오류 등)는 호출측에서 가용성 우선 처리하도록 예외를 전파한다.
+    """
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        # 0024 이전에도 존재가 보장된 컬럼만 먼저 조회(role 미포함 → full-row select 회피).
+        row = session.execute(
+            select(AccountUser.is_active, AccountUser.is_admin)
+            .where(AccountUser.login_id == login_id)
+        ).first()
+        if row is None:
+            return {"status": "missing", "is_admin": False, "role": "user"}
+        is_active, is_admin = bool(row[0]), bool(row[1])
+        role = "admin" if is_admin else "user"
+        try:
+            r = session.scalar(
+                select(AccountUser.role).where(AccountUser.login_id == login_id)
+            )
+            if r:
+                role = str(r)
+        except Exception:
+            # role 컬럼 미적용(0024 전) → is_admin 기반 기본값 유지. 세션은 곧 닫혀 안전.
+            pass
+        return {
+            "status": "active" if is_active else "disabled",
+            "is_admin": is_admin,
+            "role": role,
+        }
+
+
 def find_user_pg(login_id: str) -> Optional[PGUserInfo]:
     """Look up one user by ``login_id``. Returns ``None`` if not found.
 

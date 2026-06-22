@@ -6,10 +6,46 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from backend.auth import get_current_user, require_admin
-from backend.models import AccountUpdate, AccountCreate
+from backend.auth import (
+    get_current_user, require_admin, is_master_login, MASTER_ADMIN_LOGIN_ID,
+)
+from backend.models import AccountUpdate, AccountCreate, AccountRoleUpdate
 
 router = APIRouter()
+
+
+def _assert_not_master(login_id: str, action: str) -> None:
+    """마스터 계정 보호 — 비활성화/삭제/강등 등 위험 조작을 서버에서 강제 거부한다."""
+    if is_master_login(login_id):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MASTER_ACCOUNT_PROTECTED",
+                    "message": "마스터 계정은 비활성화할 수 없습니다."},
+        )
+
+
+def _user_role(session, u) -> str:
+    """AccountUser 의 role 을 가드와 함께 읽는다(0024 미적용 DB → is_admin 기반 폴백)."""
+    if is_master_login(u.login_id) or bool(u.is_admin):
+        return "admin"
+    try:
+        from sqlalchemy import select
+        from backend.db.models.user import AccountUser
+        r = session.scalar(select(AccountUser.role).where(AccountUser.login_id == u.login_id))
+        return str(r) if r else "user"
+    except Exception:
+        return "user"
+
+
+def _account_role_label(login_id: str, is_admin: bool, role: str) -> str:
+    """표시용 권한 라벨: 마스터 / 관리자 / 준 관리자 / 일반 사용자."""
+    if is_master_login(login_id):
+        return "master"
+    if is_admin:
+        return "admin"
+    if role == "sub_admin":
+        return "sub_admin"
+    return "user"
 
 @router.post("/bootstrap")
 def bootstrap_admin(body: AccountCreate):
@@ -178,6 +214,7 @@ def list_accounts(user: dict = Depends(require_admin)):
             )
 
             file_status, file_label = _classify_file_storage(folder, ckey, wkey)
+            _role = _user_role(session, u)
 
             records.append({
                 "login_id": u.login_id,
@@ -192,6 +229,10 @@ def list_accounts(user: dict = Depends(require_admin)):
                 "contact_tel": u.contact_tel or "",
                 "is_admin": "TRUE" if u.is_admin else "FALSE",
                 "is_active": "TRUE" if u.is_active else "FALSE",
+                "is_master": is_master_login(u.login_id),
+                "role": _role,
+                # 표시용 권한 라벨: master / admin / sub_admin / user.
+                "account_role": _account_role_label(u.login_id, bool(u.is_admin), _role),
                 # Raw keys remain in the payload so the workspace flow
                 # (which still reads them) keeps working. UI hides them
                 # in PG mode in favour of the new status columns.
@@ -235,6 +276,9 @@ def update_account(
             u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
             if u is None:
                 raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+            # 마스터 계정 보호 — 비활성화/관리자 강등 요청은 서버에서 거부(프론트와 무관).
+            if is_master_login(login_id) and (update.is_active is False or update.is_admin is False):
+                _assert_not_master(login_id, "update")
             # 마지막 활성 관리자 보호 — 비활성화(is_active=false) 또는 관리자 해제(is_admin=false)가
             # 활성 관리자를 0으로 만들면 차단(인라인 토글 경로도 동일 가드).
             deactivating = update.is_active is False
@@ -434,6 +478,7 @@ def delete_account(
     login_id = login_id.strip()
     if login_id == str(user.get("login_id", "")).strip():
         raise HTTPException(status_code=400, detail="자신의 계정은 비활성화할 수 없습니다.")
+    _assert_not_master(login_id, "deactivate")   # 마스터 계정 비활성화 금지(서버 강제)
     # PG-only(Phase B): 비활성화는 항상 PostgreSQL.
     from sqlalchemy import select
     from backend.db.models.user import AccountUser
@@ -482,6 +527,45 @@ def restore_account(login_id: str, user: dict = Depends(require_admin)):
     return {"ok": True, "login_id": login_id, "was_active": was_active}
 
 
+@router.put("/accounts/{login_id}/role")
+def set_account_role(login_id: str, body: AccountRoleUpdate, user: dict = Depends(require_admin)):
+    """준 관리자 권한 부여/회수 — role 을 'sub_admin' 또는 'user' 로 설정한다(admin 전용).
+
+    - full admin 승격/강등은 기존 is_admin 토글(PUT /accounts/{id})로 한다 → 여기선 불가.
+    - 마스터 계정·자기 자신·full admin 계정의 role 변경은 거부한다.
+    - role 컬럼(0024) 미적용 DB 면 503.
+    """
+    login_id = login_id.strip()
+    role = (body.role or "").strip()
+    if role not in ("sub_admin", "user"):
+        raise HTTPException(status_code=400, detail="role 은 'sub_admin' 또는 'user' 만 허용합니다.")
+    _assert_not_master(login_id, "set_role")   # 마스터 권한 변경 금지(서버 강제)
+    if login_id == str(user.get("login_id", "")).strip():
+        raise HTTPException(status_code=400, detail="자신의 권한은 변경할 수 없습니다.")
+
+    from sqlalchemy import select
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        if bool(u.is_admin):
+            raise HTTPException(status_code=409,
+                                detail="관리자 계정의 권한은 '관리자' 토글로 변경하세요.")
+        try:
+            u.role = role
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise HTTPException(status_code=503,
+                                detail="권한 컬럼 마이그레이션(0024)이 적용되지 않아 저장할 수 없습니다.")
+        tenant_id = u.tenant_id
+    _audit_account("ACCOUNT_ROLE_CHANGED", user, login_id, tenant_id, {"role": role})
+    return {"ok": True, "login_id": login_id, "role": role}
+
+
 @router.delete("/accounts/{login_id}/hard")
 def hard_delete_account(
     login_id: str,
@@ -496,6 +580,7 @@ def hard_delete_account(
     login_id = login_id.strip()
     if login_id == str(user.get("login_id", "")).strip():
         raise HTTPException(status_code=400, detail="자신의 계정은 완전 삭제할 수 없습니다.")
+    _assert_not_master(login_id, "hard_delete")   # 마스터 계정 완전삭제 금지(서버 강제)
     if confirm_login_id.strip() != login_id:
         raise HTTPException(status_code=400, detail="확인용 계정 아이디가 일치하지 않습니다.")
 
