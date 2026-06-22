@@ -324,64 +324,150 @@ def clean_reg_back(raw: str) -> str:
 
 _PROVINCE_RE = r"(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)"
 
+# 주소 정규화 정적 패턴 — 모듈 로드 시 1회 컴파일(호출마다 재컴파일 방지).
+_PROVINCE_PAT = re.compile(_PROVINCE_RE)
+_ADDR_BRACKET_PAT = re.compile(r"\[[^\]]*\]|\{[^}]*\}")
+_ADDR_DISALLOWED_PAT = re.compile(r"[^가-힣A-Za-z0-9\s,\-]")
+_ADDR_COMMA_PAT = re.compile(r"\s*,\s*")
+_ADDR_MULTISPACE_PAT = re.compile(r"\s{2,}")
+_ADDR_SUFFIX_PAT = re.compile(r"(시|군|구|읍|면|동|리|로|길|번길|호|아파트)")
+_ADDR_DETAIL_PAT = re.compile(r"(아파트|\d+\s*동|\d+\s*호)")
+_ADDR_ADMIN_OR_ROAD_PAT = re.compile(r"[가-힣]{1,8}(?:시|군|구|동|읍|면|로|길|대로|번길)")
+# 주소 '시작 줄'(head) 판별: 시/군/구 행정단위로 끝나는 토큰(단어 경계).
+_ADDR_HEAD_PAT = re.compile(r"[가-힣]{1,6}[시군구](?:\s|$|\d|,)")
+_ADDR_DATE_PAT = re.compile(r"(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})")
+_ADDR_KOR_PAT = re.compile(r"[가-힣]")
+_ADDR_DIGIT_PAT = re.compile(r"\d")
+_ADDR_WS_PAT = re.compile(r"\s+")
+_ADDR_NOISE_CHARS = ("|", "｜", "ㅣ", "!", "(", ")")
+
+
+def _sanitize_addr_line(line: str) -> str:
+    """한 줄을 주소 허용 문자셋으로 정리한다(줄 단위 sanitizer).
+
+    허용: 한글·영문·숫자·공백·하이픈(-)·쉼표(,). 그 외는 제거.
+    여기서는 province-cut/validation을 하지 않는다(블록 단계에서 처리).
+    """
+    s = _ADDR_WS_PAT.sub(" ", line or "").strip()
+    if not s:
+        return ""
+    # 대괄호/중괄호는 내용까지 제거([잡음] 등). 소괄호는 문자만 제거하고 내용 보존.
+    s = _ADDR_BRACKET_PAT.sub(" ", s)
+    for ch in _ADDR_NOISE_CHARS:
+        s = s.replace(ch, " ")
+    s = _ADDR_DISALLOWED_PAT.sub(" ", s)   # 허용 문자셋만 남김(하이픈/쉼표/영문 유지)
+    s = _ADDR_COMMA_PAT.sub(", ", s)        # 쉼표 주변 공백 정규화
+    s = _ADDR_MULTISPACE_PAT.sub(" ", s)
+    return s.strip(" ,-")
+
+
+def _addr_block_score(s: str) -> float:
+    """가벼운 주소 후보 점수 — 설명 가능한 규칙만 사용(유사도/외부조회 없음)."""
+    if not s:
+        return -999.0
+    score = 0.0
+    if _PROVINCE_PAT.search(s):            # 시도(province) 인식 — 더 완성된 후보
+        score += 1.0
+    if _ADDR_KOR_PAT.search(s):
+        score += 1.0
+    if _ADDR_DIGIT_PAT.search(s):          # 도로명/지번 숫자
+        score += 1.0
+    suffix_hits = len(_ADDR_SUFFIX_PAT.findall(s))
+    score += min(suffix_hits, 6) * 0.5     # 주소 접미어(시/군/구/…/호/아파트)
+    if _ADDR_DETAIL_PAT.search(s):         # 상세주소(동/호/아파트)
+        score += 1.0
+    L = len(s)
+    if L < 8:                              # 너무 짧으면 감점
+        score -= 2.0
+    elif L > 70:                           # 지나치게 길면 감점(여러 주소 합쳐졌을 가능성)
+        score -= (L - 70) * 0.05
+    return score
+
+
+def _addr_block_passes(s: str) -> bool:
+    """strong/weak validation — 빈값 방지를 위해 weak 후보도 허용(기존 동작 유지)."""
+    has_province = bool(_PROVINCE_PAT.search(s))
+    has_admin_or_road = bool(_ADDR_ADMIN_OR_ROAD_PAT.search(s))
+    kor_count = len(_ADDR_KOR_PAT.findall(s))
+    has_suffix = bool(_ADDR_SUFFIX_PAT.search(s))
+    has_digit = bool(_ADDR_DIGIT_PAT.search(s))
+    strong = has_province and has_admin_or_road
+    weak = len(s) >= 8 and kor_count >= 3 and (has_digit or has_suffix)
+    return strong or weak
+
 
 def _clean_address_text(text: str) -> str:
-    """주소 raw OCR → 정리(cleaned) → validation 순.
+    """주소 raw OCR → 줄 단위 정리 → 블록 후보화 → 가장 타당한 후보 1개 선택.
 
-    핵심: validation은 **cleaned text에만** 적용한다. 느낌표/대괄호/세로줄 같은
-    잡음 때문에 통째로 빈값이 되지 않도록, 먼저 허용 문자만 남긴 뒤 검증한다.
-    허용: 한글·영문·숫자·공백·하이픈(-)·쉼표(,). 그 외는 제거.
+    핵심: raw OCR의 여러 줄/여러 attempt를 통째로 이어 붙이지 않는다. 줄을 정리한 뒤
+    시도(province)/행정단위(시·군·구)로 시작하는 줄을 기준으로 블록으로 묶고, 가벼운
+    점수로 가장 완성도 높은 블록 **1개만** 반환한다. 점수가 같으면 (안정적으로 날짜가
+    잡히면)최신 날짜, 그다음 아래쪽(나중) 후보를 우선한다 — 등록증 주소 이력은 보통
+    아래가 최신이기 때문. 무거운 유사도 계산·외부 조회·province 자동보정은 하지 않는다.
     """
-    lines = [re.sub(r"\s+", " ", ln).strip() for ln in (text or "").splitlines() if ln.strip()]
-    if not lines:
-        return ""
-    joined = " ".join(lines)
-
-    # 1) 대괄호/중괄호는 내용까지 제거 — 주소에 쓰이지 않는 OCR 잡음 묶음([잡음] 등).
-    #    소괄호는 동/호 표기에 쓰일 수 있어 '괄호 문자'만 제거하고 내용은 보존.
-    joined = re.sub(r"\[[^\]]*\]", " ", joined)
-    joined = re.sub(r"\{[^}]*\}", " ", joined)
-
-    # 2) 세로줄·명시적 잡음 제거: ㅣ(한글 모음)·|·｜·느낌표·소괄호 문자.
-    for ch in ("|", "｜", "ㅣ", "!", "(", ")"):
-        joined = joined.replace(ch, " ")
-
-    # 3) 허용 문자셋만 남김: 한글·영문·숫자·공백·하이픈·쉼표.
-    #    하이픈 유지('50-1' 번지 의미 보존), 쉼표 유지(동/호 구분 보존),
-    #    영문 허용(ABC빌딩 등). 점·따옴표·기타 특수문자는 제거.
-    joined = re.sub(r"[^가-힣A-Za-z0-9\s,\-]", " ", joined)
-
-    # 4~6) 공백/쉼표 정리.
-    joined = re.sub(r"\s*,\s*", ", ", joined)   # 쉼표 주변 공백 정규화
-    joined = re.sub(r"\s{2,}", " ", joined)      # 다중 공백 → 단일
-    joined = joined.strip(" ,-")                  # 앞뒤 공백·쉼표·하이픈 제거
-
-    # province가 인식되면 그 앞 잡음 제거(기존 동작 유지).
-    m = re.search(_PROVINCE_RE, joined)
-    if m:
-        joined = joined[m.start():].strip(" ,-")
-
-    if not joined:
+    raw_lines = [ln for ln in (text or "").splitlines() if ln.strip()]
+    if not raw_lines:
         return ""
 
-    # 7) validation — cleaned text에만 적용.
-    #    strong: province 마커 + 행정/도로 토큰(기존 엄격 경로).
-    #    weak  : OCR이 province를 누락('경기'→'도 시흥시…')해도, 충분한 한글 +
-    #            (숫자 또는 주소 접미어)가 있으면 cleaned 후보로 인정 → 빈값 방지.
-    has_province = bool(re.search(_PROVINCE_RE, joined))
-    has_admin_or_road = bool(re.search(r'[가-힣]{1,8}(?:시|군|구|동|읍|면|로|길|대로|번길)', joined))
-    kor_count = len(re.findall(r"[가-힣]", joined))
-    has_suffix = bool(re.search(r"(시|군|구|읍|면|동|리|로|길|번길|호)", joined))
-    has_digit = bool(re.search(r"\d", joined))
-
-    strong = has_province and has_admin_or_road
-    weak = len(joined) >= 8 and kor_count >= 3 and (has_digit or has_suffix)
-    if not (strong or weak):
+    # 1) 줄 단위 정리 — 빈 줄 제거. (cleaned, raw) 쌍 유지(raw는 날짜 보조점수용).
+    cleaned: List[tuple[str, str]] = []
+    for rl in raw_lines:
+        cl = _sanitize_addr_line(rl)
+        if cl:
+            cleaned.append((cl, rl))
+    if not cleaned:
         return ""
 
-    joined = _dedup_address(joined)
-    joined = _apply_hierarchical_region_normalization(joined)
-    return joined
+    # 2) 블록 묶기 — province 또는 시/군/구 head 줄에서 새 블록 시작.
+    #    그 외(동/호 등 상세줄)는 직전 블록의 연속줄로 합친다. 첫 줄은 항상 블록 시작.
+    blocks: List[Dict[str, Any]] = []
+    for cl, rl in cleaned:
+        is_head = bool(_PROVINCE_PAT.search(cl) or _ADDR_HEAD_PAT.search(cl))
+        if is_head or not blocks:
+            blocks.append({"lines": [cl], "raws": [rl]})
+        else:
+            blocks[-1]["lines"].append(cl)
+            blocks[-1]["raws"].append(rl)
+
+    # 3) 블록별 최종 후보 구성: 줄 합치기 → province-cut → 내부중복 dedup → 점수/날짜.
+    candidates: List[Dict[str, Any]] = []
+    for idx, blk in enumerate(blocks):
+        joined = _ADDR_MULTISPACE_PAT.sub(" ", " ".join(blk["lines"])).strip(" ,-")
+        m = _PROVINCE_PAT.search(joined)
+        if m:
+            joined = joined[m.start():].strip(" ,-")
+        joined = _dedup_address(joined)   # 같은 줄 내부 중복(같은 province 2회) 보조 제거
+        if not joined:
+            continue
+        latest_date = ""                  # 보조: 주소 이력 날짜(raw에서만 탐지)
+        for rl in blk["raws"]:
+            for dm in _ADDR_DATE_PAT.finditer(rl):
+                y, mo, d = dm.groups()
+                try:
+                    iso = f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
+                except Exception:
+                    continue
+                if iso > latest_date:
+                    latest_date = iso
+        candidates.append({
+            "text": joined,
+            "score": _addr_block_score(joined),
+            "date": latest_date,
+            "idx": idx,
+        })
+
+    if not candidates:
+        return ""
+
+    # 4) validation 통과 후보 우선. 전부 실패하면 weak fallback로 후보 유지(빈값 방지).
+    valid = [c for c in candidates if _addr_block_passes(c["text"])]
+    pool = valid if valid else candidates
+
+    # 5) 최종 선택: 점수 → (날짜 2개 이상 안정 인식 시)최신 날짜 → 아래쪽(idx 큰) 후보.
+    use_date = len([c for c in pool if c["date"]]) >= 2
+    best = max(pool, key=lambda c: (c["score"], c["date"] if use_date else "", c["idx"]))
+
+    return _apply_hierarchical_region_normalization(best["text"])
 
 
 def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotation_deg: int = 0) -> tuple[str, Dict[str, Any]]:

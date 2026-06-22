@@ -100,6 +100,70 @@ def test_clean_address_weak_candidate_not_blank(raw):
     assert "!" not in out and "ㅣ" not in out and "." not in out
 
 
+# ── 주소: 여러 줄/여러 후보 → concat 금지, 후보 1개만 선택 ─────────────────────
+
+def test_clean_address_two_line_single_block():
+    # A. 한 주소가 두 줄로 나뉜 경우 → 하나의 후보로 묶인다.
+    raw = "경기도 시흥시 옥구천동로 404\n114동 208호 정왕동, 월드아파트"
+    assert _clean_address_text(raw) == "경기도 시흥시 옥구천동로 404 114동 208호 정왕동, 월드아파트"
+
+
+def test_clean_address_picks_more_complete_block():
+    # B. 비슷하지만 다른 두 후보 → 더 완성된 후보 1개만(둘을 연결하지 않음).
+    raw = (
+        "경기도 시흥시 옥구천동로 404\n114동 208호\n"
+        "경기도 시흥시 옥구천동로 404\n114동 208호 정왕동, 월드아파트"
+    )
+    out = _clean_address_text(raw)
+    assert out == "경기도 시흥시 옥구천동로 404 114동 208호 정왕동, 월드아파트"
+    assert out.count("옥구천동로") == 1     # concat 안 됨
+
+
+def test_clean_address_previous_and_current():
+    # C. 이전주소 + 현재주소 → 전체 concat이 아니라 현재(완성도 높은/아래쪽) 후보.
+    raw = (
+        "서울시 어딘가 10\n"
+        "경기도 시흥시 옥구천동로 404\n114동 208호 정왕동, 월드아파트"
+    )
+    out = _clean_address_text(raw)
+    assert out == "경기도 시흥시 옥구천동로 404 114동 208호 정왕동, 월드아파트"
+    assert "어딘가" not in out
+
+
+def test_clean_address_date_history_prefers_latest():
+    # D. 날짜 포함 주소 이력 → 최신 날짜/아래쪽 후보 선택(날짜는 보조).
+    raw = (
+        "2020.09.23 서울시 어딘가 10\n"
+        "2025.02.01 경기도 시흥시 옥구천동로 404 114동 208호"
+    )
+    out = _clean_address_text(raw)
+    assert "옥구천동로" in out and "어딘가" not in out
+    assert "2025" not in out and "2020" not in out   # 날짜 숫자는 province-cut으로 제거
+
+
+def test_clean_address_noise_multiple_candidates():
+    # E. 잡음 포함 + 여러 후보 → 잡음 제거 후 가장 완성도 높은 후보 1개.
+    raw = (
+        "! 경기도 시흥시 옥구천동로 404 ㅣ\n114동 208호 [잡음]\n"
+        "경기도 시흥시 옥구천동로 404\n114동 208호 정왕동, 월드아파트"
+    )
+    out = _clean_address_text(raw)
+    assert out == "경기도 시흥시 옥구천동로 404 114동 208호 정왕동, 월드아파트"
+    assert "!" not in out and "ㅣ" not in out and "잡음" not in out
+
+
+def test_clean_address_double_ocr_pass_no_duplicate():
+    # 실제 버그: psm6 + psm4 두 패스 concat. 2번째 패스에서 province 오인(경기→결기)
+    # 으로 기존 _dedup_address가 못 잡던 케이스 → 후보 1개만 반환되어야 한다.
+    raw = (
+        "경기도 시흥시 옥구천동로 404\n114동 208호 (정왕동, 월드아파트)\n"
+        "결기도 시흥시 옥구천동로 404.\n114동 208호 (정왕동, 월드아파트)"
+    )
+    out = _clean_address_text(raw)
+    assert out.count("옥구천동로") == 1     # 더 이상 두 번 이어 붙지 않음
+    assert "결기도" not in out               # province 인식된 깨끗한 후보 우선
+
+
 # ── MRZ trailing-K 정리 ──────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("raw,expected", [
