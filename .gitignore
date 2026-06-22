@@ -121,3 +121,4 @@ migration_input/
 
 # ===== Nested git repos not part of this project =====
 hanwoory/
+tools/perf/
