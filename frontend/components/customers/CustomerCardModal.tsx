@@ -36,7 +36,12 @@ export default function CustomerCardModal({
   });
 
   useEffect(() => {
-    if (data) setRecord(data);
+    if (data) {
+      // 날짜 4개는 표시 전 시간부 제거(YYYY-MM-DD). 마이그레이션 timestamp 데이터 호환.
+      const norm = { ...data } as Record<string, string>;
+      DATE_FIELDS.forEach((f) => { if (norm[f]) norm[f] = normalizeDate(norm[f]); });
+      setRecord(norm);
+    }
   }, [data]);
 
   useEffect(() => {

@@ -24,6 +24,7 @@ from backend.db.models.signature import (  # noqa: F401
 from backend.db.models.board import BoardPost, BoardComment  # noqa: F401
 from backend.db.models.marketing import MarketingPost  # noqa: F401
 from backend.db.models.marketing_image import MarketingImage  # noqa: F401
+from backend.db.models.document_group import DocumentGroup  # noqa: F401
 from backend.db.models.certification import (  # noqa: F401
     CertVendor, CertDirection, CertGroup, CertRegion, CertPrice,
 )
@@ -55,7 +56,7 @@ __all__ = [
     "AccommodationProvider", "GuarantorConnection",
     "AgentSignature", "CustomerSignature", "TempSignatureSlot", "SignaturePadToken",
     "BoardPost", "BoardComment",
-    "MarketingPost",
+    "MarketingPost", "MarketingImage", "DocumentGroup",
     "CertVendor", "CertDirection", "CertGroup", "CertRegion", "CertPrice",
     "WorkReferenceSheet", "WorkReferenceRow",
     "DocumentMetadata",

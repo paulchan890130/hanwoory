@@ -2,12 +2,22 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { getDocGroup, getDocOrder } from "@/lib/docGroupTags";
 
 interface Post {
   id: string;
   title: string;
   slug: string;
   tags?: string;
+}
+
+interface DbGroup {
+  id: string;
+  group_key: string;
+  title: string;
+  description: string;
+  sort_order: number;
+  is_published: string;
 }
 
 interface GroupDef {
@@ -120,7 +130,18 @@ const GROUP_DEFS: GroupDef[] = [
   },
 ];
 
-export function DocumentsClient({ posts }: { posts: Post[] }) {
+// GROUP_DEFS 의 group key(id) → slugOrder. DB 그룹 렌더 시에도 알려진 글 정렬·매칭에 재사용.
+const SLUG_ORDER_BY_KEY: Record<string, string[]> = Object.fromEntries(
+  GROUP_DEFS.map((g) => [g.id, g.slugOrder])
+);
+
+export function DocumentsClient({
+  posts,
+  groups: dbGroups = [],
+}: {
+  posts: Post[];
+  groups?: DbGroup[];
+}) {
   const [query, setQuery] = useState("");
 
   const postBySlug = useMemo(() => {
@@ -131,35 +152,64 @@ export function DocumentsClient({ posts }: { posts: Post[] }) {
     return map;
   }, [posts]);
 
-  // Posts tagged "doc_group:<id>" that are not in the slugOrder list (new additions)
-  const extraByGroup = useMemo(() => {
+  // doc_group 태그 기준으로 글을 그룹 key 별로 모은다(신규 추가 글 포함).
+  const taggedByGroup = useMemo(() => {
     const map: Record<string, Post[]> = {};
     for (const p of posts) {
-      const m = (p.tags || "").match(/\bdoc_group:(\S+)/);
-      if (!m) continue;
-      const gid = m[1];
+      const gid = getDocGroup(p.tags);
+      if (!gid) continue;
       if (!map[gid]) map[gid] = [];
       map[gid].push(p);
     }
     return map;
   }, [posts]);
 
+  // 한 그룹(key)의 표시 글 목록: 태그 매칭 + slugOrder fallback, doc_order/slugOrder 순.
+  const buildItems = (key: string) => {
+    const slugOrder = SLUG_ORDER_BY_KEY[key] || [];
+    const slugIndex = new Map(slugOrder.map((s, i) => [s, i]));
+    const seen = new Set<string>();
+    const collected: Post[] = [];
+    // 1) doc_group 태그가 붙은 글
+    for (const p of taggedByGroup[key] || []) {
+      if (p.slug && seen.has(p.slug)) continue;
+      if (p.slug) seen.add(p.slug);
+      collected.push(p);
+    }
+    // 2) 태그가 아직 없어도 slugOrder 에 알려진 글(backfill 전 호환)
+    for (const slug of slugOrder) {
+      if (seen.has(slug)) continue;
+      const p = postBySlug[slug];
+      if (p) { seen.add(slug); collected.push(p); }
+    }
+    collected.sort((a, b) => {
+      const oa = getDocOrder(a.tags), ob = getDocOrder(b.tags);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null) return -1;
+      if (ob != null) return 1;
+      const ia = a.slug ? slugIndex.get(a.slug) : undefined;
+      const ib = b.slug ? slugIndex.get(b.slug) : undefined;
+      if (ia != null && ib != null) return ia - ib;
+      if (ia != null) return -1;
+      if (ib != null) return 1;
+      return (a.title || "").localeCompare(b.title || "");
+    });
+    return collected.map((p) => ({ label: p.title, href: `/board/${p.slug}` }));
+  };
+
   const groups = useMemo(() => {
-    return GROUP_DEFS.map((g) => {
-      const orderedSet = new Set(g.slugOrder);
-      const ordered = g.slugOrder
-        .map((slug) => postBySlug[slug])
-        .filter(Boolean) as Post[];
-      const extra = (extraByGroup[g.id] || []).filter(
-        (p) => !orderedSet.has(p.slug)
-      );
-      const items = [...ordered, ...extra].map((p) => ({
-        label: p.title,
-        href: `/board/${p.slug}`,
-      }));
-      return { ...g, items };
-    }).filter((g) => g.items.length > 0);
-  }, [postBySlug, extraByGroup]);
+    // DB 중분류가 있으면 그것을 기준(sort_order)으로 렌더. 없으면 하드코딩 GROUP_DEFS fallback.
+    if (dbGroups.length > 0) {
+      return [...dbGroups]
+        .filter((g) => String(g.is_published).toUpperCase() === "TRUE")
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((g) => ({ id: g.group_key, group: g.title || g.group_key, items: buildItems(g.group_key) }))
+        .filter((g) => g.items.length > 0);
+    }
+    return GROUP_DEFS.map((g) => ({ id: g.id, group: g.group, items: buildItems(g.id) }))
+      .filter((g) => g.items.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postBySlug, taggedByGroup, dbGroups]);
 
   const filteredGroups = useMemo(() => {
     if (!query.trim()) return groups;

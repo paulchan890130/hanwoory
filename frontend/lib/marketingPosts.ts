@@ -44,6 +44,37 @@ function _resolveApiBase(): string {
   return "http://127.0.0.1:8000";
 }
 
+export interface PublicDocGroup {
+  id: string;
+  group_key: string;
+  title: string;
+  description: string;
+  sort_order: number;
+  is_published: string;
+}
+
+// 공개 중분류 목록(is_published=true, sort_order 순). 실패 시 빈 배열 →
+// DocumentsClient 가 하드코딩 GROUP_DEFS fallback 으로 동작(현 사이트 유지).
+export async function getPublishedDocGroups(): Promise<PublicDocGroup[]> {
+  const base = _resolveApiBase();
+  try {
+    const res = await fetch(`${base}/api/marketing/doc-groups`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : [];
+    return arr.map((g: Record<string, unknown>) => ({
+      id: _s(g.id),
+      group_key: _s(g.group_key),
+      title: _s(g.title),
+      description: _s(g.description),
+      sort_order: Number(g.sort_order) || 0,
+      is_published: _s(g.is_published),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getPublishedMarketingPosts(): Promise<MarketingPost[]> {
   const base = _resolveApiBase();
   const url = `${base}/api/marketing/posts`;

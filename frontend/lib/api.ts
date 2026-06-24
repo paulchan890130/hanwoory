@@ -266,7 +266,45 @@ export const customersApi = {
       `/api/customers/${encodeURIComponent(id)}/completed-tasks`,
       { params: { name, include_legacy: includeLegacy } }
     ),
+  // 엑셀 일괄등록
+  bulkTemplate: () =>
+    api.get("/api/customers/bulk-template", { responseType: "blob" }),
+  bulkValidate: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<BulkValidateResult>("/api/customers/bulk-validate", form);
+  },
+  bulkCommit: (file: File, includeDuplicates: boolean) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("include_duplicates", includeDuplicates ? "true" : "false");
+    return api.post<BulkCommitResult>("/api/customers/bulk-commit", form);
+  },
 };
+
+export interface BulkPreviewRow {
+  row_no: number;
+  status: "new" | "duplicate" | "error";
+  name: string;
+  nationality: string;
+  visa: string;
+  passport_masked: string;
+  messages: string[];
+  dup_customer_id: string | null;
+}
+export interface BulkValidateResult {
+  total: number;
+  counts: { new: number; duplicate: number; error: number };
+  rows: BulkPreviewRow[];
+}
+export interface BulkCommitResult {
+  registered: number;
+  skipped_duplicate: number;
+  skipped_error: number;
+  failed: number;
+  failed_rows: number[];
+  new_customer_ids: string[];
+}
 
 // 숙소제공자 연결
 export interface AccommodationProvider {
@@ -1111,6 +1149,38 @@ export const marketingApi = {
     // PG 저장 전환(0022): 응답은 내부 URL + id. (구 Drive file_id 제거 — image_file_id 에 넣지 않음)
     return api.post<{ url: string; id: string; content_type: string; size_bytes: number }>("/api/upload-image", form);
   },
+};
+
+// 업무별 준비서류 중분류 (document_groups). v1: 물리 삭제 없음 — 공개/비공개 전환만.
+export interface DocGroup {
+  id: string;
+  group_key: string;
+  title: string;
+  description: string;
+  sort_order: number;
+  is_published: string;        // "TRUE" | "FALSE"
+  created_at: string;
+  updated_at: string;
+  post_count?: number;         // admin 목록에만 포함
+  published_post_count?: number;
+}
+
+export const docGroupApi = {
+  publicList: () => api.get<DocGroup[]>("/api/marketing/doc-groups"),
+  adminList: () => api.get<DocGroup[]>("/api/marketing/admin/doc-groups"),
+  create: (data: {
+    group_key: string;
+    title?: string;
+    description?: string;
+    sort_order?: number;
+    is_published?: boolean;
+  }) => api.post<DocGroup>("/api/marketing/admin/doc-groups", data),
+  update: (
+    id: string,
+    data: { title?: string; description?: string; sort_order?: number }
+  ) => api.put<DocGroup>(`/api/marketing/admin/doc-groups/${id}`, data),
+  togglePublish: (id: string) =>
+    api.patch<DocGroup>(`/api/marketing/admin/doc-groups/${id}/publish`),
 };
 
 export const guidelinesApi = {

@@ -4,9 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { customersApi } from "@/lib/api";
-import { Search, UserPlus, Loader2 } from "lucide-react";
+import { Search, UserPlus, Loader2, Upload } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
 import SignatureModal from "@/components/SignatureModal";
+import { BulkAddModal } from "@/components/customers/BulkAddModal";
 // 고객카드 + 만기/페이지 helper — 공통 컴포넌트에서 import(고객관리·대시보드 공용)
 import {
   CustomerDrawer, TABLE_COLS, rowHighlight, buildPageNums, emptyCustomer, getDaysUntil, expiryBadge,
@@ -29,6 +30,7 @@ export default function CustomersPage() {
   const [signPrompt, setSignPrompt] = useState<{ name: string; customerId: string } | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
   const [awaitingRefresh, setAwaitingRefresh] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
@@ -160,8 +162,15 @@ export default function CustomersPage() {
         >
           <UserPlus size={14} /> 신규 고객
         </button>
+        <button
+          onClick={() => setShowBulkModal(true)}
+          style={{ flexShrink:0, marginLeft:"auto", display:"flex", alignItems:"center", gap:6, fontSize:12,
+            padding:"7px 14px", borderRadius:8, border:"1px solid #E2E8F0", background:"#fff", color:"#4A5568", cursor:"pointer", fontWeight:600 }}
+        >
+          <Upload size={14} /> 일괄추가
+        </button>
         {total > 0 && (
-          <span style={{ fontSize:12, color:"#718096", marginLeft:"auto", flexShrink:0 }}>
+          <span style={{ fontSize:12, color:"#718096", flexShrink:0 }}>
             총 <strong style={{ color:"#2D3748" }}>{total}</strong>명
           </span>
         )}
@@ -217,7 +226,9 @@ export default function CustomersPage() {
                       style={{ ...rowHighlight(c), cursor:"pointer", borderBottom:"1px solid #EDF2F7",
                         ...(isSelected ? { background:"rgba(212,168,67,0.08)", outline:"2px solid rgba(212,168,67,0.3)" } : {}) }}>
                       {TABLE_COLS.map((col) => {
-                        const val = col.key === "_tel" ? tel : (c[col.key] || "");
+                        const rawVal = col.key === "_tel" ? tel : (c[col.key] || "");
+                        // 날짜 4개 필드는 표시 시 시간부 제거(YYYY-MM-DD). 마이그레이션 데이터 호환.
+                        const val = DATE_FIELDS.includes(col.key) ? normalizeDate(rawVal) : rawVal;
                         const isExpiry = col.key === "만기일" || col.key === "만기";
                         const badge = isExpiry ? expiryBadge(getDaysUntil(val)) : null;
                         return (
@@ -281,6 +292,14 @@ export default function CustomersPage() {
           onSave={handleSave}
           onDelete={!isNewMode ? (id) => deleteMut.mutate(id) : undefined}
           isSaving={updateMut.isPending || addMut.isPending}
+        />
+      )}
+
+      {/* 엑셀 일괄 고객등록 */}
+      {showBulkModal && (
+        <BulkAddModal
+          onClose={() => setShowBulkModal(false)}
+          onDone={() => { qc.invalidateQueries({ queryKey: ["customers"] }); }}
         />
       )}
 

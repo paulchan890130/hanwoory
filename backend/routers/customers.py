@@ -5,7 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import logging
 import threading
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form
+from fastapi.responses import Response
 
 from backend.auth import get_current_user
 from backend.services.cache_service import cache_get, cache_set, cache_invalidate
@@ -252,6 +253,73 @@ def get_customers(
     items = records[start:start + page_size]
 
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
+
+
+# ── 엑셀 일괄 고객등록 ─────────────────────────────────────────────────────────
+# 주의: 아래 /bulk-* 는 /{customer_id} 보다 먼저 등록해야 한다(literal vs path-param 우선순위).
+# 권한: get_current_user(tenant-scoped) — add_customer 와 동일. 등록은 create_customer 경유(암호화).
+_BULK_MAX_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+@router.get("/bulk-template")
+def bulk_template(user: dict = Depends(get_current_user)):
+    """엑셀 일괄등록 기준 양식(xlsx) 다운로드."""
+    from backend.services import customer_bulk_service as bulk
+    data = bulk.build_template_bytes()
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="customer_bulk_template.xlsx"'},
+    )
+
+
+def _read_upload(file: UploadFile) -> bytes:
+    if file is None:
+        raise HTTPException(status_code=400, detail="파일이 없습니다.")
+    name = (file.filename or "").lower()
+    if not name.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="xlsx 파일만 업로드할 수 있습니다.")
+    content = file.file.read()
+    if len(content) > _BULK_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="엑셀 파일은 5MB 이하만 업로드할 수 있습니다.")
+    if not content:
+        raise HTTPException(status_code=400, detail="빈 파일입니다.")
+    return content
+
+
+@router.post("/bulk-validate")
+def bulk_validate(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """업로드 엑셀 파싱+검증(등록하지 않음). 신규/중복의심/오류 미리보기 반환."""
+    tenant_id = user["tenant_id"]
+    content = _read_upload(file)
+    from backend.services import customer_bulk_service as bulk
+    try:
+        return bulk.validate(content, tenant_id)
+    except HTTPException:
+        raise
+    except Exception:
+        # 파싱 실패 — 민감정보 노출 방지 위해 일반 메시지만.
+        raise HTTPException(status_code=400, detail="엑셀을 읽는 중 오류가 발생했습니다. 양식을 확인해 주세요.")
+
+
+@router.post("/bulk-commit")
+def bulk_commit(
+    file: UploadFile = File(...),
+    include_duplicates: bool = Form(False),
+    user: dict = Depends(get_current_user),
+):
+    """검증 통과 행 등록(부분 성공). 중복 의심은 include_duplicates 시에만 신규 등록."""
+    tenant_id = user["tenant_id"]
+    content = _read_upload(file)
+    from backend.services import customer_bulk_service as bulk
+    try:
+        result = bulk.commit(content, tenant_id, include_duplicates)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="엑셀을 읽는 중 오류가 발생했습니다. 양식을 확인해 주세요.")
+    cache_invalidate(tenant_id, _CACHE_EXPIRY)
+    return result
 
 
 @router.get("/{customer_id}")

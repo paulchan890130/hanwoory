@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import uuid
 import io
+import re
 import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
 from pydantic import BaseModel
@@ -242,3 +243,105 @@ def toggle_publish(post_id: str, user: dict = Depends(require_board_manager)):
     existing["updated_at"] = datetime.datetime.now().isoformat()
     _upsert([existing])
     return existing
+
+
+# ── 업무별 준비서류 중분류 (document_groups) ──────────────────────────────────
+# 글↔중분류 연결은 marketing_posts.tags 의 doc_group:<group_key> 태그를 사용한다(A안).
+# v1 정책: 물리 삭제 없음 — 공개/비공개 전환만 제공(DELETE 엔드포인트 없음).
+
+# group_key 는 [a-z0-9-] 만 — 콤마 구분 태그에서 안전하게 캡처(\S+ 의 콤마-탐욕 방지).
+_DOC_GROUP_TAG_RE = re.compile(r"doc_group:([a-z0-9][a-z0-9-]*)")
+
+
+def _post_group_key(post: dict) -> str:
+    """게시물 tags 에서 doc_group:<key> 추출(소문자 정규화). 없으면 ''."""
+    m = _DOC_GROUP_TAG_RE.search(str(post.get("tags") or ""))
+    return m.group(1).strip().lower() if m else ""
+
+
+def _group_post_counts() -> dict:
+    """group_key → {'total': n, 'published': n} (관리자 화면 하위 글 개수)."""
+    counts: dict = {}
+    for p in _read_posts():
+        key = _post_group_key(p)
+        if not key:
+            continue
+        c = counts.setdefault(key, {"total": 0, "published": 0})
+        c["total"] += 1
+        if str(p.get("is_published", "")).upper() in ("TRUE", "Y", "1"):
+            c["published"] += 1
+    return counts
+
+
+class DocGroupCreate(BaseModel):
+    group_key: str
+    title: str = ""
+    description: str = ""
+    sort_order: Optional[int] = None
+    is_published: bool = True
+
+
+class DocGroupUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+# 공개: 게시된 중분류만, sort_order 순.
+@router.get("/doc-groups")
+def public_list_doc_groups():
+    from backend.services import document_group_pg_service as svc
+    return svc.list_groups(published_only=True)
+
+
+@router.get("/admin/doc-groups")
+def admin_list_doc_groups(user: dict = Depends(require_board_manager)):
+    """전체 중분류(비공개 포함) + 하위 글 개수."""
+    from backend.services import document_group_pg_service as svc
+    groups = svc.list_groups(published_only=False)
+    counts = _group_post_counts()
+    for g in groups:
+        c = counts.get(g.get("group_key", ""), {"total": 0, "published": 0})
+        g["post_count"] = c["total"]
+        g["published_post_count"] = c["published"]
+    return groups
+
+
+@router.post("/admin/doc-groups")
+def create_doc_group(body: DocGroupCreate, user: dict = Depends(require_board_manager)):
+    from backend.services import document_group_pg_service as svc
+    try:
+        return svc.create_group(
+            group_key=body.group_key,
+            title=body.title,
+            description=body.description,
+            sort_order=body.sort_order,
+            is_published=body.is_published,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/admin/doc-groups/{group_id}")
+def update_doc_group(
+    group_id: str, body: DocGroupUpdate, user: dict = Depends(require_board_manager)
+):
+    from backend.services import document_group_pg_service as svc
+    updated = svc.update_group(
+        group_id,
+        title=body.title,
+        description=body.description,
+        sort_order=body.sort_order,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="중분류를 찾을 수 없습니다.")
+    return updated
+
+
+@router.patch("/admin/doc-groups/{group_id}/publish")
+def toggle_doc_group_publish(group_id: str, user: dict = Depends(require_board_manager)):
+    from backend.services import document_group_pg_service as svc
+    updated = svc.toggle_published(group_id)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="중분류를 찾을 수 없습니다.")
+    return updated

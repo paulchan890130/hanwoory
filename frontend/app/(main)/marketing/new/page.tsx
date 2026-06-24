@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getUser, canManageContent } from "@/lib/auth";
-import { marketingApi } from "@/lib/api";
+import { marketingApi, docGroupApi, type DocGroup } from "@/lib/api";
+import { setDocGroup } from "@/lib/docGroupTags";
 import { RichEditor } from "@/components/RichEditor";
 
 const CATEGORIES = [
@@ -41,9 +42,20 @@ export default function MarketingNewPage() {
     image_file_id: "", image_url: "", image_alt: "",
     meta_description: "", tags: "",
   });
+  // 업무별 준비서류 중분류(doc_group). ""=미지정(일반 게시판 글).
+  const [docGroups, setDocGroups] = useState<DocGroup[]>([]);
+  const [docGroupKey, setDocGroupKey] = useState("");
+  const [returnTo, setReturnTo] = useState("/marketing");
 
   useEffect(() => {
-    if (!canManageContent(user)) router.replace("/dashboard");
+    if (!canManageContent(user)) { router.replace("/dashboard"); return; }
+    // 쿼리(doc_group, from)는 window 에서 읽어 useSearchParams Suspense 요구를 회피.
+    const sp = new URLSearchParams(window.location.search);
+    const dg = (sp.get("doc_group") || "").toLowerCase();
+    const from = sp.get("from");
+    if (dg) setDocGroupKey(dg);
+    if (from) setReturnTo(from);
+    docGroupApi.adminList().then((res) => setDocGroups(res.data)).catch(() => {});
   }, []);
 
   const set = (k: string, v: string | boolean) =>
@@ -90,10 +102,11 @@ export default function MarketingNewPage() {
     try {
       await marketingApi.create({
         ...form,
+        tags: docGroupKey ? setDocGroup(form.tags, docGroupKey) : form.tags,
         is_featured: (form.is_featured ? "TRUE" : "FALSE") as string,
       });
       toast.success("게시물이 저장되었습니다. (미게시 상태)");
-      router.push("/marketing");
+      router.push(returnTo);
     } catch {
       toast.error("저장에 실패했습니다.");
     } finally {
@@ -107,7 +120,7 @@ export default function MarketingNewPage() {
     <div style={{ padding: "32px 24px", maxWidth: 820, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <button
-          onClick={() => router.push("/marketing")}
+          onClick={() => router.push(returnTo)}
           style={{ fontSize: 13, color: "#718096", background: "none", border: "none", cursor: "pointer", marginBottom: 8 }}
         >
           ← 목록으로
@@ -139,6 +152,23 @@ export default function MarketingNewPage() {
             style={inputStyle}
           >
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        {/* 업무별 준비서류 중분류 */}
+        <div>
+          <label style={labelStyle}>
+            업무별 준비서류 중분류 <span style={{ fontWeight: 400, color: "#A0AEC0" }}>(선택 — 지정 시 /documents 해당 폴더에 표시)</span>
+          </label>
+          <select
+            value={docGroupKey}
+            onChange={(e) => setDocGroupKey(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">미지정 (일반 게시판 글)</option>
+            {docGroups.map((g) => (
+              <option key={g.id} value={g.group_key}>{g.title || g.group_key}</option>
+            ))}
           </select>
         </div>
 
@@ -322,7 +352,7 @@ export default function MarketingNewPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/marketing")}
+            onClick={() => router.push(returnTo)}
             style={{
               padding: "12px 28px", borderRadius: 8, background: "#fff",
               color: "#4A5568", fontWeight: 600, fontSize: 15,

@@ -46,20 +46,28 @@ export function today(): string {
 }
 
 /** Normalize user-entered date strings to YYYY-MM-DD.
- *  Accepts: YYYYMMDD, YYYY.MM.DD, YYYY/MM/DD, YYYY-MM-DD.
+ *  Accepts: YYYYMMDD, YYYY.MM.DD, YYYY/MM/DD, YYYY-MM-DD,
+ *           and timestamp forms ("YYYY-MM-DD hh:mm:ss", "YYYY-MM-DDThh:mm:ss…")
+ *           — the time part is dropped, only the date is kept.
  *  Returns the input unchanged if it doesn't match any known pattern.
  */
 export function normalizeDate(v: string): string {
   if (!v) return v;
   // Strip trailing dots/slashes before matching (handles "0000.00.00.")
   const s = v.trim().replace(/[./]+$/, "");
+  // YYYY-MM-DD (optionally followed by space/T + time) → date part only
+  const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T].*)?$/);
+  if (ymd) {
+    return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  }
   // YYYYMMDD → YYYY-MM-DD
   if (/^\d{8}$/.test(s)) {
     return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   }
-  // YYYY.MM.DD or YYYY/MM/DD → YYYY-MM-DD
-  if (/^\d{4}[./]\d{2}[./]\d{2}$/.test(s)) {
-    return s.replace(/[./]/g, "-");
+  // YYYY.MM.DD or YYYY/MM/DD (optionally with trailing time) → YYYY-MM-DD
+  const dotted = s.match(/^(\d{4})[./](\d{2})[./](\d{2})(?:[ T].*)?$/);
+  if (dotted) {
+    return `${dotted[1]}-${dotted[2]}-${dotted[3]}`;
   }
   return s;
 }

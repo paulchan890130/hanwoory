@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DocumentsClient } from "./DocumentsClient";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
-import { getPublishedMarketingPosts } from "@/lib/marketingPosts";
+import { getPublishedMarketingPosts, getPublishedDocGroups } from "@/lib/marketingPosts";
 
 // 요청 시점 서버 렌더(빌드 시 백엔드 미가동 → 빈 배열 정적 베이크 방지). 홈/sitemap 과 동일 패턴.
 export const dynamic = "force-dynamic";
@@ -35,7 +35,10 @@ const breadcrumbJsonLd = {
 };
 
 export default async function DocumentsPage() {
-  const posts = await getPublishedMarketingPosts();
+  const [posts, groups] = await Promise.all([
+    getPublishedMarketingPosts(),
+    getPublishedDocGroups(),
+  ]);
   return (
     <>
       <PublicMobileNav />
@@ -121,7 +124,7 @@ export default async function DocumentsPage() {
           </p>
         </header>
 
-        <DocumentsClient posts={posts} />
+        <DocumentsClient posts={posts} groups={groups} />
 
         <footer
           style={{
