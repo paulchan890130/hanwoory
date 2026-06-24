@@ -1,7 +1,7 @@
 "use client";
 // 관리자 "매뉴얼 검토" 뷰 — admin/page.tsx 에서 분리(표시 개선용).
 // 데이터 형태/엔드포인트/운영 반영(apply)·분류 로직은 변경하지 않는다.
-import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import { toast } from "sonner";
 import { api, manualApi, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
 import { Loader2, RotateCcw } from "lucide-react";
@@ -83,6 +83,19 @@ function stayGroupOf(c: { detailed_code?: string; business_name?: string; manual
   const hay = `${c.detailed_code ?? ""} ${c.business_name ?? ""} ${c.manual_label ?? ""}`.toUpperCase();
   const m = hay.match(/\b([A-Z])-?(\d{1,2})\b/);
   return m ? `${m[1]}-${m[2]}` : "미분류";
+}
+
+// 매뉴얼 라벨 → 한글. 알 수 없으면 원문.
+const MANUAL_KR: Record<string, string> = { visa: "사증", stay: "체류", revision_history: "개정이력" };
+function manualKr(label?: string): string { return MANUAL_KR[label || ""] || (label || "-"); }
+
+// "중요 변경 가능성" FE 추정(운영 판단 아님, 표시용). 신규/불확실/페이지이동/저유사도/체류자격코드.
+function isImportantCand(c: { change_kind?: string; page_changed?: boolean; similarity?: number | null; detailed_code?: string; new_snippet?: string; match_text?: string }): boolean {
+  const k = c.change_kind;
+  if (k === "new" || k === "uncertain") return true;
+  if (c.page_changed) return true;
+  if (typeof c.similarity === "number" && c.similarity < 0.8) return true;
+  return /\b[A-Z]-?\d{1,2}\b/.test(`${c.detailed_code || ""} ${c.new_snippet || c.match_text || ""}`);
 }
 type PgDecision = {
   row_id: string; decision?: string; decision_note?: string; reviewed?: boolean;
@@ -553,6 +566,10 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
   const [bulkApply, setBulkApply] = useState(false);                  // 운영 반영 요약 모달
   const [showAdvCols, setShowAdvCols] = useState(false);              // 후보 표 고급 컬럼(신뢰도/매칭사유/row_id) 표시
+  const [mainTab, setMainTab] = useState<"unreviewed" | "important" | "done" | "advanced">("unreviewed");
+  const [visibleCount, setVisibleCount] = useState(20);               // 페이지 그룹 표시 제한(더 보기)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());  // 펼친 페이지 그룹 key
+  useEffect(() => { setVisibleCount(20); }, [mainTab, stayFilter]);   // 탭/필터 변경 시 표시수 초기화
   const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string; reviewOnly?: boolean; source?: string } | null>(null);
   const [pdfStatus, setPdfStatus] = useState<Record<string, PdfStatus>>({});
   const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; chromium_pkg_present?: boolean; chromium_available?: boolean; chromium_path?: string; is_worker?: boolean; runtime?: string; reason?: string; pdf_reason?: string } | null>(null);
@@ -705,6 +722,25 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
     finally { setDetailLoading(null); }
   }, [expanded, detailCache, version]);
 
+  // 그룹 상세 — 펼칠 때만 각 후보 상세를 lazy 로딩(접힌 그룹은 상세 DOM 미생성).
+  const ensureDetail = useCallback(async (c: PgCandidate) => {
+    if (detailCache[c.row_id] || !version) return;
+    setDetailLoading(c.row_id);
+    try {
+      const r = await api.get(`/api/guidelines/manual-update/versions/${encodeURIComponent(version)}/candidates/${encodeURIComponent(c.row_id)}/detail`);
+      setDetailCache((prev) => ({ ...prev, [c.row_id]: r.data as PgCandidateDetail }));
+    } catch (e) { toast.error(errText(e, "상세를 불러오지 못했습니다.")); }
+    finally { setDetailLoading(null); }
+  }, [detailCache, version]);
+  const toggleGroup = useCallback((key: string, cands: PgCandidate[]) => {
+    setExpandedGroups((prev) => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key);
+      else { n.add(key); cands.forEach((c) => void ensureDetail(c)); }
+      return n;
+    });
+  }, [ensureDetail]);
+
   // 운영 반영 일괄: 승인(approve/manual_page)했으나 아직 미반영인 후보 전부 반영.
   const doBulkApply = useCallback(async () => {
     const dmap: Record<string, PgDecision> = {};
@@ -834,6 +870,50 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
       return a[0].localeCompare(b[0]);
     });
   })();
+  // 페이지 단위 그룹핑(manual_label + 기존페이지 + 신규페이지 + change_kind). no-op 은 기본 제외(고급에서만).
+  type PageGroup = {
+    key: string; manual_label?: string; old_from?: number | null; old_to?: number | null;
+    new_from?: number | null; new_to?: number | null; change_kind: string;
+    cands: PgCandidate[]; rowIds: string[]; important: boolean; summary: string; pending: boolean;
+  };
+  const pageGroups: PageGroup[] = useMemo(() => {
+    const map = new Map<string, PageGroup>();
+    for (const c of candidates) {
+      if (c.needs_review === false) continue;                      // no-op → 고급 탭에서만
+      if (stayFilter && stayGroupOf(c) !== stayFilter) continue;
+      const key = `${c.manual_label}|${c.old_page_from}|${c.candidate_page_from}|${c.change_kind}`;
+      let g = map.get(key);
+      if (!g) {
+        g = { key, manual_label: c.manual_label, old_from: c.old_page_from, old_to: c.old_page_to,
+              new_from: c.candidate_page_from, new_to: c.candidate_page_to, change_kind: c.change_kind || "text_changed",
+              cands: [], rowIds: [], important: false, summary: "", pending: false };
+        map.set(key, g);
+      }
+      g.cands.push(c); g.rowIds.push(c.row_id);
+      if (isImportantCand(c)) g.important = true;
+      if (!g.summary) g.summary = (c.new_snippet || c.match_text || c.reason || "").trim();
+    }
+    const arr = Array.from(map.values());
+    for (const g of arr) {
+      g.pending = g.cands.some((c) => { const dk = decByRow[c.row_id]?.decision ?? ""; return !(dk && dk !== "NEW_CANDIDATE"); });
+    }
+    arr.sort((a, b) => (a.important === b.important ? 0 : a.important ? -1 : 1)
+      || `${a.manual_label}${String(a.old_from).padStart(6, "0")}`.localeCompare(`${b.manual_label}${String(b.old_from).padStart(6, "0")}`));
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidates, decisions, stayFilter]);
+  const tabCounts = {
+    unreviewed: pageGroups.filter((g) => g.pending).length,
+    important: pageGroups.filter((g) => g.important && g.pending).length,
+    done: pageGroups.filter((g) => !g.pending).length,
+  };
+  const tabGroups = mainTab === "unreviewed" ? pageGroups.filter((g) => g.pending)
+    : mainTab === "important" ? pageGroups.filter((g) => g.important && g.pending)
+    : mainTab === "done" ? pageGroups.filter((g) => !g.pending)
+    : pageGroups;
+  const visibleGroups = tabGroups.slice(0, visibleCount);
+  const stayOptions = stayGroups.map(([g]) => g);
+
   const FILTERS: [string, string][] = [
     ["review", "검토 대상"], ["unreviewed", "미검토"], ["text_changed", "본문 변경"],
     ["page_moved", "페이지 변경"], ["uncertain", "매칭 불확실"], ["new", "신규"],
@@ -1181,8 +1261,8 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         </div>
       )}
 
-      {/* 변경 페이지 */}
-      {version && (
+      {/* 변경 페이지 (원본 표) — 고급 탭에서만 */}
+      {version && mainTab === "advanced" && (
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
           <div className="text-xs font-semibold px-3 py-2" style={{ color: "#2D3748", borderBottom: "1px solid #EDF2F7" }}>
             변경 페이지 ({changed.length})
@@ -1214,132 +1294,125 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           <div className="px-3 py-2" style={{ borderBottom: "1px solid #EDF2F7" }}>
             <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
               <span className="text-xs font-semibold" style={{ color: "#2D3748" }}>
-                변경사항 검토 — 표시 {filteredCands.length} / 전체 {candidates.length} · 선택 {selected.size}
+                변경사항 검토 — {mainTab === "advanced" ? `전체 후보 ${candidates.length}건` : `${tabGroups.length} 페이지 (표시 ${visibleGroups.length})`}
               </span>
-              <div className="flex items-center gap-1 flex-wrap">
-                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("approve", Array.from(selected))}
-                  title="선택 후보를 운영 반영 대상으로 승인" className="text-[11px] px-2 py-1 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>선택 승인</button>
-                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("keep_existing", Array.from(selected))}
-                  title="기존 manual_ref 유지" className="text-[11px] px-2 py-1 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>선택 기존유지</button>
-                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("hold", Array.from(selected))}
-                  title="나중에 다시 검토" className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFFFF0", color: "#975A16", border: "1px solid #FAF089" }}>선택 보류</button>
-                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("reject", Array.from(selected))}
-                  title="이번 후보에서 제외" className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>선택 제외</button>
-                <span style={{ color: "#CBD5E0" }}>|</span>
-                <button disabled={busy === "bulk" || applySummary.applyable === 0 || pendingCnt > 0} onClick={() => setBulkApply(true)}
-                  title={pendingCnt > 0 ? `미검토 ${pendingCnt}건이 남아 운영 반영할 수 없습니다` : "승인 항목을 운영 실무지침에 반영 (4단계)"}
-                  className="text-[11px] px-2 py-1 rounded font-bold"
-                  style={{ background: (applySummary.applyable && pendingCnt === 0) ? "#DD6B20" : "#E2E8F0", color: (applySummary.applyable && pendingCnt === 0) ? "#fff" : "#A0AEC0", border: "none", cursor: (applySummary.applyable && pendingCnt === 0) ? "pointer" : "not-allowed" }}>
-                  4단계 · 운영 반영 ({applySummary.applyable})
-                </button>
-                <button type="button" onClick={() => setShowAdvCols((v) => !v)}
-                  title="신뢰도·매칭 사유·내부 ID 등 개발자용 컬럼 표시/숨김"
-                  className="text-[11px] px-2 py-1 rounded" style={{ border: "1px solid #E2E8F0", background: "#fff", color: "#718096" }}>
-                  {showAdvCols ? "고급 컬럼 숨기기" : "고급 컬럼"}
-                </button>
-              </div>
+              <button disabled={busy === "bulk" || applySummary.applyable === 0 || pendingCnt > 0} onClick={() => setBulkApply(true)}
+                title={pendingCnt > 0 ? `미검토 ${pendingCnt}건이 남아 운영 반영할 수 없습니다` : "승인 항목을 운영 실무지침에 반영 (4단계)"}
+                className="text-[11px] px-2 py-1 rounded font-bold"
+                style={{ background: (applySummary.applyable && pendingCnt === 0) ? "#DD6B20" : "#E2E8F0", color: (applySummary.applyable && pendingCnt === 0) ? "#fff" : "#A0AEC0", border: "none", cursor: (applySummary.applyable && pendingCnt === 0) ? "pointer" : "not-allowed" }}>
+                4단계 · 운영 반영 ({applySummary.applyable})
+              </button>
             </div>
             {pendingCnt > 0 && (
               <div className="text-[11px] mb-2 px-2 py-1.5 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>
-                ⚠ 미검토 {pendingCnt}건이 남아 있습니다. 모두 검토(승인/기존유지/제외)하거나 보류 처리해야 운영 반영할 수 있습니다.
+                ⚠ 미검토 페이지가 남아 있습니다. 모든 페이지를 검토 완료·보류·무시 처리한 뒤 운영 반영할 수 있습니다.
               </div>
             )}
-            {/* 필터 칩 */}
+            {/* 탭: 미검토 / 중요 변경 / 검토 완료 / 고급 (기본 미검토) */}
             <div className="flex items-center gap-1 flex-wrap">
-              {FILTERS.map(([f, label]) => (
-                <button key={f} onClick={() => setFilter(f)}
-                  className="text-[11px] px-2 py-0.5 rounded-full"
-                  style={{ border: `1px solid ${filter === f ? "#2B6CB0" : "#E2E8F0"}`, background: filter === f ? "#2B6CB0" : "#fff", color: filter === f ? "#fff" : "#718096", fontWeight: filter === f ? 700 : 400 }}>
-                  {label} {filterCount(f)}
+              {([["unreviewed", `미검토 ${tabCounts.unreviewed}`], ["important", `중요 변경 ${tabCounts.important}`], ["done", `검토 완료 ${tabCounts.done}`], ["advanced", "고급"]] as [typeof mainTab, string][]).map(([t, label]) => (
+                <button key={t} onClick={() => setMainTab(t)} className="text-xs px-3 py-1 rounded-full"
+                  style={{ border: `1px solid ${mainTab === t ? "#2B6CB0" : "#E2E8F0"}`, background: mainTab === t ? "#2B6CB0" : "#fff", color: mainTab === t ? "#fff" : "#718096", fontWeight: mainTab === t ? 700 : 500 }}>
+                  {label}
                 </button>
               ))}
+              {stayOptions.length > 0 && mainTab !== "advanced" && (
+                <select value={stayFilter} onChange={(e) => setStayFilter(e.target.value)} className="text-xs ml-1"
+                  style={{ border: "1px solid #E2E8F0", borderRadius: 8, padding: "3px 8px", color: "#4A5568", background: "#fff" }}>
+                  <option value="">체류자격 전체</option>
+                  {stayOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              )}
             </div>
-            {/* 체류자격별 (FE 추정 그룹 · 미검토 기준). 코드 추정 불확실분은 "미분류". */}
-            {stayGroups.length > 0 && (
-              <div className="flex items-center gap-1 flex-wrap mt-1">
-                <span className="text-[11px]" style={{ color: "#A0AEC0" }}>체류자격별</span>
-                <button onClick={() => setStayFilter("")}
-                  className="text-[11px] px-2 py-0.5 rounded-full"
-                  style={{ border: `1px solid ${stayFilter === "" ? "#805AD5" : "#E2E8F0"}`, background: stayFilter === "" ? "#805AD5" : "#fff", color: stayFilter === "" ? "#fff" : "#718096", fontWeight: stayFilter === "" ? 700 : 400 }}>
-                  전체
+            {/* 고급 탭 전용: 선택 일괄 + 고급 컬럼 + 세부 필터 */}
+            {mainTab === "advanced" && (
+              <div className="flex items-center gap-1 flex-wrap mt-2">
+                <span className="text-[11px]" style={{ color: "#A0AEC0" }}>선택 {selected.size}</span>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("approve", Array.from(selected))} className="text-[11px] px-2 py-1 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>선택 승인</button>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("keep_existing", Array.from(selected))} className="text-[11px] px-2 py-1 rounded" style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>선택 기존유지</button>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("hold", Array.from(selected))} className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFFFF0", color: "#975A16", border: "1px solid #FAF089" }}>선택 보류</button>
+                <button disabled={busy === "bulk" || selected.size === 0} onClick={() => bulkDecision("reject", Array.from(selected))} className="text-[11px] px-2 py-1 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>선택 제외</button>
+                <button type="button" onClick={() => setShowAdvCols((v) => !v)} className="text-[11px] px-2 py-1 rounded" style={{ border: "1px solid #E2E8F0", background: "#fff", color: "#718096" }}>
+                  {showAdvCols ? "고급 컬럼 숨기기" : "고급 컬럼"}
                 </button>
-                {stayGroups.map(([g, n]) => (
-                  <button key={g} onClick={() => setStayFilter(g === stayFilter ? "" : g)}
-                    className="text-[11px] px-2 py-0.5 rounded-full"
-                    style={{ border: `1px solid ${stayFilter === g ? "#805AD5" : "#E2E8F0"}`, background: stayFilter === g ? "#805AD5" : "#fff", color: stayFilter === g ? "#fff" : "#718096", fontWeight: stayFilter === g ? 700 : 400 }}>
-                    {g} {n}
+                <span style={{ color: "#CBD5E0" }}>|</span>
+                {FILTERS.map(([f, label]) => (
+                  <button key={f} onClick={() => setFilter(f)} className="text-[11px] px-2 py-0.5 rounded-full"
+                    style={{ border: `1px solid ${filter === f ? "#2B6CB0" : "#E2E8F0"}`, background: filter === f ? "#2B6CB0" : "#fff", color: filter === f ? "#fff" : "#718096", fontWeight: filter === f ? 700 : 400 }}>
+                    {label} {filterCount(f)}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 검토 카드 목록 (기본) — 기본 검토는 카드에서 완결. no-op 은 review 필터에서 기본 숨김. */}
+          {/* 검토 카드 목록 — 페이지 단위 그룹 · 현재 탭 20개만 렌더(더 보기) · 상세는 펼칠 때만 lazy */}
+          {mainTab !== "advanced" && (
           <div className="p-3 flex flex-col gap-2">
-            {filteredCands.length === 0 && (
-              <div style={{ color: "#A0AEC0", textAlign: "center", padding: 16, fontSize: 12 }}>해당 필터에 후보 없음</div>
+            {visibleGroups.length === 0 && (
+              <div style={{ color: "#A0AEC0", textAlign: "center", padding: 16, fontSize: 12 }}>이 탭에 표시할 페이지가 없습니다.</div>
             )}
-            {filteredCands.map((c) => {
-              const dec = decByRow[c.row_id];
-              const decKey = dec?.decision ?? "";
-              const applied = !!dec?.applied;
-              const kind = CHANGE_KIND[c.change_kind ?? "text_changed"] ?? CHANGE_KIND.text_changed;
-              const rowBusy = busy === c.row_id;
-              const isOpen = expanded === c.row_id;
-              const detail = detailCache[c.row_id];
-              const cardStatus = applied ? { label: "운영반영됨", bg: "#38A169", color: "#fff" }
-                : (decKey === "REVIEWED_APPROVE_CANDIDATE" || decKey === "NEEDS_MANUAL_PAGE") ? { label: "검토완료(승인)", bg: "#C6F6D5", color: "#22543D" }
-                : decKey === "REVIEWED_KEEP_EXISTING" ? { label: "검토완료(기존유지)", bg: "#BEE3F8", color: "#2A4365" }
-                : decKey === "UNRESOLVED" ? { label: "보류", bg: "#FAF089", color: "#744210" }
-                : decKey === "REJECTED_BAD_CANDIDATE" ? { label: "무시", bg: "#FED7D7", color: "#822727" }
-                : { label: "미검토", bg: "#FEFCBF", color: "#975A16" };
-              const summary = (c.new_snippet || c.match_text || c.reason || "").trim();
+            {visibleGroups.map((g) => {
+              const kind = CHANGE_KIND[g.change_kind] ?? CHANGE_KIND.text_changed;
+              const open = expandedGroups.has(g.key);
+              const groupBusy = g.rowIds.some((id) => busy === id);
+              const statusBadge = g.pending ? { label: "미검토", bg: "#FEFCBF", color: "#975A16" } : { label: "검토 완료", bg: "#C6F6D5", color: "#22543D" };
               return (
-                <div key={c.row_id} className="rounded-lg border" style={{ borderColor: "#E2E8F0", background: c.needs_review === false ? "#FAFAFA" : "#fff", padding: 12 }}>
+                <div key={g.key} className="rounded-lg border" style={{ borderColor: g.important && g.pending ? "#F6AD55" : "#E2E8F0", background: "#fff", padding: 12 }}>
                   <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 8, background: c.manual_label === "visa" ? "#E9D8FD" : "#BEE3F8", color: "#4A5568" }}>{c.manual_label}</span>
-                    <span style={{ fontWeight: 700, color: "#2D3748", fontSize: 13 }}>{c.detailed_code || "(코드없음)"}</span>
-                    {c.business_name && <span style={{ fontSize: 11, color: "#718096" }}>{c.business_name}</span>}
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 8, background: g.manual_label === "visa" ? "#E9D8FD" : "#BEE3F8", color: "#4A5568" }}>{manualKr(g.manual_label)}</span>
+                    <span style={{ fontWeight: 700, color: "#2D3748", fontSize: 13 }}>
+                      p.{g.old_from}{g.old_to && g.old_to !== g.old_from ? `-${g.old_to}` : ""} → <span style={{ color: g.old_from !== g.new_from ? "#DD6B20" : "#2B6CB0" }}>p.{g.new_from}{g.new_to && g.new_to !== g.new_from ? `-${g.new_to}` : ""}</span>
+                    </span>
                     <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: kind.bg, color: kind.color, fontWeight: 700 }}>{kind.label}</span>
-                    <span className="ml-auto" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: cardStatus.bg, color: cardStatus.color, fontWeight: 700 }}>{cardStatus.label}</span>
+                    {g.important && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "#FEEBC8", color: "#9C4221", fontWeight: 700 }}>중요 변경 가능성</span>}
+                    {g.cands.length > 1 && <span style={{ fontSize: 10, color: "#718096" }}>후보 {g.cands.length}건</span>}
+                    <span className="ml-auto" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: statusBadge.bg, color: statusBadge.color, fontWeight: 700 }}>{statusBadge.label}</span>
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap" style={{ fontSize: 12, color: "#4A5568", marginBottom: 8 }}>
-                    <span>p.<b>{c.old_page_from}-{c.old_page_to}</b> → <b style={{ color: c.page_changed ? "#DD6B20" : "#2B6CB0" }}>{c.candidate_page_from}-{c.candidate_page_to}</b></span>
-                    {c.similarity != null && <span style={{ color: "#718096" }}>유사도 {Math.round(c.similarity * 100)}%</span>}
-                    {dec?.reviewer_candidate_from != null && <span style={{ color: "#C05621", fontWeight: 700 }}>★지정 {dec.reviewer_candidate_from}-{dec.reviewer_candidate_to}</span>}
-                  </div>
-                  {summary && (
-                    <div style={{ fontSize: 12, color: "#4A5568", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{summary}</div>
+                  {g.summary && (
+                    <div style={{ fontSize: 12, color: "#4A5568", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{g.summary}</div>
                   )}
                   <div className="flex items-center gap-1 flex-wrap">
-                    <button onClick={() => void toggleExpand(c)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#E2E8F0", color: "#2B6CB0", background: "#fff" }}>{isOpen ? "자세히 닫기" : "자세히 보기"}</button>
-                    <button disabled={rowBusy} title="이 변경을 검토 완료(승인)로 표시" onClick={() => setDecision(c, "approve")} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>검토 완료</button>
-                    <button disabled={rowBusy} title="나중에 다시 검토" onClick={() => setDecision(c, "hold")} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>보류</button>
-                    <button disabled={rowBusy} title="이번 후보에서 제외(무시)" onClick={() => setDecision(c, "reject")} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>무시</button>
-                    {artifactByRow[c.row_id] && (
-                      <button onClick={() => setPdfView({ artifactId: artifactByRow[c.row_id], page: 1, label: `변경 페이지 PDF — ${c.detailed_code || c.row_id}` })} className="text-[11px] px-2 py-1 rounded" style={{ background: "#C6F6D5", color: "#22543D", border: "1px solid #9AE6B4", fontWeight: 700 }}>📄 PDF</button>
-                    )}
-                    {rowBusy && <Loader2 size={12} className="animate-spin" style={{ color: "#A0AEC0" }} />}
+                    <button onClick={() => toggleGroup(g.key, g.cands)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#E2E8F0", color: "#2B6CB0", background: "#fff" }}>{open ? "자세히 닫기" : "자세히 보기"}</button>
+                    <button disabled={groupBusy} title="이 페이지 변경을 검토 완료(승인)로 표시" onClick={() => bulkDecision("approve", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>검토 완료</button>
+                    <button disabled={groupBusy} title="나중에 다시 검토" onClick={() => bulkDecision("hold", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>보류</button>
+                    <button disabled={groupBusy} title="이번 후보에서 제외(무시)" onClick={() => bulkDecision("reject", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>무시</button>
+                    {groupBusy && <Loader2 size={12} className="animate-spin" style={{ color: "#A0AEC0" }} />}
                   </div>
-                  {isOpen && (
-                    <div style={{ marginTop: 10, background: "#F7FAFC", borderRadius: 6, padding: 10 }}>
-                      {detailLoading === c.row_id ? <div style={{ color: "#A0AEC0" }}>상세 불러오는 중…</div>
-                        : detail ? (
-                          <CandidateDetailView d={detail} version={version} cand={c} decision={dec}
-                            onOpenPdf={openPdf} onOpenCandidatePdf={openCandidatePdf}
-                            onOverrideChanged={() => void reloadDecisions()} />
-                        ) : <div style={{ color: "#A0AEC0" }}>상세 없음</div>}
+                  {open && (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {g.cands.map((c) => {
+                        const dec = decByRow[c.row_id];
+                        const detail = detailCache[c.row_id];
+                        return (
+                          <div key={c.row_id} style={{ background: "#F7FAFC", borderRadius: 6, padding: 10 }}>
+                            {g.cands.length > 1 && <div style={{ fontSize: 11, fontWeight: 600, color: "#4A5568", marginBottom: 6 }}>{c.detailed_code || "(코드없음)"}{c.business_name ? ` · ${c.business_name}` : ""}</div>}
+                            {detailLoading === c.row_id ? <div style={{ color: "#A0AEC0" }}>상세 불러오는 중…</div>
+                              : detail ? (
+                                <CandidateDetailView d={detail} version={version} cand={c} decision={dec}
+                                  onOpenPdf={openPdf} onOpenCandidatePdf={openCandidatePdf}
+                                  onOverrideChanged={() => void reloadDecisions()} />
+                              ) : <div style={{ color: "#A0AEC0" }}>상세 없음</div>}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               );
             })}
+            {tabGroups.length > visibleGroups.length && (
+              <button onClick={() => setVisibleCount((n) => n + 20)} className="text-xs px-3 py-2 rounded border" style={{ borderColor: "#BEE3F8", color: "#2B6CB0", background: "#EBF8FF", alignSelf: "center" }}>
+                더 보기 ({visibleGroups.length} / {tabGroups.length} 페이지)
+              </button>
+            )}
           </div>
+          )}
 
-          {/* 고급 · 기존 표 (선택 일괄·기존유지·페이지 지정·행별 운영반영 등 전체 컨트롤 — 기본 닫힘) */}
-          <details>
-            <summary className="text-xs font-semibold cursor-pointer px-3 py-2" style={{ color: "#718096" }}>🔧 고급 · 기존 표로 보기 (선택 일괄 · 기존유지 · 페이지 지정 · 행별 운영반영)</summary>
+          {/* 고급 탭 · 전체 원본 표 (선택 일괄·기존유지·페이지 지정·행별 운영반영·no-op 포함) */}
+          {mainTab === "advanced" && (
           <div className="overflow-x-auto">
+            <div className="text-[11px] px-3 pt-2" style={{ color: "#A0AEC0" }}>전체 후보(no-op 포함) 원본 표 · 세부 필터/고급 컬럼은 위 도구 사용</div>
             <table className="hw-table w-full text-xs" style={{ minWidth: 1040 }}>
               <thead><tr>
                 <th style={{ width: 24 }}>
@@ -1439,11 +1512,12 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
               </tbody>
             </table>
           </div>
-          </details>
+          )}
         </div>
       )}
 
-      {/* active decisions (현재 + 이번 orphaned 1회만; archive 제외) */}
+      {/* active decisions (현재 + 이번 orphaned 1회만; archive 제외) — 고급 탭에서만 */}
+      {mainTab === "advanced" && (
       <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="text-xs font-semibold px-3 py-2" style={{ color: "#2D3748", borderBottom: "1px solid #EDF2F7" }}>
           검토 결정 (active · {decisions.length})
@@ -1470,6 +1544,7 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           </table>
         </div>
       </div>
+      )}
 
       {/* 운영 반영 확인 모달 */}
       {applyModal && (
