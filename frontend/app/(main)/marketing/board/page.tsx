@@ -5,10 +5,10 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { getUser, canManageContent } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
-import { getDocGroup } from "@/lib/docGroupTags";
+import { isBoardPost } from "@/lib/docGroupTags";
 
-// 업무안내 관리: 공개 /board 영역 글(= 중분류(doc_group) 미지정 글)을 관리.
-// 준비서류(doc_group 태그가 붙은 글)는 "업무별 준비서류 관리"에서 다룬다 → 섞이지 않음.
+// 업무안내 관리: 공개 /board 와 **동일한 카테고리 기준**으로 필터(목록 일치 보장).
+// 준비서류 계열 카테고리 글은 "업무별 준비서류 관리"에서 다룬다 → 섞이지 않음.
 export default function MarketingBoardPage() {
   const router = useRouter();
   const user = getUser();
@@ -37,9 +37,9 @@ export default function MarketingBoardPage() {
     }
   };
 
-  // doc_group 태그가 없는 글만(= 업무안내/일반 게시판 영역).
+  // 공개 /board 와 동일한 카테고리 기준(업무안내/공지/제도변경/기타/빈값)만 노출.
   const boardPosts = useMemo(
-    () => posts.filter((p) => !getDocGroup(p.tags)),
+    () => posts.filter((p) => isBoardPost(p)),
     [posts]
   );
 

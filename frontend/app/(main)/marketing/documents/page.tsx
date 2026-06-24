@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { getUser, canManageContent } from "@/lib/auth";
-import { docGroupApi, type DocGroup } from "@/lib/api";
+import { docGroupApi, marketingApi, type DocGroup, type MarketingPost } from "@/lib/api";
+import { isUnclassifiedPrep } from "@/lib/docGroupTags";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 11px", fontSize: 13,
@@ -16,6 +17,7 @@ export default function MarketingDocGroupsPage() {
   const router = useRouter();
   const user = getUser();
   const [groups, setGroups] = useState<DocGroup[]>([]);
+  const [unclassified, setUnclassified] = useState<MarketingPost[]>([]);  // 미분류 준비서류
   const [loading, setLoading] = useState(true);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
@@ -40,8 +42,10 @@ export default function MarketingDocGroupsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await docGroupApi.adminList();
-      setGroups(res.data);
+      const [gr, pr] = await Promise.all([docGroupApi.adminList(), marketingApi.adminList()]);
+      setGroups(gr.data);
+      // 미분류 준비서류: 준비서류 계열 카테고리 + doc_group 미지정. 공개 /documents 에는 노출 안 함.
+      setUnclassified(pr.data.filter((p) => isUnclassifiedPrep(p)));
     } catch {
       toast.error("중분류 목록을 불러오지 못했습니다.");
     } finally {
@@ -257,6 +261,60 @@ export default function MarketingDocGroupsPage() {
           </tbody>
         </table>
       )}
+
+      {/* 미분류 준비서류 — 준비서류 계열 카테고리지만 중분류(doc_group) 미지정. 관리자 전용(공개 /documents 미노출). */}
+      <div style={{ marginTop: 32 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A202C", marginBottom: 4 }}>
+          미분류 준비서류 <span style={{ fontSize: 13, fontWeight: 500, color: "#A0AEC0" }}>({unclassified.length})</span>
+        </h2>
+        <p style={{ fontSize: 12.5, color: "#718096", marginBottom: 12 }}>
+          준비서류 계열 글이지만 중분류가 지정되지 않아 공개 /documents에 표시되지 않습니다. 글을 열어 <strong>중분류를 지정</strong>하거나 <strong>비공개</strong>로 처리하세요. (삭제하지 않음)
+        </p>
+        {loading ? (
+          <p style={{ color: "#718096", fontSize: 13 }}>불러오는 중...</p>
+        ) : unclassified.length === 0 ? (
+          <div style={{ border: "1px dashed #E2E8F0", borderRadius: 10, padding: 20, color: "#A0AEC0", fontSize: 13, textAlign: "center" }}>
+            미분류 준비서류가 없습니다.
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid #E2E8F0" }}>
+                {["제목", "카테고리", "게시 상태", "관리"].map((h) => (
+                  <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#4A5568" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {unclassified.map((p) => {
+                const published = p.is_published?.toUpperCase() === "TRUE";
+                return (
+                  <tr key={p.id} style={{ borderBottom: "1px solid #F0F0F0" }}>
+                    <td style={{ padding: "12px", fontSize: 14, color: "#1A202C" }}>
+                      <div style={{ fontWeight: 500 }}>{p.title}</div>
+                      <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 2 }}>/board/{p.slug || p.id}</div>
+                    </td>
+                    <td style={{ padding: "12px", fontSize: 13, color: "#718096" }}>{p.category || "-"}</td>
+                    <td style={{ padding: "12px" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 20, background: published ? "#C6F6D5" : "#FED7D7", color: published ? "#276749" : "#9B2C2C" }}>
+                        {published ? "게시 중" : "미게시"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px" }}>
+                      <button
+                        onClick={() => router.push(`/marketing/${p.id}/edit?from=/marketing/documents`)}
+                        style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer", color: "#4A5568" }}
+                      >
+                        수정 (중분류 지정/비공개)
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

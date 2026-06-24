@@ -2,12 +2,10 @@
 
 import { useState, useMemo, type CSSProperties } from "react";
 import Link from "next/link";
+import { isBoardPost } from "@/lib/docGroupTags";
 
-// 일반 게시판 카테고리 (준비서류 계열 제외)
+// 일반 게시판 카테고리 (준비서류 계열 제외) — 관리자 업무안내 관리와 동일 기준.
 const CATEGORIES = ["공지사항", "업무 안내", "제도 변경", "기타"];
-
-// 이 카테고리 또는 빈 카테고리만 /board에 표시 — 나머지는 /documents로 분리됨
-const BOARD_ONLY = new Set(["공지사항", "업무 안내", "제도 변경", "기타"]);
 
 interface Post {
   id: string;
@@ -36,9 +34,9 @@ export function BoardClient({ posts, initialCategory = "" }: Props) {
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [query, setQuery] = useState("");
 
-  // 일반 게시판 게시물만 (준비서류 안내 등 제외)
+  // 일반 게시판 게시물만 (준비서류 안내 등 제외) — 관리자 /marketing/board 와 동일 기준.
   const boardPosts = useMemo(
-    () => posts.filter((p) => !p.category || BOARD_ONLY.has(p.category)),
+    () => posts.filter((p) => isBoardPost(p)),
     [posts]
   );
 
