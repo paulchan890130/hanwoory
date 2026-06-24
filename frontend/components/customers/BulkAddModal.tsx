@@ -153,7 +153,18 @@ export function BulkAddModal({ onClose, onDone }: { onClose: () => void; onDone:
                         <td style={{ padding: "6px 8px", color: "#718096" }}>{row.visa || "-"}</td>
                         <td style={{ padding: "6px 8px", color: "#718096" }}>{row.passport_masked || "-"}</td>
                         <td style={{ padding: "6px 8px", color: row.status === "error" ? "#9B2C2C" : "#A0AEC0" }}>
-                          {row.messages.join(" / ") || (row.dup_customer_id ? `기존 고객ID ${row.dup_customer_id}` : "")}
+                          {row.status === "error" && row.messages.length > 0 && (
+                            <div style={{ color: "#9B2C2C" }}>{row.messages.join(" / ")}</div>
+                          )}
+                          {row.dup_customer_id && (
+                            <div style={{ color: "#9C4221" }}>기존 고객ID {row.dup_customer_id}</div>
+                          )}
+                          {row.transforms?.length > 0 && (
+                            <div style={{ color: "#2B6CB0" }}>{row.transforms.join(" · ")}</div>
+                          )}
+                          {row.warnings?.length > 0 && (
+                            <div style={{ color: "#B7791F" }}>⚠ {row.warnings.join(" / ")}</div>
+                          )}
                         </td>
                       </tr>
                     );

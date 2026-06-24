@@ -290,6 +290,8 @@ export interface BulkPreviewRow {
   visa: string;
   passport_masked: string;
   messages: string[];
+  transforms: string[];
+  warnings: string[];
   dup_customer_id: string | null;
 }
 export interface BulkValidateResult {
