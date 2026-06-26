@@ -293,6 +293,46 @@ def _split_date(date_str: str) -> tuple:
     return "", "", ""
 
 
+def _add_years(d: "datetime.date", n: int) -> "datetime.date":
+    """date + n년. 2/29 처럼 대상 연도에 없는 날짜는 28일로 보정."""
+    try:
+        return d.replace(year=d.year + n)
+    except ValueError:
+        return d.replace(year=d.year + n, day=28)
+
+
+def _doc_date_field_values(include_date: bool, custom_date) -> dict:
+    """작성년/월/일 + **종료년/월/일(= 작성일 + 4년)** 을 함께 만든다(PDF·HWPX 공용).
+
+    작성일자 규칙(기존 유지):
+      · include_date=False → 빈 dict(날짜 미설정)
+      · custom_date is None → 오늘
+      · custom_date == ""   → 작성·종료 모두 공란(명시적 비움)
+      · custom_date 지정     → 해당일(파싱 실패 시 오늘)
+    종료일자(신규): 작성일이 존재하면 **그 작성일로부터 +4년**(자동/임의지정 동일 규칙). 작성일이
+    공란이면 종료도 공란. 종료년/월/일 누름틀이 없는 템플릿이면 값은 무시되어 무해(있는 곳만 채워짐)."""
+    if not include_date:
+        return {}
+    blank = {"작성년": "", "월": "", "일": "", "종료년": "", "종료월": "", "종료일": ""}
+    if custom_date == "":
+        return blank
+    base = None
+    if custom_date is None:
+        base = datetime.date.today()
+    else:
+        y, m, d = _split_date(custom_date)
+        if y:
+            try:
+                base = datetime.date(int(y), int(m or 1), int(d or 1))
+            except Exception:
+                base = datetime.date.today()
+        else:
+            base = datetime.date.today()
+    end = _add_years(base, 4)
+    return {"작성년": str(base.year), "월": str(base.month), "일": str(base.day),
+            "종료년": str(end.year), "종료월": str(end.month), "종료일": str(end.day)}
+
+
 def normalize_field_name(name: str) -> str:
     if not name:
         return ""
@@ -1472,24 +1512,10 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
         if rel:
             field_values["rela"] = rel
 
-    # ── 작성년/월/일 삽입 ──────────────────────────────────────────────────────
-    # include_date=False → 날짜 필드 미설정 (공란)
-    # custom_date is None  → 이전 호출자 호환: 오늘 날짜 사용
-    # custom_date == ""    → 프론트에서 명시적으로 비운 경우: 공란
-    # custom_date non-empty → 해당 날짜 사용; 파싱 실패 시 오늘 날짜 폴백
-    if req.include_date:
-        if req.custom_date is None:
-            _today = datetime.date.today()
-            field_values.update({"작성년": str(_today.year), "월": str(_today.month), "일": str(_today.day)})
-        elif req.custom_date == "":
-            field_values.update({"작성년": "", "월": "", "일": ""})
-        else:
-            _d_yyyy, _d_mm, _d_dd = _split_date(req.custom_date)
-            if _d_yyyy:
-                field_values.update({"작성년": _d_yyyy, "월": _d_mm, "일": _d_dd})
-            else:
-                _today = datetime.date.today()
-                field_values.update({"작성년": str(_today.year), "월": str(_today.month), "일": str(_today.day)})
+    # ── 작성년/월/일 + 종료년/월/일(작성일 +4년) 삽입 ─────────────────────────────
+    # include_date=False → 날짜 필드 미설정(공란) / custom_date None=오늘 / ""=공란 / 지정=해당일.
+    # 종료년/월/일 = 작성일 + 4년(자동/임의지정 동일). 종료 필드 없는 템플릿은 무시(무해).
+    field_values.update(_doc_date_field_values(req.include_date, req.custom_date))
 
     # ── 편집 후 재생성: direct_overrides를 build_field_values 결과에 최종 적용 ──
     if req.direct_overrides:
@@ -1591,6 +1617,320 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
         raise HTTPException(status_code=500, detail="PyMuPDF(fitz) 미설치. pip install pymupdf")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF 생성 실패: {e}")
+
+
+# ── HWPX 자동작성 (추가 기능, PDF 와 완전 독립) ────────────────────────────────────
+# 기존 PDF 로직(_generate_full_impl)·필드명·템플릿 경로를 일절 건드리지 않는다.
+# field_values 는 PDF 와 **동일한** build_field_values() 로 만들고(같은 데이터 → 같은 값),
+# HWPX 누름틀(CLICK_HERE) name 기준으로 텍스트만 채운다. 도장/서명은 marker 기반(현재 템플릿엔
+# marker 없음 → no-op, 응답 헤더로 보고). 현재 PoC 지원 문서: 통합신청서 1종.
+
+# HWPX 템플릿 경로 매핑 (PoC). PDF DOC_TEMPLATES 와 별개로 둔다(기존 매핑 불변).
+HWPX_TEMPLATES: dict = {
+    "통합신청서": "templates/hwpx/통합신청서.hwpx",
+}
+
+
+def _collect_full_field_values(req: "FullDocGenRequest", user: dict) -> dict:
+    """역할별 고객/행정사 데이터를 모아 build_field_values() 결과(field_values)를 만든다.
+
+    `_generate_full_impl` 의 데이터 수집 + field_values 구성 부분을 **그대로 미러링**한 읽기 전용
+    헬퍼다(기존 PDF 함수는 변경하지 않는다). PDF 와 HWPX 가 동일 데이터로 동일 값을 쓰도록 보장한다.
+    날짜(작성년/월/일)·rela·direct_overrides 까지 PDF 와 동일하게 적용한다.
+    """
+    tenant_id = user.get("tenant_id") or user.get("sub", "")
+
+    from backend.services.customer_pg_service import find_customer as _svc_find_customer
+
+    def find_customer(cid: Optional[str]) -> Optional[dict]:
+        if not cid:
+            return None
+        return _svc_find_customer(tenant_id, str(cid).strip(), reveal=True)
+
+    if req.applicant_id:
+        applicant = find_customer(req.applicant_id)
+        if not applicant:
+            raise HTTPException(status_code=404, detail=f"신청인(ID={req.applicant_id})을 찾을 수 없습니다.")
+    else:
+        applicant = {"한글": (req.applicant_name or "").strip()}
+
+    prov = find_customer(req.accommodation_id)
+    if prov is None and req.accommodation_provider:
+        ap = req.accommodation_provider
+        if ap.get("provider_type") == "customer_db":
+            prov = find_customer(ap.get("provider_customer_id"))
+
+    guarantor = find_customer(req.guarantor_id)
+    if req.guarantor_connection:
+        gc_data = req.guarantor_connection
+        if guarantor is None:
+            if gc_data.get("guarantor_type") == "customer_db" and gc_data.get("guarantor_customer_id"):
+                guarantor = find_customer(gc_data["guarantor_customer_id"])
+            if guarantor is None and gc_data.get("guarantor_name"):
+                ph1, ph2, ph3 = _split_phone(gc_data.get("guarantor_phone", ""))
+                guarantor = {
+                    "성":    gc_data.get("guarantor_last_name", ""),
+                    "명":    gc_data.get("guarantor_first_name", ""),
+                    "한글":  gc_data.get("guarantor_name", ""),
+                    "등록증": gc_data.get("guarantor_reg_front", ""),
+                    "번호":  gc_data.get("guarantor_reg_back", ""),
+                    "주소":  gc_data.get("guarantor_address", ""),
+                    "국적":  gc_data.get("guarantor_nation", ""),
+                    "연": ph1, "락": ph2, "처": ph3,
+                }
+        else:
+            if not str(guarantor.get("주소", "") or "").strip():
+                addr = str(gc_data.get("guarantor_address", "") or "").strip()
+                if addr:
+                    guarantor["주소"] = addr
+    guardian   = find_customer(req.guardian_id)
+    aggregator = find_customer(req.aggregator_id)
+
+    account = _load_account(tenant_id)
+    is_minor = calc_is_minor(str(applicant.get("등록증", "")))
+
+    kind   = req.kind   if req.kind   and req.kind   != "x" else ""
+    detail = req.detail if req.detail                       else ""
+
+    field_values = build_field_values(
+        row=applicant, prov=prov, accommodation_provider=req.accommodation_provider,
+        guardian=guardian, guarantor=guarantor, aggregator=aggregator,
+        is_minor=is_minor, account=account,
+        category=req.category, minwon=req.minwon, kind=kind, detail=detail,
+    )
+
+    if req.guarantor_connection:
+        rel = str(req.guarantor_connection.get("guarantor_relation", "") or "").strip()
+        if rel:
+            field_values["rela"] = rel
+
+    # 작성년/월/일 + 종료년/월/일(작성일 +4년) — PDF 와 동일 공용 헬퍼.
+    field_values.update(_doc_date_field_values(req.include_date, req.custom_date))
+
+    if req.direct_overrides:
+        field_values.update({k: str(v) for k, v in req.direct_overrides.items() if v is not None})
+
+    return {"field_values": field_values, "applicant": applicant, "prov": prov,
+            "guarantor": guarantor, "guardian": guardian, "aggregator": aggregator,
+            "account": account, "is_minor": is_minor, "tenant_id": tenant_id,
+            "kind": kind, "detail": detail}
+
+
+_TRANSPARENT_PNG_CACHE: Optional[bytes] = None
+
+
+def _transparent_png() -> bytes:
+    """완전 투명 PNG bytes(역할 이미지가 없을 때 marker 셀 repoint용). 1회 생성 후 캐시.
+
+    borderFill imgBrush 가 이 투명 이미지를 참조하면 셀 배경이 비어 보인다(원본 샘플 도장 제거).
+    """
+    global _TRANSPARENT_PNG_CACHE
+    if _TRANSPARENT_PNG_CACHE is None:
+        try:
+            from PIL import Image
+            import io as _io
+            im = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+            buf = _io.BytesIO(); im.save(buf, format="PNG")
+            _TRANSPARENT_PNG_CACHE = buf.getvalue()
+        except Exception:
+            # PIL 실패 시 최소 1x1 투명 PNG(고정 바이트)
+            _TRANSPARENT_PNG_CACHE = bytes.fromhex(
+                "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+                "890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082")
+    return _TRANSPARENT_PNG_CACHE
+
+
+def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
+    """역할별 도장/서명 이미지를 만들어 ``{marker_text: png_bytes}`` 매핑을 반환한다.
+
+    **PDF(`_generate_full_impl`)의 도장/서명 산출 규칙을 미러링**(동일 데이터→동일 도장/서명).
+    정책(확정): **모든 marker 셀은 반드시 repoint** — 이미지가 없다고 skip 하지 않는다(원본 샘플 잔존 금지).
+    우선순위:
+      · 서명 marker(ysign/hysign/bysign/gysign/pysign/aysign): 실제 서명 → 같은 역할 도장 → 투명 PNG
+      · 도장 marker(yin/hyin/byin/gyin/pyin/ayin):           도장 → 같은 역할 서명 → 투명 PNG
+    도장·서명 둘 다 없으면 투명 PNG 로 repoint(원본 placeholder 제거) + 투명 처리된 marker 목록을 반환.
+    반환: (marker_pngs: {marker: bytes}, transparent_markers: [marker, ...])  — 모든 marker 값은 non-None."""
+    applicant = ctx["applicant"]; prov = ctx["prov"]; guarantor = ctx["guarantor"]
+    guardian = ctx["guardian"]; aggregator = ctx["aggregator"]; account = ctx["account"]
+    is_minor = ctx["is_minor"]; tenant_id = ctx["tenant_id"]
+
+    applicant_seal_name = guardian.get("한글", "") if (is_minor and guardian) else applicant.get("한글", "")
+    accommodation_seal_name = prov.get("한글", "") if prov else req.accommodation_name
+    guarantor_seal_name = guarantor.get("한글", "") if guarantor else (req.guarantor_name or "")
+    guardian_seal_name = guardian.get("한글", "") if guardian else (req.guardian_name or "")
+    aggregator_seal_name = aggregator.get("한글", "") if aggregator else (req.aggregator_name or "")
+
+    # 도장/서명 상호배타(서명 우선) — PDF 와 동일(둘 다 True 면 도장 끔). 지역변수만 사용.
+    seal_acc = req.seal_accommodation and not req.sign_accommodation
+    seal_gua = req.seal_guarantor and not req.sign_guarantor
+
+    _app_src = guardian if (is_minor and guardian) else applicant
+
+    def _en(d):
+        d = d or {}
+        return d.get("성", ""), d.get("명", "")
+
+    seal: dict = {}
+    for role, korean, src, enabled in (
+        ("applicant",     applicant_seal_name,     _app_src,   req.seal_applicant),
+        ("accommodation", accommodation_seal_name, prov,       seal_acc),
+        ("guarantor",     guarantor_seal_name,     guarantor,  seal_gua),
+        ("guardian",      guardian_seal_name,      guardian,   req.seal_guardian),
+        ("aggregator",    aggregator_seal_name,    aggregator, req.seal_aggregator),
+    ):
+        su, gi = _en(src)
+        b, _reason = _auto_role_seal(korean, su, gi, enabled)
+        seal[role] = b
+    _agent_kn = normalize_seal_name(account.get("contact_name") if account else None)
+    seal["agent"] = make_seal_bytes(_agent_kn) if (req.seal_agent and _agent_kn) else None
+
+    # 서명 — PG 고객/행정사 서명(PDF 와 동일 경로)
+    import base64 as _b64
+    from backend.services.signature_service import (
+        get_agent_signature as _gas, get_customer_signature as _gcs)
+
+    def _b2b(b64):
+        if not b64:
+            return None
+        try:
+            raw = b64.split(",", 1)[1] if b64.startswith("data:") else b64
+            return _b64.b64decode(raw)
+        except Exception:
+            return None
+
+    def _cust(obj):
+        if not obj:
+            return None
+        cid = str(obj.get("고객ID", "")).strip()
+        if not cid:
+            return None
+        try:
+            return _b2b(_gcs(tenant_id, cid))
+        except Exception:
+            return None
+
+    sign = {
+        "applicant":     _cust(applicant)  if req.sign_applicant     else None,
+        "accommodation": _cust(prov)       if req.sign_accommodation else None,
+        "guarantor":     _cust(guarantor)  if req.sign_guarantor     else None,
+        "guardian":      _cust(guardian)   if req.sign_guardian      else None,
+        "aggregator":    _cust(aggregator) if req.sign_aggregator    else None,
+        "agent":         (_b2b(_gas(tenant_id)) if req.sign_agent    else None),
+    }
+
+    # 정책: 모든 marker 를 반드시 채운다. 도장marker=도장→서명→투명, 서명marker=서명→도장→투명.
+    trans = _transparent_png()
+
+    def seal_pick(role):   # 도장 marker
+        return seal.get(role) or sign.get(role) or trans
+
+    def sign_pick(role):   # 서명 marker
+        return sign.get(role) or seal.get(role) or trans
+
+    marker_pngs = {
+        "[[yin]]":  seal_pick("applicant"),     "[[ysign]]":  sign_pick("applicant"),
+        "[[hyin]]": seal_pick("accommodation"), "[[hysign]]": sign_pick("accommodation"),
+        "[[byin]]": seal_pick("guarantor"),     "[[bysign]]": sign_pick("guarantor"),
+        "[[gyin]]": seal_pick("guardian"),      "[[gysign]]": sign_pick("guardian"),
+        "[[pyin]]": seal_pick("aggregator"),    "[[pysign]]": sign_pick("aggregator"),
+        "[[ayin]]": seal_pick("agent"),         "[[aysign]]": sign_pick("agent"),
+    }
+    transparent_markers = [m for m, v in marker_pngs.items() if v is trans]
+    return marker_pngs, transparent_markers   # 모든 marker non-None(투명 포함)
+
+
+@router.post("/generate-hwpx")
+def generate_hwpx(req: FullDocGenRequest, user: dict = Depends(get_current_user)):
+    """[추가 기능] HWPX 자동작성. DOC 전역 동시수 1 게이트 후 실행. PDF 경로와 독립."""
+    with global_limit_sync(DOC_LOCK_KEY):
+        return _generate_hwpx_impl(req, user)
+
+
+def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
+    """선택 서류 중 HWPX 지원 문서(현재 통합신청서)를 HWPX 로 생성해 .hwpx 다운로드로 반환.
+
+    **방식 C**: PDF 와 동일한 field_values·도장/서명 데이터를 사용하고, 텍스트는 CLICK_HERE 누름틀에
+    채운다(빈 값은 공백 " " → 한컴 안내문 억제). marker 는 삭제하지 않고 위치 탐색용으로 유지하며,
+    각 marker 셀의 **기존 borderFill imgBrush 의 binaryItemIDRef 만 새 BinData 로 repoint** 한다
+    (기존 BinData 바이트/hashkey 무변경, 새 hp:pic 생성 안 함). 서버에서 PDF 변환하지 않는다.
+    """
+    if not req.selected_docs:
+        raise HTTPException(status_code=400, detail="선택된 서류가 없습니다.")
+    if not req.applicant_id and not (req.applicant_name or "").strip():
+        raise HTTPException(status_code=400, detail="신청인을 선택하거나 이름을 입력해 주세요.")
+
+    # HWPX 템플릿이 있는 문서만 처리(현재 통합신청서). 나머지는 unsupported 로 보고.
+    supported = [d for d in req.selected_docs if d in HWPX_TEMPLATES]
+    unsupported = [d for d in req.selected_docs if d not in HWPX_TEMPLATES]
+    if not supported:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "HWPX 자동작성을 지원하는 문서가 없습니다(현재 통합신청서만 지원).",
+                    "unsupported": unsupported},
+        )
+    doc_name = supported[0]   # 통합신청서 1종
+    rel_path = HWPX_TEMPLATES[doc_name]
+    abs_path = rel_path if os.path.isabs(rel_path) else os.path.join(_BASE, rel_path)
+    if not os.path.exists(abs_path):
+        raise HTTPException(status_code=500, detail=f"HWPX 템플릿 파일이 없습니다: {rel_path}")
+
+    ctx = _collect_full_field_values(req, user)        # PDF 와 동일 데이터/field_values
+    field_values = ctx["field_values"]
+    # PDF 와 동일 규칙의 도장/서명 이미지. 정책상 모든 marker 가 채워진다(없으면 투명 PNG).
+    marker_pngs, transparent_markers = _compute_hwpx_marker_pngs(req, ctx)
+
+    try:
+        from utils.hwpx_document import render_hwpx_reference_swap
+        # empty_placeholder=" " (기본) → 빈 누름틀 안내문 억제. marker 유지(삭제/공백치환 안 함).
+        hwpx_bytes, report = render_hwpx_reference_swap(abs_path, field_values, marker_pngs=marker_pngs)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"HWPX 생성 실패: {e}")
+
+    applicant_name = ctx["applicant"].get("한글", "고객") or "고객"
+    ymd = datetime.date.today().strftime("%Y%m%d")
+    filename = f"{doc_name}_{applicant_name}_{ymd}.hwpx"
+    from urllib.parse import quote
+    filename_encoded = quote(filename, safe="")
+
+    # 보고(개인정보 없음): 채움/도장 repoint 수 + 경고를 헤더로. 본문은 HWPX 그대로(서버 PDF 변환 없음).
+    filled = report["text"]["filled"]
+    repointed = report["swap"]["repointed"]
+    warnings = list(report.get("warnings", []))
+    warnings += list(report.get("conflicts", []))
+    # 정책상 skip 은 없어야 하지만(전 marker repoint), 혹시 발생하면 노출
+    for sk in report["swap"].get("skipped", []):
+        warnings.append(f"도장 repoint 실패: {sk.get('marker')}({sk.get('이유')})")
+    # 역할 이미지 없어 투명 처리된 marker(정책 #3) — 실제 템플릿에 존재하는 것만 보고
+    _present = {r["marker"] for r in repointed}
+    _trans_present = sorted(_present & set(transparent_markers))
+    if _trans_present:
+        warnings.append("해당 역할 이미지 없음 → 투명 처리: " + ",".join(_trans_present))
+    if unsupported:
+        warnings.append("HWPX 미지원 문서는 건너뜀: " + ",".join(unsupported))
+    print(f"[generate_hwpx][방식C] doc={doc_name} filled={len(filled)} "
+          f"repointed={len(repointed)} new_bindata={report['swap']['new_bindata']} "
+          f"conflicts={len(report.get('conflicts', []))}")
+
+    try:
+        from backend.services import audit_service as _audit
+        _audit.log_event(action="QUICK_DOC_GENERATE_HWPX", actor_login_id=user.get("sub"),
+                         tenant_id=user.get("tenant_id") or user.get("sub", ""),
+                         target_type="document", target_id=doc_name,
+                         payload={"customer_id": str(req.applicant_id or ""), "success": True,
+                                  "pii_accessed": True, "format": "hwpx"})
+    except Exception:
+        pass
+
+    return StreamingResponse(
+        io.BytesIO(hwpx_bytes),
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename_encoded}",
+            "X-Hwpx-Filled": str(len(filled)),
+            "X-Hwpx-Repointed": str(len(repointed)),
+            "X-Hwpx-Warnings": quote(" | ".join(warnings), safe=""),
+        },
+    )
 
 
 def _birth_from_reg_front(reg_front: str) -> str:

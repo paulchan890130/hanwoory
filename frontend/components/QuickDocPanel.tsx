@@ -285,6 +285,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
   const [agentSignatureStatus, setAgentSignatureStatus] = useState<AgentSignatureStatus>("unknown");
   const [pdfUrl, setPdfUrl]         = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [generatingHwpx, setGeneratingHwpx] = useState(false);  // HWPX 생성(추가 기능)
   const [confirmMissing, setConfirmMissing] = useState<string[] | null>(null);
   const [showEditPanel, setShowEditPanel]     = useState(false);
   const [editOverrides, setEditOverrides]     = useState<Record<string, string>>({});
@@ -668,6 +669,65 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
     doGenerate();
   };
 
+  // ── HWPX 생성(추가 기능) — PDF 와 동일 payload(=동일 데이터/값), 출력만 HWPX ─────────
+  const doGenerateHwpx = useCallback(async () => {
+    if (!roleIsSet(applicant)) { toast.error("신청인을 선택하거나 이름을 입력해 주세요."); return; }
+    if (!checkedDocs.has("통합신청서")) { toast.error("HWPX는 현재 통합신청서만 지원합니다. 통합신청서를 선택하세요."); return; }
+    const payload: FullDocGenRequest = {
+      category, minwon, kind: effectiveKind, detail: effectiveDetail,
+      applicant_id:   applicant.customer?.id,
+      applicant_name: !applicant.customer ? applicant.directName.trim() || undefined : undefined,
+      accommodation_id:       accommodation.customer?.id,
+      accommodation_name:     !accommodation.customer ? accommodation.directName.trim() || undefined : undefined,
+      accommodation_provider: accommodationProvider || undefined,
+      guarantor_connection:   guarantorConnection || undefined,
+      guarantor_id:  guarantor.customer?.id,
+      guarantor_name: !guarantor.customer ? guarantor.directName.trim() || undefined : undefined,
+      guardian_id:   guardian.customer?.id,
+      guardian_name: !guardian.customer ? guardian.directName.trim() || undefined : undefined,
+      aggregator_id: aggregator.customer?.id,
+      aggregator_name: !aggregator.customer ? aggregator.directName.trim() || undefined : undefined,
+      selected_docs: ["통합신청서"],
+      // PDF 와 동일한 도장/서명 선택을 그대로 전달(동일 도장/서명 데이터 보장)
+      seal_applicant: applicant.seal, seal_accommodation: accommodation.seal,
+      seal_guarantor: guarantor.seal, seal_guardian: guardian.seal,
+      seal_aggregator: aggregator.seal, seal_agent: agentSeal,
+      sign_applicant: applicant.sign, sign_accommodation: accommodation.sign,
+      sign_guarantor: guarantor.sign, sign_guardian: guardian.sign,
+      sign_aggregator: aggregator.sign, sign_agent: agentSign,
+      include_date: includeDate,
+      custom_date:  customDate,
+    };
+    setGeneratingHwpx(true);
+    try {
+      const res = await quickDocApi.generateHwpx(payload);
+      const blob = res.data as Blob;
+      if (blob.type?.includes("application/json")) {
+        const text = await blob.text();
+        try { toast.error("HWPX 생성 실패: " + (JSON.parse(text)?.detail?.message || JSON.parse(text)?.detail || text)); }
+        catch { toast.error("HWPX 생성 실패"); }
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `통합신청서_${roleDisplayName(applicant) || "고객"}_${getLocalDateString().replace(/-/g, "")}.hwpx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const warn = res.headers?.["x-hwpx-warnings"];
+      toast.success("HWPX 생성 완료");
+      if (warn) { try { toast(decodeURIComponent(warn), { icon: "ℹ️", duration: 7000 }); } catch { /* noop */ } }
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: Blob | { detail?: unknown } } })?.response?.data;
+      if (errData instanceof Blob) {
+        try { const j = JSON.parse(await errData.text()); toast.error("HWPX 생성 실패: " + String((j?.detail as { message?: string })?.message || j?.detail || "").slice(0, 200)); }
+        catch { toast.error("HWPX 생성 실패 (파싱 오류)"); }
+      } else { toast.error(String((errData as { detail?: string })?.detail || "HWPX 생성 실패")); }
+    } finally {
+      setGeneratingHwpx(false);
+    }
+  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, customDate, includeDate, accommodationProvider, guarantorConnection]);
+
   const docs = docsMut.data;
 
   return (
@@ -923,6 +983,19 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
           >
             <><FileText size={14} /> 🖨 PDF 생성</>
           </SubmitButton>
+          {/* HWPX 생성(추가 기능) — PDF 와 동일 데이터로 통합신청서 HWPX 생성. PDF 버튼/로직은 그대로 유지. */}
+          <SubmitButton
+            isSubmitting={generatingHwpx}
+            disabled={!roleIsSet(applicant) || !checkedDocs.has("통합신청서")}
+            onClick={doGenerateHwpx}
+            loadingText="HWPX 생성 중..."
+            style={{ width: "100%", padding: "10px 0", background: (!roleIsSet(applicant) || !checkedDocs.has("통합신청서")) ? "#E2E8F0" : "#2B6CB0", color: (!roleIsSet(applicant) || !checkedDocs.has("통합신청서")) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 13, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
+          >
+            <><FileText size={14} /> 📝 HWPX 생성 (통합신청서)</>
+          </SubmitButton>
+          <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
+            HWPX 파일은 한컴오피스 또는 rhwp 확장 프로그램으로 열어 인쇄할 수 있습니다. 신규 기능 검증 중이므로 문제가 있으면 기존 PDF 생성을 사용하세요.
+          </div>
           {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) && !generating && (
             <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
               {!selectionComplete ? "업무를 완전히 선택해 주세요"

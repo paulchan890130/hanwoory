@@ -799,6 +799,9 @@ export const quickDocApi = {
     api.get<CustomerSearchResult[]>("/api/quick-doc/customers/search", { params: { q } }),
   generateFull: (data: FullDocGenRequest) =>
     api.post("/api/quick-doc/generate-full", data, { responseType: "blob" }),
+  /** HWPX 자동작성(추가 기능). PDF 와 동일 데이터 → 동일 값. 현재 통합신청서만 지원. */
+  generateHwpx: (data: FullDocGenRequest) =>
+    api.post("/api/quick-doc/generate-hwpx", data, { responseType: "blob" }),
   generate: (data: {
     category: string;
     minwon: string;
