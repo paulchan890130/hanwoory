@@ -1009,23 +1009,14 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
             {/* I-1J-6N: 영문도장·보기안정형 체크박스 제거. 보기안정형(field_ap) 항상 적용,
                 도장은 한글/영문 자동판단(백엔드). 도장 넣기 여부는 역할별 도장/서명 라디오로 선택. */}
           </div>
-          <SubmitButton
-            isSubmitting={generating}
-            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady}
-            onClick={handleGenerate}
-            loadingText="PDF 생성 중..."
-            style={{ width: "100%", padding: "12px 0", background: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#E2E8F0" : GOLD, color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 14, fontWeight: 700, transition: "all 0.15s", marginBottom: 12 }}
-          >
-            <><FileText size={14} /> 🖨 PDF 생성</>
-          </SubmitButton>
-          {/* HWPX 생성(추가 기능) — PDF 와 동일 데이터로, 체크한 서류 중 HWPX 템플릿이 있는 문서를 생성.
-              PDF 버튼/로직은 그대로 유지. 결과 1개면 .hwpx, 2개 이상이면 ZIP. */}
+          {/* ── 기본 출력: HWPX (주 버튼) — 체크한 서류 중 HWPX 템플릿이 있는 문서를 생성.
+              결과 1개면 .hwpx, 2개 이상이면 ZIP. */}
           <SubmitButton
             isSubmitting={generatingHwpx}
             disabled={!hwpxReady || hwpxLoading}
             onClick={doGenerateHwpx}
             loadingText="HWPX 생성 중..."
-            style={{ width: "100%", padding: "10px 0", background: (!hwpxReady || hwpxLoading) ? "#E2E8F0" : "#2B6CB0", color: (!hwpxReady || hwpxLoading) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 13, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
+            style={{ width: "100%", padding: "12px 0", background: (!hwpxReady || hwpxLoading) ? "#E2E8F0" : GOLD, color: (!hwpxReady || hwpxLoading) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 14, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
           >
             <><FileText size={14} /> 📝 HWPX 생성{hwpxSupportedDocs.length > 0 ? ` (${hwpxSupportedDocs.length}건)` : ""}</>
           </SubmitButton>
@@ -1041,7 +1032,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
               </div>
             ) : hwpxSupportedDocs.length === 0 ? (
               <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
-                HWPX 템플릿이 있는 서류가 없습니다. PDF 생성을 사용하거나 HWPX 템플릿을 매핑하세요.
+                HWPX 템플릿이 있는 서류가 없습니다. PDF 생성을 사용하세요.
               </div>
             ) : (
               <div style={{ marginBottom: 8, textAlign: "center", lineHeight: 1.5 }}>
@@ -1050,14 +1041,34 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
                 </div>
                 {hwpxUnsupportedCount > 0 && (
                   <div style={{ fontSize: 11, color: "#C05621" }}>
-                    HWPX 미지원: 선택한 서류 중 {hwpxUnsupportedCount}개는 HWPX 템플릿이 없어 제외됩니다.
+                    선택한 서류 중 HWPX 템플릿이 없는 서류 {hwpxUnsupportedCount}개는 HWPX에서 제외됩니다. 해당 서류는 PDF 생성을 사용하세요.
                   </div>
                 )}
               </div>
             )
           )}
+          <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 12, lineHeight: 1.5 }}>
+            HWPX가 기본 출력 형식입니다. 선택한 서류 중 HWPX 템플릿이 있는 서류만 생성됩니다. (한컴오피스 또는 rhwp 확장 프로그램으로 열어 인쇄)
+          </div>
+
+          {/* ── 보조 출력: PDF (선택) — 기존 PDF 생성 로직/조건 그대로 유지. HWPX 미지원 서류 포함 시에도 사용 가능. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 8px" }}>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+            <span style={{ fontSize: 11, color: "#A0AEC0" }}>또는</span>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+          </div>
+          <SubmitButton
+            isSubmitting={generating}
+            variant="secondary"
+            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady}
+            onClick={handleGenerate}
+            loadingText="PDF 생성 중..."
+            style={{ width: "100%", padding: "10px 0", background: "#fff", color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#A0AEC0" : "#4A5568", border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 13, fontWeight: 600, transition: "all 0.15s", marginBottom: 6 }}
+          >
+            <><FileText size={14} /> 🖨 PDF로 생성</>
+          </SubmitButton>
           <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
-            HWPX 파일은 한컴오피스 또는 rhwp 확장 프로그램으로 열어 인쇄할 수 있습니다. 선택한 서류 중 HWPX 템플릿이 있는 서류만 생성됩니다.
+            PDF가 필요한 경우에만 선택하여 생성하세요.
           </div>
           {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) && !generating && (
             <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>

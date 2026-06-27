@@ -1816,10 +1816,10 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
 
     **PDF(`_generate_full_impl`)의 도장/서명 산출 규칙을 미러링**(동일 데이터→동일 도장/서명).
     정책(확정): **모든 marker 셀은 반드시 repoint** — 이미지가 없다고 skip 하지 않는다(원본 샘플 잔존 금지).
-    우선순위:
-      · 서명 marker(ysign/hysign/bysign/gysign/pysign/aysign): 실제 서명 → 같은 역할 도장 → 투명 PNG
-      · 도장 marker(yin/hyin/byin/gyin/pyin/ayin):           도장 → 같은 역할 서명 → 투명 PNG
-    도장·서명 둘 다 없으면 투명 PNG 로 repoint(원본 placeholder 제거) + 투명 처리된 marker 목록을 반환.
+    우선순위(도장란·서명란 분리, **교차 fallback 금지**):
+      · 도장 marker(yin/hyin/byin/gyin/pyin/ayin):           도장 이미지 → 투명 PNG
+      · 서명 marker(ysign/hysign/bysign/gysign/pysign/aysign): 실제 서명 이미지 → 투명 PNG
+    서명 marker 에 도장 이미지를, 도장 marker 에 서명 이미지를 **대체로 넣지 않는다**(없으면 투명).
     반환: (marker_pngs: {marker: bytes}, transparent_markers: [marker, ...])  — 모든 marker 값은 non-None."""
     applicant = ctx["applicant"]; prov = ctx["prov"]; guarantor = ctx["guarantor"]
     guardian = ctx["guardian"]; aggregator = ctx["aggregator"]; account = ctx["account"]
@@ -1889,22 +1889,25 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
         "agent":         (_b2b(_gas(tenant_id)) if req.sign_agent    else None),
     }
 
-    # 정책: 모든 marker 를 반드시 채운다. 도장marker=도장→서명→투명, 서명marker=서명→도장→투명.
+    # 정책(변경): 도장란/서명란을 명확히 분리하고 **교차 fallback 금지**.
+    #   · 도장 marker = 도장 이미지만 → 없으면 투명 PNG (서명 이미지로 대체 금지)
+    #   · 서명 marker = 실제 서명 이미지만 → 없으면 투명 PNG (도장 이미지로 대체 금지)
+    # 모든 marker 는 반드시 값(투명 포함)으로 repoint(원본 placeholder 잔존 금지).
     trans = _transparent_png()
 
-    def seal_pick(role):   # 도장 marker
-        return seal.get(role) or sign.get(role) or trans
+    def seal_only(role):   # 도장 marker — 도장 이미지만, 없으면 투명
+        return seal.get(role) or trans
 
-    def sign_pick(role):   # 서명 marker
-        return sign.get(role) or seal.get(role) or trans
+    def sign_only(role):   # 서명 marker — 실제 서명 이미지만, 없으면 투명
+        return sign.get(role) or trans
 
     marker_pngs = {
-        "[[yin]]":  seal_pick("applicant"),     "[[ysign]]":  sign_pick("applicant"),
-        "[[hyin]]": seal_pick("accommodation"), "[[hysign]]": sign_pick("accommodation"),
-        "[[byin]]": seal_pick("guarantor"),     "[[bysign]]": sign_pick("guarantor"),
-        "[[gyin]]": seal_pick("guardian"),      "[[gysign]]": sign_pick("guardian"),
-        "[[pyin]]": seal_pick("aggregator"),    "[[pysign]]": sign_pick("aggregator"),
-        "[[ayin]]": seal_pick("agent"),         "[[aysign]]": sign_pick("agent"),
+        "[[yin]]":  seal_only("applicant"),     "[[ysign]]":  sign_only("applicant"),
+        "[[hyin]]": seal_only("accommodation"), "[[hysign]]": sign_only("accommodation"),
+        "[[byin]]": seal_only("guarantor"),     "[[bysign]]": sign_only("guarantor"),
+        "[[gyin]]": seal_only("guardian"),      "[[gysign]]": sign_only("guardian"),
+        "[[pyin]]": seal_only("aggregator"),    "[[pysign]]": sign_only("aggregator"),
+        "[[ayin]]": seal_only("agent"),         "[[aysign]]": sign_only("agent"),
     }
     transparent_markers = [m for m, v in marker_pngs.items() if v is trans]
     return marker_pngs, transparent_markers   # 모든 marker non-None(투명 포함)
