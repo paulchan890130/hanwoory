@@ -1622,13 +1622,84 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
 # ── HWPX 자동작성 (추가 기능, PDF 와 완전 독립) ────────────────────────────────────
 # 기존 PDF 로직(_generate_full_impl)·필드명·템플릿 경로를 일절 건드리지 않는다.
 # field_values 는 PDF 와 **동일한** build_field_values() 로 만들고(같은 데이터 → 같은 값),
-# HWPX 누름틀(CLICK_HERE) name 기준으로 텍스트만 채운다. 도장/서명은 marker 기반(현재 템플릿엔
-# marker 없음 → no-op, 응답 헤더로 보고). 현재 PoC 지원 문서: 통합신청서 1종.
+# HWPX 누름틀(CLICK_HERE) name 기준으로 텍스트만 채운다. 도장/서명은 marker 기반으로
+# 템플릿에 실제 존재하는 marker 만 repoint(없으면 투명 PNG). 서버 PDF 변환은 하지 않는다.
+#
+# 템플릿 매핑은 **PDF DOC_TEMPLATES 처럼 서류명 기준**이되, 하드코딩 대신 디렉터리의
+# .hwpx 파일을 자동 탐색해 레지스트리를 구성한다(파일 추가만으로 매핑 확장 — 추후 관리자
+# 매핑 UI 도 같은 레지스트리 위에 얹을 수 있다). templates/hwpx/ 를 우선 스캔하고,
+# 보조로 templates/ 루트의 .hwpx 도 포함한다(같은 이름이면 templates/hwpx/ 가 우선).
 
-# HWPX 템플릿 경로 매핑 (PoC). PDF DOC_TEMPLATES 와 별개로 둔다(기존 매핑 불변).
-HWPX_TEMPLATES: dict = {
-    "통합신청서": "templates/hwpx/통합신청서.hwpx",
-}
+# HWPX 템플릿 탐색 디렉터리 (앞쪽 우선)
+_HWPX_TEMPLATE_DIRS = (
+    os.path.join(_BASE, "templates", "hwpx"),
+    os.path.join(_BASE, "templates"),
+)
+# 디렉터리 mtime 기반 캐시 — 파일 추가/삭제 시 자동 갱신(서버 재시작 불필요)
+_HWPX_REGISTRY_CACHE: dict = {"sig": None, "map": {}, "stems": {}}
+
+
+def _normalize_doc_name(name: str) -> str:
+    """서류명/파일명 정규화 — 공백 제거. 필요서류명은 띄어쓰기('거주숙소 제공 확인서'),
+    파일명은 붙여쓰기('거주숙소제공확인서.hwpx')인 경우가 많아 공백을 지워 매칭한다."""
+    import re as _re
+    return _re.sub(r"\s+", "", (name or "")).strip()
+
+
+def _hwpx_dirs_signature() -> tuple:
+    sig = []
+    for d in _HWPX_TEMPLATE_DIRS:
+        try:
+            sig.append((d, os.path.getmtime(d)))
+        except OSError:
+            sig.append((d, None))
+    return tuple(sig)
+
+
+def _is_valid_hwpx(path: str) -> bool:
+    """실제 HWPX(zip + Contents/content.hpf)인지 검증. 구형 HWP 바이너리를 .hwpx 확장자로
+    저장한 파일은 zip 이 아니라 엔진이 처리할 수 없으므로 레지스트리에서 제외한다."""
+    import zipfile as _zf
+    try:
+        with _zf.ZipFile(path) as z:
+            names = z.namelist()
+        return "Contents/content.hpf" in names
+    except Exception:
+        return False
+
+
+def _build_hwpx_registry() -> dict:
+    """{정규화된 서류명: 절대경로} 레지스트리. templates/hwpx/ 우선, templates/ 루트 보조.
+    하드코딩 없이 *.hwpx 파일명에서 자동 구성하되, **유효한 HWPX(zip) 파일만** 등록한다."""
+    sig = _hwpx_dirs_signature()
+    if _HWPX_REGISTRY_CACHE["sig"] == sig:
+        return _HWPX_REGISTRY_CACHE["map"]
+    registry: dict = {}
+    stems: dict = {}
+    for d in _HWPX_TEMPLATE_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            if not fn.lower().endswith(".hwpx"):
+                continue
+            stem = os.path.splitext(fn)[0]
+            key = _normalize_doc_name(stem)
+            if not key or key in registry:
+                continue   # 먼저 스캔된 디렉터리(templates/hwpx/) 우선
+            path = os.path.join(d, fn)
+            if not _is_valid_hwpx(path):
+                continue   # HWP 바이너리(.hwpx 확장자)·손상 파일 제외
+            registry[key] = path
+            stems[key] = stem
+    _HWPX_REGISTRY_CACHE["sig"] = sig
+    _HWPX_REGISTRY_CACHE["map"] = registry
+    _HWPX_REGISTRY_CACHE["stems"] = stems
+    return registry
+
+
+def _resolve_hwpx_template(doc_name: str) -> Optional[str]:
+    """필요서류명 → HWPX 템플릿 절대경로(없으면 None). 공백 정규화 매칭."""
+    return _build_hwpx_registry().get(_normalize_doc_name(doc_name))
 
 
 def _collect_full_field_values(req: "FullDocGenRequest", user: dict) -> dict:
@@ -1839,6 +1910,18 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
     return marker_pngs, transparent_markers   # 모든 marker non-None(투명 포함)
 
 
+@router.get("/hwpx-templates")
+def list_hwpx_templates(_: dict = Depends(get_current_user)):
+    """HWPX 템플릿이 존재하는 서류 목록(정규화 키 + 표시명). 프론트가 checkedDocs 중
+    HWPX 생성 가능한 서류 수를 계산하는 데 사용한다(공백 제거 후 키 매칭)."""
+    reg = _build_hwpx_registry()
+    stems = _HWPX_REGISTRY_CACHE.get("stems", {})
+    return {
+        "normalized": sorted(reg.keys()),
+        "templates": sorted(stems.values()),
+    }
+
+
 @router.post("/generate-hwpx")
 def generate_hwpx(req: FullDocGenRequest, user: dict = Depends(get_current_user)):
     """[추가 기능] HWPX 자동작성. DOC 전역 동시수 1 게이트 후 실행. PDF 경로와 독립."""
@@ -1847,89 +1930,131 @@ def generate_hwpx(req: FullDocGenRequest, user: dict = Depends(get_current_user)
 
 
 def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
-    """선택 서류 중 HWPX 지원 문서(현재 통합신청서)를 HWPX 로 생성해 .hwpx 다운로드로 반환.
+    """선택 서류 중 **HWPX 템플릿이 있는 모든 문서**를 HWPX 로 생성해 다운로드로 반환.
 
-    **방식 C**: PDF 와 동일한 field_values·도장/서명 데이터를 사용하고, 텍스트는 CLICK_HERE 누름틀에
-    채운다(빈 값은 공백 " " → 한컴 안내문 억제). marker 는 삭제하지 않고 위치 탐색용으로 유지하며,
-    각 marker 셀의 **기존 borderFill imgBrush 의 binaryItemIDRef 만 새 BinData 로 repoint** 한다
-    (기존 BinData 바이트/hashkey 무변경, 새 hp:pic 생성 안 함). 서버에서 PDF 변환하지 않는다.
+    PDF 자동작성과 동일하게 checkedDocs 기준으로 동작한다(서류명 → HWPX 템플릿 매핑은
+    `_resolve_hwpx_template`, 디렉터리 자동 탐색). 결과가 1개면 단일 .hwpx, 2개 이상이면 ZIP.
+
+    **방식 C(통합신청서에서 검증된 공통 함수 `render_hwpx_reference_swap` 재사용)**: PDF 와
+    동일한 field_values·도장/서명 데이터를 사용하고, 텍스트는 CLICK_HERE 누름틀에 채운다(빈 값은
+    공백 " " → 한컴 안내문 억제). 각 문서는 그 문서에 **실제 존재하는 marker 만** repoint 하며
+    (엔진이 템플릿을 진단), 이미지가 없는 marker 는 투명 PNG 로 repoint(원본 placeholder 잔존 0).
+    서버에서 PDF 변환하지 않는다.
     """
     if not req.selected_docs:
         raise HTTPException(status_code=400, detail="선택된 서류가 없습니다.")
     if not req.applicant_id and not (req.applicant_name or "").strip():
         raise HTTPException(status_code=400, detail="신청인을 선택하거나 이름을 입력해 주세요.")
 
-    # HWPX 템플릿이 있는 문서만 처리(현재 통합신청서). 나머지는 unsupported 로 보고.
-    supported = [d for d in req.selected_docs if d in HWPX_TEMPLATES]
-    unsupported = [d for d in req.selected_docs if d not in HWPX_TEMPLATES]
-    if not supported:
+    # HWPX 템플릿이 있는 문서만 처리. 나머지는 unsupported 로 보고.
+    resolved: list = []     # [(doc_name, abs_path), ...]
+    unsupported: list = []
+    for d in req.selected_docs:
+        p = _resolve_hwpx_template(d)
+        if p and os.path.exists(p):
+            resolved.append((d, p))
+        else:
+            unsupported.append(d)
+    if not resolved:
         raise HTTPException(
             status_code=422,
-            detail={"message": "HWPX 자동작성을 지원하는 문서가 없습니다(현재 통합신청서만 지원).",
+            detail={"message": "선택한 서류 중 HWPX 템플릿이 있는 서류가 없습니다. "
+                               "PDF 생성을 사용하거나 HWPX 템플릿을 매핑하세요.",
                     "unsupported": unsupported},
         )
-    doc_name = supported[0]   # 통합신청서 1종
-    rel_path = HWPX_TEMPLATES[doc_name]
-    abs_path = rel_path if os.path.isabs(rel_path) else os.path.join(_BASE, rel_path)
-    if not os.path.exists(abs_path):
-        raise HTTPException(status_code=500, detail=f"HWPX 템플릿 파일이 없습니다: {rel_path}")
 
     ctx = _collect_full_field_values(req, user)        # PDF 와 동일 데이터/field_values
     field_values = ctx["field_values"]
-    # PDF 와 동일 규칙의 도장/서명 이미지. 정책상 모든 marker 가 채워진다(없으면 투명 PNG).
+    # PDF 와 동일 규칙의 도장/서명 이미지(전 역할). 각 템플릿엔 존재하는 marker 만 엔진이 repoint.
     marker_pngs, transparent_markers = _compute_hwpx_marker_pngs(req, ctx)
-
-    try:
-        from utils.hwpx_document import render_hwpx_reference_swap
-        # empty_placeholder=" " (기본) → 빈 누름틀 안내문 억제. marker 유지(삭제/공백치환 안 함).
-        hwpx_bytes, report = render_hwpx_reference_swap(abs_path, field_values, marker_pngs=marker_pngs)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"HWPX 생성 실패: {e}")
 
     applicant_name = ctx["applicant"].get("한글", "고객") or "고객"
     ymd = datetime.date.today().strftime("%Y%m%d")
-    filename = f"{doc_name}_{applicant_name}_{ymd}.hwpx"
     from urllib.parse import quote
-    filename_encoded = quote(filename, safe="")
+    from utils.hwpx_document import render_hwpx_reference_swap
 
-    # 보고(개인정보 없음): 채움/도장 repoint 수 + 경고를 헤더로. 본문은 HWPX 그대로(서버 PDF 변환 없음).
-    filled = report["text"]["filled"]
-    repointed = report["swap"]["repointed"]
-    warnings = list(report.get("warnings", []))
-    warnings += list(report.get("conflicts", []))
-    # 정책상 skip 은 없어야 하지만(전 marker repoint), 혹시 발생하면 노출
-    for sk in report["swap"].get("skipped", []):
-        warnings.append(f"도장 repoint 실패: {sk.get('marker')}({sk.get('이유')})")
-    # 역할 이미지 없어 투명 처리된 marker(정책 #3) — 실제 템플릿에 존재하는 것만 보고
-    _present = {r["marker"] for r in repointed}
-    _trans_present = sorted(_present & set(transparent_markers))
-    if _trans_present:
-        warnings.append("해당 역할 이미지 없음 → 투명 처리: " + ",".join(_trans_present))
+    outputs: list = []      # [(filename, hwpx_bytes), ...]
+    total_filled = 0
+    total_repointed = 0
+    warnings: list = []
+    failed: list = []
+    for doc_name, abs_path in resolved:
+        try:
+            # empty_placeholder=" " (기본) → 빈 누름틀 안내문 억제. marker 유지(삭제/공백치환 안 함).
+            hwpx_bytes, report = render_hwpx_reference_swap(abs_path, field_values, marker_pngs=marker_pngs)
+        except Exception as e:
+            # 한 문서 실패가 전체를 막지 않도록 — 경고로 보고하고 나머지 문서는 계속 생성.
+            failed.append(doc_name)
+            warnings.append(f"{doc_name} 생성 실패: {e}")
+            continue
+        filled = report["text"]["filled"]
+        repointed = report["swap"]["repointed"]
+        total_filled += len(filled)
+        total_repointed += len(repointed)
+        warnings += list(report.get("warnings", []))
+        warnings += list(report.get("conflicts", []))
+        for sk in report["swap"].get("skipped", []):
+            warnings.append(f"[{doc_name}] 도장 repoint 실패: {sk.get('marker')}({sk.get('이유')})")
+        # 역할 이미지 없어 투명 처리된 marker — 실제 템플릿에 존재하는 것만 보고
+        _present = {r["marker"] for r in repointed}
+        _trans_present = sorted(_present & set(transparent_markers))
+        if _trans_present:
+            warnings.append(f"[{doc_name}] 역할 이미지 없음 → 투명 처리: " + ",".join(_trans_present))
+        outputs.append((f"{doc_name}_{applicant_name}_{ymd}.hwpx", hwpx_bytes))
+        print(f"[generate_hwpx][방식C] doc={doc_name} filled={len(filled)} "
+              f"repointed={len(repointed)} new_bindata={report['swap']['new_bindata']} "
+              f"conflicts={len(report.get('conflicts', []))}")
+
+    if not outputs:
+        # 모든 지원 문서가 생성 실패 → 500(원인은 warnings 에 담아 헤더로 노출)
+        raise HTTPException(status_code=500, detail="HWPX 생성 실패: " + (" | ".join(warnings) or "알 수 없는 오류"))
+
     if unsupported:
         warnings.append("HWPX 미지원 문서는 건너뜀: " + ",".join(unsupported))
-    print(f"[generate_hwpx][방식C] doc={doc_name} filled={len(filled)} "
-          f"repointed={len(repointed)} new_bindata={report['swap']['new_bindata']} "
-          f"conflicts={len(report.get('conflicts', []))}")
 
     try:
         from backend.services import audit_service as _audit
         _audit.log_event(action="QUICK_DOC_GENERATE_HWPX", actor_login_id=user.get("sub"),
                          tenant_id=user.get("tenant_id") or user.get("sub", ""),
-                         target_type="document", target_id=doc_name,
+                         target_type="document",
+                         target_id=",".join(d for d, _ in resolved)[:200],
                          payload={"customer_id": str(req.applicant_id or ""), "success": True,
-                                  "pii_accessed": True, "format": "hwpx"})
+                                  "pii_accessed": True, "format": "hwpx",
+                                  "doc_count": len(outputs)})
     except Exception:
         pass
 
+    common_headers = {
+        "X-Hwpx-Count": str(len(outputs)),
+        "X-Hwpx-Filled": str(total_filled),
+        "X-Hwpx-Repointed": str(total_repointed),
+        "X-Hwpx-Warnings": quote(" | ".join(warnings), safe=""),
+    }
+
+    # 결과 1개 → 단일 .hwpx, 2개 이상 → ZIP(내부 파일명: 서류명_이름_YYYYMMDD.hwpx)
+    if len(outputs) == 1:
+        fname, data = outputs[0]
+        return StreamingResponse(
+            io.BytesIO(data),
+            media_type="application/octet-stream",
+            headers={**common_headers,
+                     "Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname, safe='')}"},
+        )
+
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fname, data in outputs:
+            zi = zipfile.ZipInfo(fname)
+            zi.flag_bits |= 0x800   # UTF-8 파일명 플래그(한글 파일명)
+            zf.writestr(zi, data)
+    buf.seek(0)
+    zip_name = f"HWPX_{applicant_name}_{ymd}.zip"
     return StreamingResponse(
-        io.BytesIO(hwpx_bytes),
-        media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{filename_encoded}",
-            "X-Hwpx-Filled": str(len(filled)),
-            "X-Hwpx-Repointed": str(len(repointed)),
-            "X-Hwpx-Warnings": quote(" | ".join(warnings), safe=""),
-        },
+        buf,
+        media_type="application/zip",
+        headers={**common_headers,
+                 "Content-Disposition": f"attachment; filename*=UTF-8''{quote(zip_name, safe='')}"},
     )
 
 

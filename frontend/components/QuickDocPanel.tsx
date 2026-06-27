@@ -286,6 +286,8 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
   const [pdfUrl, setPdfUrl]         = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingHwpx, setGeneratingHwpx] = useState(false);  // HWPX 생성(추가 기능)
+  // HWPX 템플릿이 있는 서류(정규화 키 집합). 버튼 활성/사유 표시·생성 대상 판정에 사용.
+  const [hwpxTemplateKeys, setHwpxTemplateKeys] = useState<Set<string> | null>(null);
   const [confirmMissing, setConfirmMissing] = useState<string[] | null>(null);
   const [showEditPanel, setShowEditPanel]     = useState(false);
   const [editOverrides, setEditOverrides]     = useState<Record<string, string>>({});
@@ -322,6 +324,13 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
         // Backend 503/network error — do NOT treat as confirmed "서명 없음"
         setAgentSignatureStatus("error");
       });
+  }, []);
+
+  // HWPX 템플릿이 있는 서류 목록 1회 로드(버튼 활성/사유 표시용). 실패 시 빈 집합(미지원 표시).
+  useEffect(() => {
+    quickDocApi.listHwpxTemplates()
+      .then((r) => setHwpxTemplateKeys(new Set(r.data?.normalized || [])))
+      .catch(() => setHwpxTemplateKeys(new Set()));
   }, []);
 
   // 딥링크 파라미터 처리 (독립 페이지 모드에서만)
@@ -672,7 +681,13 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
   // ── HWPX 생성(추가 기능) — PDF 와 동일 payload(=동일 데이터/값), 출력만 HWPX ─────────
   const doGenerateHwpx = useCallback(async () => {
     if (!roleIsSet(applicant)) { toast.error("신청인을 선택하거나 이름을 입력해 주세요."); return; }
-    if (!checkedDocs.has("통합신청서")) { toast.error("HWPX는 현재 통합신청서만 지원합니다. 통합신청서를 선택하세요."); return; }
+    const norm = (s: string) => s.replace(/\s+/g, "");
+    const keys = hwpxTemplateKeys;
+    const supportedDocs = keys ? Array.from(checkedDocs).filter((d) => keys.has(norm(d))) : [];
+    if (supportedDocs.length === 0) {
+      toast.error("선택한 서류 중 HWPX 템플릿이 있는 서류가 없습니다. PDF 생성을 사용하세요.");
+      return;
+    }
     const payload: FullDocGenRequest = {
       category, minwon, kind: effectiveKind, detail: effectiveDetail,
       applicant_id:   applicant.customer?.id,
@@ -687,7 +702,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
       guardian_name: !guardian.customer ? guardian.directName.trim() || undefined : undefined,
       aggregator_id: aggregator.customer?.id,
       aggregator_name: !aggregator.customer ? aggregator.directName.trim() || undefined : undefined,
-      selected_docs: ["통합신청서"],
+      selected_docs: supportedDocs,
       // PDF 와 동일한 도장/서명 선택을 그대로 전달(동일 도장/서명 데이터 보장)
       seal_applicant: applicant.seal, seal_accommodation: accommodation.seal,
       seal_guarantor: guarantor.seal, seal_guardian: guardian.seal,
@@ -708,14 +723,23 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
         catch { toast.error("HWPX 생성 실패"); }
         return;
       }
+      // 파일명은 Content-Disposition 우선(단일 .hwpx 또는 다중 .zip). 없으면 fallback.
+      const ymd = getLocalDateString().replace(/-/g, "");
+      const count = Number(res.headers?.["x-hwpx-count"] || supportedDocs.length || 1);
+      let fname = count > 1
+        ? `HWPX_${roleDisplayName(applicant) || "고객"}_${ymd}.zip`
+        : `${supportedDocs[0]}_${roleDisplayName(applicant) || "고객"}_${ymd}.hwpx`;
+      const cd = res.headers?.["content-disposition"] as string | undefined;
+      const m = cd?.match(/filename\*=UTF-8''([^;]+)/i);
+      if (m?.[1]) { try { fname = decodeURIComponent(m[1]); } catch { /* keep fallback */ } }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `통합신청서_${roleDisplayName(applicant) || "고객"}_${getLocalDateString().replace(/-/g, "")}.hwpx`;
+      a.download = fname;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       const warn = res.headers?.["x-hwpx-warnings"];
-      toast.success("HWPX 생성 완료");
+      toast.success(count > 1 ? `HWPX ${count}개 생성 완료 (ZIP)` : "HWPX 생성 완료");
       if (warn) { try { toast(decodeURIComponent(warn), { icon: "ℹ️", duration: 7000 }); } catch { /* noop */ } }
     } catch (err: unknown) {
       const errData = (err as { response?: { data?: Blob | { detail?: unknown } } })?.response?.data;
@@ -726,9 +750,20 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
     } finally {
       setGeneratingHwpx(false);
     }
-  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, customDate, includeDate, accommodationProvider, guarantorConnection]);
+  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, customDate, includeDate, accommodationProvider, guarantorConnection, hwpxTemplateKeys]);
 
   const docs = docsMut.data;
+
+  // ── HWPX 지원 판정 — 체크한 서류 중 HWPX 템플릿이 있는 서류 수(백엔드와 동일하게 공백 제거 매칭)
+  const normalizeDocName = (s: string) => s.replace(/\s+/g, "");
+  const checkedDocList = Array.from(checkedDocs);
+  const hwpxSupportedDocs = hwpxTemplateKeys
+    ? checkedDocList.filter((d) => hwpxTemplateKeys.has(normalizeDocName(d)))
+    : [];
+  const hwpxUnsupportedCount = checkedDocList.length - hwpxSupportedDocs.length;
+  const hwpxLoading = hwpxTemplateKeys === null;
+  // 신청인 입력 + HWPX 템플릿 보유 서류 1개 이상이면 활성.
+  const hwpxReady = roleIsSet(applicant) && hwpxSupportedDocs.length > 0;
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -983,18 +1018,46 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
           >
             <><FileText size={14} /> 🖨 PDF 생성</>
           </SubmitButton>
-          {/* HWPX 생성(추가 기능) — PDF 와 동일 데이터로 통합신청서 HWPX 생성. PDF 버튼/로직은 그대로 유지. */}
+          {/* HWPX 생성(추가 기능) — PDF 와 동일 데이터로, 체크한 서류 중 HWPX 템플릿이 있는 문서를 생성.
+              PDF 버튼/로직은 그대로 유지. 결과 1개면 .hwpx, 2개 이상이면 ZIP. */}
           <SubmitButton
             isSubmitting={generatingHwpx}
-            disabled={!roleIsSet(applicant) || !checkedDocs.has("통합신청서")}
+            disabled={!hwpxReady || hwpxLoading}
             onClick={doGenerateHwpx}
             loadingText="HWPX 생성 중..."
-            style={{ width: "100%", padding: "10px 0", background: (!roleIsSet(applicant) || !checkedDocs.has("통합신청서")) ? "#E2E8F0" : "#2B6CB0", color: (!roleIsSet(applicant) || !checkedDocs.has("통합신청서")) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 13, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
+            style={{ width: "100%", padding: "10px 0", background: (!hwpxReady || hwpxLoading) ? "#E2E8F0" : "#2B6CB0", color: (!hwpxReady || hwpxLoading) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 13, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
           >
-            <><FileText size={14} /> 📝 HWPX 생성 (통합신청서)</>
+            <><FileText size={14} /> 📝 HWPX 생성{hwpxSupportedDocs.length > 0 ? ` (${hwpxSupportedDocs.length}건)` : ""}</>
           </SubmitButton>
+          {/* HWPX 버튼 상태/사유 표시 — 신청인 / HWPX 템플릿 보유 서류 수 기준 */}
+          {!generatingHwpx && (
+            hwpxLoading ? (
+              <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
+                HWPX 템플릿 정보를 불러오는 중...
+              </div>
+            ) : !roleIsSet(applicant) ? (
+              <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
+                신청인 정보 입력 후 HWPX 생성이 가능합니다.
+              </div>
+            ) : hwpxSupportedDocs.length === 0 ? (
+              <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
+                HWPX 템플릿이 있는 서류가 없습니다. PDF 생성을 사용하거나 HWPX 템플릿을 매핑하세요.
+              </div>
+            ) : (
+              <div style={{ marginBottom: 8, textAlign: "center", lineHeight: 1.5 }}>
+                <div style={{ fontSize: 11, color: "#2B6CB0", fontWeight: 600 }}>
+                  ✅ HWPX 생성 가능: 선택한 서류 중 HWPX 템플릿 {hwpxSupportedDocs.length}개 지원
+                </div>
+                {hwpxUnsupportedCount > 0 && (
+                  <div style={{ fontSize: 11, color: "#C05621" }}>
+                    HWPX 미지원: 선택한 서류 중 {hwpxUnsupportedCount}개는 HWPX 템플릿이 없어 제외됩니다.
+                  </div>
+                )}
+              </div>
+            )
+          )}
           <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
-            HWPX 파일은 한컴오피스 또는 rhwp 확장 프로그램으로 열어 인쇄할 수 있습니다. 신규 기능 검증 중이므로 문제가 있으면 기존 PDF 생성을 사용하세요.
+            HWPX 파일은 한컴오피스 또는 rhwp 확장 프로그램으로 열어 인쇄할 수 있습니다. 선택한 서류 중 HWPX 템플릿이 있는 서류만 생성됩니다.
           </div>
           {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) && !generating && (
             <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>

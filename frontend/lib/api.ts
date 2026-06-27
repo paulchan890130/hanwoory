@@ -799,9 +799,12 @@ export const quickDocApi = {
     api.get<CustomerSearchResult[]>("/api/quick-doc/customers/search", { params: { q } }),
   generateFull: (data: FullDocGenRequest) =>
     api.post("/api/quick-doc/generate-full", data, { responseType: "blob" }),
-  /** HWPX 자동작성(추가 기능). PDF 와 동일 데이터 → 동일 값. 현재 통합신청서만 지원. */
+  /** HWPX 자동작성(추가 기능). PDF 와 동일 데이터 → 동일 값. 체크한 서류 중 HWPX 템플릿이 있는 문서를 생성. */
   generateHwpx: (data: FullDocGenRequest) =>
     api.post("/api/quick-doc/generate-hwpx", data, { responseType: "blob" }),
+  /** HWPX 템플릿이 존재하는 서류 목록(정규화 키 + 표시명). 버튼 활성/사유 표시에 사용. */
+  listHwpxTemplates: () =>
+    api.get<{ normalized: string[]; templates: string[] }>("/api/quick-doc/hwpx-templates"),
   generate: (data: {
     category: string;
     minwon: string;
