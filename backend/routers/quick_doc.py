@@ -17,7 +17,7 @@ _BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 _TEMPLATES_DIR = os.path.join(_BASE, "templates")
 _CIRCLE_PATH   = os.path.join(_TEMPLATES_DIR, "원형 배경.png")
 _FONT_PATH     = os.path.join(_BASE, "fonts", "HJ한전서B.ttf")
-_SEAL_SIZE     = 200
+_SEAL_SIZE     = 600   # A안: 200→600 해상도 상향(PDF/HWPX 공통, 배치·표시크기 불변, 선명도만 향상)
 # 영문도장 전용: 라틴 글자는 한글보다 좁아 보이므로 좌우 폭만 넓힌다(가로 x-scale).
 # 한글도장에는 적용하지 않는다. I-1J-6G: 1.45 는 체감이 약해 1.8 로 상향(원형 테두리 미접촉).
 _LATIN_X_SCALE = 1.8
@@ -696,7 +696,9 @@ def make_seal_bytes(name: Optional[str], english: bool = False) -> Optional[byte
                 width=int(canvas_size * 0.05),
             )
 
-        scale = 1.05
+        # A안: 기존 1.05 는 원이 캔버스보다 커서 5° 회전·재합성 시 테두리가 가장자리에서 잘림.
+        # 0.96 으로 소폭 여백을 둬 회전 후에도 원형 테두리가 잘리지 않게 한다(크기/배치는 셀·위젯이 결정).
+        scale = 0.96
         circle_size = int(canvas_size * scale)
         circle_img = circle_img.resize((circle_size, circle_size), Image.LANCZOS)
         offset_x = (canvas_size - circle_size) // 2
