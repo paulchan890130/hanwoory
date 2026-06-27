@@ -738,9 +738,13 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
       a.download = fname;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      const warn = res.headers?.["x-hwpx-warnings"];
       toast.success(count > 1 ? `HWPX ${count}개 생성 완료 (ZIP)` : "HWPX 생성 완료");
-      if (warn) { try { toast(decodeURIComponent(warn), { icon: "ℹ️", duration: 7000 }); } catch { /* noop */ } }
+      // 짧은 안내(미지원/실패 문서명·빈칸 안내)만 정보 토스트로. marker 명 등 상세는 서버 로그 전용.
+      const notice = res.headers?.["x-hwpx-notice"];
+      if (notice) {
+        try { const t = decodeURIComponent(notice).trim(); if (t) toast(t, { icon: "ℹ️", duration: 5000 }); }
+        catch { /* noop */ }
+      }
     } catch (err: unknown) {
       const errData = (err as { response?: { data?: Blob | { detail?: unknown } } })?.response?.data;
       if (errData instanceof Blob) {

@@ -705,12 +705,15 @@ def make_seal_bytes(name: Optional[str], english: bool = False) -> Optional[byte
         offset_y = (canvas_size - circle_size) // 2
         base.alpha_composite(circle_img, dest=(offset_x, offset_y))
 
+        # 글자색 = 원형 테두리(인주)색. 안티앨리어싱 가장자리(저알파)·음수 offset 으로
+        # 거의 투명한 색이 잡히면 글자가 종이에서 안 보이므로, **솔리드 픽셀(alpha>200)만**
+        # 샘플하고 alpha 는 255 로 강제한다. 못 찾으면 기본 인주색(180,0,0)으로 fallback.
         border_color = (180, 0, 0, 255)
         cx = canvas_size // 2
-        for y in range(offset_y, offset_y + canvas_size // 2):
+        for y in range(max(0, offset_y), min(canvas_size, offset_y + canvas_size)):
             r, g, b, a = base.getpixel((cx, y))
-            if a > 0:
-                border_color = (r, g, b, a)
+            if a > 200:
+                border_color = (r, g, b, 255)
                 break
 
         draw = ImageDraw.Draw(base)
@@ -1981,41 +1984,53 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
     outputs: list = []      # [(filename, hwpx_bytes), ...]
     total_filled = 0
     total_repointed = 0
-    warnings: list = []
+    dev_log: list = []      # 개발자 진단(서버 로그 전용) — marker 명 등 상세, 사용자 미노출
+    blank_boxes = 0         # 등록 이미지가 없어 빈칸(투명) 처리된 도장/서명 칸 수
     failed: list = []
     for doc_name, abs_path in resolved:
         try:
             # empty_placeholder=" " (기본) → 빈 누름틀 안내문 억제. marker 유지(삭제/공백치환 안 함).
             hwpx_bytes, report = render_hwpx_reference_swap(abs_path, field_values, marker_pngs=marker_pngs)
         except Exception as e:
-            # 한 문서 실패가 전체를 막지 않도록 — 경고로 보고하고 나머지 문서는 계속 생성.
+            # 한 문서 실패가 전체를 막지 않도록 — 문서명만 사용자 안내, 상세는 서버 로그.
             failed.append(doc_name)
-            warnings.append(f"{doc_name} 생성 실패: {e}")
+            dev_log.append(f"[{doc_name}] 생성 실패: {e}")
             continue
         filled = report["text"]["filled"]
         repointed = report["swap"]["repointed"]
         total_filled += len(filled)
         total_repointed += len(repointed)
-        warnings += list(report.get("warnings", []))
-        warnings += list(report.get("conflicts", []))
+        # 진단 상세(marker 명 포함)는 서버 로그에만 — 사용자 토스트에 노출하지 않는다.
+        dev_log += [f"[{doc_name}] {w}" for w in report.get("warnings", [])]
+        dev_log += [f"[{doc_name}] borderFill 공유: {c}" for c in report.get("conflicts", [])]
         for sk in report["swap"].get("skipped", []):
-            warnings.append(f"[{doc_name}] 도장 repoint 실패: {sk.get('marker')}({sk.get('이유')})")
-        # 역할 이미지 없어 투명 처리된 marker — 실제 템플릿에 존재하는 것만 보고
+            dev_log.append(f"[{doc_name}] 도장 repoint 실패: {sk.get('marker')}({sk.get('이유')})")
+        # 역할 이미지 없어 투명 처리된 칸: 사용자에겐 '개수'만, marker 명은 로그에만.
         _present = {r["marker"] for r in repointed}
         _trans_present = sorted(_present & set(transparent_markers))
         if _trans_present:
-            warnings.append(f"[{doc_name}] 역할 이미지 없음 → 투명 처리: " + ",".join(_trans_present))
+            blank_boxes += len(_trans_present)
+            dev_log.append(f"[{doc_name}] 빈칸(투명) 처리: " + ",".join(_trans_present))
         outputs.append((f"{doc_name}_{applicant_name}_{ymd}.hwpx", hwpx_bytes))
         print(f"[generate_hwpx][방식C] doc={doc_name} filled={len(filled)} "
               f"repointed={len(repointed)} new_bindata={report['swap']['new_bindata']} "
               f"conflicts={len(report.get('conflicts', []))}")
 
-    if not outputs:
-        # 모든 지원 문서가 생성 실패 → 500(원인은 warnings 에 담아 헤더로 노출)
-        raise HTTPException(status_code=500, detail="HWPX 생성 실패: " + (" | ".join(warnings) or "알 수 없는 오류"))
+    if dev_log:
+        print("[generate_hwpx][detail] " + " | ".join(dev_log))   # 서버 로그 전용
 
+    if not outputs:
+        # 모든 지원 문서 생성 실패 → 500(상세는 위 서버 로그, 사용자에겐 일반 메시지)
+        raise HTTPException(status_code=500, detail="HWPX 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+
+    # 사용자 안내(짧게, marker 명 미노출): 미지원/실패 문서명 + 빈칸 안내(있을 때만)
+    notices: list = []
+    if failed:
+        notices.append("생성 실패 문서: " + ",".join(failed))
     if unsupported:
-        warnings.append("HWPX 미지원 문서는 건너뜀: " + ",".join(unsupported))
+        notices.append("HWPX 미지원으로 제외: " + ",".join(unsupported))
+    if blank_boxes:
+        notices.append("일부 도장/서명란은 등록된 이미지가 없어 빈칸으로 처리되었습니다.")
 
     try:
         from backend.services import audit_service as _audit
@@ -2033,7 +2048,8 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
         "X-Hwpx-Count": str(len(outputs)),
         "X-Hwpx-Filled": str(total_filled),
         "X-Hwpx-Repointed": str(total_repointed),
-        "X-Hwpx-Warnings": quote(" | ".join(warnings), safe=""),
+        "X-Hwpx-Blank-Boxes": str(blank_boxes),
+        "X-Hwpx-Notice": quote(" / ".join(notices), safe=""),
     }
 
     # 결과 1개 → 단일 .hwpx, 2개 이상 → ZIP(내부 파일명: 서류명_이름_YYYYMMDD.hwpx)
