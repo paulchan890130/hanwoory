@@ -5,6 +5,17 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "rea
 import { toast } from "sonner";
 import { api, manualApi, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
 import { Loader2, RotateCcw } from "lucide-react";
+import {
+  recommendGroup, summarizeGroup, judgmentPoints, affectedTargets,
+  REC_KR, REC_CONF_KR, type RecResult, type RecKind,
+} from "./manualReviewRecommend";
+
+// 자동 추천(규칙 기반) 배지 색상 (검토완료=green / 보류=yellow / 무시=red)
+const REC_STYLE: Record<RecKind, { bg: string; color: string; bd: string }> = {
+  approve: { bg: "#C6F6D5", color: "#22543D", bd: "#9AE6B4" },
+  hold: { bg: "#FEFCBF", color: "#975A16", bd: "#FAF089" },
+  reject: { bg: "#FED7D7", color: "#822727", bd: "#FEB2B2" },
+};
 
 export type PgStateResp = {
   source: "pg" | "file";
@@ -217,6 +228,7 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
   })();
   const saveOverride = async () => {
     if (pageErr) { toast.error(pageErr); return; }
+    if (!reason.trim()) { toast.error("수동 페이지 지정 사유를 입력하세요 (필수)."); return; }
     setBusy(true);
     try {
       await api.post(`/api/guidelines/manual-update/decisions/${encodeURIComponent(cand.row_id)}/override`, {
@@ -259,10 +271,14 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
       {/* 수동 페이지 지정 — 기존/추천이 모두 틀릴 때 실제 페이지 직접 입력 */}
       <div className="mb-2 p-2 rounded" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
         <div className="text-[11px] font-bold mb-1" style={{ color: "#92400E" }}>
-          ✏️ 수동 페이지 지정 — 기존·추천 페이지가 모두 틀릴 때 실제 매뉴얼 페이지를 직접 입력하세요.
+          ✏️ 수동 페이지 지정
+          {hasOverride && <span className="ml-1" style={{ fontSize: 10, padding: "1px 6px", borderRadius: 8, background: "#FBD38D", color: "#7B341E", fontWeight: 700 }}>수동 지정됨</span>}
           {pageCountKnown && pageCount != null
             ? <span style={{ fontWeight: 400, color: "#718096" }}> (전체 {pageCount}페이지 — 1~{pageCount} 입력 가능)</span>
             : <span style={{ fontWeight: 400, color: "#C05621" }}> (전체 페이지 수 확인 불가)</span>}
+        </div>
+        <div className="text-[11px] mb-2" style={{ color: "#92400E", lineHeight: 1.5 }}>
+          자동 매칭된 기존 페이지와 후보 페이지가 틀렸을 때만 수정하세요. 실제 변경이 있는 매뉴얼 페이지 범위를 입력하면 해당 페이지 기준으로 다시 비교합니다. <b>사유는 필수</b>입니다.
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px]" style={{ color: "#718096" }}>기준</span>
@@ -273,9 +289,9 @@ function CandidateDetailView({ d, version, cand, decision, onOpenPdf, onOpenCand
           <input type="number" min={1} value={cf} onChange={(e) => setCf(e.target.value)} className="hw-input" style={{ width: 56 }} />
           <span>-</span>
           <input type="number" min={1} value={ct} onChange={(e) => setCt(e.target.value)} className="hw-input" style={{ width: 56 }} />
-          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사유 (예: 자동매칭 오류, 실제 p.40)" className="hw-input" style={{ flex: 1, minWidth: 160 }} />
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사유 필수 (예: 자동 매칭이 D-8-1로 잡혔으나 실제 변경은 D-7 주재 p.108-109)" className="hw-input" style={{ flex: 1, minWidth: 160 }} />
           <button disabled={busy} onClick={() => void doRecompare()} className="text-[11px] px-2 py-1 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>다시 비교</button>
-          <button disabled={busy || !!pageErr} onClick={() => void saveOverride()} title={pageErr || "관리자 지정 페이지 저장"} className="text-[11px] px-2 py-1 rounded disabled:opacity-50" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>페이지 저장</button>
+          <button disabled={busy || !!pageErr || !reason.trim()} onClick={() => void saveOverride()} title={pageErr || (!reason.trim() ? "사유를 입력하세요 (필수)" : "관리자 지정 페이지 저장")} className="text-[11px] px-2 py-1 rounded disabled:opacity-50" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>페이지 저장</button>
           <button disabled={busy} onClick={() => void clearOverride()} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>초기화</button>
         </div>
         {pageErr && <div className="text-[10px] mt-1" style={{ color: "#C53030" }}>⚠ {pageErr}</div>}
@@ -565,11 +581,13 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const [detailCache, setDetailCache] = useState<Record<string, PgCandidateDetail>>({});
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
   const [bulkApply, setBulkApply] = useState(false);                  // 운영 반영 요약 모달
+  const [helpOpen, setHelpOpen] = useState(false);                    // "검토완료/보류/무시 차이 보기" 도움말
+  const [bulkConfirm, setBulkConfirm] = useState<{ ui: "approve" | "hold" | "reject"; rowIds: string[]; hasImportant: boolean } | null>(null);  // 일괄 처리 확인 모달
   const [showAdvCols, setShowAdvCols] = useState(false);              // 후보 표 고급 컬럼(신뢰도/매칭사유/row_id) 표시
   const [mainTab, setMainTab] = useState<"unreviewed" | "important" | "done" | "advanced">("unreviewed");
   const [visibleCount, setVisibleCount] = useState(20);               // 페이지 그룹 표시 제한(더 보기)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());  // 펼친 페이지 그룹 key
-  useEffect(() => { setVisibleCount(20); }, [mainTab, stayFilter]);   // 탭/필터 변경 시 표시수 초기화
+  useEffect(() => { setVisibleCount(20); setSelected(new Set()); }, [mainTab, stayFilter]);   // 탭/필터 변경 시 표시수·선택 초기화
   const [pdfView, setPdfView] = useState<{ manual?: string; page: number; isStaging?: boolean; artifactId?: number; label?: string; reviewOnly?: boolean; source?: string } | null>(null);
   const [pdfStatus, setPdfStatus] = useState<Record<string, PdfStatus>>({});
   const [runCap, setRunCap] = useState<{ can_diagnose?: boolean; can_record_update?: boolean; can_generate_pdf?: boolean; node_available?: boolean; extract_mjs_exists?: boolean; rhwp_available?: boolean; chromium_pkg_present?: boolean; chromium_available?: boolean; chromium_path?: string; is_worker?: boolean; runtime?: string; reason?: string; pdf_reason?: string } | null>(null);
@@ -902,6 +920,12 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates, decisions, stayFilter]);
+  // 그룹(카드)별 규칙 기반 추천(검토완료/보류/무시) — 표시·일괄선택 보조용(운영 로직 무관).
+  const recByKey = useMemo(() => {
+    const m: Record<string, RecResult> = {};
+    for (const g of pageGroups) m[g.key] = recommendGroup(g.cands);
+    return m;
+  }, [pageGroups]);
   const tabCounts = {
     unreviewed: pageGroups.filter((g) => g.pending).length,
     important: pageGroups.filter((g) => g.important && g.pending).length,
@@ -964,6 +988,33 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const pendingCnt = s.pending_count ?? 0;
   const curStep = versions.length === 0 ? 1 : (pendingCnt > 0 ? 3 : 4);
 
+  // ── 회차(run) 정보 + 검토 카운트 (상단 헤더용) ─────────────────────────────
+  const curVer = versions.find((v) => v.version === version);
+  const verIdx = versions.findIndex((v) => v.version === version);
+  const runOrdinal = verIdx >= 0 ? versions.length - verIdx : null;   // 최신 = 가장 큰 번호
+  const labelsInRun = Array.from(new Set(candidates.map((c) => c.manual_label).filter(Boolean))) as string[];
+  const targetKr = labelsInRun.length === 0 ? "-"
+    : labelsInRun.length >= 2 ? "공통(사증·체류)" : labelsInRun.map(manualKr).join(" · ");
+  const fmtDt = (iso?: string | null) => (iso ? iso.replace("T", " ").slice(0, 16) : "-");
+  // 검토 진행 카운트(no-op 제외, decByRow 기준 재계산).
+  const reviewCounts = (() => {
+    let done = 0, keep = 0, hold = 0, reject = 0, pending = 0, important = 0, detected = 0;
+    for (const c of candidates) {
+      if (c.needs_review === false) continue;   // no-op 제외
+      detected++;
+      if (isImportantCand(c)) important++;
+      const dk = decByRow[c.row_id]?.decision ?? "";
+      if (dk === "REVIEWED_APPROVE_CANDIDATE" || dk === "NEEDS_MANUAL_PAGE") done++;
+      else if (dk === "REVIEWED_KEEP_EXISTING") keep++;
+      else if (dk === "UNRESOLVED") hold++;
+      else if (dk === "REJECTED_BAD_CANDIDATE") reject++;
+      else pending++;
+    }
+    return { done, keep, hold, reject, pending, important, detected };
+  })();
+  const blByLabel: Record<string, { version: string; page_count: number }> = {};
+  for (const v of blVersions) blByLabel[v.manual_label] = { version: v.version, page_count: v.page_count };
+
   return (
     <div className="space-y-4">
       {/* 워크플로 — 4단계 시각 스테퍼 (현재 단계 강조 · 완료 초록 · 대기 회색) */}
@@ -989,6 +1040,65 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           운영 매뉴얼은 아직 바뀌지 않았습니다. 아래 <b>검토 대상</b>만 확인한 뒤 <b>운영 반영</b>을 누르세요. (‘운영 반영’ 전까지 자동 반영 없음)
         </div>
       </div>
+
+      {/* 상단 안내 — 무엇을 검토하고 어떤 결정을 하는지 (검토완료/보류/무시 정의) */}
+      <div className="hw-card" style={{ background: "#FFFDF7", borderColor: "#FEEBC8" }}>
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="text-xs" style={{ color: "#4A5568", lineHeight: 1.8, maxWidth: 760 }}>
+            이 화면은 <b>새 실무지침과 기존 실무지침을 비교</b>하여, 운영 데이터에 반영할 변경사항을 검토하는 단계입니다. 각 항목에서 다음 중 하나를 선택하세요.
+            <div className="mt-2 grid gap-1.5">
+              <div><span style={{ background: "#C6F6D5", color: "#22543D", fontWeight: 700, padding: "1px 8px", borderRadius: 10 }}>검토 완료</span> 실제 지침 변경으로 인정 → <b>이번 운영 반영 대상에 포함</b>합니다.</div>
+              <div><span style={{ background: "#FEFCBF", color: "#975A16", fontWeight: 700, padding: "1px 8px", borderRadius: 10 }}>보류</span> 지금 판단하기 어려움 → 이번 반영에서는 <b>제외</b>하고 보류함에 남겨 나중에 다시 검토합니다.</div>
+              <div><span style={{ background: "#FED7D7", color: "#822727", fontWeight: 700, padding: "1px 8px", borderRadius: 10 }}>무시</span> 자동 감지 오류이거나 우리 업무와 무관 → <b>이번 변경에서 제외(종결)</b>합니다.</div>
+            </div>
+            <div className="mt-2" style={{ color: "#C05621" }}>
+              모든 항목이 <b>검토 완료·보류·무시</b> 중 하나로 처리되어야 운영 반영을 진행할 수 있습니다.
+            </div>
+          </div>
+          <button type="button" onClick={() => setHelpOpen(true)}
+            className="text-[11px] px-2.5 py-1 rounded font-bold flex-shrink-0"
+            style={{ background: "#EBF8FF", color: "#2B6CB0", border: "1px solid #BEE3F8" }}>
+            검토 완료 / 보류 / 무시 차이 보기
+          </button>
+        </div>
+      </div>
+
+      {/* 회차(run) 정보 헤더 — 몇 번째 업데이트인지 + 기준/후보 + 검토 진행 카운트 */}
+      {version && (
+        <div className="hw-card" style={{ background: "#F7FAFF", borderColor: "#BEE3F8" }}>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-sm font-bold" style={{ color: "#2B6CB0" }}>
+              매뉴얼 업데이트{runOrdinal != null ? ` #${runOrdinal}` : ""} · {version}
+            </span>
+            <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "#E9D8FD", color: "#553C9A", fontWeight: 700 }}>대상: {targetKr}</span>
+            <span className="text-[11px]" style={{ color: "#718096" }}>감지일시 {fmtDt(curVer?.detected_at)}</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-[11px]" style={{ color: "#4A5568" }}>
+            {labelsInRun.map((lbl) => (
+              <div key={lbl}>
+                <span style={{ color: "#A0AEC0" }}>{manualKr(lbl)} </span>
+                기준 v{blByLabel[lbl]?.version ?? "-"} ({blByLabel[lbl]?.page_count ?? "-"}p)
+                {curVer?.label_timestamps?.[lbl] ? ` → 후보 ${fmtDt(curVer.label_timestamps[lbl])}` : ""}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap mt-2 text-[11px]">
+            {[
+              ["감지", reviewCounts.detected, "#EDF2F7", "#4A5568"],
+              ["중요", reviewCounts.important, "#FEEBC8", "#9C4221"],
+              ["검토완료", reviewCounts.done, "#C6F6D5", "#22543D"],
+              ["기존유지", reviewCounts.keep, "#BEE3F8", "#2A4365"],
+              ["보류", reviewCounts.hold, "#FAF089", "#744210"],
+              ["무시", reviewCounts.reject, "#FED7D7", "#822727"],
+              ["미검토", reviewCounts.pending, "#FEFCBF", "#975A16"],
+            ].map(([label, val, bg, color]) => (
+              <span key={label as string} style={{ background: bg as string, color: color as string, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+                {label} {val}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 상태 요약 — 한눈에 */}
       {(() => {
@@ -1349,6 +1459,39 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
           {/* 검토 카드 목록 — 페이지 단위 그룹 · 현재 탭 20개만 렌더(더 보기) · 상세는 펼칠 때만 lazy */}
           {mainTab !== "advanced" && (
           <div className="p-3 flex flex-col gap-2">
+            {/* 일괄 선택 / 일괄 처리 도구 */}
+            {tabGroups.length > 0 && (
+              <div className="rounded-lg p-2 flex items-center gap-1.5 flex-wrap" style={{ background: "#F7FAFC", border: "1px solid #E2E8F0" }}>
+                <span className="text-[11px] font-bold" style={{ color: "#4A5568" }}>선택 {selected.size}</span>
+                <span style={{ color: "#CBD5E0" }}>|</span>
+                <span className="text-[11px]" style={{ color: "#A0AEC0" }}>빠른 선택</span>
+                <button onClick={() => setSelected(new Set(tabGroups.flatMap((g) => g.rowIds)))} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#4A5568", background: "#fff" }}>현재 목록 전체</button>
+                <button onClick={() => setSelected(new Set(tabGroups.filter((g) => g.important).flatMap((g) => g.rowIds)))} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#FBD38D", color: "#9C4221", background: "#fff" }}>중요 변경만</button>
+                <button onClick={() => setSelected(new Set(tabGroups.filter((g) => (recByKey[g.key]?.rec) === "approve").flatMap((g) => g.rowIds)))} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>자동추천 검토완료만</button>
+                <button onClick={() => setSelected(new Set(tabGroups.filter((g) => (recByKey[g.key]?.rec) === "hold").flatMap((g) => g.rowIds)))} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>자동추천 보류만</button>
+                <button onClick={() => setSelected(new Set(tabGroups.filter((g) => (recByKey[g.key]?.rec) === "reject").flatMap((g) => g.rowIds)))} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#FEB2B2", color: "#822727", background: "#fff" }}>자동추천 무시만</button>
+                {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#E2E8F0", color: "#A0AEC0", background: "#fff" }}>선택 해제</button>}
+                <span style={{ color: "#CBD5E0" }}>|</span>
+                <span className="text-[11px]" style={{ color: "#A0AEC0" }}>선택 일괄</span>
+                {([["approve", "검토 완료", "#C6F6D5", "#22543D"], ["hold", "보류", "#FEFCBF", "#975A16"], ["reject", "무시", "#FED7D7", "#822727"]] as [("approve" | "hold" | "reject"), string, string, string][]).map(([ui, label, bg, color]) => (
+                  <button key={ui} disabled={busy === "bulk" || selected.size === 0}
+                    onClick={() => {
+                      const rowIds = Array.from(selected);
+                      const hasImportant = tabGroups.some((g) => g.important && g.rowIds.some((id) => selected.has(id)));
+                      setBulkConfirm({ ui, rowIds, hasImportant });
+                    }}
+                    className="text-[11px] px-2 py-0.5 rounded font-bold disabled:opacity-40"
+                    style={{ background: bg, color, border: "none" }}>
+                    일괄 {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {tabGroups.length > 0 && (
+              <div className="text-[11px] px-1" style={{ color: "#A0AEC0" }}>
+                ‘자동 추천’은 규칙 기반 <b>참고용</b>입니다 — 최종 판단(검토 완료 / 보류 / 무시)은 관리자가 합니다.
+              </div>
+            )}
             {visibleGroups.length === 0 && (
               <div style={{ color: "#A0AEC0", textAlign: "center", padding: 16, fontSize: 12 }}>이 탭에 표시할 페이지가 없습니다.</div>
             )}
@@ -1356,10 +1499,27 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
               const kind = CHANGE_KIND[g.change_kind] ?? CHANGE_KIND.text_changed;
               const open = expandedGroups.has(g.key);
               const groupBusy = g.rowIds.some((id) => busy === id);
-              const statusBadge = g.pending ? { label: "미검토", bg: "#FEFCBF", color: "#975A16" } : { label: "검토 완료", bg: "#C6F6D5", color: "#22543D" };
+              const rec = recByKey[g.key] ?? recommendGroup(g.cands);
+              const recS = REC_STYLE[rec.rec];
+              const { codes, areas } = affectedTargets(g.cands);
+              // 그룹 현재 결정 배지: 행별 결정이 일치하면 그 값, 섞이면 '혼합', 미결이면 미검토.
+              const decKeys = g.rowIds.map((id) => decByRow[id]?.decision ?? "");
+              const allSame = decKeys.every((k) => k === decKeys[0]);
+              const grpBadge = !g.pending
+                ? (allSame ? (DEC_BADGE[decKeys[0]] ?? DEC_BADGE[""]) : { label: "혼합", color: "#4A5568", bg: "#E2E8F0" })
+                : DEC_BADGE[""];
+              const allSelected = g.rowIds.length > 0 && g.rowIds.every((id) => selected.has(id));
+              const toggleCard = () => setSelected((prev) => {
+                const n = new Set(prev);
+                if (allSelected) g.rowIds.forEach((id) => n.delete(id));
+                else g.rowIds.forEach((id) => n.add(id));
+                return n;
+              });
+              const points = judgmentPoints(g, rec);
               return (
-                <div key={g.key} className="rounded-lg border" style={{ borderColor: g.important && g.pending ? "#F6AD55" : "#E2E8F0", background: "#fff", padding: 12 }}>
+                <div key={g.key} className="rounded-lg border" style={{ borderColor: allSelected ? "#2B6CB0" : g.important && g.pending ? "#F6AD55" : "#E2E8F0", background: allSelected ? "#F7FBFF" : "#fff", padding: 12 }}>
                   <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 6 }}>
+                    <input type="checkbox" checked={allSelected} onChange={toggleCard} title="이 항목 선택 (일괄 처리용)" />
                     <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 8, background: g.manual_label === "visa" ? "#E9D8FD" : "#BEE3F8", color: "#4A5568" }}>{manualKr(g.manual_label)}</span>
                     <span style={{ fontWeight: 700, color: "#2D3748", fontSize: 13 }}>
                       p.{g.old_from}{g.old_to && g.old_to !== g.old_from ? `-${g.old_to}` : ""} → <span style={{ color: g.old_from !== g.new_from ? "#DD6B20" : "#2B6CB0" }}>p.{g.new_from}{g.new_to && g.new_to !== g.new_from ? `-${g.new_to}` : ""}</span>
@@ -1367,16 +1527,39 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                     <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: kind.bg, color: kind.color, fontWeight: 700 }}>{kind.label}</span>
                     {g.important && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "#FEEBC8", color: "#9C4221", fontWeight: 700 }}>중요 변경 가능성</span>}
                     {g.cands.length > 1 && <span style={{ fontSize: 10, color: "#718096" }}>후보 {g.cands.length}건</span>}
-                    <span className="ml-auto" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: statusBadge.bg, color: statusBadge.color, fontWeight: 700 }}>{statusBadge.label}</span>
+                    <span className="ml-auto" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: grpBadge.bg, color: grpBadge.color, fontWeight: 700 }}>{grpBadge.label}</span>
                   </div>
-                  {g.summary && (
-                    <div style={{ fontSize: 12, color: "#4A5568", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{g.summary}</div>
-                  )}
+
+                  {/* 변경 요약 (실무자용 1~2줄) */}
+                  <div style={{ fontSize: 12, color: "#2D3748", lineHeight: 1.55, marginBottom: 6 }}>{summarizeGroup(g)}</div>
+
+                  {/* 영향 대상 */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1" style={{ marginBottom: 6, fontSize: 11 }}>
+                    <span style={{ color: "#718096" }}>영향 체류자격: <b style={{ color: "#4A5568" }}>{codes.length ? codes.join(", ") : "미분류"}</b></span>
+                    {areas.length > 0 && <span style={{ color: "#718096" }}>업무영역: <b style={{ color: "#4A5568" }}>{areas.slice(0, 4).join(" / ")}{areas.length > 4 ? " 외" : ""}</b></span>}
+                  </div>
+
+                  {/* 자동 추천(규칙 기반) 처리 + 근거 + 신뢰도 — 참고용, 최종 판단은 관리자 */}
+                  <div className="rounded p-2 mb-2" style={{ background: "#FBFCFE", border: `1px solid ${recS.bd}` }}>
+                    <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 2 }}>
+                      <span style={{ fontSize: 10, color: "#A0AEC0", fontWeight: 700 }} title="후보의 페이지·유사도·신뢰도·체류자격 혼재 등 신호를 규칙으로 분석한 참고용 추천입니다. 최종 판단은 관리자가 합니다.">자동 추천</span>
+                      <span style={{ fontSize: 11, padding: "1px 8px", borderRadius: 10, background: recS.bg, color: recS.color, fontWeight: 700 }}>{REC_KR[rec.rec]}</span>
+                      <span style={{ fontSize: 10, color: "#718096" }}>추천 신뢰도 {REC_CONF_KR[rec.confidence]}</span>
+                      <span style={{ fontSize: 9, color: "#A0AEC0" }}>· 참고용</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#4A5568", lineHeight: 1.5 }}>{rec.reason}</div>
+                    {points.length > 0 && (
+                      <div style={{ fontSize: 11, color: "#718096", marginTop: 4 }}>
+                        <b>확인할 점</b> — {points.join(" · ")}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-1 flex-wrap">
                     <button onClick={() => toggleGroup(g.key, g.cands)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#E2E8F0", color: "#2B6CB0", background: "#fff" }}>{open ? "자세히 닫기" : "자세히 보기"}</button>
-                    <button disabled={groupBusy} title="이 페이지 변경을 검토 완료(승인)로 표시" onClick={() => bulkDecision("approve", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>검토 완료</button>
-                    <button disabled={groupBusy} title="나중에 다시 검토" onClick={() => bulkDecision("hold", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>보류</button>
-                    <button disabled={groupBusy} title="이번 후보에서 제외(무시)" onClick={() => bulkDecision("reject", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>무시</button>
+                    <button disabled={groupBusy} title="이 페이지 변경을 검토 완료(승인)로 표시 → 운영 반영 대상" onClick={() => bulkDecision("approve", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>검토 완료</button>
+                    <button disabled={groupBusy} title="이번 반영에서 제외하고 나중에 다시 검토" onClick={() => bulkDecision("hold", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>보류</button>
+                    <button disabled={groupBusy} title="오탐/무관으로 이번 변경에서 종결(무시)" onClick={() => bulkDecision("reject", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>무시</button>
                     {groupBusy && <Loader2 size={12} className="animate-spin" style={{ color: "#A0AEC0" }} />}
                   </div>
                   {open && (
@@ -1592,25 +1775,86 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => busy !== "bulk" && setBulkApply(false)}>
           <div className="hw-card" style={{ width: 420, maxWidth: "90vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
-            <div className="text-sm font-bold mb-2" style={{ color: "#C05621" }}>⚠ 운영 반영 — 요약 확인</div>
-            <div className="text-xs mb-3" style={{ color: "#4A5568", lineHeight: 1.9 }}>
-              <div>승인: <b>{applySummary.approve}</b>건</div>
-              <div>기존유지: <b>{applySummary.keep}</b>건</div>
-              <div>보류: <b>{applySummary.hold}</b>건</div>
-              <div>제외: <b>{applySummary.reject}</b>건</div>
-              <div>실질 변경 없음(no-op): <b>{applySummary.noop}</b>건</div>
-              <div style={{ color: "#C05621", marginTop: 4 }}>이번에 실제 운영 반영될 항목(승인·미반영): <b>{applySummary.applyable}</b>건</div>
-              <div style={{ color: "#A0AEC0" }}>이미 반영됨: {applySummary.applied}건</div>
+            <div className="text-sm font-bold mb-2" style={{ color: "#C05621" }}>⚠ 운영 반영 — 최종 요약 확인</div>
+            <div className="text-xs mb-2 p-2 rounded" style={{ background: "#F0FFF4", border: "1px solid #C6F6D5", lineHeight: 1.9 }}>
+              <div style={{ color: "#22543D", fontWeight: 700 }}>반영 예정 — 검토 완료(승인) {applySummary.applyable}건{applySummary.applied > 0 ? ` (이미 반영 ${applySummary.applied}건 별도)` : ""}</div>
             </div>
-            <div className="text-xs mb-3" style={{ color: "#822727" }}>
-              승인 항목의 후보 페이지를 운영 실무지침(immigration DB)에 반영합니다. 각 건 반영 전 자동 백업됩니다.
+            <div className="text-xs mb-2" style={{ color: "#4A5568", lineHeight: 1.9 }}>
+              <div>이번 반영 제외 — 보류: <b>{applySummary.hold}</b>건 · 무시: <b>{applySummary.reject}</b>건 · 기존유지: <b>{applySummary.keep}</b>건</div>
+              <div>미검토: <b style={{ color: reviewCounts.pending > 0 ? "#C53030" : "#718096" }}>{reviewCounts.pending}</b>건 · 실질 변경 없음(no-op): {applySummary.noop}건</div>
             </div>
+            {reviewCounts.pending > 0 ? (
+              <div className="text-xs mb-3 p-2 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>
+                ⛔ 미검토 {reviewCounts.pending}건이 남아 운영 반영을 진행할 수 없습니다. 모든 항목을 검토 완료·보류·무시로 처리하세요.
+              </div>
+            ) : (
+              <div className="text-xs mb-3" style={{ color: "#718096", lineHeight: 1.6 }}>
+                보류 항목은 이번 운영 반영에서 제외되며, 보류함에서 나중에 다시 검토할 수 있습니다. 무시 항목은 이번 업데이트 run에서 반영되지 않습니다.
+                <div style={{ color: "#822727", marginTop: 4 }}>승인 항목의 후보 페이지를 운영 실무지침(immigration DB)에 반영합니다. 각 건 반영 전 자동 백업됩니다.</div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button onClick={() => setBulkApply(false)} disabled={busy === "bulk"}
+                className="text-xs px-3 py-1.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>돌아가서 검토</button>
+              <button onClick={() => void doBulkApply()} disabled={busy === "bulk" || applySummary.applyable === 0 || reviewCounts.pending > 0}
+                className="text-xs px-3 py-1.5 rounded disabled:opacity-40" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>
+                {busy === "bulk" ? "반영 중..." : `운영 반영 진행 (${applySummary.applyable}건)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 도움말 모달 — 검토완료/보류/무시 차이 */}
+      {helpOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setHelpOpen(false)}>
+          <div className="hw-card" style={{ width: 460, maxWidth: "92vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-bold mb-3" style={{ color: "#2D3748" }}>검토 완료 / 보류 / 무시 차이</div>
+            <div className="flex flex-col gap-2 text-xs" style={{ color: "#4A5568", lineHeight: 1.6 }}>
+              <div className="p-2 rounded" style={{ background: "#F0FFF4", border: "1px solid #C6F6D5" }}>
+                <b style={{ color: "#22543D" }}>검토 완료 = 반영 대상</b><br />실제 지침 변경으로 인정하고 이번 운영 반영에 포함합니다.
+              </div>
+              <div className="p-2 rounded" style={{ background: "#FFFFF0", border: "1px solid #FAF089" }}>
+                <b style={{ color: "#975A16" }}>보류 = 이번 반영 제외, 보류함에 남김</b><br />지금 판단하기 어려우므로 이번 반영에서는 제외하고 나중에 다시 검토합니다.
+              </div>
+              <div className="p-2 rounded" style={{ background: "#FFF5F5", border: "1px solid #FED7D7" }}>
+                <b style={{ color: "#822727" }}>무시 = 이번 run에서 오탐/무관으로 종결</b><br />자동 감지 오류이거나 우리 업무 데이터와 무관하여 이번 변경에서 제외합니다.
+              </div>
+              <div style={{ color: "#718096" }}><b>자동 추천은 규칙 기반 참고용이며, 최종 판단은 관리자가 합니다.</b> (후보의 페이지·유사도·신뢰도·체류자격 혼재 등 신호를 규칙으로 분석한 것으로, 외부 AI가 반영 여부를 결정하지 않습니다.)</div>
+            </div>
+            <div className="flex justify-end mt-3">
+              <button onClick={() => setHelpOpen(false)} className="text-xs px-3 py-1.5 rounded" style={{ background: "#2B6CB0", color: "#fff", border: "none" }}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 일괄 처리 확인 모달 (검토완료/보류/무시) */}
+      {bulkConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => busy !== "bulk" && setBulkConfirm(null)}>
+          <div className="hw-card" style={{ width: 420, maxWidth: "90vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-bold mb-2" style={{ color: bulkConfirm.ui === "reject" ? "#C53030" : bulkConfirm.ui === "hold" ? "#975A16" : "#22543D" }}>
+              일괄 {bulkConfirm.ui === "approve" ? "검토 완료" : bulkConfirm.ui === "hold" ? "보류" : "무시"} 확인
+            </div>
+            <div className="text-xs mb-2" style={{ color: "#4A5568", lineHeight: 1.7 }}>
+              {bulkConfirm.ui === "approve" && <>선택한 <b>{bulkConfirm.rowIds.length}개 항목</b>을 검토 완료 처리합니다. 이 항목들은 <b>운영 반영 대상에 포함</b>됩니다. 진행할까요?</>}
+              {bulkConfirm.ui === "hold" && <>선택한 <b>{bulkConfirm.rowIds.length}개 항목</b>을 보류 처리합니다. 이번 운영 반영에서는 <b>제외</b>되며 보류함에 남아 나중에 다시 검토할 수 있습니다.</>}
+              {bulkConfirm.ui === "reject" && <>선택한 <b>{bulkConfirm.rowIds.length}개 항목</b>을 무시 처리합니다. 이번 업데이트 run에서 <b>반영되지 않습니다</b>.</>}
+            </div>
+            {bulkConfirm.ui === "reject" && bulkConfirm.hasImportant && (
+              <div className="text-xs mb-2 p-2 rounded" style={{ background: "#FFF5F5", color: "#9B2C2C", border: "1px solid #FEB2B2" }}>
+                ⚠ <b>중요 변경 가능성</b>이 있는 항목이 포함되어 있습니다. 무시하면 이번 업데이트에서 반영되지 않습니다. 정말 무시하시겠습니까?
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setBulkConfirm(null)} disabled={busy === "bulk"}
                 className="text-xs px-3 py-1.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#718096", background: "#fff" }}>취소</button>
-              <button onClick={() => void doBulkApply()} disabled={busy === "bulk" || applySummary.applyable === 0}
-                className="text-xs px-3 py-1.5 rounded" style={{ background: "#DD6B20", color: "#fff", border: "none" }}>
-                {busy === "bulk" ? "반영 중..." : `운영 반영 실행 (${applySummary.applyable}건)`}
+              <button onClick={async () => { const b = bulkConfirm; setBulkConfirm(null); await bulkDecision(b.ui, b.rowIds); }}
+                disabled={busy === "bulk"}
+                className="text-xs px-3 py-1.5 rounded font-bold" style={{ background: bulkConfirm.ui === "reject" ? "#C53030" : bulkConfirm.ui === "hold" ? "#DD6B20" : "#2F855A", color: "#fff", border: "none" }}>
+                {busy === "bulk" ? "처리 중..." : `${bulkConfirm.rowIds.length}건 진행`}
               </button>
             </div>
           </div>

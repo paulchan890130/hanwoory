@@ -1925,6 +1925,18 @@ def list_hwpx_templates(_: dict = Depends(get_current_user)):
     }
 
 
+def _fn_part(s: Optional[str], maxlen: int = 40) -> str:
+    """파일명 1구획 정리: 금지문자(/ \\ : * ? " < > |) → '_', 공백 제거, 양끝 정리, truncate.
+
+    HWPX 다운로드 파일명(YYMMDD_업무_이름[_서류명])의 각 구획에 사용. 빈 입력 → ''."""
+    import re
+    s = (s or "").strip()
+    s = re.sub(r'[\\/:*?"<>|]+', "_", s)   # 파일명 금지문자 → _
+    s = re.sub(r"\s+", "", s)               # 공백 제거
+    s = s.strip("_. ")
+    return s[:maxlen]
+
+
 @router.post("/generate-hwpx")
 def generate_hwpx(req: FullDocGenRequest, user: dict = Depends(get_current_user)):
     """[추가 기능] HWPX 자동작성. DOC 전역 동시수 1 게이트 후 실행. PDF 경로와 독립."""
@@ -1971,8 +1983,14 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
     # PDF 와 동일 규칙의 도장/서명 이미지(전 역할). 각 템플릿엔 존재하는 marker 만 엔진이 repoint.
     marker_pngs, transparent_markers = _compute_hwpx_marker_pngs(req, ctx)
 
-    applicant_name = ctx["applicant"].get("한글", "고객") or "고객"
-    ymd = datetime.date.today().strftime("%Y%m%d")
+    # 다운로드 파일명 구획: YYMMDD_업무_이름[_서류명].
+    #  · 날짜 = 생성일 YYMMDD(하드코딩 금지)  · 이름 = 한글명 > 영문명(성+명) > '신청인'
+    #  · 업무 = 사용자가 선택한 민원종류 > 카테고리 > 첫 서류명
+    ymd = datetime.date.today().strftime("%y%m%d")
+    _ko = _fn_part(ctx["applicant"].get("한글"))
+    _en = _fn_part((ctx["applicant"].get("성") or "") + (ctx["applicant"].get("명") or ""))
+    name_part = _ko or _en or "신청인"
+    work_part = _fn_part(req.minwon) or _fn_part(req.category) or _fn_part(resolved[0][0]) or "서류"
     from urllib.parse import quote
     from utils.hwpx_document import render_hwpx_reference_swap
 
@@ -2006,7 +2024,7 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
         if _trans_present:
             blank_boxes += len(_trans_present)
             dev_log.append(f"[{doc_name}] 빈칸(투명) 처리: " + ",".join(_trans_present))
-        outputs.append((f"{doc_name}_{applicant_name}_{ymd}.hwpx", hwpx_bytes))
+        outputs.append((doc_name, hwpx_bytes))   # 파일명은 마지막에 일괄 구성
         print(f"[generate_hwpx][방식C] doc={doc_name} filled={len(filled)} "
               f"repointed={len(repointed)} new_bindata={report['swap']['new_bindata']} "
               f"conflicts={len(report.get('conflicts', []))}")
@@ -2047,9 +2065,11 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
         "X-Hwpx-Notice": quote(" / ".join(notices), safe=""),
     }
 
-    # 결과 1개 → 단일 .hwpx, 2개 이상 → ZIP(내부 파일명: 서류명_이름_YYYYMMDD.hwpx)
+    # 결과 1개 → 단일 .hwpx(YYMMDD_업무_이름.hwpx), 2개 이상 → ZIP
+    # (ZIP 파일명 YYMMDD_업무_이름.zip · 내부 파일명 YYMMDD_업무_이름_서류명.hwpx).
     if len(outputs) == 1:
-        fname, data = outputs[0]
+        _doc_name, data = outputs[0]
+        fname = f"{ymd}_{work_part}_{name_part}.hwpx"
         return StreamingResponse(
             io.BytesIO(data),
             media_type="application/octet-stream",
@@ -2060,12 +2080,13 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
     import zipfile
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for fname, data in outputs:
-            zi = zipfile.ZipInfo(fname)
+        for doc_name, data in outputs:
+            inner = f"{ymd}_{work_part}_{name_part}_{_fn_part(doc_name) or '서류'}.hwpx"
+            zi = zipfile.ZipInfo(inner)
             zi.flag_bits |= 0x800   # UTF-8 파일명 플래그(한글 파일명)
             zf.writestr(zi, data)
     buf.seek(0)
-    zip_name = f"HWPX_{applicant_name}_{ymd}.zip"
+    zip_name = f"{ymd}_{work_part}_{name_part}.zip"
     return StreamingResponse(
         buf,
         media_type="application/zip",

@@ -723,12 +723,15 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
         catch { toast.error("HWPX 생성 실패"); }
         return;
       }
-      // 파일명은 Content-Disposition 우선(단일 .hwpx 또는 다중 .zip). 없으면 fallback.
-      const ymd = getLocalDateString().replace(/-/g, "");
+      // 파일명은 Content-Disposition 우선(서버가 YYMMDD_업무_이름[_서류명] 으로 내려줌).
+      // CD 가 없을 때만 아래 fallback(동일 형식)을 쓴다.
+      const ymd = getLocalDateString().replace(/-/g, "").slice(2);   // YYMMDD
       const count = Number(res.headers?.["x-hwpx-count"] || supportedDocs.length || 1);
+      const nm = (roleDisplayName(applicant) || "신청인").replace(/[\\/:*?"<>|\s]+/g, "");
+      const wk = (minwon || category || supportedDocs[0] || "서류").replace(/[\\/:*?"<>|\s]+/g, "");
       let fname = count > 1
-        ? `HWPX_${roleDisplayName(applicant) || "고객"}_${ymd}.zip`
-        : `${supportedDocs[0]}_${roleDisplayName(applicant) || "고객"}_${ymd}.hwpx`;
+        ? `${ymd}_${wk}_${nm}.zip`
+        : `${ymd}_${wk}_${nm}.hwpx`;
       const cd = res.headers?.["content-disposition"] as string | undefined;
       const m = cd?.match(/filename\*=UTF-8''([^;]+)/i);
       if (m?.[1]) { try { fname = decodeURIComponent(m[1]); } catch { /* keep fallback */ } }
@@ -1055,27 +1058,22 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
             HWPX가 기본 출력 형식입니다. 선택한 서류 중 HWPX 템플릿이 있는 서류만 생성됩니다. (한컴오피스 또는 rhwp 확장 프로그램으로 열어 인쇄)
           </div>
 
-          {/* ── 보조 출력: PDF (선택) — 기존 PDF 생성 로직/조건 그대로 유지. HWPX 미지원 서류 포함 시에도 사용 가능. */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 8px" }}>
-            <div style={{ flex: 1, height: 1, background: BORDER }} />
-            <span style={{ fontSize: 11, color: "#A0AEC0" }}>또는</span>
-            <div style={{ flex: 1, height: 1, background: BORDER }} />
-          </div>
-          <SubmitButton
-            isSubmitting={generating}
-            variant="secondary"
-            disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady}
-            onClick={handleGenerate}
-            loadingText="PDF 생성 중..."
-            style={{ width: "100%", padding: "10px 0", background: "#fff", color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#A0AEC0" : "#4A5568", border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 13, fontWeight: 600, transition: "all 0.15s", marginBottom: 6 }}
-          >
-            <><FileText size={14} /> 🖨 PDF로 생성</>
-          </SubmitButton>
-          <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>
-            PDF가 필요한 경우에만 선택하여 생성하세요.
+          {/* ── 보조 출력: PDF (작은 보조 버튼) — 기존 PDF 생성 로직/조건/API 그대로 유지 ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, marginBottom: 6, flexWrap: "wrap" }}>
+            <SubmitButton
+              isSubmitting={generating}
+              variant="secondary"
+              disabled={!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady}
+              onClick={handleGenerate}
+              loadingText="PDF 생성 중..."
+              style={{ padding: "5px 12px", background: "#fff", color: (!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) ? "#A0AEC0" : "#718096", border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, fontWeight: 600 }}
+            >
+              <><FileText size={12} /> PDF 생성</>
+            </SubmitButton>
+            <span style={{ fontSize: 11, color: "#A0AEC0" }}>보조 출력 — 필요할 때만</span>
           </div>
           {(!selectionComplete || !roleIsSet(applicant) || checkedDocs.size === 0 || !accommodationReady || !guarantorReady) && !generating && (
-            <div style={{ fontSize: 11, color: "#A0AEC0", textAlign: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: "#A0AEC0", marginBottom: 8 }}>
               {!selectionComplete ? "업무를 완전히 선택해 주세요"
                 : !roleIsSet(applicant) ? "신청인을 입력해 주세요"
                 : checkedDocs.size === 0 ? "서류를 하나 이상 선택해 주세요"
@@ -1084,7 +1082,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
           )}
           {/* 관계인 조회 실패 비차단 경고 — 버튼을 막지 않고 사용자에게 알림 */}
           {((accommodationStatus === "error" && !roleIsSet(accommodation)) || (guarantorStatus === "error" && !roleIsSet(guarantor))) && !generating && (
-            <div style={{ fontSize: 11, color: "#C05621", background: "#FFFBEB", border: "1px solid #F6E05E", borderRadius: 6, padding: "5px 10px", marginBottom: 8, textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: "#C05621", background: "#FFFBEB", border: "1px solid #F6E05E", borderRadius: 6, padding: "5px 10px", marginBottom: 8 }}>
               관계인 조회 실패 — 필요 시 직접 입력하거나, 미입력 상태로 작성할 수 있습니다.
             </div>
           )}
