@@ -704,9 +704,16 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
     setBusy("bulk");
     try {
       const r = await api.post("/api/guidelines/manual-update/decisions/bulk", { row_ids: rowIds, decision: ui });
-      toast.success(`${DEC_UI_KR[ui] ?? ui} ${r.data?.count ?? rowIds.length}건 저장`);
+      const requested = rowIds.length;
+      const processed = Number(r.data?.count ?? requested);
+      const label = DEC_UI_KR[ui] ?? ui;
+      if (processed < requested) {
+        toast.error(`${requested}개 중 ${processed}개만 ${label} 처리되었습니다. (실패 ${requested - processed}개)`);
+      } else {
+        toast.success(`${requested}개 항목을 ${label} 처리했습니다.`);
+      }
       setSelected(new Set());
-      await reloadDecisions();
+      await reloadDecisions();   // 서버 재조회 우선 — 미검토/반영가능 판단은 최신 서버 상태 기준
     } catch (e) { toast.error(errText(e, "일괄 처리 실패")); }
     finally { setBusy(null); }
   }, [reloadDecisions]);
@@ -1406,14 +1413,14 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
               <span className="text-xs font-semibold" style={{ color: "#2D3748" }}>
                 변경사항 검토 — {mainTab === "advanced" ? `전체 후보 ${candidates.length}건` : `${tabGroups.length} 페이지 (표시 ${visibleGroups.length})`}
               </span>
-              <button disabled={busy === "bulk" || applySummary.applyable === 0 || pendingCnt > 0} onClick={() => setBulkApply(true)}
-                title={pendingCnt > 0 ? `미검토 ${pendingCnt}건이 남아 운영 반영할 수 없습니다` : "승인 항목을 운영 실무지침에 반영 (4단계)"}
+              <button disabled={busy === "bulk" || applySummary.applyable === 0 || reviewCounts.pending > 0} onClick={() => setBulkApply(true)}
+                title={reviewCounts.pending > 0 ? `미검토 ${reviewCounts.pending}건이 남아 운영 반영할 수 없습니다` : "승인 항목을 운영 실무지침에 반영 (4단계)"}
                 className="text-[11px] px-2 py-1 rounded font-bold"
-                style={{ background: (applySummary.applyable && pendingCnt === 0) ? "#DD6B20" : "#E2E8F0", color: (applySummary.applyable && pendingCnt === 0) ? "#fff" : "#A0AEC0", border: "none", cursor: (applySummary.applyable && pendingCnt === 0) ? "pointer" : "not-allowed" }}>
+                style={{ background: (applySummary.applyable && reviewCounts.pending === 0) ? "#DD6B20" : "#E2E8F0", color: (applySummary.applyable && reviewCounts.pending === 0) ? "#fff" : "#A0AEC0", border: "none", cursor: (applySummary.applyable && reviewCounts.pending === 0) ? "pointer" : "not-allowed" }}>
                 4단계 · 운영 반영 ({applySummary.applyable})
               </button>
             </div>
-            {pendingCnt > 0 && (
+            {reviewCounts.pending > 0 && (
               <div className="text-[11px] mb-2 px-2 py-1.5 rounded" style={{ background: "#FFF5F5", color: "#C53030", border: "1px solid #FED7D7" }}>
                 ⚠ 미검토 페이지가 남아 있습니다. 모든 페이지를 검토 완료·보류·무시 처리한 뒤 운영 반영할 수 있습니다.
               </div>
@@ -1462,7 +1469,7 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
             {/* 일괄 선택 / 일괄 처리 도구 */}
             {tabGroups.length > 0 && (
               <div className="rounded-lg p-2 flex items-center gap-1.5 flex-wrap" style={{ background: "#F7FAFC", border: "1px solid #E2E8F0" }}>
-                <span className="text-[11px] font-bold" style={{ color: "#4A5568" }}>선택 {selected.size}</span>
+                <span className="text-[11px] font-bold" style={{ color: "#4A5568" }}>{selected.size}개 선택됨 / 카드 {tabGroups.length}</span>
                 <span style={{ color: "#CBD5E0" }}>|</span>
                 <span className="text-[11px]" style={{ color: "#A0AEC0" }}>빠른 선택</span>
                 <button onClick={() => setSelected(new Set(tabGroups.flatMap((g) => g.rowIds)))} className="text-[11px] px-2 py-0.5 rounded border" style={{ borderColor: "#CBD5E0", color: "#4A5568", background: "#fff" }}>현재 목록 전체</button>

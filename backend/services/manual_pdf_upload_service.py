@@ -233,6 +233,10 @@ def _run_change_detection_once(manual: str, version: str) -> dict:
     candidates = svc.compute_candidates(all_changed, {label: new_pages}, refs)
     svc.save_version(version, {manual_norm: version}, non_same, candidates, None)
     svc.merge_decisions_for_version(version, candidates)
+    # 이 버전을 staging 으로 표시 → 검토 화면 뷰(versions[0])와 운영반영 게이트
+    # (_review_status 의 last_staging_version)를 일치시킨다. 누락 시 검토완료해도
+    # 미검토가 잔존(다른 버전 기준)해 운영반영이 영구 차단되는 버그가 발생한다.
+    svc.mark_staging_version(version, changed_count=len(non_same), candidate_count=len(candidates))
     return {"status": "ok", "manual": manual_norm, "version": version,
             "extracted_pages": extracted, "changed": len(non_same), "candidates": len(candidates)}
 

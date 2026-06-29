@@ -335,6 +335,29 @@ def finish_staged(run_id: int, version: str, changed_count: int,
         session.commit()
 
 
+def mark_staging_version(version: str, *, changed_count: int = 0,
+                         candidate_count: int = 0) -> None:
+    """run 없이 staging 버전을 state 에 반영(관리자 PDF 업로드 → 변경감지 경로용).
+
+    `_review_status`/운영반영 게이트는 `last_staging_version` 기준으로 미검토를 집계하므로,
+    변경감지로 새 버전을 save_version 한 뒤 이 함수로 last_staging_version 을 맞춰야
+    '뷰 버전 ≠ 게이트 버전' 불일치(검토완료해도 미검토 잔존)가 발생하지 않는다.
+    finish_staged 와 달리 run_id 가 없다(업로드 경로는 run 을 만들지 않음)."""
+    if not pg_enabled():
+        return
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        st = _get_or_create_state(session)
+        st.status = "staged"
+        st.last_staging_version = version
+        st.last_detected_version = version
+        st.last_checked_version = version
+        st.needs_review = candidate_count > 0 or changed_count > 0
+        st.updated_at = _now()
+        session.commit()
+
+
 # ── version + changed_pages + candidates 저장 (transaction) ───────────────────
 def save_version(version: str, label_timestamps: dict, changed_pages: list[dict],
                  candidates: list[dict], run_id: Optional[int]) -> dict:
