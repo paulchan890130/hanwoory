@@ -217,6 +217,20 @@ def _digits_ocr(crop: Image.Image, psm: int = 7) -> str:
     return _ocr(g, lang="eng", config=f"--oem 3 --psm {psm} -c tessedit_char_whitelist=0123456789-")
 
 
+def _prep_roi_crop(crop: Image.Image, scale: float) -> Image.Image:
+    """ROI crop 경량 전처리(OCR 직전 1회): grayscale → autocontrast → scale배 LANCZOS 업스케일.
+
+    **해당 crop 에만** 적용한다(전체 이미지 업스케일/멀티패스/재시도 아님 — OCR 호출 횟수 불변).
+    등록증 작은 글자(발급일/만기일)·주소 인식률 보강용. 등록번호 숫자(_digits_ocr)·한글 이름은
+    이미 자체 업스케일이 있어 여기서 건드리지 않는다."""
+    g = ImageOps.grayscale(crop)
+    g = ImageOps.autocontrast(g)
+    if scale and scale != 1.0 and crop.width > 0 and crop.height > 0:
+        g = g.resize((max(1, int(crop.width * scale)), max(1, int(crop.height * scale))),
+                     resample=_PILImage.LANCZOS)
+    return g
+
+
 def _pick_date(text: str, prefer: str = "latest") -> str:
     dates = []
     for m in re.finditer(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", text or ""):
@@ -527,7 +541,7 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
         return value, _dbg(txt, value, reason)
 
     if field == "발급일":
-        txt = _ocr(crop, lang="kor+eng", config="--oem 3 --psm 6")
+        txt = _ocr(_prep_roi_crop(crop, 3), lang="kor+eng", config="--oem 3 --psm 6")
         value = _pick_date(txt, prefer="earliest")
         reason = (
             "" if value
@@ -537,7 +551,7 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
         return value, _dbg(txt or "", value, reason)
 
     if field == "만기일":
-        txt = _ocr(crop, lang="kor+eng", config="--oem 3 --psm 6")
+        txt = _ocr(_prep_roi_crop(crop, 3), lang="kor+eng", config="--oem 3 --psm 6")
         value = _pick_date(txt, prefer="latest")
         reason = (
             "" if value
@@ -547,8 +561,9 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
         return value, _dbg(txt or "", value, reason)
 
     if field == "주소":
-        txt1 = _ocr(crop, lang="kor", config="--oem 3 --psm 6")
-        txt2 = _ocr(crop, lang="kor", config="--oem 3 --psm 4")
+        _addr_crop = _prep_roi_crop(crop, 2)   # 주소는 영역이 커서 2x 만(과도한 4x 금지)
+        txt1 = _ocr(_addr_crop, lang="kor", config="--oem 3 --psm 6")
+        txt2 = _ocr(_addr_crop, lang="kor", config="--oem 3 --psm 4")
         raw = (txt1 or "") + "\n" + (txt2 or "")
         value = _clean_address_text(raw)
         reason = (
@@ -583,4 +598,32 @@ def extract_arc_fields(
             value = ""
         if value:
             out[field] = value
+    return out
+
+
+def extract_arc_fields_detailed(
+    img: Image.Image,
+    rois: Dict[str, Dict[str, float]],
+    fields: Optional[Iterable[str]] = None,
+    rotation_deg: int = 0,
+) -> Dict[str, Dict[str, str]]:
+    """그룹(앞면/뒷면) 추출용: 요청된 필드들을 한 번에 처리해 필드별 {value, raw, reason} 반환.
+
+    각 필드는 기존 단일 추출(extract_arc_field)을 **그대로** 호출한다(필드당 OCR 호출 횟수 불변).
+    빈값도 포함해 반환한다(프론트가 실패 칸 안내를 표시할 수 있도록)."""
+    wanted = list(fields) if fields else list(rois.keys())
+    out: Dict[str, Dict[str, str]] = {}
+    for field in wanted:
+        roi = rois.get(field)
+        if not roi:
+            continue
+        try:
+            value, debug = extract_arc_field(img, field, roi, rotation_deg=rotation_deg)
+        except Exception as exc:  # 한 필드 실패가 그룹 전체를 막지 않도록
+            value, debug = "", {"raw_ocr_text": "", "failure_reason": f"error: {exc}"}
+        out[field] = {
+            "value": value,
+            "raw": debug.get("raw_ocr_text", ""),
+            "reason": debug.get("failure_reason", ""),
+        }
     return out

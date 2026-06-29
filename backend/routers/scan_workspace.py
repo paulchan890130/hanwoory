@@ -17,6 +17,7 @@ from backend.services.global_concurrency import (
 from backend.services.roi_ocr_service import (
     extract_arc_field,
     extract_arc_fields,
+    extract_arc_fields_detailed,
     extract_passport_roi,
     file_bytes_to_pil,
 )
@@ -151,6 +152,7 @@ async def scan_workspace_arc(
     roi_json: str | None = Form(default=None),
     rois_json: str | None = Form(default=None),
     fields_json: str | None = Form(default=None),
+    detailed: str | None = Form(default=None),
     rotation_deg: int = Form(default=0),
     user: dict = Depends(get_current_user),
 ):
@@ -199,6 +201,19 @@ async def scan_workspace_arc(
                     status_code=400,
                     detail=f"허용되지 않은 필드입니다: {', '.join(invalid)}",
                 )
+
+        # 2b) 그룹(앞면/뒷면) 추출 — detailed: 필드별 {value, raw, reason} 반환 + 회전 적용.
+        #     기존 multi 결과맵 모드는 그대로 유지(detailed 없을 때).
+        if detailed and str(detailed).strip().lower() in ("1", "true", "yes", "on"):
+            def _work_group():
+                img = file_bytes_to_pil(img_bytes, content_type)
+                return extract_arc_fields_detailed(img, rois, fields, rotation_deg=rotation_deg)
+
+            async with global_limit(OCR_LOCK_KEY, wait_timeout=OCR_WAIT_SECONDS):
+                fields_result = await asyncio.wait_for(
+                    asyncio.to_thread(_work_group), timeout=_OCR_TIME_BUDGET
+                )
+            return {"ok": True, "fields": fields_result, "rois": rois}
 
         def _work_multi():
             img = file_bytes_to_pil(img_bytes, content_type)

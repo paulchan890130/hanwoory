@@ -223,14 +223,14 @@ export default function RoiPresetBar({
 
         <button
           onClick={() => {
-            if (confirm(`현재 선택된 프리셋(${activeSlot})의 좌표를 기본값으로 되돌립니다. (저장하기 전까지 적용되지 않음)`)) {
+            if (confirm("현재 화면의 타겟 박스 위치를 저장된 좌표(프리셋)로 되돌립니다. 진행할까요?")) {
               onRestoreDefault();
             }
           }}
           style={{ ...BASE_BTN, color: "#718096" }}
-          title="현재 프리셋 좌표를 기본값으로 복원 (이후 '현재 저장' 필요)"
+          title="현재 화면 박스를 관리자 저장 좌표로 초기화 (저장 좌표 없으면 기본 좌표)"
         >
-          ↩ 기본값 복원
+          ↩ 저장 좌표로 초기화
         </button>
 
         <button

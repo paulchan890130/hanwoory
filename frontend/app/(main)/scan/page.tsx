@@ -21,6 +21,9 @@ interface PassportOcr {
 
 const ARC_FIELDS = ["한글", "등록증", "번호", "발급일", "만기일", "주소"] as const;
 type ArcFieldKey = (typeof ARC_FIELDS)[number];
+// 그룹 추출 대상: 앞면(이름·등록번호 앞6·뒤7·발급일) / 뒷면(만기일·주소)
+const ARC_FRONT_FIELDS: ArcFieldKey[] = ["한글", "등록증", "번호", "발급일"];
+const ARC_BACK_FIELDS: ArcFieldKey[] = ["만기일", "주소"];
 
 const ARC_FIELD_LABELS: Record<ArcFieldKey, string> = {
   한글:  "한글 이름",
@@ -846,6 +849,8 @@ export default function ScanPage() {
 
   const [passportLoading, setPassportLoading]   = useState(false);
   const [arcLoadingField, setArcLoadingField]   = useState<ArcFieldKey | null>(null);
+  const [arcGroupLoading, setArcGroupLoading]   = useState<"front" | "back" | null>(null);  // 그룹 추출 진행
+  const [arcGroupFailed, setArcGroupFailed]     = useState<ArcFieldKey[]>([]);               // 그룹 추출 실패(빈값) 칸
 
   // Debug state
   const [debugMode, setDebugMode]         = useState(false);
@@ -873,7 +878,8 @@ export default function ScanPage() {
   // [프리셋] 프리셋 state
   const [presets, setPresets]         = useState<(RoiPreset | null)[]>([null, null, null]);
   const [activeSlot, setActiveSlot]   = useState<1 | 2 | 3>(1);
-  const [editMode, setEditMode]       = useState(false);
+  // 박스 편집을 기본 ON — 업로드 즉시 타겟 박스를 드래그/크기조절할 수 있게(사진 이동과 별개).
+  const [editMode, setEditMode]       = useState(true);
   const [isDirty, setIsDirty]         = useState(false);
 
   // [프리셋] WorkspaceCanvas tf 외부 주입
@@ -970,7 +976,7 @@ export default function ScanPage() {
     setArcExternalTf(arcTf);
     setArcResetTrigger(v => v + 1);
 
-    setEditMode(false);
+    // editMode 는 끄지 않는다 — 프리셋 로드 후에도 타겟 박스를 바로 조정할 수 있어야 한다.
     setIsDirty(false);
   }
 
@@ -1001,9 +1007,18 @@ export default function ScanPage() {
     if (preset) { applyPreset(preset); setActiveSlot(slot); }
   }
 
-  // [프리셋] 기본값으로 복원 — 활성 슬롯 화면 좌표를 빌트인 기본값으로 되돌림.
-  // 화면/dirty 만 변경하고 PG 저장은 사용자가 "현재 저장"을 눌러야 반영.
+  // [프리셋] 초기화 — 현재 화면 박스를 "관리자 저장 좌표(활성 프리셋)"로 되돌린다.
+  // 우선순위: ① 관리자 저장 프리셋 → ② (없을 때만) 하드코딩 기본 좌표 fallback.
   function handleRestoreDefault() {
+    const preset = presets[activeSlot - 1];
+    if (preset) {
+      applyPreset(preset);   // 저장 좌표(arc/passport 박스 + transform)로 복귀
+      setEditMode(true);     // 복귀 후에도 박스 편집 가능 유지
+      setIsDirty(false);
+      toast.message("저장된 좌표로 초기화했습니다.");
+      return;
+    }
+    // 저장 프리셋이 없을 때만 빌트인 기본 좌표로 fallback.
     setPassportMrzBox({
       x: PASSPORT_MRZ_GUIDE.x, y: PASSPORT_MRZ_GUIDE.y,
       w: PASSPORT_MRZ_GUIDE.w, h: PASSPORT_MRZ_GUIDE.h,
@@ -1011,7 +1026,6 @@ export default function ScanPage() {
     setArcBoxes(Object.fromEntries(
       ARC_GUIDE_BOXES.map(b => [b.key, { x: b.x, y: b.y, w: b.w, h: b.h }]),
     ));
-    // 이미지가 이미 올라와 있으면 사용자의 현재 방향을 유지하기 위해 rot 보존.
     const ppTf: WsTf = { scale: 1, tx: 0, ty: 0, rot: 0 };
     setPassportExternalTf(ppTf);
     setPassportResetTrigger(v => v + 1);
@@ -1019,8 +1033,8 @@ export default function ScanPage() {
     setArcExternalTf(arcTf);
     setArcResetTrigger(v => v + 1);
     setEditMode(true);
-    setIsDirty(true);
-    toast.message("기본값으로 복원했습니다. '현재 저장'을 눌러 적용하세요.");
+    setIsDirty(false);
+    toast.message("기본 좌표로 초기화했습니다 (저장된 프리셋 없음).");
   }
 
   // [프리셋] 저장 — 활성 슬롯에 현재 화면 위치 덮어쓰기 (슬롯1의 기본값 플래그 보존)
@@ -1227,6 +1241,68 @@ export default function ScanPage() {
       );
     } finally {
       setArcLoadingField(null);
+    }
+  };
+
+  // 그룹(앞면/뒷면) 한 번에 추출 — 현재 화면의 ROI 좌표로 서버에 1회 요청.
+  //  · 기존 입력값이 있으면 유지하고 빈 칸만 OCR 결과로 채운다(등록증 자동입력 보호 포함).
+  //  · OCR/ROI 로직은 기존 단일 추출과 동일(서버가 필드별 crop 처리). 요청 수만 1회로 줄임.
+  const runArcGroupOcr = async (side: "front" | "back") => {
+    if (!arcFile) { toast.error("등록증 파일을 먼저 올려주세요."); return; }
+    const fields = side === "front" ? ARC_FRONT_FIELDS : ARC_BACK_FIELDS;
+    setArcGroupLoading(side);
+    try {
+      const { tf, container, natural } = arcWsRef.current;
+      const rot = ((tf.rot % 360) + 360) % 360;
+      // 단일 추출과 동일한 effective ROI 해석(선택식 ROI > state 가이드 > 기본)
+      const rois: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const field of fields) {
+        const customRect = arcCustomRois[field];
+        const guide = ARC_GUIDE_BOXES.find(b => b.key === field);
+        const stateBox = arcBoxes[field];
+        const effectiveGuide = customRect
+          ? { key: field, label: ARC_FIELD_LABELS[field], ...customRect }
+          : (guide && stateBox
+              ? { ...guide, ...stateBox }
+              : (guide ?? { key: field, label: field, x: 0, y: 0, w: 1, h: 1, color: "" }));
+        rois[field] = computeRoi(effectiveGuide, container, natural, tf);
+      }
+      const formData = new FormData();
+      formData.append("file", arcFile);
+      formData.append("rois_json", JSON.stringify(rois));
+      formData.append("fields_json", JSON.stringify(fields));
+      formData.append("detailed", "1");
+      formData.append("rotation_deg", String(rot));
+
+      const res = await api.post("/api/scan-workspace/arc", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const resFields = ((res.data as any)?.fields ?? {}) as Record<string, { value?: string }>;
+      const cur: Record<ArcFieldKey, string> = {
+        "한글": 한글, "등록증": 등록증, "번호": 번호, "발급일": 발급일, "만기일": 만기일, "주소": 주소,
+      };
+      let filled = 0, kept = 0, failed = 0;
+      const failedKeys: ArcFieldKey[] = [];
+      for (const field of fields) {
+        const value = String(resFields[field]?.value ?? "");
+        if (!value) { failed++; failedKeys.push(field); continue; }
+        if ((cur[field] || "").trim()) { kept++; continue; }   // 기존값 유지(덮어쓰기 안 함)
+        setArcFieldValue(field, value); filled++;
+      }
+      setArcGroupFailed(failedKeys);
+      const sideKr = side === "front" ? "앞면" : "뒷면";
+      if (failed > 0) {
+        toast(`${sideKr} 추출 — 채움 ${filled} · 유지 ${kept} · 실패 ${failed}. 인식 실패 칸은 직접 입력하거나 박스를 조금 넓혀 다시 추출하세요.`,
+          { icon: "ℹ️", duration: 5000 });
+      } else {
+        toast.success(`${sideKr} 한 번에 추출 완료 — 채움 ${filled} · 기존값 유지 ${kept}`);
+      }
+    } catch (err: unknown) {
+      toast.error(
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "등록증 그룹 OCR 오류",
+      );
+    } finally {
+      setArcGroupLoading(null);
     }
   };
 
@@ -1539,6 +1615,22 @@ export default function ScanPage() {
 
           <div style={{ ...cardStyle, borderLeft: "3px solid #3182ce" }}>
             <div style={sectionTitleStyle}>등록증 결과</div>
+            {/* 안내 + 그룹(앞면/뒷면) 한 번에 추출 — 기본 동선. 개별 추출 버튼은 아래 보조로 유지. */}
+            <div style={{ fontSize: 11, color: "#718096", lineHeight: 1.6, marginBottom: 8 }}>
+              저장된 기본 영역이 이미지 위에 표시됩니다. 필요하면 박스를 이동/크기조절한 뒤
+              앞면/뒷면을 <b>한 번에</b> 추출하세요. 기존 입력값은 유지되고 빈 칸만 채웁니다.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+              {([["front", "앞면 한 번에 추출", "앞면 추출 중..."], ["back", "뒷면 한 번에 추출", "뒷면 추출 중..."]] as const).map(([sd, label, busyLabel]) => {
+                const disabled = !arcFile || arcGroupLoading !== null || arcLoadingField !== null;
+                return (
+                  <button key={sd} onClick={() => runArcGroupOcr(sd)} disabled={disabled}
+                    style={disabled ? disabledBtnStyle : { padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#3182ce", color: "#fff", border: "none", cursor: "pointer" }}>
+                    {arcGroupLoading === sd ? busyLabel : label}
+                  </button>
+                );
+              })}
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {arcFieldRows.map(({ key, value, onChange }) => {
                 const loading = arcLoadingField === key;
@@ -1560,7 +1652,7 @@ export default function ScanPage() {
                       <input
                         style={{
                           ...inputStyle,
-                          border: `1px solid ${value === "" && arcDebug?.fieldKey === key ? "#FC8181" : "#CBD5E0"}`,
+                          border: `1px solid ${value === "" && (arcDebug?.fieldKey === key || arcGroupFailed.includes(key)) ? "#FC8181" : "#CBD5E0"}`,
                         }}
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
