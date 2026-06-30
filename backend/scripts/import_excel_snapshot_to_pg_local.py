@@ -204,6 +204,13 @@ def _customer_row_to_pg(d: dict) -> dict:
         if sk in d:
             v = d.get(sk, "")
             out[pg] = v if v != "" else None
+    # 날짜 컬럼은 'YYYY-MM-DD' 로 정규화한다. openpyxl 이 날짜 셀을 datetime 으로
+    # 돌려주면 str() 가 'YYYY-MM-DD 00:00:00' 을 만들어 DB 에 그대로 들어가던 버그
+    # (고객 상세 화면 datetime 노출의 근본 원인)를 import 단계에서 차단한다.
+    from backend.services.date_normalize import normalize_date_only
+    for _date_col in ("card_issue_date", "card_expiry_date", "passport_issue_date", "passport_expiry_date"):
+        if _date_col in out and out[_date_col] is not None:
+            out[_date_col] = normalize_date_only(out[_date_col])
     # 비고 / 기타 are not in mapping above — concat into memo if absent
     extra_bits: list[str] = []
     for k in ("비고", "기타"):

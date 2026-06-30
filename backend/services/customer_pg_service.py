@@ -45,6 +45,17 @@ SHEET_TO_PG = {
 PG_TO_SHEET = {v: k for k, v in SHEET_TO_PG.items()}
 PG_TO_SHEET["memo"] = "비고"
 
+# 날짜만 의미하는 컬럼 — 저장 전/응답 전 항상 'YYYY-MM-DD' 로 정규화한다.
+# (등록증 발급/만기, 여권 발급/만기. card_expiry_date = 체류만료일)
+_DATE_PG_COLUMNS = (
+    "card_issue_date",
+    "card_expiry_date",
+    "passport_issue_date",
+    "passport_expiry_date",
+)
+# 응답(한글 키) 측 동일 필드.
+_DATE_SHEET_KEYS = ("발급일", "만기일", "발급", "만기")
+
 # ── 외국인등록번호 뒷자리(reg_back) 암호화 정책 ────────────────────────────────
 # 1차(전환기): 기존 평문 reg_back 컬럼을 fallback/rollback 용으로 **유지**하고, 읽기
 # 경로에서 항상 마스킹/복호화로 분기한다. 2차에서 reg_back 을 마스크('1******')로
@@ -112,6 +123,13 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
     for pg_col, sheet_key in PG_TO_SHEET.items():
         val = getattr(row, pg_col, "")
         out[sheet_key] = "" if val is None else str(val)
+
+    # 날짜 필드는 응답 직전 'YYYY-MM-DD' 로 정규화한다. 이렇게 하면 DB 에 과거
+    # 'YYYY-MM-DD 00:00:00' 형태가 남아 있어도 API/화면 재발을 막는다(읽기 방어선).
+    from backend.services.date_normalize import normalize_date_only
+
+    for sheet_key in _DATE_SHEET_KEYS:
+        out[sheet_key] = normalize_date_only(out.get(sheet_key, "")) or ""
 
     from backend.services import pii_crypto as _pii
 
@@ -271,6 +289,8 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
 
     SessionLocal = get_sessionmaker()
     base_payload = {SHEET_TO_PG[k]: v for k, v in data.items() if k in SHEET_TO_PG}
+    from backend.services.date_normalize import normalize_date_fields
+    normalize_date_fields(base_payload, _DATE_PG_COLUMNS)
     _encode_reg_back_into_payload(base_payload, tenant_id)
     last_err: Optional[Exception] = None
     for _ in range(max(1, max_retries)):
@@ -330,6 +350,8 @@ def upsert_customer(tenant_id: str, data: dict) -> dict:
     customer_id = str(payload.get("customer_id", "")).strip()
     if not customer_id:
         raise ValueError("고객ID is required")
+    from backend.services.date_normalize import normalize_date_fields
+    normalize_date_fields(payload, _DATE_PG_COLUMNS)
     _encode_reg_back_into_payload(payload, tenant_id)
 
     with SessionLocal() as session:

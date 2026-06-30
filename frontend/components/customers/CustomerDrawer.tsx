@@ -28,6 +28,20 @@ function parseDateStr(s: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// 날짜형 표시값을 'YYYY-MM-DD' 로 통일(프론트 방어선 — 정본은 백엔드).
+// 'YYYY-MM-DD 00:00:00' / 'YYYY-MM-DDT..' / 'YYYY.MM.DD' / 'YYYYMMDD' 를 정리하되
+// 판독 불가/빈값은 원문 그대로 둔다(임의 변환 금지).
+function toDateOnly(v: string | undefined | null): string {
+  const s = (v ?? "").trim();
+  if (!s) return s;
+  const m = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})(?:[ T].*)?$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  const m8 = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m8) return `${m8[1]}-${m8[2]}-${m8[3]}`;
+  return s;
+}
+const DATE_FORM_KEYS = ["발급일", "만기일", "발급", "만기"] as const;
+
 export function getDaysUntil(dateStr: string): number | null {
   const d = parseDateStr(dateStr);
   if (!d) return null;
@@ -1023,7 +1037,9 @@ export function CustomerDrawer({
   // customer 객체 변경 시 form/UI 상태 초기화 (객체 참조 변경마다 실행)
   useEffect(() => {
     if (customer) {
-      setForm({ ...customer });
+      const seed: Record<string, string> = { ...customer };
+      for (const k of DATE_FORM_KEYS) if (k in seed) seed[k] = toDateOnly(seed[k]);
+      setForm(seed);
       setDirty(false);
       setShowSignatureFull(false);
       setShowTempSlots(false);
