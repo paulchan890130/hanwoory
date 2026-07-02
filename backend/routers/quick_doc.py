@@ -224,7 +224,8 @@ ROLE_WIDGETS: dict = {
     "accommodation": "hyin",  # 숙소제공자
     "guarantor":     "byin",  # 신원보증인
     "guardian":      "gyin",  # 법정대리인 (별도 필드)
-    "aggregator":    "pyin",  # 합산자
+    "aggregator":    "pyin",  # 합산자(소득합산자/행정정보 제공자) 원본
+    "spouse":        "syin",  # 통합신청서 배우자칸 alias(합산자가 배우자일 때만 채움)
     "agent":         "ayin",  # 행정사
 }
 
@@ -235,6 +236,7 @@ ROLE_SIGN_WIDGETS: dict = {
     "guarantor":     "bysign",
     "guardian":      "gysign",
     "aggregator":    "pysign",
+    "spouse":        "ssign",  # 통합신청서 배우자칸 서명 alias
     "agent":         "aysign",
 }
 
@@ -331,6 +333,81 @@ def _doc_date_field_values(include_date: bool, custom_date) -> dict:
     end = _add_years(base, 4)
     return {"작성년": str(base.year), "월": str(base.month), "일": str(base.day),
             "종료년": str(end.year), "종료월": str(end.month), "종료일": str(end.day)}
+
+
+# ── 소득합산자(p) ↔ 배우자칸(s) 문서별 overlay ─────────────────────────────────────
+# 소득합산자(aggregator)는 정보제공동의서에서는 **대상자 본인(p)** 으로 그대로 쓰고,
+# 통합신청서에서는 **p_relation** 에 따라 배우자칸(s) 또는 부/모칸(p)으로 **분기**한다.
+# 전역 field_values 하나로 모든 문서를 동일 처리하지 않고, 통합신청서 생성 시점에만 아래 overlay 를
+# 적용(문서별 매핑). 신원보증인(b)/관계는 여기에 관여하지 않는다.
+#
+# 통합신청서 필드/ marker (템플릿에 존재할 때만 채워짐 — 없으면 무해):
+#   배우자칸: skoreanname/ssurname/sgiven names/syyyy/smm/sdd/sfnumber/srnumber/sphone1~3, [[syin]]/[[ssign]]
+#   부·모칸: pkoreanname/… (합산자 원본 p 그대로), [[pyin]]/[[pysign]]
+_UNIFIED_APP_NORM = "통합신청서"   # _normalize_doc_name 결과 기준(공백 제거)
+
+# p 필드 → s(배우자칸) 필드 매핑
+_P_TO_S_FIELD: dict = {
+    "pkoreanname": "skoreanname", "psurname": "ssurname", "pgiven names": "sgiven names",
+    "pyyyy": "syyyy", "pmm": "smm", "pdd": "sdd",
+    "pfnumber": "sfnumber", "prnumber": "srnumber",
+    "pphone1": "sphone1", "pphone2": "sphone2", "pphone3": "sphone3",
+}
+
+
+def _is_unified_application(doc_name: str) -> bool:
+    return _normalize_doc_name(doc_name) == _UNIFIED_APP_NORM
+
+
+def _unified_sp_field_overlay(field_values: dict, has_aggregator: bool, p_relation: str) -> dict:
+    """통합신청서 전용 field_values 사본 — p_relation 에 따라 배우자(s)/부모(p) 분기.
+
+    - 배우자: s* ← p*, 부모칸 p* 공백.
+    - 부/모: p*(부모칸) 유지, s* 공백.
+    - 관계 없음/합산자 없음: s*·부모칸 p* 모두 공백(자동출력 금지).
+    빈 값은 상위 채움 단계에서 공백 " " 로 처리되어 누름틀 이름이 노출되지 않는다.
+    """
+    fv = dict(field_values)
+    for s_key in _P_TO_S_FIELD.values():   # s* 기본 공백(초기화)
+        fv[s_key] = ""
+    # 통합신청서 부/모 칸은 소득합산자(p) 전용 — 신청인 부모/법정대리인(guardian) 자동입력 방지.
+    # parents 는 guardian(미성년)/신청인 부모에서 채워지므로 통합신청서에선 공백 처리(part 5 원칙).
+    fv["parents"] = ""
+    rel = (p_relation or "").strip()
+    if has_aggregator and rel == "배우자":
+        for p_key, s_key in _P_TO_S_FIELD.items():
+            fv[s_key] = field_values.get(p_key, "")
+            fv[p_key] = ""                 # 부모칸 비움
+        # 개별 pfnumber{i} 자리도 비움(부모칸)
+        for i in range(1, 14):
+            if f"pfnumber{i}" in fv:
+                fv[f"pfnumber{i}"] = ""
+    elif has_aggregator and rel in ("부", "모"):
+        pass                               # p*(부모칸) 유지, s* 공백
+    else:
+        for p_key in list(_P_TO_S_FIELD.keys()):   # 관계 미지정 → 부모칸도 공백
+            fv[p_key] = ""
+        for i in range(1, 14):
+            if f"pfnumber{i}" in fv:
+                fv[f"pfnumber{i}"] = ""
+    return fv
+
+
+def _unified_sp_role_bytes(by_role: Optional[dict], has_aggregator: bool, p_relation: str) -> dict:
+    """통합신청서 전용 seal/sign 역할→bytes 사본. 합산자(aggregator) 이미지를 관계에 따라
+    배우자(spouse) 또는 부모(aggregator)로 라우팅하고 반대칸은 None(투명/미삽입). 교차 fallback 없음."""
+    src = dict(by_role or {})
+    agg = src.get("aggregator")
+    rel = (p_relation or "").strip()
+    if has_aggregator and rel == "배우자":
+        src["spouse"] = agg
+        src["aggregator"] = None
+    elif has_aggregator and rel in ("부", "모"):
+        src["spouse"] = None               # 부모칸(aggregator) 유지
+    else:
+        src["spouse"] = None
+        src["aggregator"] = None
+    return src
 
 
 def normalize_field_name(name: str) -> str:
@@ -1104,6 +1181,7 @@ class FullDocGenRequest(BaseModel):
     guarantor_name: Optional[str] = None
     guardian_name: Optional[str] = None
     aggregator_name: Optional[str] = None
+    aggregator_relation: Optional[str] = None   # 소득합산자 관계: 배우자 / 부 / 모 (통합신청서 배우자·부모칸 분기)
     selected_docs: list = []
     seal_applicant: bool = True
     seal_accommodation: bool = True
@@ -1521,6 +1599,10 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
     if req.direct_overrides:
         field_values.update({k: str(v) for k, v in req.direct_overrides.items() if v is not None})
 
+    # 소득합산자(p) 문서별 분기 준비 — 통합신청서에서만 p_relation 에 따라 배우자(s)/부모(p)로 라우팅.
+    has_aggregator = bool(aggregator) or bool((req.aggregator_name or "").strip())
+    p_relation = (req.aggregator_relation or "").strip()
+
     # ── PDF 병합 ──
     try:
         import fitz
@@ -1543,7 +1625,14 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
             if not os.path.exists(abs_path):
                 missing.append(f"{doc_name}(파일없음:{rel_path})")
                 continue
-            fill_and_append_pdf(rel_path, field_values, seal_bytes_by_role, merged, sign_bytes_by_role,
+            # 통합신청서만 p→s/p 분기(문서별 overlay). 그 외(정보제공동의서 등)는 p 원본 그대로.
+            if _is_unified_application(doc_name):
+                doc_fv = _unified_sp_field_overlay(field_values, has_aggregator, p_relation)
+                doc_seal = _unified_sp_role_bytes(seal_bytes_by_role, has_aggregator, p_relation)
+                doc_sign = _unified_sp_role_bytes(sign_bytes_by_role, has_aggregator, p_relation)
+            else:
+                doc_fv, doc_seal, doc_sign = field_values, seal_bytes_by_role, sign_bytes_by_role
+            fill_and_append_pdf(rel_path, doc_fv, doc_seal, merged, doc_sign,
                                 render_mode=req.render_mode)
 
         # 누락 파일이 있으면 422로 명시적 안내 (일부라도 있으면 생성은 계속)
@@ -1910,10 +1999,36 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
         "[[byin]]": seal_only("guarantor"),     "[[bysign]]": sign_only("guarantor"),
         "[[gyin]]": seal_only("guardian"),      "[[gysign]]": sign_only("guardian"),
         "[[pyin]]": seal_only("aggregator"),    "[[pysign]]": sign_only("aggregator"),
+        # 통합신청서 배우자칸 alias. 기본은 투명 — 통합신청서 생성 시 p_relation 에 따라
+        # _unified_sp_marker_pngs 가 합산자 도장/서명을 여기로 라우팅한다(그 외 문서는 투명 유지).
+        "[[syin]]": trans,                      "[[ssign]]": trans,  "[[sysign]]": trans,
         "[[ayin]]": seal_only("agent"),         "[[aysign]]": sign_only("agent"),
     }
     transparent_markers = [m for m, v in marker_pngs.items() if v is trans]
     return marker_pngs, transparent_markers   # 모든 marker non-None(투명 포함)
+
+
+def _unified_sp_marker_pngs(marker_pngs: dict, has_aggregator: bool, p_relation: str) -> dict:
+    """통합신청서 전용 marker_pngs 사본 — 합산자 도장/서명(p)을 관계에 따라 배우자(s)/부모(p)로 라우팅.
+
+    - 배우자: [[syin]]/[[ssign]]/[[sysign]] ← 합산자 도장/서명, [[pyin]]/[[pysign]] 투명.
+    - 부/모: 배우자칸 투명, [[pyin]]/[[pysign]] 유지(부모칸).
+    - 관계 없음/합산자 없음: 배우자·부모칸 모두 투명.
+    모든 marker 는 non-None(투명 포함) 유지 → 원본 placeholder 이미지 잔존 0."""
+    trans = _transparent_png()
+    mp = dict(marker_pngs)
+    p_seal = marker_pngs.get("[[pyin]]", trans)
+    p_sign = marker_pngs.get("[[pysign]]", trans)
+    rel = (p_relation or "").strip()
+    if has_aggregator and rel == "배우자":
+        mp["[[syin]]"] = p_seal; mp["[[ssign]]"] = p_sign; mp["[[sysign]]"] = p_sign
+        mp["[[pyin]]"] = trans;  mp["[[pysign]]"] = trans
+    elif has_aggregator and rel in ("부", "모"):
+        mp["[[syin]]"] = trans;  mp["[[ssign]]"] = trans; mp["[[sysign]]"] = trans
+    else:
+        mp["[[syin]]"] = trans;  mp["[[ssign]]"] = trans; mp["[[sysign]]"] = trans
+        mp["[[pyin]]"] = trans;  mp["[[pysign]]"] = trans
+    return mp
 
 
 @router.get("/hwpx-templates")
@@ -1985,6 +2100,9 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
     field_values = ctx["field_values"]
     # PDF 와 동일 규칙의 도장/서명 이미지(전 역할). 각 템플릿엔 존재하는 marker 만 엔진이 repoint.
     marker_pngs, transparent_markers = _compute_hwpx_marker_pngs(req, ctx)
+    # 소득합산자(p) 문서별 분기 — 통합신청서에서만 p_relation 에 따라 배우자(s)/부모(p) 라우팅.
+    has_aggregator = bool(ctx.get("aggregator")) or bool((req.aggregator_name or "").strip())
+    p_relation = (req.aggregator_relation or "").strip()
 
     # 다운로드 파일명 구획: YYMMDD_업무_이름[_서류명].
     #  · 날짜 = 생성일 YYMMDD(하드코딩 금지)  · 이름 = 한글명 > 영문명(성+명) > '신청인'
@@ -2005,8 +2123,14 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
     failed: list = []
     for doc_name, abs_path in resolved:
         try:
+            # 통합신청서만 p→s/p 분기(문서별 overlay). 그 외는 p 원본 그대로.
+            if _is_unified_application(doc_name):
+                doc_fv = _unified_sp_field_overlay(field_values, has_aggregator, p_relation)
+                doc_marker_pngs = _unified_sp_marker_pngs(marker_pngs, has_aggregator, p_relation)
+            else:
+                doc_fv, doc_marker_pngs = field_values, marker_pngs
             # empty_placeholder=" " (기본) → 빈 누름틀 안내문 억제. marker 유지(삭제/공백치환 안 함).
-            hwpx_bytes, report = render_hwpx_reference_swap(abs_path, field_values, marker_pngs=marker_pngs)
+            hwpx_bytes, report = render_hwpx_reference_swap(abs_path, doc_fv, marker_pngs=doc_marker_pngs)
         except Exception as e:
             # 한 문서 실패가 전체를 막지 않도록 — 문서명만 사용자 안내, 상세는 서버 로그.
             failed.append(doc_name)

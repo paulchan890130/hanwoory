@@ -278,6 +278,8 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
   const [guarantor, setGuarantor]       = useState<RoleState>(emptyRole(true));
   const [guardian, setGuardian]         = useState<RoleState>(emptyRole(true));
   const [aggregator, setAggregator]     = useState<RoleState>(emptyRole(true));
+  // 소득합산자 관계(배우자/부/모) — 통합신청서 배우자·부모칸 분기용. 이 건에만 쓰는 값(DB 저장 안 함).
+  const [aggregatorRelation, setAggregatorRelation] = useState<string>("");
   const [agentSeal, setAgentSeal]   = useState(true);
   const [agentSign, setAgentSign]   = useState(false);
   const [agentHasSign, setAgentHasSign] = useState(false);
@@ -628,6 +630,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
       guardian_name: !guardian.customer ? guardian.directName.trim() || undefined : undefined,
       aggregator_id: aggregator.customer?.id,
       aggregator_name: !aggregator.customer ? aggregator.directName.trim() || undefined : undefined,
+      aggregator_relation: aggregatorRelation || undefined,
       selected_docs: Array.from(checkedDocs),
       seal_applicant: applicant.seal, seal_accommodation: accommodation.seal,
       seal_guarantor: guarantor.seal, seal_guardian: guardian.seal,
@@ -641,7 +644,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
     };
     const blob = await _runGenerate(payload);
     if (blob) { setLastPayload(payload); setPdfUrl(URL.createObjectURL(blob)); toast.success("PDF 생성 완료"); }
-  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, _runGenerate, customDate, includeDate, accommodationProvider, guarantorConnection]);
+  }, [applicant, accommodation, guarantor, guardian, aggregator, aggregatorRelation, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, _runGenerate, customDate, includeDate, accommodationProvider, guarantorConnection]);
 
   const handleEditDownload = useCallback(async () => {
     if (!lastPayload) return;
@@ -757,7 +760,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
     } finally {
       setGeneratingHwpx(false);
     }
-  }, [applicant, accommodation, guarantor, guardian, aggregator, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, customDate, includeDate, accommodationProvider, guarantorConnection, hwpxTemplateKeys]);
+  }, [applicant, accommodation, guarantor, guardian, aggregator, aggregatorRelation, agentSeal, agentSign, checkedDocs, category, minwon, effectiveKind, effectiveDetail, customDate, includeDate, accommodationProvider, guarantorConnection, hwpxTemplateKeys]);
 
   const docs = docsMut.data;
 
@@ -941,6 +944,26 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
           {showGuarantor && <RoleSelector label="신원보증인" icon={<Shield size={13} />} role={guarantor} onChange={setGuarantor} allowDirectInput directInputPlaceholder="이름 직접 입력 가능" />}
           {showGuardian  && <RoleSelector label="대리인 (미성년 법정대리인)" icon={<UserCheck size={13} />} role={guardian} onChange={setGuardian} allowDirectInput directInputPlaceholder="이름 직접 입력 가능" />}
           {showAggregator && <RoleSelector label="합산자 (소득 합산)" icon={<Users size={13} />} role={aggregator} onChange={setAggregator} allowDirectInput directInputPlaceholder="이름 직접 입력 가능" />}
+          {showAggregator && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "-2px 0 10px 2px" }}>
+              <span style={{ fontSize: 11, color: "#718096", fontWeight: 600 }}>합산자 관계</span>
+              <div style={{ display: "flex", gap: 10, fontSize: 12, color: "#4A5568" }}>
+                {(["배우자", "부", "모"] as const).map((rel) => (
+                  <label key={rel} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="aggregator-relation"
+                      checked={aggregatorRelation === rel}
+                      onChange={() => setAggregatorRelation(aggregatorRelation === rel ? "" : rel)}
+                      onClick={() => { if (aggregatorRelation === rel) setAggregatorRelation(""); }}
+                      style={{ accentColor: GOLD }} />
+                    {rel}
+                  </label>
+                ))}
+              </div>
+              <span style={{ fontSize: 10, color: "#A0AEC0" }}>미선택 시 통합신청서 배우자·부모칸 공백</span>
+            </div>
+          )}
           <div style={{ padding: "9px 12px", border: `1px solid ${BORDER}`, borderRadius: 10, background: GRAY_BG, marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

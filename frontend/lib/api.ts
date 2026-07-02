@@ -761,6 +761,7 @@ export interface FullDocGenRequest {
   guarantor_name?: string;
   guardian_name?: string;
   aggregator_name?: string;
+  aggregator_relation?: string;   // 소득합산자 관계: 배우자 / 부 / 모 (통합신청서 배우자·부모칸 분기)
   selected_docs: string[];
   seal_applicant?: boolean;
   seal_accommodation?: boolean;

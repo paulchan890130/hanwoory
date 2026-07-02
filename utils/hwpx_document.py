@@ -52,6 +52,15 @@ HWPX_FIELD_ALIASES: dict = {
     "희망": "hope",
 }
 
+# ── placeholder-우선 키(누름틀 name 이 stale 한 템플릿 보정) ──────────────────────────
+# 일부 템플릿(신원보증서 '나. 보증기간' 종료일)은 종료 누름틀의 fieldBegin **name** 을 실수로
+# '작성년/작성월/작성일' 로 두고 placeholder **텍스트**만 '종료년/종료월/종료일' 로 두었다.
+# name(작성년)이 시작일/서명일 필드와 겹쳐 **name 기준으로는 종료값을 넣을 수 없다**(같은 name →
+# 같은 값). 그래서 placeholder 텍스트가 아래 라벨이고 그 키가 field_values 에 있으면 **placeholder
+# 를 키로 우선**한다. 시작일(placeholder='작성년')·기타 필드는 영향 없음(이 집합에 없음).
+# 종료년/종료월/종료일 값은 build_field_values → _doc_date_field_values 가 작성일 +4년으로 생성.
+_PLACEHOLDER_PRIORITY_KEYS: set = {"종료년", "종료월", "종료일"}
+
 
 # ── 도장/서명 marker ↔ 역할 ──────────────────────────────────────────────────────
 # 도장(印) = quick_doc.ROLE_WIDGETS 와 동일 체계(yin/hyin/byin/gyin/pyin/ayin).
@@ -61,6 +70,7 @@ SEAL_MARKER_TO_ROLE: dict = {
     "[[byin]]": "guarantor",     # 신원보증인
     "[[gyin]]": "guardian",      # 법정대리인/부모
     "[[pyin]]": "aggregator",    # 소득합산자 (대리인이 [[pyin]] 을 쓰는 템플릿도 허용)
+    "[[syin]]": "spouse",        # 통합신청서 배우자칸 alias(소득합산자가 배우자일 때 p→s 로 출력)
     "[[ayin]]": "agent",         # 행정사
 }
 # 서명(署名) = quick_doc.ROLE_SIGN_WIDGETS 와 동일 체계(ysign/hysign/bysign/gysign/pysign/aysign).
@@ -74,6 +84,9 @@ SIGN_MARKER_TO_ROLE: dict = {
     "[[bysign]]": "guarantor",
     "[[gysign]]": "guardian",
     "[[pysign]]": "aggregator",
+    # 통합신청서 배우자칸 서명 alias. [[ssign]] 은 물론 [[sysign]] 표기 템플릿도 허용.
+    "[[ssign]]":  "spouse",
+    "[[sysign]]": "spouse",
     "[[aysign]]": "agent",
 }
 # 인식 대상 전체(도장 ∪ 서명). marker → (kind, role). kind ∈ "seal"/"sign".
@@ -322,7 +335,14 @@ def replace_hwpx_click_here_fields(xml: str, field_values: dict,
 
     def repl(m: re.Match) -> str:
         name = m.group("name")
+        mid = m.group("mid")
         key = _resolve_key(name)
+        # 누름틀 name 이 stale 한 경우 보정: placeholder 텍스트가 종료년/종료월/종료일 이고 그
+        # 키가 field_values 에 있으면 name(작성년 등)보다 placeholder 를 우선한다(정확히 종료값 채움).
+        ph_match = _HP_T_RE.search(mid)
+        ph_text = re.sub(r"<[^>]+>", "", ph_match.group(0)).strip() if ph_match else ""
+        if ph_text in _PLACEHOLDER_PRIORITY_KEYS and ph_text in field_values:
+            key = ph_text
         if key in field_values:
             value = field_values.get(key)
             value = "" if value is None else str(value)
@@ -333,7 +353,7 @@ def replace_hwpx_click_here_fields(xml: str, field_values: dict,
                 report["unfilled"].append(name)
         if value == "":
             value = empty_placeholder
-        new_mid, changed = _set_region_text(m.group("mid"), value)
+        new_mid, changed = _set_region_text(mid, value)
         if not changed and name not in report["no_text_region"]:
             report["no_text_region"].append(name)
         return m.group("begin") + new_mid + m.group("end")

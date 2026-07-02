@@ -137,7 +137,7 @@ const DRAWER_GROUPS = [
   {
     title: "업무정보",
     fields: [
-      { key: "비고",     label: "비고",     wide: true },
+      { key: "비고",     label: "비고",     wide: true, textarea: true },
       { key: "폴더",     label: "폴더 ID/URL", wide: true },
     ],
   },
@@ -1396,17 +1396,30 @@ export function CustomerDrawer({
                       </Fragment>
                     );
                   }
+                  // 비고 등 여러 줄 입력: textarea(약 5줄). 기존 저장 필드 그대로 사용(줄바꿈 보존).
+                  const isTextarea = (f as { textarea?: boolean }).textarea;
                   return (
                     <div key={f.key} style={{ minWidth:0, overflow:"hidden", ...(wide ? { gridColumn:"1/-1" } : {}) }}>
                       <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>{f.label}</label>
-                      <input
-                        type="text"
-                        className="hw-input"
-                        style={{ width:"100%", boxSizing:"border-box" }}
-                        value={form[f.key] ?? ""}
-                        onChange={(e) => change(f.key, e.target.value)}
-                        placeholder={f.label}
-                      />
+                      {isTextarea ? (
+                        <textarea
+                          className="hw-input"
+                          rows={5}
+                          style={{ width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.5, fontFamily:"inherit" }}
+                          value={form[f.key] ?? ""}
+                          onChange={(e) => change(f.key, e.target.value)}
+                          placeholder={f.label}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          className="hw-input"
+                          style={{ width:"100%", boxSizing:"border-box" }}
+                          value={form[f.key] ?? ""}
+                          onChange={(e) => change(f.key, e.target.value)}
+                          placeholder={f.label}
+                        />
+                      )}
                     </div>
                   );
                 })}
