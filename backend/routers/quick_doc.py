@@ -1904,6 +1904,9 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
     marker_pngs = {
         "[[yin]]":  seal_only("applicant"),     "[[ysign]]":  sign_only("applicant"),
         "[[hyin]]": seal_only("accommodation"), "[[hysign]]": sign_only("accommodation"),
+        # 템플릿 변형 호환: 숙소제공자 서명을 `[[hsign]]` 로 쓰는 템플릿(거주숙소 제공 확인서 등).
+        # 미제공 시 원본 샘플 서명 이미지가 남지 않도록 반드시 서명(없으면 투명)으로 repoint.
+        "[[hsign]]": sign_only("accommodation"),
         "[[byin]]": seal_only("guarantor"),     "[[bysign]]": sign_only("guarantor"),
         "[[gyin]]": seal_only("guardian"),      "[[gysign]]": sign_only("guardian"),
         "[[pyin]]": seal_only("aggregator"),    "[[pysign]]": sign_only("aggregator"),

@@ -67,6 +67,10 @@ SEAL_MARKER_TO_ROLE: dict = {
 SIGN_MARKER_TO_ROLE: dict = {
     "[[ysign]]":  "applicant",
     "[[hysign]]": "accommodation",
+    # 템플릿 변형 호환: 거주숙소 제공 확인서 등 일부 템플릿은 숙소제공자 서명 marker 를
+    # 'y' 가 빠진 `[[hsign]]` 로 쓴다. 미인식 시 그 셀이 repoint 되지 않아 원본 샘플
+    # 서명 이미지가 그대로 남는 버그가 있었으므로 accommodation 서명 alias 로 등록한다.
+    "[[hsign]]":  "accommodation",
     "[[bysign]]": "guarantor",
     "[[gysign]]": "guardian",
     "[[pysign]]": "aggregator",
@@ -302,15 +306,16 @@ def _set_region_text(mid: str, value: str) -> tuple[str, bool]:
 
 
 def replace_hwpx_click_here_fields(xml: str, field_values: dict,
-                                   empty_placeholder: str = "") -> tuple[str, dict]:
+                                   empty_placeholder: str = " ") -> tuple[str, dict]:
     """section XML 의 CLICK_HERE 누름틀을 field_values 로 채운다.
 
     - ``fieldBegin name`` 기준으로만 찾는다(단순 문자열 치환 금지).
     - alias(:data:`HWPX_FIELD_ALIASES`) 적용.
     - field_values 에 키가 있으면 그 값으로, 없으면 placeholder 를 지우고 ``unfilled`` 에 기록.
-    - ``empty_placeholder``: 값이 빈 문자열일 때 ``<hp:t>`` 에 넣을 내용. 기본 "".
-      한컴 CLICK_HERE 는 hp:t 가 비면 안내문("이곳을 마우스로…")을 표시하므로, 공란으로 보이게
-      하려면 " "(공백) 을 주면 안내문이 사라진다.
+    - ``empty_placeholder``: 값이 빈 문자열일 때 ``<hp:t>`` 에 넣을 내용. **기본 " "(공백)**.
+      한컴 CLICK_HERE 는 hp:t 가 비면 안내문("이곳을 마우스로…")을 표시하고, placeholder(=필드명)
+      가 그대로 남으면 문서에 필드명이 노출되므로, 빈값·미지원 필드는 반드시 공백 " " 로 지운다
+      (누름틀 이름/안내문 잔존 방지). "" 를 명시적으로 넘기지 않는 한 필드명은 절대 남지 않는다.
     반환 (새 xml, 보고 dict). 보고: {"filled": {name: key}, "unfilled": [name], "no_text_region": [name]}
     """
     report = {"filled": {}, "unfilled": [], "no_text_region": []}

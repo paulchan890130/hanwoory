@@ -741,6 +741,21 @@ function AccommodationProviderModal({
   const [mRegBack,   setMRegBack]   = useState(m("provider_reg_back"));
   const [mPhone,     setMPhone]     = useState(m("provider_phone"));
 
+  // 숙소 제공일자(제공년/제공월/제공일) — 검색/직접입력 공통. provide_start_date(YYYY-MM-DD)로 저장.
+  // 표시는 앞 0 제거(제공월 "06" → "6"), 자동작성 시 HWPX/PDF 누름틀 제공년/제공월/제공일에 반영.
+  const _pd = (current?.provide_start_date || "").split(/[-./]/);
+  const _pdNorm = (v: string | undefined) => (v && /^\d+$/.test(v) ? String(Number(v)) : "");
+  const [provYear,  setProvYear]  = useState(_pd[0] && /^\d+$/.test(_pd[0]) ? _pd[0] : "");
+  const [provMonth, setProvMonth] = useState(_pdNorm(_pd[1]));
+  const [provDay,   setProvDay]   = useState(_pdNorm(_pd[2]));
+
+  // 세 칸이 모두 있을 때만 유효 ISO(YYYY-MM-DD) 로 합친다. 하나라도 비면 "" → 저장 시 제공일자 비움.
+  const buildProvideStartDate = (): string => {
+    const y = provYear.trim(), mo = provMonth.trim(), d = provDay.trim();
+    if (y && mo && d) return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    return "";
+  };
+
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -770,6 +785,7 @@ function AccommodationProviderModal({
   const handleSave = async () => {
     setSaving(true);
     try {
+      const provideStart = buildProvideStartDate();   // 제공일자 — 검색/직접입력 공통
       let payload: Partial<AccommodationProvider>;
       if (tab === "search") {
         if (!selectedDB) { toast.error("고객을 선택하세요."); setSaving(false); return; }
@@ -778,6 +794,7 @@ function AccommodationProviderModal({
           provider_customer_id:  selectedDB.id,
           provider_name:         selectedDB.name,
           provider_reg_front:    selectedDB.reg_no || "",
+          provide_start_date:    provideStart,
         };
       } else {
         if (!mName.trim()) { toast.error("성명을 입력하세요."); setSaving(false); return; }
@@ -791,6 +808,7 @@ function AccommodationProviderModal({
           provider_reg_front:   mRegFront.trim(),
           provider_reg_back:    mRegBack.trim(),
           provider_phone:       mPhone.trim(),
+          provide_start_date:   provideStart,
         };
       }
       const res = await accommodationApi.save(customerId, payload);
@@ -961,6 +979,32 @@ function AccommodationProviderModal({
               ))}
             </div>
           )}
+
+          {/* 숙소 제공일자 — 검색/직접입력 공통. 자동작성 시 제공년/제공월/제공일 누름틀에 반영.
+              신청일/작성일과 다르며, 비워두면 문서에서 공란으로 처리(오늘 날짜 자동입력 안 함). */}
+          <div style={{ marginTop:14, paddingTop:14, borderTop:`1px dashed ${BORDER}` }}>
+            <label style={{ display:"block", fontSize:11, color:"#4A5568", marginBottom:6, fontWeight:600, letterSpacing:0.1 }}>
+              숙소 제공일자 <span style={{ color:"#A0AEC0", fontWeight:500 }}>(선택 · 비우면 공란)</span>
+            </label>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {([
+                { ph:"2026", val:provYear,  set:setProvYear,  max:4, suffix:"년", grow:1.4 },
+                { ph:"6",    val:provMonth, set:setProvMonth, max:2, suffix:"월", grow:1 },
+                { ph:"29",   val:provDay,   set:setProvDay,   max:2, suffix:"일", grow:1 },
+              ] as { ph:string; val:string; set:(v:string)=>void; max:number; suffix:string; grow:number }[]).map(({ ph, val, set, max, suffix, grow }) => (
+                <div key={suffix} style={{ display:"flex", alignItems:"center", gap:4, flex:grow }}>
+                  <input
+                    value={val}
+                    inputMode="numeric"
+                    maxLength={max}
+                    placeholder={ph}
+                    onChange={e => set(e.target.value.replace(/\D/g, "").slice(0, max))}
+                    style={{ ...inp, textAlign:"center" }} />
+                  <span style={{ fontSize:11, color:"#718096", flexShrink:0 }}>{suffix}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* 저장 버튼 */}
