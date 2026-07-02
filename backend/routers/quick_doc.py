@@ -711,24 +711,23 @@ def build_field_values(
                     field_values["changew"] = s
         elif minwon == "부여":
             field_values["granting"] = "V"
+            # 희망 자격(hope) — 통합신청서 "(희망 자격 : ___)" 칸은 **부여 전용**.
+            # 변경 시 목표 자격은 changew 에, 부여 시 목표 자격은 hope 에만 나오도록 분리한다
+            # (둘이 동시에 표시되지 않게 함). 포맷은 changew 규칙과 동일(F+5·(F,5)→"F5", H2→"H2").
+            s = str(kind or "").strip()
+            d_val = str(detail or "").strip()
+            if s:
+                if "+" in s:
+                    field_values["hope"] = s.replace("+", "")
+                elif d_val and s == "F":
+                    field_values["hope"] = f"{s}{d_val}"
+                else:
+                    field_values["hope"] = s
         elif minwon == "신고":
             if kind == "주소":
                 field_values["adrc"] = "V"
             elif kind == "등록사항":
                 field_values["ant"] = "V"
-
-    # 희망 자격(hope) — 통합신청서 "(희망 자격 : ___)" 칸. 고객 레코드에 '희망자격' 필드가
-    # 없으므로(PG-only 전환으로 제거됨) 문서작성에서 선택한 대상 체류자격(kind+detail)에서 도출한다.
-    # 포맷은 기존 changew 규칙과 동일(예: F+5·(F,5)→"F5", H2→"H2"). 선택 없으면 미설정(공백).
-    _hk = str(kind or "").strip()
-    _hd = str(detail or "").strip()
-    if _hk:
-        if "+" in _hk:
-            field_values["hope"] = _hk.replace("+", "")
-        elif _hd and _hk == "F":
-            field_values["hope"] = f"{_hk}{_hd}"
-        else:
-            field_values["hope"] = _hk
 
     return field_values
 
