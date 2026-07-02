@@ -1053,6 +1053,12 @@ export function CustomerDrawer({
   const [showTempSlots, setShowTempSlots] = useState(false);
   const { submit: submitSlotMap, isSubmitting: slotMapping } = useSubmit();
 
+  // ── 외부 사이트 계정(하이코리아/소시넷) ──
+  // 아이디/비밀번호 모두 평문. 상세 응답(form)에 그대로 채워지고, 저장 시 form 값이 그대로 전송된다.
+  // 보기/숨김 토글은 비밀번호 input type(password↔text) 전환용.
+  const [showHikoreaPw, setShowHikoreaPw] = useState(false);
+  const [showSocinetPw, setShowSocinetPw] = useState(false);
+
   // ── 숙소제공자 ──
   const [providerData, setProviderData] = useState<AccommodationProvider | null>(null);
   const [providerLoading, setProviderLoading] = useState(false);
@@ -1083,6 +1089,8 @@ export function CustomerDrawer({
     if (customer) {
       const seed: Record<string, string> = { ...customer };
       for (const k of DATE_FORM_KEYS) if (k in seed) seed[k] = toDateOnly(seed[k]);
+      // 외부 사이트 계정: 상세 응답의 평문 id/pw 가 seed 에 그대로 채워짐(별도 처리 불필요).
+      setShowHikoreaPw(false); setShowSocinetPw(false);
       setForm(seed);
       setDirty(false);
       setShowSignatureFull(false);
@@ -1424,6 +1432,40 @@ export function CustomerDrawer({
                   );
                 })}
               </div>
+              {/* 외부 사이트 계정(하이코리아/소시넷) — 업무정보(비고 근처) 아래. 신규 고객은 저장 후 표시. */}
+              {grp.title === "업무정보" && !isNew && (
+                <div style={{ marginTop:12, paddingTop:12, borderTop:"1px dashed #E2E8F0" }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:"#D4A843", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>외부 사이트 계정</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    {([
+                      { site:"하이코리아", idKey:"hikorea_id", pwKey:"hikorea_pw", show:showHikoreaPw, setShow:setShowHikoreaPw },
+                      { site:"소시넷",     idKey:"socinet_id", pwKey:"socinet_pw", show:showSocinetPw, setShow:setShowSocinetPw },
+                    ] as { site:string; idKey:string; pwKey:string; show:boolean; setShow:(v:boolean)=>void }[]).map((a) => (
+                      <Fragment key={a.site}>
+                        <div style={{ gridColumn:"1/-1", fontSize:11, color:"#4A5568", fontWeight:600, marginTop:2 }}>{a.site}</div>
+                        <div style={{ minWidth:0 }}>
+                          <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>아이디</label>
+                          <input type="text" className="hw-input" autoComplete="off"
+                            style={{ width:"100%", boxSizing:"border-box" }}
+                            value={form[a.idKey] ?? ""} onChange={(e) => change(a.idKey, e.target.value)} placeholder="아이디" />
+                        </div>
+                        <div style={{ minWidth:0 }}>
+                          <label style={{ display:"block", fontSize:11, color:"#718096", marginBottom:3 }}>비밀번호</label>
+                          <div style={{ display:"flex", gap:4 }}>
+                            <input type={a.show ? "text" : "password"} className="hw-input" autoComplete="new-password"
+                              style={{ flex:1, minWidth:0, boxSizing:"border-box" }}
+                              value={form[a.pwKey] ?? ""} onChange={(e) => change(a.pwKey, e.target.value)} placeholder="비밀번호" />
+                            <button type="button" onClick={() => a.setShow(!a.show)}
+                              style={{ flexShrink:0, fontSize:11, padding:"0 8px", borderRadius:6, border:"1px solid #CBD5E0", background:"#F7FAFC", color:"#4A5568", cursor:"pointer" }}>
+                              {a.show ? "숨김" : "표시"}
+                            </button>
+                          </div>
+                        </div>
+                      </Fragment>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* 기본정보 섹션 아래 — 액션 버튼들 */}
               {grp.title === "기본정보" && !isNew && (
                 <>

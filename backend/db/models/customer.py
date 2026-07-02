@@ -68,6 +68,13 @@ class Customer(Base):
     folder_id: Mapped[str | None] = mapped_column(Text)        # 폴더
     delegation_history: Mapped[str | None] = mapped_column(Text)  # 위임내역
 
+    # 외부 사이트 계정(하이코리아/소시넷, migration 0026). 아이디/비밀번호 모두 **평문 TEXT**
+    # (사용자 지시, 암호화 없음). 목록/검색 API·로그에는 미노출 — 상세(reveal=True)에서만 반환.
+    hikorea_id: Mapped[str | None] = mapped_column(Text)
+    hikorea_pw: Mapped[str | None] = mapped_column(Text)
+    socinet_id: Mapped[str | None] = mapped_column(Text)
+    socinet_pw: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

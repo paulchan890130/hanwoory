@@ -64,6 +64,21 @@ _DATE_SHEET_KEYS = ("발급일", "만기일", "발급", "만기")
 _KEEP_PLAINTEXT_FALLBACK = True
 
 
+_EXTERNAL_ACCOUNT_COLS = ("hikorea_id", "hikorea_pw", "socinet_id", "socinet_pw")
+
+
+def _apply_external_accounts_into_payload(payload: dict, data: dict) -> None:
+    """외부 사이트 계정(하이코리아/소시넷)을 payload(ORM 컬럼) 로 반영(in-place).
+
+    아이디/비밀번호 **모두 평문 그대로 저장**(사용자 지시, 암호화 없음). ``data`` 에 해당 키가
+    있을 때만 반영한다(부분 업데이트 시 기존 값 보존). 빈 문자열은 그대로 빈 값으로 저장한다.
+    비밀번호는 로그/감사로그/토스트에 남기지 않는다(값은 여기서만 payload 로 전달).
+    """
+    for col in _EXTERNAL_ACCOUNT_COLS:
+        if col in data:
+            payload[col] = str(data.get(col) or "")
+
+
 def _encode_reg_back_into_payload(payload: dict, tenant_id: str) -> None:
     """payload 의 'reg_back'(평문 입력) → 암호화 보조 컬럼으로 변환(in-place).
 
@@ -151,6 +166,12 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
         if not last4 and plain_fallback and "*" not in plain_fallback:
             last4 = _pii.last4_reg_back(plain_fallback)
         out["번호_last4"] = last4
+
+    # 외부 사이트 계정(하이코리아/소시넷) — **상세(reveal=True)에서만** 평문 그대로 반환한다.
+    # 목록/검색(reveal=False)에는 포함하지 않는다(아이디·비밀번호 미노출).
+    if reveal:
+        for col in _EXTERNAL_ACCOUNT_COLS:
+            out[col] = str(getattr(row, col, "") or "")
     return out
 
 
@@ -292,6 +313,7 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
     from backend.services.date_normalize import normalize_date_fields
     normalize_date_fields(base_payload, _DATE_PG_COLUMNS)
     _encode_reg_back_into_payload(base_payload, tenant_id)
+    _apply_external_accounts_into_payload(base_payload, data)
     last_err: Optional[Exception] = None
     for _ in range(max(1, max_retries)):
         cid = next_customer_id(tenant_id)
@@ -353,6 +375,7 @@ def upsert_customer(tenant_id: str, data: dict) -> dict:
     from backend.services.date_normalize import normalize_date_fields
     normalize_date_fields(payload, _DATE_PG_COLUMNS)
     _encode_reg_back_into_payload(payload, tenant_id)
+    _apply_external_accounts_into_payload(payload, data)
 
     with SessionLocal() as session:
         row = session.scalar(
