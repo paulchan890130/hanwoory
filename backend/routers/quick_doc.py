@@ -717,6 +717,19 @@ def build_field_values(
             elif kind == "등록사항":
                 field_values["ant"] = "V"
 
+    # 희망 자격(hope) — 통합신청서 "(희망 자격 : ___)" 칸. 고객 레코드에 '희망자격' 필드가
+    # 없으므로(PG-only 전환으로 제거됨) 문서작성에서 선택한 대상 체류자격(kind+detail)에서 도출한다.
+    # 포맷은 기존 changew 규칙과 동일(예: F+5·(F,5)→"F5", H2→"H2"). 선택 없으면 미설정(공백).
+    _hk = str(kind or "").strip()
+    _hd = str(detail or "").strip()
+    if _hk:
+        if "+" in _hk:
+            field_values["hope"] = _hk.replace("+", "")
+        elif _hd and _hk == "F":
+            field_values["hope"] = f"{_hk}{_hd}"
+        else:
+            field_values["hope"] = _hk
+
     return field_values
 
 
