@@ -1524,7 +1524,7 @@ export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security" | "guideline-inbox">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -1693,19 +1693,13 @@ export default function AdminPage() {
           <FileText size={12} className="inline mr-1" />
           문서자동작성 설정
         </button>
-        {/* PG 기반 매뉴얼 업데이트 (기본/주) — 먼저 노출 */}
+        {/* 매뉴얼 업데이트 — PG 페이지검토(관리자 승인 워크플로) + 원문 PDF 관리 +
+            패키지 검토(구 "실무지침 업데이트 검토함", 이제 이 탭 안에 통합됨) */}
         <button
           className={`hw-tab ${activeTab === "manual-v1" ? "active" : ""}`}
           onClick={() => setActiveTab("manual-v1")}>
           <FileText size={12} className="inline mr-1" />
           매뉴얼 업데이트
-        </button>
-        {/* 최신 매뉴얼 분석 산출물(bundle JSON) 카드형 검토 — v1(로컬 임시 상태) */}
-        <button
-          className={`hw-tab ${activeTab === "guideline-inbox" ? "active" : ""}`}
-          onClick={() => setActiveTab("guideline-inbox")}>
-          <CheckSquare size={12} className="inline mr-1" />
-          실무지침 업데이트 검토함
         </button>
         {/* 레거시 파일/rematch 검토 — 표시만 유지 */}
         <button
@@ -1732,11 +1726,14 @@ export default function AdminPage() {
       {/* 문서자동작성 설정 (편집형 선택 트리 + 필요서류) */}
       {activeTab === "doc-config" && <DocConfigTab />}
 
-      {/* 매뉴얼 업데이트 (PG 단일 출처; PG off 시 파일 staging fallback) */}
-      {activeTab === "manual-v1" && <ManualUpdateTab />}
-
-      {/* 실무지침 업데이트 검토함 (bundle JSON 카드형 검토, v1) */}
-      {activeTab === "guideline-inbox" && <GuidelineUpdateInboxTab />}
+      {/* 매뉴얼 업데이트 (PG 단일 출처; PG off 시 파일 staging fallback)
+          + 원문 PDF 관리·패키지 검토(구 "실무지침 업데이트 검토함") 통합 */}
+      {activeTab === "manual-v1" && (
+        <>
+          <ManualUpdateTab />
+          <GuidelineUpdateInboxTab />
+        </>
+      )}
 
       {/* 레거시 검토 탭 (manual_update_review.json + rematch) */}
       {activeTab === "manual-review" && (

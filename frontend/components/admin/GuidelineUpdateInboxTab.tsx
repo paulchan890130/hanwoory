@@ -1,22 +1,27 @@
 "use client";
 /**
- * 실무지침 업데이트 검토함 (v2 — 패키지 중심 + 원문 대조)
+ * 매뉴얼 업데이트 — 패키지 검토 섹션 (구 "실무지침 업데이트 검토함").
  *
- * 첫 화면 = 처리 패키지 카드만(개별 항목 나열 금지). 상세는 [상세 보기] 클릭 시에만.
- * 세부 항목에서는 ① 원문 PDF 대조(허용된 2개 매뉴얼만, 서버 화이트리스트 서빙)
- * ② 사용자가 확인한 검토 페이지 직접 입력(AI 추출 페이지와 별도 보존)
- * ③ 검토 메모를 남긴 뒤 ④ 승인/보류/무시를 결정한다.
+ * "메뉴얼 업데이트" 관리자 탭 안에 원문 PDF 관리 + 이번 batch 반영 상태 + 패키지
+ * 단위 검토(원문 대조·페이지 입력·메모·승인/보류/무시)를 한 화면에서 제공한다.
+ * 더 이상 별도 탭이 아니며, bundle JSON 은 서버가 자동 제공한다(관리자가 파일
+ * 경로를 알거나 직접 업로드할 필요 없음 — `GET .../manual-update/review-bundle`).
  *
- * 결정·검토 페이지·메모는 localStorage(review_id 단위) 임시 저장 + JSON 내보내기.
- * DB 자동 반영 없음.
+ * 중요: 이 컴포넌트가 다루는 batch(`manual_update_260617_260623_v1`)는 이미
+ * 실무지침 JSON(v2.1)에 **일괄 반영 완료**된 상태다. 여기서 누르는 승인/보류/
+ * 무시·검토페이지·메모는 DB를 다시 바꾸지 않는 **사후 검토 기록**이며, 다음
+ * batch 부터 이 기록을 근거로 승인 항목만 반영하는 방식으로 전환한다.
+ *
+ * 기록은 localStorage(review_id 단위)에 저장 + JSON 내보내기 — 저장 위치는
+ * v3 스키마와 동일하므로 기존에 쌓인 결정은 그대로 이어서 보인다.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { manualSourcePdfApi, type ManualSourcePdfMeta } from "@/lib/api";
+import { manualSourcePdfApi, manualUpdateApi, type ManualSourcePdfMeta } from "@/lib/api";
 import {
   Upload, Download, CheckCircle, PauseCircle, XCircle, RotateCcw,
-  ChevronDown, ChevronUp, AlertTriangle, ExternalLink, BookOpen, Save, FileUp,
+  ChevronDown, ChevronUp, AlertTriangle, ExternalLink, BookOpen, Save, FileUp, CheckCircle2,
 } from "lucide-react";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -74,6 +79,22 @@ interface ReviewBundle {
   };
   manual_meta?: Record<string, ManualMeta>;
   packages: BundlePackage[];
+  /** 서버 자동 제공 bundle 에만 존재 — 이 batch 가 실무지침 JSON에 이미 반영됐는지 */
+  applied?: boolean;
+  batch_status?: BatchStatus;
+}
+
+interface BatchStatus {
+  batch_id: string;
+  status: "applied" | "not_applied";
+  guideline_version: string;
+  guideline_updated_at: string;
+  row_count_total: number;
+  row_count_before: number;
+  rows_touched: number;
+  rows_inserted: number;
+  manual_updates_count: number;
+  source_pages_missing: number;
 }
 
 type Decision = "approved" | "held" | "ignored";
@@ -388,7 +409,7 @@ function ItemRow({ item, state, manualMeta, onUpdate }: {
 
           {/* 8. 결정 */}
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, color: "#A0AEC0" }}>개별 결정:</span>
+            <span style={{ fontSize: 10, color: "#A0AEC0" }}>개별 예외(사후 검토 기록):</span>
             <DecisionButtons decision={decision} onDecide={(d) => onUpdate({ decision: d ?? undefined })} small />
           </div>
 
@@ -457,6 +478,7 @@ function PackageCard({ pkg, decisions, manualMeta, onPackageDecide, onItemUpdate
       </div>
 
       <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 10, color: "#A0AEC0" }}>사후 검토 기록:</span>
         <DecisionButtons decision={decision} onDecide={(d) => onPackageDecide(pkg.id, d)} />
         <button onClick={() => setOpen(!open)}
           style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 5, border: "1px solid #CBD5E0", background: "#fff", color: "#2B6CB0", cursor: "pointer" }}>
@@ -586,11 +608,60 @@ function SourcePdfManager() {
 // ── 메인 탭 ───────────────────────────────────────────────────────────────────
 type Filter = "all" | "quick" | "confirm" | "hold" | "pending";
 
+// ── 반영 상태 카드 ────────────────────────────────────────────────────────────
+function BatchStatusCard({ status }: { status: BatchStatus }) {
+  const applied = status.status === "applied";
+  return (
+    <div className="hw-card" style={{ padding: "12px 14px", marginBottom: 10,
+      background: applied ? "#F0FFF4" : "#FFFAF0", borderColor: applied ? "#9AE6B4" : "#FDE68A" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <CheckCircle2 size={14} color={applied ? "#276749" : "#C05621"} />
+        <span style={{ fontSize: 13, fontWeight: 800, color: applied ? "#276749" : "#92400E" }}>
+          현재 batch: {status.batch_id}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+          background: applied ? "#38A169" : "#DD6B20", color: "#fff", marginLeft: 4 }}>
+          {applied ? "일괄 반영 완료" : "미반영"}
+        </span>
+      </div>
+      <div style={{ fontSize: 11, color: "#4A5568", marginTop: 6, lineHeight: 1.7 }}>
+        이번 260617/260623 매뉴얼 업데이트는 실무지침 데이터 v{status.guideline_version}에 이미
+        일괄 반영되었습니다. 아래 패키지는 <b>이번 반영 내역 확인용</b>이며, 다음 업데이트부터는
+        이 화면에서 승인된 항목만 반영하는 방식으로 전환합니다.
+      </div>
+      <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap", fontSize: 11, color: "#718096" }}>
+        <span>실무지침 버전 <b style={{ color: "#2D3748" }}>v{status.guideline_version}</b></span>
+        <span>행 수 <b style={{ color: "#2D3748" }}>{status.row_count_before} → {status.row_count_total}</b></span>
+        <span>manual_updates <b style={{ color: "#2D3748" }}>{status.manual_updates_count}건</b></span>
+        <span>신규 행 <b style={{ color: "#2D3748" }}>{status.rows_inserted}건</b></span>
+        <span>source_pages 누락 <b style={{ color: status.source_pages_missing > 0 ? "#C53030" : "#2D3748" }}>
+          {status.source_pages_missing}건</b></span>
+      </div>
+    </div>
+  );
+}
+
 export default function GuidelineUpdateInboxTab() {
   const [bundle, setBundle] = useState<ReviewBundle | null>(null);
   const [decisions, setDecisions] = useState<DecisionState>({ packages: {}, items: {} });
   const [filter, setFilter] = useState<Filter>("all");
+  const [showManualUpload, setShowManualUpload] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 서버가 현재 batch 의 bundle 을 자동 제공 — 관리자가 파일을 올릴 필요 없음.
+  const { data: serverBundle, isLoading: bundleLoading, error: bundleError } = useQuery({
+    queryKey: ["manual-update", "review-bundle"],
+    queryFn: () => manualUpdateApi.getReviewBundle().then((r) => r.data as unknown as ReviewBundle),
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (serverBundle && serverBundle.review_id && Array.isArray(serverBundle.packages)) {
+      setBundle(serverBundle);
+      setDecisions(loadDecisions(serverBundle.review_id));
+    }
+  }, [serverBundle]);
 
   const onFile = (f: File | undefined) => {
     if (!f) return;
@@ -700,19 +771,22 @@ export default function GuidelineUpdateInboxTab() {
   const manualMeta = bundle?.manual_meta ?? {};
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: "#2D3748", marginBottom: 8,
+        borderTop: "2px solid #EDF2F7", paddingTop: 16 }}>
+        매뉴얼 반영 내역 · 패키지 검토
+      </div>
+
       {/* 원문 PDF 관리 — 매뉴얼별 최신/직전 보관·업로드 */}
       <SourcePdfManager />
 
+      {/* 이번 batch 반영 상태 */}
+      {bundle?.batch_status && <BatchStatusCard status={bundle.batch_status} />}
+
       <div className="hw-card" style={{ padding: "12px 14px", marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: "#2D3748" }}>최신 매뉴얼 업데이트 검토</span>
-          <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: "none" }}
-            onChange={(e) => onFile(e.target.files?.[0])} />
-          <button onClick={() => fileRef.current?.click()}
-            style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 6, border: "1px solid #B7791F", background: "#FFFFF0", color: "#975A16", cursor: "pointer" }}>
-            <Upload size={11} className="inline mr-1" />bundle 열기
-          </button>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "#2D3748" }}>패키지 검토</span>
+          {bundleLoading && <span style={{ fontSize: 11, color: "#A0AEC0" }}>불러오는 중…</span>}
           {bundle && (
             <>
               <button onClick={exportDecisions}
@@ -720,17 +794,43 @@ export default function GuidelineUpdateInboxTab() {
                 <Download size={11} className="inline mr-1" />결정 내보내기
               </button>
               <span style={{ marginLeft: "auto", fontSize: 11, color: "#718096" }}>
-                패키지 처리 {done}/{bundle.packages.length} · 기준 {bundle.generated}
+                패키지 검토 {done}/{bundle.packages.length} · 기준 {bundle.generated}
               </span>
             </>
           )}
         </div>
-        {!bundle && (
-          <div style={{ fontSize: 11, color: "#A0AEC0", marginTop: 6 }}>
-            <code>analysis/manual_update_260617_260623/manual_update_review_bundle.json</code> 을 열면
-            처리 패키지 단위로 검토할 수 있습니다. 결정·검토 페이지·메모는 이 브라우저에만 임시 저장되며 DB 자동 반영은 없습니다.
+        {bundle && (
+          <div style={{ fontSize: 11, color: "#718096", marginTop: 6, lineHeight: 1.6 }}>
+            이번 batch는 실무지침 v{bundle.batch_status?.guideline_version ?? "2.1"}에 이미 일괄
+            반영되었습니다. 아래에서 누르는 승인/보류/무시, 검토 페이지, 메모는 <b>사후 검토 및
+            다음 업데이트 기준 정리용</b>으로 이 브라우저에 저장되며, 다음 batch부터는 이 검토
+            결과를 기준으로 승인 항목만 반영하는 방식으로 전환합니다.
           </div>
         )}
+        {bundleError && !bundle && (
+          <div style={{ fontSize: 11, color: "#C05621", marginTop: 6 }}>
+            서버에서 현재 batch 검토 bundle을 불러오지 못했습니다. 아래 개발자용 옵션으로 로컬
+            bundle 파일을 직접 열 수 있습니다.
+          </div>
+        )}
+
+        {/* 개발자용 수동 업로드 — 서버 bundle이 없을 때만 쓰는 fallback, 기본 접힘 */}
+        <details style={{ marginTop: 8 }} open={!bundle && !!bundleError}
+          onToggle={(e) => setShowManualUpload((e.target as HTMLDetailsElement).open)}>
+          <summary style={{ fontSize: 10, color: "#A0AEC0", cursor: "pointer" }}>
+            개발자용: bundle 파일 직접 열기
+          </summary>
+          {showManualUpload && (
+            <div style={{ marginTop: 6 }}>
+              <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: "none" }}
+                onChange={(e) => onFile(e.target.files?.[0])} />
+              <button onClick={() => fileRef.current?.click()}
+                style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 6, border: "1px solid #CBD5E0", background: "#fff", color: "#718096", cursor: "pointer" }}>
+                <Upload size={11} className="inline mr-1" />bundle JSON 열기
+              </button>
+            </div>
+          )}
+        </details>
       </div>
 
       {bundle && (

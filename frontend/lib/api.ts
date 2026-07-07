@@ -1081,6 +1081,17 @@ export const manualUpdateApi = {
   listUploads: (manual = "") =>
     api.get<{ rows: Array<Record<string, unknown>> }>(
       "/api/guidelines/manual-update/uploads", { params: manual ? { manual } : {} }),
+  /** 현재(최신) 매뉴얼 업데이트 batch 반영 상태 — 관리자 화면 상태 카드용 */
+  getCurrentBatch: () =>
+    api.get<{
+      batch_id: string; status: "applied" | "not_applied";
+      guideline_version: string; guideline_updated_at: string;
+      row_count_total: number; row_count_before: number;
+      rows_touched: number; rows_inserted: number;
+      manual_updates_count: number; source_pages_missing: number;
+    }>("/api/guidelines/manual-update/current-batch"),
+  /** 현재 batch 의 패키지 검토 bundle — 서버 자동 제공(수동 업로드 불필요) */
+  getReviewBundle: () => api.get<Record<string, unknown>>("/api/guidelines/manual-update/review-bundle"),
 };
 
 // ── 원클릭 작성 ──────────────────────────────────────────────────────────────

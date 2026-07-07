@@ -568,6 +568,68 @@ def serve_source_manual_pdf(
                         detail="원문 PDF가 업로드되지 않았습니다. [원문 PDF 관리]에서 업로드하세요.")
 
 
+# ── 매뉴얼 업데이트 batch 상태 + 검토 bundle (관리자 화면 자동 로드용) ───────
+# 실무지침 업데이트 검토함이 "메뉴얼 업데이트" 페이지로 통합되면서, 관리자가
+# review bundle JSON 파일 경로를 알거나 직접 업로드할 필요가 없도록 서버가
+# 현재 batch 의 bundle 과 반영 상태를 API 로 제공한다.
+_CURRENT_BATCH_ID = "manual_update_260617_260623_v1"
+_REVIEW_BUNDLES_DIR = os.path.join(_BASE_DIR, "data", "manual_review_bundles")
+
+
+def _batch_stats(batch_id: str) -> dict:
+    """_MASTER_ROWS 의 manual_updates 감사기록(batch_id 기준)을 스캔해 실시간 집계.
+    apply 스크립트가 남긴 기록을 그대로 읽으므로 별도 상수 하드코딩이 필요 없다."""
+    touched, updates, inserted, missing_pages = 0, 0, 0, 0
+    for r in _MASTER_ROWS:
+        us = [u for u in (r.get("manual_updates") or []) if u.get("batch_id") == batch_id]
+        if not us:
+            continue
+        touched += 1
+        updates += len(us)
+        if any(u.get("note_kind") == "insert" for u in us):
+            inserted += 1
+        missing_pages += sum(1 for u in us if not u.get("source_pages"))
+    return {"rows_touched": touched, "manual_updates_count": updates,
+           "rows_inserted": inserted, "source_pages_missing": missing_pages}
+
+
+@router.get("/manual-update/current-batch")
+def get_current_manual_batch(admin: dict = Depends(require_admin)):
+    """현재(최신) 매뉴얼 업데이트 batch 의 반영 상태 — 관리자 화면 상단 상태 카드용.
+
+    이번 batch는 이미 실무지침 JSON에 일괄 반영되어 있으므로 status 는 항상
+    'applied' — 관리자가 다시 반영 버튼을 누르지 않도록 프론트가 이 값으로
+    UI 를 잠근다(사후 검토용 버튼으로만 노출)."""
+    stats = _batch_stats(_CURRENT_BATCH_ID)
+    return {
+        "batch_id": _CURRENT_BATCH_ID,
+        "status": "applied" if stats["rows_touched"] > 0 else "not_applied",
+        "guideline_version": _DB.get("버전", ""),
+        "guideline_updated_at": _DB.get("갱신일", ""),
+        "row_count_total": len(_MASTER_ROWS),
+        "row_count_before": len(_MASTER_ROWS) - stats["rows_inserted"],
+        **stats,
+    }
+
+
+@router.get("/manual-update/review-bundle")
+def get_manual_review_bundle(admin: dict = Depends(require_admin)):
+    """현재 batch 의 패키지 검토 bundle — 서버가 자동 제공(관리자 수동 업로드 불필요).
+
+    backend/data/manual_review_bundles/{batch_id}.json 을 그대로 서빙 + 반영
+    상태(batch_status)를 덧붙인다. analysis/ 폴더는 배포 환경에 없으므로
+    이 API 가 유일한 정식 경로다(로컬 개발자용 파일 업로드는 프론트에 접힘
+    옵션으로만 남겨둔다)."""
+    path = os.path.join(_REVIEW_BUNDLES_DIR, f"{_CURRENT_BATCH_ID}.json")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="현재 batch 의 검토 bundle이 서버에 없습니다.")
+    with open(path, encoding="utf-8") as f:
+        bundle = json.load(f)
+    bundle["applied"] = True
+    bundle["batch_status"] = get_current_manual_batch(admin)
+    return bundle
+
+
 @router.get("/manual-pdf/{manual}")
 def serve_manual_pdf(
     manual: str,

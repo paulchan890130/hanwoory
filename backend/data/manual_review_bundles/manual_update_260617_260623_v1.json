@@ -1,0 +1,3263 @@
+{
+ "review_id": "manual_update_260617_260623",
+ "bundle_format": 2,
+ "generated": "2026-07-07",
+ "baseline": "260310 사증/체류민원 자격별 안내 매뉴얼",
+ "latest": [
+  "260617 사증민원 자격별 안내 매뉴얼",
+  "260623 체류민원 자격별 안내 매뉴얼"
+ ],
+ "summary": {
+  "package_count": 9,
+  "quick_apply_count": 4,
+  "confirm_then_apply_count": 3,
+  "needs_confirmation_count": 1,
+  "hold_count": 1,
+  "total_items": 87,
+  "affected_guideline_rows": 155
+ },
+ "note": "패키지 중심 v2 — 승인/보류/무시는 패키지 단위 우선(화면 임시 상태), DB 자동 반영 없음.",
+ "manual_meta": {
+  "visa": {
+   "file": "260617 사증민원 자격별 안내 매뉴얼.pdf",
+   "page_count": 484
+  },
+  "stay": {
+   "file": "260623 체류민원 자격별 안내 매뉴얼.pdf",
+   "page_count": 769
+  }
+ },
+ "packages": [
+  {
+   "id": "PKG_H2",
+   "title": "H-2 방문취업 중단 패키지",
+   "impact": "high",
+   "recommended_action": "confirm_then_apply",
+   "decision_required": true,
+   "summary_3_lines": [
+    "'26.2.12부터 H-2 사증 신규 발급 중단 — 모든 국가 동포 F-4 일원화",
+    "타 자격→H-2 체류자격 변경 전면 불허 (구판 예외목록 삭제)",
+    "'취업 외 목적' H-2 연장제도·별첨11 폐지"
+   ],
+   "why_user_should_care": "H-2 신규 수임 불가 — 관련 안내문·필요서류 행의 유효성 판단(비활성 vs 안내문)이 필요",
+   "item_count": 5,
+   "affected_rows_count": 0,
+   "affected_rows_sample": [],
+   "items": [
+    {
+     "id": "V-A2",
+     "delta_id": "V-A2",
+     "status_or_task": "H-2 사증발급 절차 장 통삭제(체류관리 절차로 대체)",
+     "status_code": "H-2",
+     "manual_type": "사증",
+     "change_type": "삭제·약화",
+     "old_content": "연고동포 친족초청·무연고동포(C-3-8 분기 전환, 총정원 250,000명) 등 대상별 절차·제출서류 전체 수록",
+     "new_content": "'3. 방문취업제 체류관리 절차'로 재정의 — 신규 발급 절차 전부 삭제",
+     "practical_impact": "친족초청 H-2, C-3-8→H-2 전환 등 기존 절차 전부 소멸",
+     "requirements": [
+      "H-2 신규 발급 중단 명시, 기존 발급 입국자의 체류관리 절차만 수록"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      387
+     ],
+     "manual": "visa",
+     "section": "방문취업제 절차 → 방문취업제 체류관리 절차",
+     "confidence": "high",
+     "affected_family": "H-2"
+    },
+    {
+     "id": "V-A3",
+     "delta_id": "V-A3",
+     "status_or_task": "H-2로의 체류자격 변경 전면 불허",
+     "status_code": "H-2",
+     "manual_type": "사증",
+     "change_type": "삭제·약화",
+     "old_content": "원칙 불허 + 예외 허용(G-1 산재·질병 변경자, 국적신청 3개월 경과 F-1, 18세 이상 F-3-19/20, C-3-8+사전평가 41점 이상 중국동포, 인도적 사유 등)",
+     "new_content": "'다른 체류자격에서 방문취업(H-2) 자격으로 자격변경할 수 없습니다.' 단일 문장으로 대체",
+     "practical_impact": "국내 체류 중 H-2 전환 상담 전면 불가 — 해당 수요는 F-4 변경으로 유도",
+     "requirements": [
+      "다른 체류자격에서 방문취업(H-2)으로 자격변경 불가(예외 전부 삭제)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      390
+     ],
+     "manual": "visa",
+     "section": "방문취업(H-2) 체류자격 변경",
+     "confidence": "high",
+     "affected_family": "H-2"
+    },
+    {
+     "id": "V-A4",
+     "delta_id": "V-A4",
+     "status_or_task": "H-2 '취업 외 목적' 체류기간연장(1회 1년) 제도 폐지",
+     "status_code": "H-2",
+     "manual_type": "사증",
+     "change_type": "삭제·약화",
+     "old_content": "만료 동포가 가족동거·자녀양육·학업 목적 시 1회 1년씩 연장(코로나19 계기 한시 제도, 별첨11 서약서)",
+     "new_content": "해당 내용·별첨11 전부 삭제 — 취업목적 연장만 기재",
+     "practical_impact": "만기 도래 고객은 F-4 변경 요건 검토가 유일한 잔류 경로",
+     "requirements": [
+      "연장은 취업목적(고용부 취업활동 기간연장 확인서 제출 시 4년10개월 내)만 존치"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      384,
+      390
+     ],
+     "manual": "visa",
+     "section": "방문취업(H-2) 체류기간 연장 / (구)별첨11",
+     "confidence": "high",
+     "affected_family": "H-2"
+    },
+    {
+     "id": "SF-A2",
+     "delta_id": "SF-A2",
+     "status_or_task": "H-2로의 자격변경 전면 불허(예외 목록 삭제)",
+     "status_code": "H-2",
+     "manual_type": "체류",
+     "change_type": "삭제·약화",
+     "old_content": "원칙 불허 + 예외 허용대상 열거(G-1 변경자, 국적신청 3개월 경과 F-1, F-3-19/20 동포, C-3-8+사전평가 41점 이상 등)",
+     "new_content": "'다른 체류자격에서 방문취업(H-2) 자격으로 자격변경할 수 없습니다.' 한 줄로 대체",
+     "practical_impact": "F-1/F-3/G-1 등에서 H-2 변경 안내 불가 — F-4 계열 변경으로 유도",
+     "requirements": [
+      "다른 체류자격에서 H-2로 자격변경 불가 — 예외 목록 전부 삭제"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      526
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.3 체류자격 변경",
+     "confidence": "high",
+     "affected_family": "H-2"
+    },
+    {
+     "id": "SF-A3",
+     "delta_id": "SF-A3",
+     "status_or_task": "H-2 '취업 외 목적' 체류기간연장 제도 폐지(체류 매뉴얼)",
+     "status_code": "H-2",
+     "manual_type": "체류",
+     "change_type": "삭제·약화",
+     "old_content": "취업 외 목적(가족동거·자녀양육·학업) 1회 1년씩 연장 가능(코로나19 한시제도, 별첨11 서약서)",
+     "new_content": "해당 문단·안내 박스·별첨11 전부 삭제",
+     "practical_impact": "",
+     "requirements": [
+      "연장은 고용부 '취업기간 만료자 취업활동 기간연장 확인서' 제출 시 4년 10개월 내 허가만 존치"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "기존 취업 외 목적 연장자 처리 방침은 매뉴얼에서 확인 불가"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      526
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.3 체류기간 연장 / (구)별첨11",
+     "confidence": "high",
+     "affected_family": "H-2"
+    }
+   ]
+  },
+  {
+   "id": "PKG_F4",
+   "title": "F-4 재외동포 개편 패키지",
+   "impact": "high",
+   "recommended_action": "confirm_then_apply",
+   "decision_required": true,
+   "summary_3_lines": [
+    "취업제한 신 고시(2026-35호) — 건설·광업·하역 단순노무 제한 제외",
+    "세부유형 F-4-41/42 개편, F-4-13~99·국가기술자격 별첨 폐지",
+    "품행 기산점 완납일 기준 + 조기적응 의무화 + 동포 F-5 생계유지 완화"
+   ],
+   "why_user_should_care": "F-4 상담·서류안내·취업가능 여부 판단에 직접 영향 (고시번호 대조 필요)",
+   "item_count": 24,
+   "affected_rows_count": 12,
+   "affected_rows_sample": [
+    "M1-0093",
+    "M1-0096",
+    "M1-0102",
+    "M1-0107",
+    "M1-0361",
+    "M1-0362",
+    "M1-0364",
+    "M1-0365",
+    "M1-0366",
+    "M1-0367",
+    "M1-0368",
+    "M1-0369"
+   ],
+   "items": [
+    {
+     "id": "V-A1",
+     "delta_id": "V-A1",
+     "status_or_task": "동포 체류자격 통합 (H-2 사증 신규발급 중단)",
+     "status_code": "H-2/F-4",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "18세 이상 중국·구소련(CIS 6개국) 동포에게 3년 유효 복수사증 H-2 발급, 연고/무연고 구분 운영",
+     "new_content": "'26.2.12.부터 동포 체류자격을 F-4로 통합, 중국·CIS 동포에게도 F-4 사증 발급, H-2 신규 발급 중단",
+     "practical_impact": "신규 입국 동포는 국적 불문 F-4(또는 C-3-8) 경로만 존재 | H-2 신규 사증 상담·접수 업무 소멸, 기존 H-2 소지자는 체류관리만 존속",
+     "requirements": [
+      "'26.2.12.부터 H-2·F-4로 이원화된 동포 체류자격을 F-4로 통합",
+      "모든 국가 동포에게 동일 기준으로 F-4 사증 발급, H-2 사증 신규 발급 중단"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      384
+     ],
+     "manual": "visa",
+     "section": "부록 동포 매뉴얼 — 동포 체류자격 통합 안내",
+     "confidence": "high",
+     "affected_family": "H-2"
+    },
+    {
+     "id": "V-A5",
+     "delta_id": "V-A5",
+     "status_or_task": "F-4 부여 기준 통합 — 세부유형 코드체계 폐지, F-4-41/42 재부여",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "고시국가/비고시국가 구분 + F-4-11~99 세부유형별 대상·서류표(대학졸업·법인대표·자격증·60세 이상·사통 4단계 등)",
+     "new_content": "모든 국가에 동일 기준으로 F-4 부여 — F-4-41(본인)·F-4-42(직계비속) 2종으로 단순화",
+     "practical_impact": "구 별첨8 「F-4 자격부여 국가기술자격 직무분야 및 종목」(510개 종목) 통삭제 — 기능사 자격증 취득 F-4 경로 소멸 | 세부약호(41/42) 변경에 따른 안내자료 수정 필요",
+     "requirements": [
+      "세부대상은 혈통 기준 2개만 잔존: ①출생 시 대한민국 국적 보유자 F-4-41(구 F-4-11) ②그 직계비속 F-4-42(구 F-4-12)",
+      "학력·자격증·직업 기반 유형(F-4-13~99) 전부 삭제"
+     ],
+     "documents": {
+      "applicant": [
+       "동포임 입증(가족관계등록부·제적부 등 혈통서류) 중심으로 단순화"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [
+       "졸업증명·자격증·재직증명 등 유형별 입증서류 폐지"
+      ],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      385,
+      392
+     ],
+     "manual": "visa",
+     "section": "재외동포(F-4) 자격부여 대상",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A6",
+     "delta_id": "V-A6",
+     "status_or_task": "F-4 국내 자격변경 요건 재편 — CIS 특례·F-4-R 전환 신설",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "국내 발급 서류·시스템 확인 가능자 한정 열거(국내 대학 졸업자, 국가기술자격 취득자, 요양보호사 등)",
+     "new_content": "원칙 단순화 + CIS 동포 과거 동포사증 이력 인정 + F-4-R→일반 F-4 전환 허용",
+     "practical_impact": "국내 체류 CIS 동포(H-2 등)의 F-4 전환 수임 확대 | F-4-R 고객의 일반 F-4 전환 옵션 안내 가능",
+     "requirements": [
+      "국내 발급/시스템 확인 가능 서류 원칙 유지",
+      "CIS 지역 동포는 과거 동포 사증(C-3-8, H-2, F-4) 발급 이력 + 동포 입증자료 제출 시 국내 변경 가능(신설)",
+      "지역특화동포(F-4-R)가 특례 포기 시 일반 F-4-41/42로 변경 가능(신설)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      392
+     ],
+     "manual": "visa",
+     "section": "재외동포(F-4) 체류자격 변경",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A7",
+     "delta_id": "V-A7",
+     "status_or_task": "F-4 자격변경·거소신고 — 결핵진단서·조기적응프로그램 의무화",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "추가",
+     "old_content": "자격변경 서류에 결핵진단서·조기적응프로그램 없음; 거소신고 서류는 사진 1매·수수료·체류지 입증서류",
+     "new_content": "자격변경 서류에 결핵진단서 + 조기적응프로그램 이수증 추가, 거소신고 서류에도 이수증 추가",
+     "practical_impact": "F-4 변경·거소신고 전 조기적응프로그램 예약·이수 스케줄 관리가 필수 선행 절차화",
+     "requirements": [
+      "자격변경·거소신고증 발급 시 조기적응프로그램 의무 이수(과거 범죄경력 없으면 1회 제출유예)"
+     ],
+     "documents": {
+      "applicant": [
+       "결핵진단서(자격변경)",
+       "조기적응프로그램 이수증(자격변경·거소신고)"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      392,
+      393
+     ],
+     "manual": "visa",
+     "section": "재외동포(F-4) 체류자격 변경 / 국내거소신고 제출서류",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A8",
+     "delta_id": "V-A8",
+     "status_or_task": "한국어능력 입증서류 기준 개편 — F-4 면제 축소 + 사통 수강 2년 신설",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "대상에 H-2 포함; F-4 면제 = 만13세 이하, F-4 사증 3년 이상 체류자, 국가기술자격증(기능사 이상), F-4-30, '19.9.2. 이전 발급자",
+     "new_content": "H-2 사증발급 삭제, 면제 축소, 미제출자 사통 등록·수강 시 2년 부여 신설; F-4 연장 서류에 한국어능력 입증서류 명시",
+     "practical_impact": "장기체류·자격증 보유를 이유로 한 한국어서류 생략 불가(강화) | 미제출 고객에게 사통 등록·수강으로 2년 확보 경로 안내 가능(완화)",
+     "requirements": [
+      "F-4 면제는 만13세 이하 + '19.9.2. 이전 발급·체류자만 잔존(3년 체류자·기능사 자격증·F-4-30 면제 삭제)",
+      "처리기준: 사증 제출(면제자 포함) 2년/미제출 1년; 체류허가 제출 시 최대 3년, 미제출 1년이되 사회통합프로그램 등록·수강 시 2년 부여(신설)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "F-4 체류기간연장 제출서류에 한국어능력 입증서류 추가"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      393,
+      414,
+      416
+     ],
+     "manual": "visa",
+     "section": "한국어능력 입증서류 제출기준 (별첨2)",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A9",
+     "delta_id": "V-A9",
+     "status_or_task": "F-4 품행요건 기산점 변경 — 집행종료·완납일 기준 + 자원봉사 감경 신설",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "최근 5년 이내 금고 이상 형 선고자 / 최근 3년 이내 벌금·범칙금 합산 700만원 이상 선고·처분자",
+     "new_content": "기산점이 선고·처분일 → 집행종료·완납일로 변경 + 자원봉사 감경 신설",
+     "practical_impact": "",
+     "requirements": [
+      "금고 이상 형(집행유예 포함): 집행 종료·면제일 또는 집행유예 확정일부터 5년 미경과자 제한",
+      "벌금/범칙금 총액 700만원 이상: 완납일부터 3년 미경과자 제한",
+      "자원봉사 100시간 이상(1365 실적, 6개월 이상) 확인 시 범칙금 제한기간 1년으로 감경(신설)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "미납 상태면 제한 지속 — 사실상 강화, 상담 시 완납일 확인 필수"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      394,
+      395
+     ],
+     "manual": "visa",
+     "section": "재외동포(F-4) 자격부여 제한 (품행요건)",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A10",
+     "delta_id": "V-A10",
+     "status_or_task": "F-4 체류자격 외 활동허가 신설 — 과거 H-2 사업장 계속근무",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "추가",
+     "old_content": "해당 제도 없음",
+     "new_content": "F-4 체류자격 외 활동허가(구 H-2 사업장 계속근무) 신설",
+     "practical_impact": "H-2→F-4 전환 수임 시 필수 동반 안내 항목",
+     "requirements": [
+      "과거 H-2 자격으로 취업개시 신고한 사업장(단순노무 업종) 계속 근무 시 체류자격 외 활동허가 가능",
+      "부여기간 = F-4 체류기간 내 근로계약 기간"
+     ],
+     "documents": {
+      "applicant": [
+       "재외동포 통합신청서, 여권·사본, 거소신고증, 수수료",
+       "단순노무 취업사실 공적서류(건강보험 가입내역·소득금액증명원 등, ICRM 확인 시 면제)"
+      ],
+      "employer": [
+       "근로계약서",
+       "사업자등록증"
+      ],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      395
+     ],
+     "manual": "visa",
+     "section": "재외동포(F-4) 체류자격 외 활동허가",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A11",
+     "delta_id": "V-A11",
+     "status_or_task": "F-4 취업활동 제한범위 고시 전면 교체(시행 '26.2.12)",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "법무부 고시 제2023-187호(시행 '23.5.1) — 건설 단순종사원(91001)·광업 단순노무원(91002)·하역·적재(92101)·수동 포장원(93001)·수동 상표부착원(93002) 등 포함",
+     "new_content": "신규 고시로 교체(시행 2026.2.12) — 붙임1 목록 개편·축소, 비취업 서약서(별첨8-1~3)도 신 고시 번호·일자로 교체",
+     "practical_impact": "F-4 소지자의 건설현장·광업·하역/적재·포장 단순노무 취업 확대(통합 정책과 일관)",
+     "requirements": [
+      "단순노무 제한목록에서 건설·광업·하역/적재·수동포장·수동상표부착 단순노무 제외 → 취업 가능 범위 확대",
+      "늘찬배달원(92230, 배달대행 배달원) 제한 명시, 직업분류 코드 전면 갱신(신 KSCO)",
+      "지역특화 예외 근거 「지방자치분권 및 지역균형발전에 관한 특별법」 제2조제12호로 변경, 문구 '거소를 두거나 거소가 속한 광역시·도 내에서'로 변경"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "고시 번호가 신판 내부에서 제2026-35호(목차·서약서)와 제2026-65호(고시 본문)로 불일치",
+      "매뉴얼 수록분이 발췌일 가능성 — 제외 직종은 고시 원문 대조 권장"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      431,
+      438
+     ],
+     "manual": "visa",
+     "section": "별첨7 재외동포(F-4)의 취업활동 제한범위 고시 (구 별첨9)",
+     "confidence": "medium",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A12",
+     "delta_id": "V-A12",
+     "status_or_task": "F-5-6(재외동포 2년 체류 영주) 생계유지능력 완화 사유 신설",
+     "status_code": "F-5-6",
+     "manual_type": "사증",
+     "change_type": "추가",
+     "old_content": "완화 대상 = F-5-14(방문취업 4년 이상) GNI 70%만",
+     "new_content": "사통 5단계·국내학력(GNI 70%), 자원봉사(GNI 80%) 완화 사유 추가",
+     "practical_impact": "소득이 GNI에 못 미치는 F-4 고객의 영주 설계 옵션 확대",
+     "requirements": [
+      "사회통합프로그램 5단계 이수, 국내 초·중·고 모두 졸업 또는 국내 학사 이상 학위 취득자 → GNI 70% 이상 인정",
+      "자원봉사 100시간 이상(1365, 6개월 이상) → GNI 80% 이상 인정"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      398
+     ],
+     "manual": "visa",
+     "section": "영주(F-5-6) 생계유지 능력 요건",
+     "confidence": "high",
+     "affected_family": "F-5"
+    },
+    {
+     "id": "V-A14",
+     "delta_id": "V-A14",
+     "status_or_task": "해외 범죄경력증명서 제출기준 개편",
+     "status_code": "F-4/F-5",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "제출대상 = H-2·F-4 사증신청 + H-2·F-4·F-5 자격변경; 면제 = 만60세 이상 + 예우법상 유공자·유족·가족, H-2-7 재입국 6개월 내 등",
+     "new_content": "H-2 제거, 거소신고·외국인등록 단계 제출 추가, 유공자 면제 근거 국적법 특별귀화 기준으로 변경",
+     "practical_impact": "사증발급 시 제출자의 3개월 내 변경/6개월 내 미출국 면제 규정 활용 필요",
+     "requirements": [
+      "제출대상 = F-4 사증신청 + F-4·F-5 자격변경·외국인등록·거소신고(등록·거소신고 추가)",
+      "면제: H-2 블록 전체 삭제, 유공자 면제 근거가 「국적법」 제7조제1항제2호·시행령 제6조제1항 특별귀화 기준으로 변경, F-4 면제는 만60세 이상만 잔존",
+      "사증발급 불허기간 표 F-4 단일 기준(7년/5년)으로 통합"
+     ],
+     "documents": {
+      "applicant": [
+       "F-4 거소신고·외국인등록 단계에서도 해외 범죄경력증명서 요구 가능"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "유공자 면제 판단 기준이 예우법 → 국적법 특별귀화 기준으로 변경 — 대상 범위 판단 주의"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      409,
+      410
+     ],
+     "manual": "visa",
+     "section": "해외 범죄경력증명서 제출기준",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A15",
+     "delta_id": "V-A15",
+     "status_or_task": "범죄경력증명서 번역 요건 완화 신설",
+     "status_code": "F-4/F-5",
+     "manual_type": "사증",
+     "change_type": "추가",
+     "old_content": "공증된 번역본 요구",
+     "new_content": "무범죄자에 한해 번역본+번역자 확인서+번역자 신분증 사본으로 대체 제출 허용",
+     "practical_impact": "무범죄 고객의 번역공증 비용·시간 절감 경로 신설",
+     "requirements": [
+      "범죄경력 없는 경우 ①번역본 ②번역자 확인서(신청인 본인 불가) ③번역자 신분증 사본으로 공증 번역본 대체 가능"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "번역본 + 번역자 확인서 + 번역자 신분증 사본(공증 번역본 대체)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      412
+     ],
+     "manual": "visa",
+     "section": "해외 범죄경력증명서 요건",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-A16",
+     "delta_id": "V-A16",
+     "status_or_task": "사전방문예약·문의처 조정 및 동포체류지원센터 현황 갱신",
+     "status_code": "동포 공통",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "예약 대상에 H-2 사증신청·자격변경 포함; 센터 지정기간 '23.7.1.~'25.6.30.",
+     "new_content": "센터 지정기간 '25.7.1.~'27.6.30. 갱신, 센터 8곳 추가·1곳 삭제(한국외국인노동자지원센터)·일부 주소 변경",
+     "practical_impact": "안내처 목록 갱신 수준",
+     "requirements": [
+      "예약 대상 = 재외공관 F-4 사증신청 / 국내 F-4·F-5 자격변경·외국인등록·거소신고(H-2 제거)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      408,
+      409,
+      444
+     ],
+     "manual": "visa",
+     "section": "사전방문예약 / 동포체류지원센터 현황",
+     "confidence": "high",
+     "affected_family": ""
+    },
+    {
+     "id": "SF-A1",
+     "delta_id": "SF-A1",
+     "status_or_task": "동포 체류자격 통합 — H-2 신규 발급 중단(체류 매뉴얼)",
+     "status_code": "H-2/F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "18세 이상 중국·CIS 동포 3년 복수사증 H-2 발급, 연고·무연고 절차 상세 규정(총정원 25만 명)",
+     "new_content": "F-4 통합·H-2 신규발급 중단, 사증발급 흐름도 단기(C-3)/재외동포(F-4) 2종으로 단순화",
+     "practical_impact": "기존 H-2 소지자는 외국인등록 시 최대 3년 + 연장(4년 10개월 한도) 체계 유지",
+     "requirements": [
+      "'26.2.12.부터 H-2·F-4 이원화 체류자격을 F-4로 통합, H-2 사증 신규 발급 중단",
+      "방문취업제 대상·사증발급 절차(연고/무연고 구분, C-3-8 쿼터 등) 전면 삭제, 기존 입국자 체류관리 절차만 존치"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      520,
+      523
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅰ.2 방문취업(H-2) 제도 / Ⅱ.1 흐름도 / Ⅱ.3 체류관리 절차",
+     "confidence": "high",
+     "affected_family": "H-2"
+    },
+    {
+     "id": "SF-A4",
+     "delta_id": "SF-A4",
+     "status_or_task": "F-4 세부유형 코드 개편 — F-4-11/12 → F-4-41/42, 세부대상표 폐지",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "F-4-11(국적보유자)·F-4-12(직계비속) + F-4-13~F-4-99 세부대상·서류표 상세 수록",
+     "new_content": "F-4-41/42 2종으로 단순화, 학위·자격증·법인대표 기준 폐지",
+     "practical_impact": "",
+     "requirements": [
+      "세부대상 = F-4-41(본인)·F-4-42(직계비속) 2종 + 제출서류만 수록",
+      "구 F-4-13~99 대상표(전문자격자·법인대표·자격증소지자·60세 이상 등) 전부 삭제"
+     ],
+     "documents": {
+      "applicant": [
+       "동포 입증서류(가족관계·제적·폐쇄등록부 등) 중심으로 단순화"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "기존 F-4-1x/2x/3x 소지자의 경과조치는 매뉴얼에서 확인 불가"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      528
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4 재외동포 사증발급 세부대상 및 추가 신청서류",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A5",
+     "delta_id": "SF-A5",
+     "status_or_task": "F-4 국내 자격변경 재편 — CIS 이력 인정·F-4-R 전환 신설",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "국내발급·시스템확인 가능 서류 대상 열거 + 코로나19 특례·부모요건 예외 등",
+     "new_content": "원칙 단순화 + CIS 특례 + F-4-R 이탈 경로 신설; 제출서류에 결핵진단서·조기적응프로그램 이수증 명시",
+     "practical_impact": "",
+     "requirements": [
+      "대상별 제출서류가 국내 발급·시스템 확인 가능하면 국내 변경 가능(원칙 단순화)",
+      "CIS 동포: 과거 동포 사증(C-3-8, H-2, F-4) 발급 이력 + 동포 입증자료 제출 시 국내 변경 가능(신설)",
+      "F-4-R 소지자 특례 포기 시 일반 F-4-41/42 변경 가능(신설)"
+     ],
+     "documents": {
+      "applicant": [
+       "결핵진단서",
+       "조기적응프로그램 이수증",
+       "동포 입증자료(CIS 특례)"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      528,
+      529
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4 다. 재외동포(F-4) 자격 변경 절차",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A6",
+     "delta_id": "SF-A6",
+     "status_or_task": "F-4 거소신고·자격변경 — 조기적응프로그램 의무화",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "거소신고 제출서류 '사진 1매, 수수료, 체류지 입증서류'; 조기적응프로그램 의무 문구 없음",
+     "new_content": "조기적응프로그램 의무 이수 신설, 거소신고 서류 확대(통합신청서·여권 사본·이수증 등)",
+     "practical_impact": "",
+     "requirements": [
+      "자격변경 신청·거소신고증 발급 시 조기적응프로그램 의무 이수 후 신청(과거 범죄경력 없으면 1회 제출유예)"
+     ],
+     "documents": {
+      "applicant": [
+       "조기적응프로그램 이수증",
+       "통합신청서·여권 사본(거소신고 서류 확대)"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      528,
+      529
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4 다. 자격변경 절차 / 거소신고",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A7",
+     "delta_id": "SF-A7",
+     "status_or_task": "F-4 체류기간연장 — 한국어능력 연동, F-4-30 특칙 삭제",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "1회 부여 원칙 3년 이내, F-4-30은 최초 2년·연장 시마다 2년; 연장 서류 = 신청서·수수료·체류지 입증서류",
+     "new_content": "별첨2 연동 최대 3년, 연장 서류에 한국어능력 입증서류 추가",
+     "practical_impact": "미제출 1년, 사회통합 등록·수강 2년, 제출 최대 3년(별첨2 기준)",
+     "requirements": [
+      "체류기간은 한국어능력 입증서류 제출기준(별첨2) 등에 따라 최대 3년 부여",
+      "F-4-30(국내 초·중·고 재학 동포자녀) 특칙 삭제"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "한국어능력 입증서류(연장 시 추가)"
+      ]
+     },
+     "risk_points": [
+      "F-4-30 유형 자체의 존폐는 매뉴얼에서 확인 불가"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      529
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4 체류기간연장",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A8",
+     "delta_id": "SF-A8",
+     "status_or_task": "F-4 자격부여 제한(품행요건) 기산점 변경 + 자원봉사 감경",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "최근 5년 이내 금고 이상 형 선고 / 최근 3년 이내 벌금·범칙금 합산 700만원 이상 선고·처분",
+     "new_content": "기산점 선고일 → 집행종료/완납일 변경 + 자원봉사 감경 신설",
+     "practical_impact": "",
+     "requirements": [
+      "금고 이상 형(집행유예 포함): 형 집행 종료·면제일 또는 집행유예 판결 확정일부터 5년 미경과",
+      "벌금·범칙금 700만원 이상: 완납일부터 3년 미경과",
+      "자원봉사 100시간 이상(6개월 이상, 1365 확인서) 시 범칙금 제한기간 1년으로 감경 신설"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "실질 제한이 길어질 수 있음(엄격화) — 상담 시 완납일 확인 필수"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      530,
+      531
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4 재외동포 자격부여 제한 대상",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A9",
+     "delta_id": "SF-A9",
+     "status_or_task": "F-4 체류자격 외 활동허가 신설(구 H-2 사업장 계속근무)",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "해당 절 부존재",
+     "new_content": "'마. 재외동포 자격의 체류자격 외 활동허가' 신설",
+     "practical_impact": "통합 조치의 핵심 보완책 — H-2→F-4 전환자에게 적극 안내 필요",
+     "requirements": [
+      "H-2로 취업개시 신고한 사업장에서 F-4 변경 후 계속 근무 시 자격외활동허가 허용",
+      "부여기간 = F-4 체류기간 내 근로계약 기간"
+     ],
+     "documents": {
+      "applicant": [
+       "재외동포 통합신청서, 여권·사본, 거소신고증, 수수료",
+       "단순노무 취업사실 입증 공적서류(건보 가입내역·소득금액증명원 등, ICRM 확인 시 면제)"
+      ],
+      "employer": [
+       "근로계약서",
+       "사업자등록증"
+      ],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      531
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4 마. 재외동포 자격의 체류자격 외 활동허가",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A10",
+     "delta_id": "SF-A10",
+     "status_or_task": "동포 영주(F-5) 생계유지능력 완화 신설",
+     "status_code": "F-5-6/7/14",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "연간소득 원칙 전년도 1인당 GNI 이상; 완화는 F-5-14(방문취업 4년 이상) GNI 70%만",
+     "new_content": "완화 대상 확대(사통 5단계·국내학력·자원봉사)",
+     "practical_impact": "",
+     "requirements": [
+      "사통 5단계 이수, 국내 초·중·고 모두 졸업 또는 국내 학사 이상 학위: GNI 70% 이상 인정",
+      "자원봉사 실적(6개월 이상·100시간 이상, 1365 확인서): GNI 80% 이상 인정"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      534
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.5 외국국적동포 영주(F-5) 부여 — 생계유지 능력 완화",
+     "confidence": "high",
+     "affected_family": "F-5"
+    },
+    {
+     "id": "SF-A12",
+     "delta_id": "SF-A12",
+     "status_or_task": "F-4 별첨1(해외 범죄경력증명서)·별첨2(한국어능력) 기준 개편",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "별첨1·2 모두 H-2/F-4 이원 기준, F-4 한국어 면제에 3년 체류자·국가기술자격증·F-4-30 포함",
+     "new_content": "F-4 단일 기준 재편 + 면제 축소 + 번역·사통 완화 신설",
+     "practical_impact": "",
+     "requirements": [
+      "적용대상에서 H-2 제거, 국가별 불허기간 7년/5년/10년(F-4 기준)만 존치",
+      "유공자 면제 근거 「국적법」 제7조·시행령 제6조(특별귀화 대상) 기준으로 변경",
+      "무범죄자 번역공증 대체(번역본+번역자확인서+신분증 사본) 허용 신설",
+      "F-4 한국어 면제 '만 13세 이하, '19.9.2. 이전 발급·체류자'로 축소, 미제출자 사통 등록·수강 시 2년 신설"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "무범죄자: 번역본 + 번역자확인서(본인 불가) + 번역자 신분증 사본으로 공증 번역본 대체"
+      ]
+     },
+     "risk_points": [
+      "한국어능력 면제 축소분(자격증·장기체류)을 구 기준으로 안내하면 안 됨"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      546,
+      552
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 별첨1 해외 범죄경력증명서 / 별첨2 한국어능력 입증서류 제출기준",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A13",
+     "delta_id": "SF-A13",
+     "status_or_task": "F-4 취업활동 제한범위 신 고시(제2026-35호, '26.2.12. 시행)",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "법무부고시 제2023-187호('23.5.1. 시행) 전문 수록, 붙임1에 건설·광업·하역/적재 단순노무 포함",
+     "new_content": "신 고시 교체 — 붙임1 이삿짐운반원(92112)부터 시작, 비취업 서약서(국·중·러) 고시 인용도 2026-35호로 일괄 갱신",
+     "practical_impact": "F-4 동포의 건설·하역 등 취업 가능성 판단이 근본적으로 달라질 수 있음",
+     "requirements": [
+      "법무부고시 제2026-35호 전문으로 교체(구 2023-187호 폐지 명시)",
+      "붙임1 목록 개편 — 구판 건설단순종사원(91001)·광업단순노무원(91002)·하역및적재(92101/92109)는 신 목록에서 확인되지 않음",
+      "지역특화 예외 근거 「지방자치분권 및 지역균형발전에 관한 특별법」 제2조제12호, 문언 '거소를 두거나 거소가 속한 광역시 또는 도 내에서'로 확대"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "별첨7 표제에 '제2026-65호'와 '제2026-35호' 혼재(매뉴얼 내 표기 불일치)",
+      "반드시 신 고시 원문(붙임1 전체)으로 개별 직종 확인 후 안내"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      566,
+      577
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 별첨7 F-4 취업활동 제한범위 고시 / 별첨8-1~3 비취업 서약서",
+     "confidence": "medium",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A14",
+     "delta_id": "SF-A14",
+     "status_or_task": "F-4 부여용 국가기술자격 별첨 삭제",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "삭제·약화",
+     "old_content": "별첨8 'F-4 자격부여 국가기술자격 직무분야 및 종목' + 별첨10 '영주(F-5) 자격 부여 자격종목 및 등급'",
+     "new_content": "F-4용 별첨 삭제(세부대상 폐지에 수반), 영주(F-5-14)용만 존치",
+     "practical_impact": "'자격증 취득 → F-4' 경로 안내 불가(신판 기준 근거 소멸)",
+     "requirements": [
+      "F-4 부여용 국가기술자격 별첨(구 별첨8, 직무분야 26개·종목표) 삭제 — 영주용은 '별첨9 영주(F-5-14) 부여 자격 종목 및 등급'으로 존치"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      518,
+      519
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 별첨 목차 개편",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-A15",
+     "delta_id": "SF-A15",
+     "status_or_task": "동포체류지원센터·상담 창구 갱신",
+     "status_code": "동포 공통",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "별첨12 동포체류지원센터 현황(지정기간 '23.7.1.~'25.6.30.)",
+     "new_content": "센터 목록 개편(경주시외국인도움센터 등 8곳 추가, 한국외국인노동자지원센터 삭제)",
+     "practical_impact": "",
+     "requirements": [
+      "별첨10으로 이동, 지정기간 '25.7.1.~'27.6.30. 갱신, 센터 추가·삭제·주소 갱신",
+      "사전방문예약 대상 '재외공관 F-4 사증 신청 / 국내 F-4·F-5 변경, 외국인등록·거소신고'로 재정의(H-2 제거)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      544,
+      580
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅲ.1 각종 문의 및 상담 / 별첨10 동포체류지원센터 현황",
+     "confidence": "high",
+     "affected_family": ""
+    }
+   ]
+  },
+  {
+   "id": "PKG_D45",
+   "title": "D-4-5 한식조리연수 패키지",
+   "impact": "high",
+   "recommended_action": "quick_apply",
+   "decision_required": false,
+   "summary_3_lines": [
+    "운영기관 aT→한식진흥원/수라학교 한정, 조리경력 요건 폐지",
+    "타 자격→D-4-5 변경 불가, 연장 입국일부터 최대 2년",
+    "연장·외국인등록 제출서류 전면 교체 + 결핵 치료회피 조치 신설"
+   ],
+   "why_user_should_care": "제출서류가 통째로 바뀌어 기존 안내가 그대로면 접수 반려 위험",
+   "item_count": 4,
+   "affected_rows_count": 7,
+   "affected_rows_sample": [
+    "M1-0037",
+    "M1-0038",
+    "M1-0039",
+    "M1-0339",
+    "M1-0340",
+    "M1-0341",
+    "M1-0342"
+   ],
+   "items": [
+    {
+     "id": "V-B1",
+     "delta_id": "V-B1",
+     "status_or_task": "한식조리연수(D-4-5) 제도 전면 개편 (사증발급인정서)",
+     "status_code": "D-4-5",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "추천기관 aT, 자격요건(조리경력 3년/자격증+경력 1년/조리 학위 등)+한국어능력 요건, 첨부서류에 aT 추천서 등",
+     "new_content": "농식품부(한식진흥원) 추천·수라학교 한정, 조리경력·자격증 요건 폐지, 재정·건강요건 신설, 6개월 이하 단수",
+     "practical_impact": "일반 요리학원 등의 aT 추천 경로 폐지 — 초청이 수라학교 경유로 일원화",
+     "requirements": [
+      "추천 주체 = 농림축산식품부(한식진흥원 위임), 연수기관 = 지정 '수라학교'로 한정",
+      "연수생 요건: 수라학교 연수 확정+농식품부 추천, TOPIK 1급 상당(면제신청서 경로 존치), 심신 건강(폐결핵·전염성 질환 없음), 체재비 통장잔고 USD 10,000 이상(1개월 이상 예치)",
+      "발급 = 체류기간 6개월 이하 단수 사증발급인정서",
+      "연수기관 관리의무(출결·체류 분기별 통보, 이탈 즉시 통보)·인권보호 의무·추천 제한(위반 기관 1년 신규 초청 불가) 신설"
+     ],
+     "documents": {
+      "applicant": [
+       "한식 연수생 추천서(붙임2)",
+       "입학허가서",
+       "TOPIK 1급 상당 입증(또는 면제신청서)"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [
+       "체재비 입증(등록금 외 통장잔고 USD 10,000 이상, 1개월 이상 예치)",
+       "교육비 납입증명"
+      ],
+      "career_or_education": [
+       "조리경력·자격증 요건 폐지(관련 입증서류 불요)"
+      ],
+      "other": [
+       "수라학교 지정증(붙임1)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      81,
+      85
+     ],
+     "manual": "visa",
+     "section": "일반연수(D-4) > 4. 한식조리연수생(D-4-5) 사증발급인정서 발급",
+     "confidence": "high",
+     "affected_family": "D-4"
+    },
+    {
+     "id": "SD-03",
+     "delta_id": "SD-03",
+     "status_or_task": "D-4-5 한식조리연수 — 체류자격 변경 불가 명시 신설",
+     "status_code": "D-4-5",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "D-4 변경허가 목차에 한식조리연수 항목 없음(4번이 D-4-6)",
+     "new_content": "'4. 한식조리연수(D-4-5)' 변경 불가 항목 신설(독일인 B-1 항목은 5→6번)",
+     "practical_impact": "국내 변경 신청 접수 불가 — 사증발급인정서 경로로만 안내",
+     "requirements": [
+      "다른 체류자격 소지자의 D-4-5로의 체류자격 변경 불가",
+      "국내 체류 외국인이 연수생 선발 시 사증발급인정서를 발급받아 출국 후 재외공관에서 사증 발급받아 재입국"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      86
+     ],
+     "manual": "stay",
+     "section": "일반연수(D-4) > 체류자격 변경허가",
+     "confidence": "high",
+     "affected_family": "D-4"
+    },
+    {
+     "id": "SD-04",
+     "delta_id": "SD-04",
+     "status_or_task": "D-4-5 체류기간연장 — 한도 명시·제출서류 전면 교체·결핵 조치 신설",
+     "status_code": "D-4-5",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "제출서류 ①신청서 등 ②사업자등록증·법인등기부 ③연수비 납입증명(추가 납입 시) ④연수 계속 필요성 소명 ⑤연수기관장 추천서 ⑥한국어능력(면제신청서 제출자) ⑦건강진단서 ⑧체류지 입증서류; 연장 한도 문구 없음",
+     "new_content": "서류를 연수기관 발행 서류 중심으로 교체(재학증명서·개인별 연수 계획서·오리엔테이션 결과 보고서 등) + 최대 2년 한도 + 결핵 치료회피 시 불허·출국명령",
+     "practical_impact": "",
+     "requirements": [
+      "농식품부 지정 연수기관 정규프로그램 참여 시 입국일로부터 최대 2년 이내 연장 가능(신설)",
+      "치료 고의 회피 판단 시 연장 불허 및 출국명령(결핵은 관할 보건소장에게 치료회피 여부 문의 후 조치) 신설"
+     ],
+     "documents": {
+      "applicant": [
+       "한식 연수과정 재학증명서(연수기관 발행)",
+       "개인별 연수 계획서(기이수과정 성적·출석율 명시, 연수기관 작성)",
+       "입국 후 국내 적응 오리엔테이션 실시 결과 보고서",
+       "한국어능력 입증서류(기초·심화 과정 수료기준 충족여부 확인)",
+       "건강진단서"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [
+       "연수비 납입증명서(연수기관 발행)"
+      ],
+      "career_or_education": [],
+      "other": [
+       "체류지 입증서류"
+      ]
+     },
+     "risk_points": [
+      "결핵 치료 대상자 연장 리스크 고지 필요"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      91,
+      92
+     ],
+     "manual": "stay",
+     "section": "일반연수(D-4) > 체류기간연장허가 > 4. 한식조리연수생(D-4-5)",
+     "confidence": "high",
+     "affected_family": "D-4"
+    },
+    {
+     "id": "SD-05",
+     "delta_id": "SD-05",
+     "status_or_task": "D-4-5 외국인등록 서류 추가 + 연수 중 인턴활동 규정 신설",
+     "status_code": "D-4-5",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "등록 서류: 신청서·여권원본·사진·수수료, 연수기관 사업자등록증 사본, 지정병원 건강진단서; 인턴활동 규정 없음",
+     "new_content": "지정증·체류지 서류 추가, 인턴활동 허용범위 신설",
+     "practical_impact": "",
+     "requirements": [
+      "외국인등록 서류에 농식품부 발행 수라학교 지정증·체류지 입증서류 추가",
+      "'수라학교' 정규 과정 내 인턴십은 별도 신고 없이 허용, 연수생의 개별 외부 현장실습은 제한(신설)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "농식품부 발행 한식 전문인력 양성기관(수라학교) 지정증",
+       "체류지 입증서류"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      93,
+      96
+     ],
+     "manual": "stay",
+     "section": "일반연수(D-4) > 외국인등록 / 기타(연수 중 인턴활동)",
+     "confidence": "high",
+     "affected_family": "D-4"
+    }
+   ]
+  },
+  {
+   "id": "PKG_FAMILY",
+   "title": "F-1/F-2/F-3 가족·동반 패키지",
+   "impact": "high",
+   "recommended_action": "confirm_then_apply",
+   "decision_required": true,
+   "summary_3_lines": [
+    "F-1-4 혼외자녀 양육자·F-1-51 국제입양 신설, 국내출생 자녀 축소",
+    "F-2-7 점수제 개정(우수대학·사회봉사·감점 기준)",
+    "F-3 자격외활동 개편 — 시범 신설 + 가사·육아·간병 삭제, 신원보증서 추가"
+   ],
+   "why_user_should_care": "신규 업무(F-1-4/51) 행 추가 여부 판단 + F-3 안내 관행 즉시 수정 필요",
+   "item_count": 19,
+   "affected_rows_count": 82,
+   "affected_rows_sample": [
+    "M1-0006",
+    "M1-0085",
+    "M1-0087",
+    "M1-0089",
+    "M1-0090",
+    "M1-0091",
+    "M1-0092",
+    "M1-0094",
+    "M1-0095",
+    "M1-0103",
+    "M1-0104",
+    "M1-0105",
+    "M1-0106",
+    "M1-0203",
+    "M1-0204"
+   ],
+   "items": [
+    {
+     "id": "V-A13",
+     "delta_id": "V-A13",
+     "status_or_task": "영주(F-5-7) 신청자 가족 방문동거(F-1-72) 폐지 → F-3 동반 전환",
+     "status_code": "F-1-72/F-3",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "F-1 기본대상에 영주(F-5-7) 신청자의 가족(배우자·미성년 자녀) 포함(F-1-72)",
+     "new_content": "F-1-72 폐지 — 본인 F-4 변경 → 가족 F-3 2단계 경로로 전환",
+     "practical_impact": "",
+     "requirements": [
+      "가족동거 희망 시 F-5-7 신청자가 F-4 자격변경 후 가족에게 동반(F-3) 부여",
+      "체류자격 변경 대상은 'F-4·H-2 취득자의 가족(배우자, 미성년 자녀 및 부모)'로 통합 기재"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "구판의 미성년 자녀 만 25세 미만 연장 특례·동포 국내출생 자녀 체류자격 부여 항목도 신판 부록에서 삭제 — 제도 폐지인지 기재 생략인지 매뉴얼에서 확인 불가"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      406,
+      407
+     ],
+     "manual": "visa",
+     "section": "동포 가족의 체류자격 (F-1/F-3)",
+     "confidence": "high",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "V-B4",
+     "delta_id": "V-B4",
+     "status_or_task": "국제입양 외국인(F-1-51) 사증발급 지침 신설",
+     "status_code": "F-1-51",
+     "manual_type": "사증",
+     "change_type": "추가",
+     "old_content": "해당 지침 없음(구판 전문 검색으로 F-1-51 부존재 확인)",
+     "new_content": "'9. 국제 입양 외국인(F-1-51)에 대한 사증발급' 신설 — 대상·발급기준·제출서류 체계 수립",
+     "practical_impact": "신규 수임 가능 업무 유형 — 제출서류 체계가 상세해 체크리스트화 가능",
+     "requirements": [
+      "입양 진행 중 2년 단수 사증 발급, 입양 완료 시 거주(F-2-3)/영주(F-5-3) 지침 적용"
+     ],
+     "documents": {
+      "applicant": [
+       "여권·신청서·사진·수수료",
+       "아동 신원서류(출생증명서, 전혼 자녀는 가족관계 확인서류)",
+       "만 14세 이상 범죄경력증명서(면제 규정 포함)",
+       "결핵고위험국가 결핵진단서(6세 미만 면제)"
+      ],
+      "employer": [],
+      "family": [
+       "국제입양성립(진행) 입증서류(국제입양절차 진행 협의서 또는 협약준수입양증명서, 해당 시 임시양육 허가 증명서)",
+       "양부모 신원서류(가족관계증명서 상세본, 신분증)"
+      ],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "체류지 입증서류",
+       "해외 발급 서류는 아포스티유/영사확인 + 번역문 + 접수일 기준 6개월 이내 발급분"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      306,
+      307
+     ],
+     "manual": "visa",
+     "section": "방문동거(F-1) > 9. 국제 입양 외국인(F-1-51)에 대한 사증발급",
+     "confidence": "high",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "V-B9",
+     "delta_id": "V-B9",
+     "status_or_task": "동반(F-3) — 제출면제 확대·체류기간 상한 기준 변경·코드 정정",
+     "status_code": "F-3",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "제출면제 = E-1, E-3, E-4, E-5, F-4, H-2; 상한 = '동반하는 본인에게 정하여진 체류기간'; '공인된 번역자 확인서 필수'",
+     "new_content": "면제 대상 3종 추가, 상한 기준 법령 인용으로 변경, 번역 요건 완화",
+     "practical_impact": "",
+     "requirements": [
+      "생계유지능력·주거지 입증서류 제출면제 대상에 E-7-T, E-7-S1, D-8 50만불 이상 고액투자자 추가",
+      "1회 부여 체류기간 상한 = 출입국관리법 시행규칙 [별표 1] 기준으로 변경",
+      "코드 표기 E-7-ST → E-7-T 정정, 번역자 확인서의 '공인' 문구 삭제(완화)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [
+       "E-7-T·E-7-S1·D-8 50만불 이상 고액투자자 동반가족: 생계유지능력 입증서류 면제"
+      ],
+      "career_or_education": [],
+      "other": [
+       "주거지 입증서류 면제(동일 대상)",
+       "번역자 확인서(공인 요건 삭제)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      315,
+      316
+     ],
+     "manual": "visa",
+     "section": "동반(F-3) — 체류기간 상한 / 전자사증 / 공관장 재량 사증 첨부서류",
+     "confidence": "high",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-A11",
+     "delta_id": "SF-A11",
+     "status_or_task": "동포 가족 F-1-72 폐지 → F-3 전환, 25세 연장·국내출생 자녀 문단 삭제",
+     "status_code": "F-1-72/F-3",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "대상 3분류(F-4 가족, H-2 가족, F-5-7 신청자 가족 F-1-72) + 만 25세 미만 연장 특례 + 동포 국내출생 자녀 부여(출생 90일 이내) 문단",
+     "new_content": "F-1-72 폐지, 만 25세 연장 조항·국내출생 자녀 부여 문단 삭제",
+     "practical_impact": "",
+     "requirements": [
+      "F-5-7 신청자 가족의 F-1-72 폐지 — 신청자가 F-4 변경 후 가족에게 동반(F-3) 부여",
+      "변경 대상은 'F-4·H-2 취득자의 가족(배우자, 미성년 자녀 및 부모)'로 통합 서술"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "미성년 자녀 25세 연장 특례·동포 국내출생 자녀 부여는 신판 기준 근거 소멸(확인 필요)",
+      "H-2 가족에 '부모' 포함 여부는 통합 문장 표현이라 단정 불가"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      542,
+      543
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.6 동포 가족 동반(F-3)·방문동거(F-1) 사증·체류 세부절차",
+     "confidence": "high",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "SF-C1",
+     "delta_id": "SF-C1",
+     "status_or_task": "F-2-7 점수제 가점 개정(우수대학·사회봉사)",
+     "status_code": "F-2-7",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "우수대학 THE 200대·QS 500위 + 법무부장관 인정 특정 해외 대학; 사회봉사는 각 1년간 최소 6회·총 50시간 이상 시 인정",
+     "new_content": "우수대학 5개년·단일지표 인정, 사회봉사 누적 기준 상향, 참전국 우수인재 문구 정리",
+     "practical_impact": "",
+     "requirements": [
+      "우수대학: 신청일 기준 최근 5개년 내 QS 500위 이내 또는 THE 200위 이내 중 하나만 선정돼도 인정(법무부장관 인정 특정 해외대학 삭제)",
+      "사회봉사: 누적 실적 기준으로 구체화 — 3년 이상(18회·150시간) 7점 / 3년 미만(12회·100시간) 5점 / 2년 미만(6회·50시간) 1점 / 1년 미만 실적만 있으면 불인정"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "사회봉사 가점 요건 사실상 상향 — 기존 안내 기준 수정 필요",
+      "1365/VMS 확인 문구는 신판 가점 기준표에서 확인 불가(삭제)"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      372
+     ],
+     "manual": "stay",
+     "section": "거주(F-2) — 5. 점수제 우수인재 ③ 가점",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-C2",
+     "delta_id": "SF-C2",
+     "status_or_task": "F-2-7 점수제 감점·결격 해석기준 명문화",
+     "status_code": "F-2-7",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "감점표 + '3년 이내 300만원 이상 벌금형 등은 결격' 서술(기준 모호)",
+     "new_content": "확정일·납부일 기준 해석기준 명문화(배점 동일)",
+     "practical_impact": "벌금·처벌 전력자 사전진단 시 확정일·납부일 확인 필요",
+     "requirements": [
+      "통고처분은 납부일 기준 신청일로부터 3년 이내",
+      "벌금형 300만원 이상 및 벌금형 이상 형사처벌(집행유예 포함): 형 확정 시점이 신청일 기준 3년 이내면 자격변경 불허, 3년 경과 시 40점 감점",
+      "벌금형 300만원 미만은 확정 시점과 무관하게 감점"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      372
+     ],
+     "manual": "stay",
+     "section": "거주(F-2) — 점수제 나. 감점",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-C3",
+     "delta_id": "SF-C3",
+     "status_or_task": "F-2-7 전문직 체류기간 요건 특례 — 승선 출국기간 산입",
+     "status_code": "F-2-7",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "전문직 체류자격으로 3년 이상 연속 합법체류 요건(특례 문구 없음)",
+     "new_content": "승선 출국기간 국내체류 산입 특례 신설",
+     "practical_impact": "",
+     "requirements": [
+      "국제상선 승선 등의 사유로 출국한 기간은 모두 국내 체류기간에 포함(신설)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      367
+     ],
+     "manual": "stay",
+     "section": "거주(F-2) — 점수제 신청대상 3) 전문직 종사자",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-C4",
+     "delta_id": "SF-C4",
+     "status_or_task": "F-2-8 관광·휴양시설 투자 — 근거 고시 갱신(제2026-29호)",
+     "status_code": "F-2-8",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "법무부고시 제2023-225호 + 고시 전문(강릉 정동진, 여수 화양, 평창 알펜시아, 인천경제자유구역, 제주 등 7곳) 수록",
+     "new_content": "고시 번호 갱신·전문 삭제 — 투자지역·기준금액은 고시 원문 직접 확인 필요",
+     "practical_impact": "",
+     "requirements": [
+      "근거를 법무부고시 제2026-29호(시행령 별표 1의2 제24호 '차'목 기준 고시)로 갱신",
+      "구 고시 전문(투자지역 7곳·투자금액·시행기간)은 삭제하고 기준 고시 참고 안내로 대체"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "고시 제2026-29호의 내용 변경 여부(지역 증감·금액)는 매뉴얼에서 확인 불가"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      374,
+      378
+     ],
+     "manual": "stay",
+     "section": "거주(F-2) — 6. 관광·휴양시설 투자 외국인 거주(F-2-8, F-2-81) 자격 변경허가",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-D1",
+     "delta_id": "SF-D1",
+     "status_or_task": "F-1-4 대한민국 국적 혼외 미성년 자녀 양육자 — 변경허가·자격외활동 신설",
+     "status_code": "F-1-4",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "없음",
+     "new_content": "F-1-4 변경허가·자격외활동허가 신설",
+     "practical_impact": "혼외자 양육 외국인(F-6 불가 사례)의 체류·취업 경로 신설 — 신규 업무유형",
+     "requirements": [
+      "체류자격 변경허가 신설(근거: 체류관리과-139, 2026.1.7., 체류지 관할 청 위임)",
+      "자격외활동허가: 취업제한 분야(사행행위·단란/유흥주점·풍속영업, 개인과외 등) 제외 단순노무 분야 취업 허용, 전문분야(E-1~E-7)는 자격요건 구비 시 가능"
+     ],
+     "documents": {
+      "applicant": [
+       "신청서(별지 34호), 여권, 사진, 수수료",
+       "체류지 입증서류",
+       "결핵확인서(해당자)"
+      ],
+      "employer": [],
+      "family": [
+       "국민인 자녀의 주민등록등본·기본증명서(상세)·가족관계증명서(상세)",
+       "필요시 출생증명서·유전자감정결과서 요구 가능"
+      ],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      338,
+      340,
+      345
+     ],
+     "manual": "stay",
+     "section": "방문동거(F-1) — 체류자격외활동 6 / 체류자격 변경허가 4",
+     "confidence": "high",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "SF-D2",
+     "delta_id": "SF-D2",
+     "status_or_task": "국제입양 아동(F-1-51) 체류자격 변경허가 신설",
+     "status_code": "F-1-51",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "없음(구판 11번은 결혼이민자 전혼자녀 F-1-52)",
+     "new_content": "'11. 국제 입양 외국인(F-1-51) 체류자격 변경허가' 신설 — F-1-52는 12번, F-1-D는 13번으로 이동",
+     "practical_impact": "",
+     "requirements": [
+      "기간: 진행 중 2년, 완료 시 F-2-3/F-5-3 지침 적용"
+     ],
+     "documents": {
+      "applicant": [
+       "아동 신원서류(출생증명서 등)",
+       "만 14세 이상 범죄경력증명서(면제기준 명시)",
+       "결핵진단서(고위험국, 6세 미만 면제)"
+      ],
+      "employer": [],
+      "family": [
+       "국제입양성립(진행) 입증서류(국제입양절차 진행 협의서, 협약준수입양증명서, 임시양육 허가 증명서 등)",
+       "양부모 신원서류"
+      ],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "해외서류 아포스티유/영사확인·6개월 이내 발급 요건"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      347,
+      348
+     ],
+     "manual": "stay",
+     "section": "방문동거(F-1) — 체류자격 변경허가 11",
+     "confidence": "high",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "SF-D3",
+     "delta_id": "SF-D3",
+     "status_or_task": "국내출생 자녀 F-1 부여 대상 축소 — H-2·F-4 삭제",
+     "status_code": "F-1",
+     "manual_type": "체류",
+     "change_type": "삭제·약화",
+     "old_content": "D-3, E-9, E-10, H-2, F-4 자격으로 국내체류 중인 자의 국내출생 자녀에 F-1 부여",
+     "new_content": "H-2·F-4 삭제(동포 매뉴얼의 국내출생 자녀 부여 문단도 함께 삭제)",
+     "practical_impact": "",
+     "requirements": [
+      "부여 대상에서 H-2·F-4 삭제 — D-3, E-9, E-10 자격자의 국내출생 자녀만 존치"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "대체 경로(F-3 등)는 매뉴얼에서 명시 확인 불가 — 실제 접수 기준은 관서 확인 필요"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      341
+     ],
+     "manual": "stay",
+     "section": "방문동거(F-1) — 체류자격 부여 3",
+     "confidence": "high",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "SF-E1",
+     "delta_id": "SF-E1",
+     "status_or_task": "F-3 우수인재 배우자 포괄적 자격외활동 특례 시범운영",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "없음",
+     "new_content": "'5. 우수인재 배우자에 대한 자격 외 활동허가의 특례(시범운영 1년)' 신설",
+     "practical_impact": "D-2 대학원생·E-1/E-3/E-4/E-5 배우자(F-3) 취업 상담 전면 변경 — 15일 신고기한 관리 필요",
+     "requirements": [
+      "시범운영 '26.3.30.~'27.3.29. — 취업제한 분야 제외 모든 활동 허용",
+      "절차 특례: 포괄적 자격외활동허가 → 근로계약·취업 → 개시/종료 15일 이내 신고(원칙은 계약→허가→취업)",
+      "온라인 최초 포괄허가는 '26.4.22.부터; 미신고 적발 시 허가취소, 복수 근무처 개별 신고, 계약변경도 신고"
+     ],
+     "documents": {
+      "applicant": [
+       "최초 포괄허가: 신청서·여권·외국인등록증·수수료"
+      ],
+      "employer": [
+       "취업개시 신고(온라인만): 사업자등록증 등"
+      ],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "종료 신고 서류 불요"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      421,
+      422
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류자격외활동 5",
+     "confidence": "high",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-E2",
+     "delta_id": "SF-E2",
+     "status_or_task": "F-3 단순노무 자격외활동 허용분야 축소 — 가사·육아·간병 삭제",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "삭제·약화",
+     "old_content": "허용분야에 가사·육아·간병 포함, 제출서류에 해외범죄경력증명서(가정 내 활동 시)",
+     "new_content": "가사·육아·간병 삭제, 해외범죄경력증명서 요건도 함께 삭제",
+     "practical_impact": "F-3 소지자의 가사·육아·간병 취업 자격외활동 접수 불가(신판 기준); 허가기간(체류기간 내 최대 1년)은 동일",
+     "requirements": [
+      "허용분야 '단순노무 분야(H-2 취업범위 중 농업·임업·축산업)'로 축소"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      420
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류자격외활동 (단순노무 허용분야)",
+     "confidence": "high",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-E3",
+     "delta_id": "SF-E3",
+     "status_or_task": "F-3 체류기간 상한 표기 변경",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "'동반하는 본인에 정하여진 기간'",
+     "new_content": "법령 인용 표기로 정비",
+     "practical_impact": "",
+     "requirements": [
+      "'출입국관리법 시행규칙 [별표 1] 체류자격별 체류기간 상한에 따름'으로 표기 변경"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "실무상 부여 관행 변화 여부는 매뉴얼에서 확인 불가"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      420
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류기간",
+     "confidence": "medium",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-E4",
+     "delta_id": "SF-E4",
+     "status_or_task": "F-3 체류자격 부여 — 신원보증서 추가",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "①신청서·여권·사진·수수료 ②부/모의 외국인등록증 ③가족관계 입증서류",
+     "new_content": "③신원보증서 추가(④가족관계 입증서류로 번호 이동)",
+     "practical_impact": "",
+     "requirements": [
+      "제출서류에 신원보증서 추가, 본국 공적서류의 '공인된 번역자 확인서' → '번역자 확인서'로 완화"
+     ],
+     "documents": {
+      "applicant": [
+       "신원보증서(추가)"
+      ],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "번역자 확인서('공인' 요건 완화)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      422,
+      423
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류자격 부여 제출서류",
+     "confidence": "high",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-E5",
+     "delta_id": "SF-E5",
+     "status_or_task": "F-3 인도적 사정변경 변경허가 — 양육 사유 추가·재정능력 서류 추가",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "사유 '임신·출산·질병 등', 필수서류 ①~⑤(⑤사유서), 추가서류에 배우자/부모 외국인등록증",
+     "new_content": "양육 추가 + 재정능력 입증·사유 증빙 강화, 번역자 확인서 완화 동일 적용",
+     "practical_impact": "",
+     "requirements": [
+      "사유에 '양육' 추가(임신·출산·양육·질병)",
+      "서류에 체류경비 등 재정능력 입증서류 추가, 변경 사유서에 관련 증빙 서류 요구 강화"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [
+       "체류경비 등 재정능력 입증서류(추가)"
+      ],
+      "career_or_education": [],
+      "other": [
+       "체류자격 변경 사유서 및 관련 증빙 서류"
+      ]
+     },
+     "risk_points": [
+      "신판 원문에 '③체류경비…'와 '③체류지 입증서류' 번호 중복(조판 오류로 보임)"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      423
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류자격 변경허가 1",
+     "confidence": "high",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-E6",
+     "delta_id": "SF-E6",
+     "status_or_task": "F-3 섹션의 전문직(E-1~E-7) 변경허가 안내 항목 삭제",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "삭제·약화",
+     "old_content": "F-3 소지자의 전문직 변경 대상·분야·서류 수록",
+     "new_content": "F-3 챕터에서 삭제 — 제도 폐지가 아니라 안내 위치 삭제로 보임",
+     "practical_impact": "",
+     "requirements": [
+      "F-3 섹션에서 '전문외국인력의 배우자에 대한 전문직자격으로의 변경허가' 항목 삭제(기존 3번이 2번으로 승계)",
+      "동일 제목 항목이 신판의 다른 자격 섹션들(신 170·190·197·202·209)에는 존속"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "F-3 배우자의 전문직 변경 가능 여부는 존속 섹션 기준으로 판단(확인 필요)",
+      "실무지침 DB의 근거 페이지 갱신 필요"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      423,
+      424
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류자격 변경허가",
+     "confidence": "medium",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-E7",
+     "delta_id": "SF-E7",
+     "status_or_task": "F-3 외국인등록 — 가족관계 입증서류 완화",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "②가족관계 입증서류 ③체류지 입증서류(조건 없음)",
+     "new_content": "가족관계서류 제출 조건 완화",
+     "practical_impact": "",
+     "requirements": [
+      "가족관계 입증서류는 연장 등 추가 체류허가가 필요한 경우에만 제출, 공적 확인 불요, 사본 제출 가능"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [
+       "가족관계 입증서류(연장 등 필요 시에만, 공적 확인 불요, 사본 가능)"
+      ],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      424
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 외국인등록",
+     "confidence": "high",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-F1",
+     "delta_id": "SF-F1",
+     "status_or_task": "G-1-10 외국인환자 변경허가 — 체류지 입증서류 추가",
+     "status_code": "G-1-10",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "①신청서 등 ②의료기관 소견서 ③치료·체류비용 조달능력 입증(유치기관/신원보증 시 생략) ④가족관계·간병인 입증서류",
+     "new_content": "체류지 입증서류 항목 추가",
+     "practical_impact": "",
+     "requirements": [
+      "제출서류에 ⑤체류지입증서류(임대차계약서, 숙소제공 확인서, 숙박료 납입 영수증 등) 추가"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "체류지 입증서류(임대차계약서, 숙소제공 확인서, 숙박료 납입 영수증 등)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      506
+     ],
+     "manual": "stay",
+     "section": "기타(G-1) — 7. 외국인환자(G-1-10) 제출서류",
+     "confidence": "high",
+     "affected_family": "G-1"
+    }
+   ]
+  },
+  {
+   "id": "PKG_REGIONAL",
+   "title": "지역특화형비자 패키지",
+   "impact": "medium",
+   "recommended_action": "quick_apply",
+   "decision_required": false,
+   "summary_3_lines": [
+    "소상공인 고용특례 신설(내국인 0명이어도 F-2-R 1명, '26.5.18~)",
+    "F-2-R/F-4-R 2년 후 광역 내 거주지 이전 허용 + 무귀책 근속 합산",
+    "사업지역 강원 4곳(태백·평창·양구·정선) 추가"
+   ],
+   "why_user_should_care": "지역특화 수임 범위·거주요건 상담 기준이 갱신됨",
+   "item_count": 6,
+   "affected_rows_count": 86,
+   "affected_rows_sample": [
+    "M1-0067",
+    "M1-0068",
+    "M1-0069",
+    "M1-0070",
+    "M1-0071",
+    "M1-0072",
+    "M1-0073",
+    "M1-0074",
+    "M1-0075",
+    "M1-0076",
+    "M1-0077",
+    "M1-0090",
+    "M1-0091",
+    "M1-0092",
+    "M1-0094"
+   ],
+   "items": [
+    {
+     "id": "SF-B1",
+     "delta_id": "SF-B1",
+     "status_or_task": "지역활력 소상공인 고용특례 신설(F-2-R)",
+     "status_code": "F-2-R",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "없음(내국인 고용인원 기준 필수)",
+     "new_content": "'지역활력 소상공인 고용특례' 신설 — 제출서류·체크리스트·붙임 15~17 서식 신설",
+     "practical_impact": "고용특례 요건 5종 확인 절차 신설 — 시범 후 정식 제도화 여부 결정",
+     "requirements": [
+      "내국인 고용 0명이어도 F-2-R 1명 고용 허용(시범 '26.5.18.~'27.12.31.)",
+      "대상: 소상공인(중기부 확인서) 또는 농업법인; 업종: 소상공인은 제조업(10~34)·도소매업(45~47)·음식점업(561) 한정(주점·비알코올 음료점업 562 제외), 농업법인 업종 무관",
+      "업력 3년 이상, 전년도 매출 1억원 이상(미달 시 2년 평균 1억 이상 허용)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [
+       "중소기업(소상공인)확인서",
+       "영농조합·농업회사법인 설립신고확인증",
+       "부가세 과세표준증명"
+      ],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      588,
+      593,
+      632,
+      643,
+      648
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 — 고용기업 요건 / 제출서류 / 체크리스트 / 붙임 15~17",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-B2",
+     "delta_id": "SF-B2",
+     "status_or_task": "지역특화형비자 지침 시행일 갱신",
+     "status_code": "F-2-R/F-4-R",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "시행일 2026.1.26.(월)",
+     "new_content": "시행일 2026.5.18.로 갱신",
+     "practical_impact": "",
+     "requirements": [
+      "시행일 2026.5.18.(월) — 소상공인 고용특례 등 개정 반영판"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      626
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 — 행정사항(시행일)",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-B3",
+     "delta_id": "SF-B3",
+     "status_or_task": "F-2-R 거주지 이전 허용·무귀책 근무기간 합산 특례",
+     "status_code": "F-2-R",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "체류자격 변경 후 추천지역 내 계속 거주; 기업추천은 '현재 1년 이상 근무 중인 기업' 요건만",
+     "new_content": "거주지 이전 허용 + 무귀책 이직 합산 각주 신설",
+     "practical_impact": "",
+     "requirements": [
+      "2년 경과 시 거주지는 동일 광역지자체 내 다른 인구감소·관심지역으로 이전 가능(신설)",
+      "직전 근무처 휴·폐업, 폭언·폭행·임금체불 등 무귀책 근무처변경이 객관적으로 입증되면 직전+현 근무처 근무기간 합산 1년 이상 시 추천 가능(연장 심사에서도 합산 인정)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "무귀책 이직 증빙자료(휴폐업 사실, 진정 기록 등)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      605,
+      607
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 — F-2-R 거주 및 취업 / 신청대상",
+     "confidence": "high",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-B4",
+     "delta_id": "SF-B4",
+     "status_or_task": "지역특화 숙련기능인력 고용허용인원 — 농축어업 추가",
+     "status_code": "E-7-4R",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "최소 1명(인구감소지역, 뿌리산업은 2명); 71명 초과 특례는 인구감소지역·뿌리산업 기업만",
+     "new_content": "농축어업/농림축산어업체 추가",
+     "practical_impact": "",
+     "requirements": [
+      "최소 고용 2명 대상에 농축어업 추가, 내국인 71명 초과 특례 대상에 농림축산어업체 추가"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      609,
+      610
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 — 숙련기능인력 고용허용인원",
+     "confidence": "high",
+     "affected_family": "E-7"
+    },
+    {
+     "id": "SF-B5",
+     "delta_id": "SF-B5",
+     "status_or_task": "F-4-R 거주요건 — 2년 경과 시 광역 내 이전 허용",
+     "status_code": "F-4-R",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "'2년 이상 지정된 인구감소지역에 계속 거주할 것'만 규정",
+     "new_content": "광역 내 이전 허용 단서 신설",
+     "practical_impact": "F-4-R → 일반 F-4 변경 허용 신설은 SF-A5 참조",
+     "requirements": [
+      "2년 경과 시 거주지는 동일 광역자치단체 내 다른 인구감소지역으로 이전 가능(영문 병기) 추가"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      638,
+      639
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 — 4. 지역특화형 재외동포(F-4-R)",
+     "confidence": "high",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-B6",
+     "delta_id": "SF-B6",
+     "status_or_task": "지역특화형비자 사업지역 — 강원 4곳 추가",
+     "status_code": "F-2-R/F-4-R",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "【붙임 3】 2025~26년 사업지역 및 배정인원('25.2.~'26.12.31.)",
+     "new_content": "강원 4개 시·군 추가, 표 주석 일부 정리",
+     "practical_impact": "",
+     "requirements": [
+      "사업지역 표에 강원 태백시(동해출), 평창군(춘천), 양구군(춘천), 정선군(동해출) 추가 — 삭제 지역 없음(명칭 집합 비교)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "표 재조판으로 관할 출입국관서 매핑은 원문 표 기준 재확인 권장"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      630
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 【붙임 3】 2025~26년 사업지역 및 배정인원",
+     "confidence": "high",
+     "affected_family": "F-2"
+    }
+   ]
+  },
+  {
+   "id": "PKG_E",
+   "title": "E계열 고용·근무처 패키지",
+   "impact": "medium",
+   "recommended_action": "quick_apply",
+   "decision_required": false,
+   "summary_3_lines": [
+    "조선업 E-7-3 완화 임금 2,588만원('26) 갱신",
+    "E-7-4 근속 1/3년 요건에 무귀책 이직 합산 신설 + 농축어업 특례",
+    "E-9 근무처변경 서류에 체류지 입증서류 추가"
+   ],
+   "why_user_should_care": "임금 하한 숫자·서류 목록이 바뀌어 연장/변경 접수 시 바로 적용됨",
+   "item_count": 6,
+   "affected_rows_count": 48,
+   "affected_rows_sample": [
+    "M1-0067",
+    "M1-0068",
+    "M1-0069",
+    "M1-0070",
+    "M1-0071",
+    "M1-0072",
+    "M1-0073",
+    "M1-0074",
+    "M1-0075",
+    "M1-0076",
+    "M1-0077",
+    "M1-0099",
+    "M1-0100",
+    "M1-0101",
+    "M1-0166"
+   ],
+   "items": [
+    {
+     "id": "V-B5",
+     "delta_id": "V-B5",
+     "status_or_task": "조선업 E-7-3 3개 직종 완화 임금요건 갱신",
+     "status_code": "E-7-3",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "GNI 80% 이상, 도입 3년차까지 2,515만원 이상('25년 기준) 완화 적용",
+     "new_content": "완화 기준액 2,588만원('26년 기준)으로 갱신 + '24.10월 이후 신규 도입 인력 한정·만 3년 정의 명시",
+     "practical_impact": "'24.10월 전후 도입 여부와 입국일 기준 만 3년 시점 확인 필요",
+     "requirements": [
+      "'24.10월 이후 신규 도입 인력은 도입 3년차까지 2,588만원 이상('26년 기준) 완화 임금요건 적용",
+      "'도입 3년차' = 입국일로부터 만 3년('24.10.1. 입국자는 '27.10.1.부터 GNI 80% 적용)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      236,
+      238,
+      239,
+      240
+     ],
+     "manual": "visa",
+     "section": "특정활동(E-7) > 조선용접공·선박전기원·선박도장공 (임금요건)",
+     "confidence": "high",
+     "affected_family": "E-7"
+    },
+    {
+     "id": "V-B8",
+     "delta_id": "V-B8",
+     "status_or_task": "예술흥행(E-6-2 관련) 경력증명 요건 완화",
+     "status_code": "E-6-2",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "자격증명서 또는 경력증명서(3년 이상, 아포스티유 또는 공관 확인 필)",
+     "new_content": "동일 항목에 대체증빙 허용·재입국자 2년 완화 각주 신설",
+     "practical_impact": "",
+     "requirements": [
+      "현지 경력증명 발급체계 미흡 시 대체 객관자료(SNS 게시물, 활동사진·영상, 임금영수증 등) 제출 가능(각주 신설)",
+      "과거 국내 2년간 E-6-2 정상 근무 후 출국자는 경력요건 3년 → 2년 완화"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [
+       "경력증명서 대체 객관자료(SNS 게시물·활동사진/영상·임금영수증 등) 허용",
+       "재입국자(국내 E-6-2 2년 정상근무) 경력요건 3년→2년"
+      ],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      167
+     ],
+     "manual": "visa",
+     "section": "예술흥행(E-6) > 사증발급인정서 첨부서류(공연추천 관련) ⑥",
+     "confidence": "high",
+     "affected_family": "E-6"
+    },
+    {
+     "id": "SD-01",
+     "delta_id": "SD-01",
+     "status_or_task": "E-7 조선업 3개 직종 임금요건 갱신(체류 매뉴얼)",
+     "status_code": "E-7-3",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "GNI 80% 이상, 도입 3년차까지 2,515만원 이상('25년 기준) 완화 적용, 기도입 인력(2~3년차) 기존 수준 유지",
+     "new_content": "완화 하한 2,588만원('26년 기준), 적용대상 '24.10월 이후 신규 도입 인력 한정 명시, 도입 3년차 정의 신설",
+     "practical_impact": "초청·연장 시 임금 하한 상향 반영, 기존 인력 연장 시 GNI 80% 전환 시점 계산 필요",
+     "requirements": [
+      "'24.10월 이후 신규 도입 인력은 도입 3년차까지 2,588만원 이상('26년 기준) 완화 임금요건 적용",
+      "'도입 3년차' = 입국일로부터 만 3년('24.10.1. 입국자는 '27.10.1.부터 GNI 80% 적용); GNI 80% 본칙 유지"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      280,
+      281,
+      283
+     ],
+     "manual": "stay",
+     "section": "특정활동(E-7) > 조선용접공·선박 전기원·선박 도장공 (임금요건)",
+     "confidence": "high",
+     "affected_family": "E-7"
+    },
+    {
+     "id": "SD-02",
+     "delta_id": "SD-02",
+     "status_or_task": "E-7-4 숙련기능인력 근속기간 합산 인정 신설",
+     "status_code": "E-7-4",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "각 요건에 근무처 변경 시 합산 규정 없음",
+     "new_content": "무귀책 이직 합산 규정 명문화(4곳)",
+     "practical_impact": "E-7-4 전환 상담 단계에서 구제 폭 확대",
+     "requirements": [
+      "직전 근무처 휴·폐업, 폭언·폭행·임금체불 등 근로자 무귀책 사유의 근무처 변경이 객관적 증빙으로 입증되면 직전+현 근무처 근무기간 합산",
+      "기업추천 개인트랙 1년·고용기업추천 1년·현 근무처 근속 3년 산정에 각각 적용(+FAQ 2건)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "무귀책 이직 증빙(휴폐업 사실증명, 진정·체불 확인서 등)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      296,
+      298,
+      299,
+      304
+     ],
+     "manual": "stay",
+     "section": "특정활동(E-7) > 나. 기능원 및 관련 기능 종사자 — 추천·근속 요건, FAQ 5-1",
+     "confidence": "high",
+     "affected_family": "E-7"
+    },
+    {
+     "id": "SD-06",
+     "delta_id": "SD-06",
+     "status_or_task": "E-7 기능원 고용허용인원 특례에 농축어업 추가",
+     "status_code": "E-7-3/E-7-4",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "특례 = 인구감소지역, 뿌리산업만(최소 1명, 인구감소지역·뿌리산업은 2명)",
+     "new_content": "농축어업 추가",
+     "practical_impact": "",
+     "requirements": [
+      "국민고용 50% 이내 특례 대상에 농축어업 추가",
+      "E-9·E-10 고용 기업 최소 고용 2명 대상에 농축어업 추가"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      300,
+      301
+     ],
+     "manual": "stay",
+     "section": "특정활동(E-7) > 나. 기능원 및 관련 기능 종사자 — 고용허용인원",
+     "confidence": "high",
+     "affected_family": "E-7"
+    },
+    {
+     "id": "SD-07",
+     "delta_id": "SD-07",
+     "status_or_task": "E-9 근무처변경 제출서류에 체류지 입증서류 추가",
+     "status_code": "E-9",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "①신청서(별지 34호서식), 여권 및 외국인등록증, 수수료 …",
+     "new_content": "①신청서, 여권, 외국인등록증, 수수료, 체류지 입증서류(이하 동일)",
+     "practical_impact": "",
+     "requirements": [
+      "제출서류 ①에 체류지 입증서류 추가"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": [
+       "체류지 입증서류(임대차계약서 등)"
+      ]
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      325
+     ],
+     "manual": "stay",
+     "section": "비전문취업(E-9) > 근무처의 변경·추가 > 마. 제출 서류",
+     "confidence": "high",
+     "affected_family": "E-9"
+    }
+   ]
+  },
+  {
+   "id": "PKG_C3",
+   "title": "C-3 단기방문·의료관광 패키지",
+   "impact": "medium",
+   "recommended_action": "quick_apply",
+   "decision_required": false,
+   "summary_3_lines": [
+    "중국 국민 복수사증 5년→10년 대상 재편",
+    "동남아 11개국 복수사증 동일 재편(10년/90일)",
+    "의료관광 C-3-3 단수/더블 제한 삭제, 전자사증 우수기관 한정"
+   ],
+   "why_user_should_care": "복수사증 안내(사증확인 업무) 기준이 상향 재편됨",
+   "item_count": 5,
+   "affected_rows_count": 1,
+   "affected_rows_sample": [
+    "M1-0280"
+   ],
+   "items": [
+    {
+     "id": "V-B2",
+     "delta_id": "V-B2",
+     "status_or_task": "중국 국민 C-3 복수사증 5년/10년 대상 재편",
+     "status_code": "C-3",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "10년 대상은 전문직업인·국내 4년제 학사/해외 석사 2개 항목뿐, 해당 5개 항목은 5년 대상",
+     "new_content": "5년 대상 ①~⑬으로 축소, 5개 항목 10년 승격, 가족 동반조항 5년/10년 분리",
+     "practical_impact": "가족 동반 신청 시 주신청인의 유효기간(5년/10년)에 따라 가족 사증 구분 | 단체·보증 사증 입국경력의 방문경력 인정 제한 삭제",
+     "requirements": [
+      "공무원·100만불 투자기업 임직원·500대기업 재직자·14개 대도시 호구자(C-3-91)·OECD 방문경력자 5개 항목이 5년 → 10년(체류 90일) 대상으로 승격",
+      "10년 소지자의 가족(배우자·미성년 자녀·부모·배우자 부모)도 10년 대상 신설",
+      "5년 가족조항은 '5년 유효' 소지자 가족으로 한정, '16.1.28. 단체·보증사증 경력 단서 및 복수국적자 문구 삭제"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      33,
+      35
+     ],
+     "manual": "visa",
+     "section": "복수사증 발급지침 > 1. 중국 국민",
+     "confidence": "high",
+     "affected_family": "C-3"
+    },
+    {
+     "id": "V-B3",
+     "delta_id": "V-B3",
+     "status_or_task": "동남아 11개국 국민 복수사증 재편",
+     "status_code": "C-3",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "해당 4개 항목은 5년(체류 30일) 대상; 10년 대상은 전문직업인·학사/석사·중앙부처 과장급 공무원·현직 국회의원",
+     "new_content": "4개 항목 10년(체류 90일) 승격, 가족조항 유효기간별 분리",
+     "practical_impact": "대상자는 10년 복수사증(체류 90일)으로 상향 안내 가능(기존 5년·30일)",
+     "requirements": [
+      "OECD 방문경력자·베트남 하노이/호치민/다낭 호구자·100만불 투자기업 3년 근무 정규직원·100대(30대)기업 과장급이 5년(30일) → 10년(90일) 대상으로 승격",
+      "10년 소지자 가족 신설, 5년 가족조항은 '5년 유효' 소지자 가족으로 한정 + 동시신청 규정 신설(65세 이상은 배우자만)"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      38,
+      40
+     ],
+     "manual": "visa",
+     "section": "복수사증 발급지침 > 3. 동남아국가 국민에 대한 복수사증 발급",
+     "confidence": "high",
+     "affected_family": "C-3"
+    },
+    {
+     "id": "V-B6",
+     "delta_id": "V-B6",
+     "status_or_task": "의료관광 C-3-3 — 21개국 단수/더블 제한 삭제",
+     "status_code": "C-3-3",
+     "manual_type": "사증",
+     "change_type": "삭제·약화",
+     "old_content": "21개국 국민에게 C-3-3 발급 시 체류기간 90일의 단수 또는 더블사증으로 제한",
+     "new_content": "21개국 제한 문구 삭제(신판 전문 검색으로 부존재 확인) — 복수 5년 이내 발급 가능",
+     "practical_impact": "반복 치료 목적 환자 상담 시 복수사증 경로 활용 가능",
+     "requirements": [
+      "일반 기준(단기 90일 이하 C-3-3, 단수 3월·더블 6월·복수 5년 이내)만 존치"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      49
+     ],
+     "manual": "visa",
+     "section": "사증발급인정서 발급대상 > 3. 의료관광 유치기관 초청 외국인환자(C-3-3)",
+     "confidence": "high",
+     "affected_family": "C-3"
+    },
+    {
+     "id": "V-B7",
+     "delta_id": "V-B7",
+     "status_or_task": "전자사증 발급대상 의료관광객 — 우수 유치기관 초청으로 한정",
+     "status_code": "C-3-3/G-1-10",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "발급대상에 '의료관광객 및 동반가족·간병인(C-3-3, G-1-10)' 일반 기재",
+     "new_content": "'우수 유치기관에서 초청한' 의료관광객으로 한정 — 동일 보일러플레이트 여러 위치 일괄 변경",
+     "practical_impact": "일반 유치기관 초청 환자는 전자사증 불가 — 사증발급인정서/일반 사증 경로 안내, 우수 유치기관 여부 확인 선행",
+     "requirements": [
+      "전자사증 대상 의료관광객을 법무부장관 지정 '의료관광 우수 유치기관' 초청자로 한정 명시"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      138,
+      153,
+      159,
+      163
+     ],
+     "manual": "visa",
+     "section": "전자사증 제도 — 전자사증 발급대상",
+     "confidence": "high",
+     "affected_family": "C-3"
+    },
+    {
+     "id": "V-B11",
+     "delta_id": "V-B11",
+     "status_or_task": "의료해외진출법 인용 조문 현행화",
+     "status_code": "C-3-3/G-1-10",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "유치의료기관/유치업자 등록 조문(제6조) 2020.2.18. 개정 기준 인용",
+     "new_content": "2021.12.21. 개정 조문으로 교체",
+     "practical_impact": "유치기관 등록(대행) 상담 시 결격사유 확인 필요 — 인용 법령 현행화 성격",
+     "requirements": [
+      "2021.12.21. 개정 반영 — 등록 결격사유 신설(동법 위반 실형·집행유예·선고유예·벌금형) 및 결격 시 등록 실효 조항 포함"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      340
+     ],
+     "manual": "visa",
+     "section": "외국인환자(C-3-3, G-1-10) 사증발급인정서 관련 참고 법령",
+     "confidence": "high",
+     "affected_family": "C-3"
+    }
+   ]
+  },
+  {
+   "id": "PKG_MISC",
+   "title": "A계열 등 경미 변경 패키지",
+   "impact": "low",
+   "recommended_action": "hold",
+   "decision_required": false,
+   "summary_3_lines": [
+    "A-1 외교 동반가족 범위 박스 신설",
+    "A-2 공무 동반 배우자 기준 변경(파견국 법령, 복수 배우자 1명)",
+    "실무 빈도 낮음 — 나중에 반영해도 무방"
+   ],
+   "why_user_should_care": "실무 빈도가 낮아 보류 가능 — 시간 날 때 일괄 반영",
+   "item_count": 3,
+   "affected_rows_count": 5,
+   "affected_rows_sample": [
+    "M1-0004",
+    "M1-0297",
+    "M1-0298",
+    "M1-0299",
+    "M1-0300"
+   ],
+   "items": [
+    {
+     "id": "V-B10",
+     "delta_id": "V-B10",
+     "status_or_task": "외교(A-1) 가족 중 배우자 인정 기준 변경",
+     "status_code": "A-1",
+     "manual_type": "사증",
+     "change_type": "변경",
+     "old_content": "법적 혼인관계 배우자(대한민국 법률 위배·사회질서 위반 시 불인정 가능)",
+     "new_content": "파견국 법령 기준으로 명확화 + 일부다처 혼인은 1명만 인정",
+     "practical_impact": "일반 행정사 실무 빈도는 낮음",
+     "requirements": [
+      "파견국 법령에 따른 법적 혼인관계 인정, 복수 배우자는 1명만 인정"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      11
+     ],
+     "manual": "visa",
+     "section": "외교(A-1) — 가족의 범위",
+     "confidence": "high",
+     "affected_family": "A-1"
+    },
+    {
+     "id": "SD-08",
+     "delta_id": "SD-08",
+     "status_or_task": "A-2 공무 동반가족 배우자 인정 기준 변경",
+     "status_code": "A-2",
+     "manual_type": "체류",
+     "change_type": "변경",
+     "old_content": "법적 혼인관계 배우자(대한민국 법률 위배·사회질서 위반 시 불인정 가능)",
+     "new_content": "파견국 법령 기준 + 복수배우자 1명 제한으로 객관화",
+     "practical_impact": "",
+     "requirements": [
+      "파견국 법령상 법적 혼인관계면 인정, 복수 배우자는 1명만 인정"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      20
+     ],
+     "manual": "stay",
+     "section": "공무(A-2) > 동반가족 범위",
+     "confidence": "high",
+     "affected_family": "A-2"
+    },
+    {
+     "id": "SD-09",
+     "delta_id": "SD-09",
+     "status_or_task": "A-1 외교 동반가족 범위 박스 신설",
+     "status_code": "A-1",
+     "manual_type": "체류",
+     "change_type": "추가",
+     "old_content": "제목·근거(외교통상부령 제106호)만 있고 구체 호별 목록 없음",
+     "new_content": "【외교(A-1)자격 부여 대상인 동반가족 범위】 박스 신설(A-2와 동일 체계)",
+     "practical_impact": "",
+     "requirements": [
+      "6개 호 명문화: ①법적 혼인관계 배우자(파견국 법령 기준, 복수 배우자 1명만) ②민법 제4조 미성년 미혼 동거 자녀 ③초·중등 재학 20세 이하 미혼 동거자녀 ④대학 이상 정규과정 26세 이하 미혼 동거자녀 ⑤본인/배우자의 60세 이상 부모(소득활동 미종사) ⑥성년 미혼 동거 자녀로 별도 생계유지 불가능한 장애인"
+     ],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      16
+     ],
+     "manual": "stay",
+     "section": "외교(A-1) > 체류자격 변경허가",
+     "confidence": "high",
+     "affected_family": "A-1"
+    }
+   ]
+  },
+  {
+   "id": "PKG_CONFIRM",
+   "title": "확인필요·고시대조 패키지",
+   "impact": "high",
+   "recommended_action": "needs_confirmation",
+   "decision_required": true,
+   "summary_3_lines": [
+    "고시번호 표기 불일치(2026-35 vs 65) 등 매뉴얼 내부 충돌 6건",
+    "고시 원문 대조·구판 대비 폐지/생략 불명 항목",
+    "확인 완료 전 DB 반영 금지 대상 15건"
+   ],
+   "why_user_should_care": "잘못 반영하면 틀린 안내가 됨 — 원문 확인이 선행돼야 하는 유일한 묶음",
+   "item_count": 15,
+   "affected_rows_count": 136,
+   "affected_rows_sample": [
+    "M1-0006",
+    "M1-0037",
+    "M1-0038",
+    "M1-0039",
+    "M1-0067",
+    "M1-0068",
+    "M1-0069",
+    "M1-0070",
+    "M1-0071",
+    "M1-0072",
+    "M1-0073",
+    "M1-0074",
+    "M1-0075",
+    "M1-0076",
+    "M1-0077"
+   ],
+   "items": [
+    {
+     "id": "V-U1",
+     "delta_id": "V-U1",
+     "status_or_task": "F-4 취업활동 제한 신 고시 번호 표기 불일치",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "확인 필요",
+     "old_content": "법무부 고시 제2023-187호",
+     "new_content": "신판 목차(383p)·별첨8-1~3 서약서(439p~)는 '제2026-35호(2026.2.12.)', 별첨7 고시 본문(431p)은 '제2026-65호' — 신판 내부 불일치, 정식 번호는 매뉴얼에서 확인 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "고시 원문 대조로 정본 번호 확정 필요"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      383,
+      431,
+      439
+     ],
+     "manual": "visa",
+     "section": "별첨7 F-4 취업활동 제한범위 고시",
+     "confidence": "low",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-U2",
+     "delta_id": "V-U2",
+     "status_or_task": "F-4 지역특화 예외 문구 '두거나' 변경 여부",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "확인 필요",
+     "old_content": "'시군구에 거소를 두고 거소가 속한 광역시·도 내에서' 취업 시 제한 배제",
+     "new_content": "신판 431p '거소를 두거나 거소가 속한 광역시·도 내에서' — AND→OR 완화로 읽히나 조판 오류 가능성 배제 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "고시 원문 대조 필요"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      431
+     ],
+     "manual": "visa",
+     "section": "별첨7 고시 — 지역특화 예외",
+     "confidence": "low",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-U3",
+     "delta_id": "V-U3",
+     "status_or_task": "동포 미성년 자녀 만 25세 미만 연장 특례·국내출생 자녀 체류자격 부여 항목 삭제",
+     "status_code": "F-1/F-3",
+     "manual_type": "사증",
+     "change_type": "확인 필요",
+     "old_content": "미성년 자녀 만 25세 미만 연장 특례(부/모 3년 이상 계속 체류 시), 동포 국내출생 자녀 체류자격 부여(출생 90일 내) 수록",
+     "new_content": "신판 부록에서 삭제 확정 — 제도 폐지인지 본편 이관/기재 생략인지 매뉴얼에서 확인 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "체류관리 매뉴얼(체류) 쪽 규정 별도 확인 필요"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      407
+     ],
+     "manual": "visa",
+     "section": "동포 가족의 체류자격",
+     "confidence": "low",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "V-U4",
+     "delta_id": "V-U4",
+     "status_or_task": "동포 부록 별첨 참조 오기(별첨4 vs 별첨5)",
+     "status_code": "동포 공통",
+     "manual_type": "사증",
+     "change_type": "확인 필요",
+     "old_content": "",
+     "new_content": "신판 388p '〈별첨 4〉 양식의 건강진단서' — 목차상 별첨4=건강상태 확인서, 별첨5=건강진단서로 참조 오기로 보임(형식적)",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      388
+     ],
+     "manual": "visa",
+     "section": "동포 매뉴얼 별첨 참조",
+     "confidence": "low",
+     "affected_family": ""
+    },
+    {
+     "id": "V-U5",
+     "delta_id": "V-U5",
+     "status_or_task": "F-4 제한목록 미검출 직종의 제외 여부",
+     "status_code": "F-4",
+     "manual_type": "사증",
+     "change_type": "확인 필요",
+     "old_content": "구판 붙임1에 주유원(95310)·매장정리원(95391)·자동판매기관리원(99220)·주차안내원(99232) 등 포함",
+     "new_content": "신판 별첨7 붙임(431~438p) 전문 검색에서 미검출 — 제한 제외로 판단되나 매뉴얼 수록분이 발췌일 가능성",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "고시 원문 붙임 전체와 대조 권장"
+     ],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      431,
+      438
+     ],
+     "manual": "visa",
+     "section": "별첨7 고시 붙임1 단순노무 목록",
+     "confidence": "low",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "V-U6",
+     "delta_id": "V-U6",
+     "status_or_task": "D-4-5 구판 사증발급 내용(체류기간·단복수) 명시 여부",
+     "status_code": "D-4-5",
+     "manual_type": "사증",
+     "change_type": "확인 필요",
+     "old_content": "구판에서 D-4-5의 체류기간·단복수 명시 문구 확인 불가",
+     "new_content": "신판은 '6개월 이하 단수' 명시 — 변경인지 신규 명시인지 매뉴얼만으로 확인 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260617 사증민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      81,
+      85
+     ],
+     "manual": "visa",
+     "section": "일반연수(D-4) > 한식조리연수생(D-4-5)",
+     "confidence": "low",
+     "affected_family": "D-4"
+    },
+    {
+     "id": "SF-U1",
+     "delta_id": "SF-U1",
+     "status_or_task": "H-2/F-4 동포의 국내출생 자녀 처리 경로",
+     "status_code": "F-1",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "F-1 부여 대상에 H-2·F-4 자녀 포함 + 동포 매뉴얼에 '국내출생 자녀 체류자격 부여(출생 90일 이내)' 문단",
+     "new_content": "신판 양쪽에서 모두 삭제, 신판 전체 검색에서도 대체 조항 미발견 — 대체 자격(F-3 부여 등) 여부 매뉴얼에서 확인 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "실제 접수 기준은 관할 관서 확인 필요"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      341,
+      542,
+      543
+     ],
+     "manual": "stay",
+     "section": "방문동거(F-1) 체류자격 부여 / 동포 매뉴얼 Ⅱ.6",
+     "confidence": "low",
+     "affected_family": "F-1"
+    },
+    {
+     "id": "SF-U2",
+     "delta_id": "SF-U2",
+     "status_or_task": "동포 가족 변경 대상의 '부모' 범위(H-2 가족 확대 여부)",
+     "status_code": "F-3/F-1",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "H-2 가족은 배우자·미성년 자녀만(부모 미포함)",
+     "new_content": "신판은 'F-4·H-2 취득자의 가족(배우자, 미성년 자녀 및 부모)'로 통합 서술 — 실제 확대인지 표현 단순화인지 원문만으로 단정 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      542,
+      543
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.6",
+     "confidence": "low",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-U3",
+     "delta_id": "SF-U3",
+     "status_or_task": "신 F-4 취업활동 제한 고시 번호 표기 불일치(체류판)",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "법무부고시 제2023-187호",
+     "new_content": "별첨7 표제에 '제2026-65호'와 '제2026-35호' 병존(목차·비취업 서약서 3종은 2026-35호, 시행일 '26.2.12.) — 정본 번호는 고시 원문 대조로 확정 필요",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      566,
+      577
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 별첨7",
+     "confidence": "low",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-U4",
+     "delta_id": "SF-U4",
+     "status_or_task": "신 고시 붙임1 단순노무 목록 전수 대조 미수행",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "구판 붙임1: 건설단순종사원(91001)·광업단순노무원(91002)·하역및적재(92101/92109) 등 포함",
+     "new_content": "해당 직종 제외는 신판 566~575쪽 스캔으로 확인했으나 붙임1 전체(수십 개 직종)의 구판 대비 증감 전수 대조는 미수행",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [
+      "취업 가능 여부 판단 시 고시 원문 필수 확인"
+     ],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      566,
+      575
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 별첨7 붙임1",
+     "confidence": "low",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-U5",
+     "delta_id": "SF-U5",
+     "status_or_task": "F-2-8 근거 고시(제2026-29호)의 실체 변경 여부",
+     "status_code": "F-2-8",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "구 고시(제2023-225호) 전문(투자지역 7곳·금액·기간) 수록",
+     "new_content": "매뉴얼은 고시명·번호만 갱신하고 전문 삭제 — 투자지역·기준금액·시행기간 변경 여부는 매뉴얼에서 확인 불가(고시 원문 확인 필요)",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      374,
+      378
+     ],
+     "manual": "stay",
+     "section": "거주(F-2) — F-2-8",
+     "confidence": "low",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SF-U6",
+     "delta_id": "SF-U6",
+     "status_or_task": "F-3 배우자의 전문직 변경 적용 지속 여부",
+     "status_code": "F-3",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "F-3 섹션에 전문직 변경 항목 수록",
+     "new_content": "F-3 섹션에서 삭제되었으나 다른 자격 섹션(신 170·190·197·202·209)에는 존속 — F-3 소지자에게 계속 적용되는지 원문 소관 섹션 확인 필요",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      170,
+      190,
+      197,
+      202,
+      209,
+      423,
+      424
+     ],
+     "manual": "stay",
+     "section": "동반(F-3) — 체류자격 변경허가",
+     "confidence": "low",
+     "affected_family": "F-3"
+    },
+    {
+     "id": "SF-U7",
+     "delta_id": "SF-U7",
+     "status_or_task": "구 F-4 세부코드(F-4-13~31, F-4-99) 소지자 경과조치",
+     "status_code": "F-4",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "F-4-13~99 세부대상표 존재",
+     "new_content": "세부대상표 폐지 후 기존 소지자의 연장·변경 처리 기준은 매뉴얼에서 확인 불가",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      528
+     ],
+     "manual": "stay",
+     "section": "동포 매뉴얼 Ⅱ.4",
+     "confidence": "low",
+     "affected_family": "F-4"
+    },
+    {
+     "id": "SF-U8",
+     "delta_id": "SF-U8",
+     "status_or_task": "지역특화 사업지역 표의 관할 출입국관서 매핑",
+     "status_code": "F-2-R/F-4-R",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "구판 붙임3 사업지역·관할 표",
+     "new_content": "표 재조판으로 diff 상 시군–관서 짝 이동이 심함 — 지역 증감(강원 4곳 추가)은 확인했으나 개별 시군의 관할 관서 표기는 신판 630쪽 표 원본 기준 재확인 권장",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      630
+     ],
+     "manual": "stay",
+     "section": "지역특화형비자 【붙임 3】",
+     "confidence": "low",
+     "affected_family": "F-2"
+    },
+    {
+     "id": "SD-U1",
+     "delta_id": "SD-U1",
+     "status_or_task": "조선업 E-7-3 임금 하한 2,588만원의 적용 시점",
+     "status_code": "E-7-3",
+     "manual_type": "체류",
+     "change_type": "확인 필요",
+     "old_content": "2,515만원 이상('25년 기준)",
+     "new_content": "2,588만원('26년 기준)의 적용 시점(공고일 vs 심사일)은 매뉴얼에서 확인 불가 — 연도 기준 '26년 표기만 존재",
+     "practical_impact": "",
+     "requirements": [],
+     "documents": {
+      "applicant": [],
+      "employer": [],
+      "family": [],
+      "financial": [],
+      "career_or_education": [],
+      "other": []
+     },
+     "risk_points": [],
+     "source_file": "260623 체류민원 자격별 안내 매뉴얼",
+     "source_pages": [
+      280,
+      281,
+      283
+     ],
+     "manual": "stay",
+     "section": "특정활동(E-7) — 조선업 3개 직종 임금요건",
+     "confidence": "low",
+     "affected_family": "E-7"
+    }
+   ]
+  }
+ ]
+}
