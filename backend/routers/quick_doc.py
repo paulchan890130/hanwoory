@@ -1313,6 +1313,9 @@ class ReqDocUpdateReq(BaseModel):
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
     template_filename: Optional[str] = None
+    # HWPX 매핑(0028): ""=명시 매핑 해제(자동매칭 복귀). output_format: pdf|hwpx|both|disabled, ""=자동.
+    hwpx_template_filename: Optional[str] = None
+    output_format: Optional[str] = None
 
 
 @router.get("/admin/tree")
@@ -1375,7 +1378,9 @@ def admin_update_required_doc(doc_id: int, req: ReqDocUpdateReq, _: dict = Depen
     try:
         return cfg.update_required_document(
             doc_id, name=req.name, doc_group=req.doc_group, sort_order=req.sort_order,
-            is_active=req.is_active, template_filename=req.template_filename)
+            is_active=req.is_active, template_filename=req.template_filename,
+            hwpx_template_filename=req.hwpx_template_filename,
+            output_format=req.output_format)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -1398,6 +1403,105 @@ def admin_remap_required_doc(doc_id: int, _: dict = Depends(require_admin)):
         return cfg.remap_required_document(doc_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── 관리자: HWPX 템플릿 매핑 (0028) ──────────────────────────────────────────
+
+@router.get("/admin/hwpx-templates")
+def admin_list_hwpx_templates(_: dict = Depends(require_admin)):
+    """Git 관리 HWPX 템플릿 목록(templates/hwpx/ 우선 + templates/ 루트, 유효 HWPX만).
+    관리자 화면의 HWPX 템플릿 선택 드롭다운 소스."""
+    cfg = _cfg_service()
+    return {"templates": cfg.list_hwpx_template_files()}
+
+
+def _system_fillable_keys() -> set:
+    """시스템이 채울 수 있는 텍스트 필드 키 superset.
+
+    build_field_values() 를 더미 데이터(모든 역할 채움 + is_minor)로 호출해 열거한다 —
+    하드코딩 카탈로그 대신 실제 코드가 만드는 키를 그대로 쓴다(변경 시 자동 추종).
+    날짜/rela 등 _collect_full_field_values 가 추가하는 키도 포함."""
+    dummy = {
+        "한글": "홍길동", "성": "HONG", "명": "GILDONG", "국적": "중국",
+        "등록증": "900101-1234567", "여권번호": "M12345678", "주소": "서울",
+        "전화번호": "010-1234-5678", "발급일자": "2020-01-01",
+        "기간만료일": "2030-01-01", "고객ID": "0001",
+    }
+    acct = {"contact_name": "김철수", "office_name": "한우리", "agent_tel": "031-000-0000",
+            "office_address": "시흥"}
+    try:
+        fv = build_field_values(dict(dummy), prov=dict(dummy), guardian=dict(dummy),
+                                guarantor=dict(dummy), aggregator=dict(dummy),
+                                is_minor=True, account=acct,
+                                category="체류", minwon="변경", kind="F", detail="5")
+        keys = set(fv.keys())
+    except Exception:
+        keys = set()
+    # generate 시 추가 주입되는 키(날짜·관계·서명/도장 스위치 계열)
+    keys |= {"작성년", "월", "일", "rela"}
+    return keys
+
+
+def _classify_hwpx_field(name: str, fillable: set) -> str:
+    """HWPX 텍스트 필드 채움 가능성 분류: fillable | fillable_split | unmapped."""
+    import re
+    if name in fillable:
+        return "fillable"
+    # 글자 분할 관례(rnumber1..7 등): base+숫자 꼬리 → base 가 fillable 이면 분할 채움 가능
+    m = re.match(r"^(.*?)(\d+)$", name)
+    if m and m.group(1) in fillable:
+        return "fillable_split"
+    return "unmapped"
+
+
+@router.get("/admin/hwpx-fields")
+def admin_hwpx_fields(filename: str, _: dict = Depends(require_admin)):
+    """선택한 HWPX 템플릿의 누름틀(fieldBegin name)·[[marker]] 목록 + 시스템 매핑 상태.
+
+    - fields: [{name, count, status(fillable|fillable_split|unmapped)}]
+    - seal_markers / sign_markers: [{marker, known(역할 매핑 존재 여부)}]
+    HWPX→PDF 변환/COM 사용 없음 — zip XML 분석만."""
+    cfg = _cfg_service()
+    path = cfg.resolve_hwpx_filename_path(filename)
+    if not path:
+        raise HTTPException(status_code=404, detail=f"HWPX 템플릿을 찾을 수 없습니다: {filename}")
+    from utils.hwpx_document import (
+        extract_hwpx_fields, SEAL_MARKER_TO_ROLE, SIGN_MARKER_TO_ROLE)
+    try:
+        info = extract_hwpx_fields(path)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"HWPX 분석 실패: {e}")
+
+    fillable = _system_fillable_keys()
+    counts = info.get("field_counts", {}) or {}
+    fields = [
+        {"name": n, "count": counts.get(n, 1), "status": _classify_hwpx_field(n, fillable)}
+        for n in sorted(set(info.get("unique_fields", []) or []))
+    ]
+    seal_markers = [
+        {"marker": m, "known": m in SEAL_MARKER_TO_ROLE}
+        for m in sorted(set(info.get("seal_markers", []) or []))
+    ]
+    sign_markers = [
+        {"marker": m, "known": m in SIGN_MARKER_TO_ROLE}
+        for m in sorted(set(info.get("sign_markers", []) or []))
+    ]
+    summary = {
+        "field_count": len(fields),
+        "fillable": sum(1 for f in fields if f["status"] == "fillable"),
+        "fillable_split": sum(1 for f in fields if f["status"] == "fillable_split"),
+        "unmapped": sum(1 for f in fields if f["status"] == "unmapped"),
+        "marker_count": len(seal_markers) + len(sign_markers),
+        "unknown_markers": sum(1 for m in seal_markers + sign_markers if not m["known"]),
+    }
+    return {
+        "filename": os.path.basename(path),
+        "summary": summary,
+        "fields": fields,
+        "seal_markers": seal_markers,
+        "sign_markers": sign_markers,
+        "duplicate_fields": info.get("duplicate_fields", []),
+    }
 
 
 @router.post("/generate-full")
@@ -1621,8 +1725,15 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
         merged  = fitz.open()
         skipped = []   # DOC_TEMPLATES 미등록 또는 파일 없는 항목
         missing = []   # None으로 명시적 미완성 항목 (파일 준비 필요)
+        # 관리자 설정 출력방식(0028): hwpx=HWPX만 → PDF 생성 제외, disabled=자동작성 제외.
+        # 미설정 서류는 맵에 없음 → 기존 동작 그대로(완전 무영향).
+        _out_fmt = _doc_output_formats()
 
         for doc_name in req.selected_docs:
+            fmt = _out_fmt.get(doc_name, "")
+            if fmt in ("hwpx", "disabled"):
+                skipped.append(f"{doc_name}(출력방식:{fmt})")
+                continue
             # DB 매핑 → DOC_TEMPLATES → 자동매핑 순으로 템플릿 경로 해석.
             rel_path = _resolve_template_path(doc_name)
             if rel_path is None:
@@ -1798,8 +1909,33 @@ def _build_hwpx_registry() -> dict:
     return registry
 
 
+def _doc_output_formats() -> dict:
+    """문서별 출력방식 {서류명: pdf|hwpx|both|disabled} — 미설정 서류는 키 없음(=자동).
+
+    0028 컬럼 미적용/조회 실패 시 빈 dict(완전 무영향, 기존 동작)."""
+    if not _db_config_active():
+        return {}
+    try:
+        from backend.services import quick_doc_config_pg_service as cfg
+        return cfg.output_formats_map()
+    except Exception:
+        return {}
+
+
 def _resolve_hwpx_template(doc_name: str) -> Optional[str]:
-    """필요서류명 → HWPX 템플릿 절대경로(없으면 None). 공백 정규화 매칭."""
+    """필요서류명 → HWPX 템플릿 절대경로(없으면 None).
+
+    1) DB 명시 매핑(관리자 설정 hwpx_template_filename, 0028) 우선
+    2) 파일명 정규화 자동매칭(레지스트리) fallback — 기존 동작 유지.
+    """
+    if _db_config_active():
+        try:
+            from backend.services import quick_doc_config_pg_service as cfg
+            p = cfg.hwpx_template_for(doc_name)
+            if p:
+                return p
+        except Exception:
+            pass   # 컬럼 미적용/조회 실패 → 레지스트리 fallback (PDF 경로와 동일 패턴)
     return _build_hwpx_registry().get(_normalize_doc_name(doc_name))
 
 
@@ -2092,9 +2228,14 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
         raise HTTPException(status_code=400, detail="신청인을 선택하거나 이름을 입력해 주세요.")
 
     # HWPX 템플릿이 있는 문서만 처리. 나머지는 unsupported 로 보고.
+    # 관리자 설정 출력방식(0028): pdf=PDF만 → HWPX 생성 제외, disabled=자동작성 제외.
+    _out_fmt = _doc_output_formats()
     resolved: list = []     # [(doc_name, abs_path), ...]
     unsupported: list = []
     for d in req.selected_docs:
+        if _out_fmt.get(d, "") in ("pdf", "disabled"):
+            unsupported.append(f"{d}(출력방식:{_out_fmt[d]})")
+            continue
         p = _resolve_hwpx_template(d)
         if p and os.path.exists(p):
             resolved.append((d, p))

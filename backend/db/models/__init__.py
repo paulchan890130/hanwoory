@@ -37,6 +37,7 @@ from backend.db.models.manual_update import (  # noqa: F401
     ManualUpdateState, ManualPdfArtifact,
     ManualUpdateAlertEvent, ManualUpdateAlertDismissal,
 )
+from backend.db.models.manual_source_pdf import ManualSourcePdf  # noqa: F401
 from backend.db.models.finance import FixedExpense, MonthlyTaxSummary  # noqa: F401
 from backend.db.models.guideline_category import GuidelineCategory, GuidelineCategoryOverride  # noqa: F401
 from backend.db.models.user_session import UserSession  # noqa: F401
@@ -63,7 +64,7 @@ __all__ = [
     "ManualBaseVersion", "ManualBasePage", "ManualBaseRef",
     "ManualUpdateRun", "ManualUpdateVersion", "ManualUpdateChangedPage",
     "ManualUpdateCandidate", "ManualReviewDecision", "ManualReviewDecisionArchive",
-    "ManualUpdateState", "ManualPdfArtifact",
+    "ManualUpdateState", "ManualPdfArtifact", "ManualSourcePdf",
     "FixedExpense", "MonthlyTaxSummary",
     "GuidelineCategory", "GuidelineCategoryOverride",
     "UserSession", "RoiPreset",

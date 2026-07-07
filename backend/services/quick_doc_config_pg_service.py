@@ -78,6 +78,94 @@ def auto_map_template(doc_name: str) -> Optional[str]:
     return None
 
 
+# ── HWPX 템플릿 (0028) ───────────────────────────────────────────────────────
+
+_HWPX_DIRS = (
+    os.path.join(_TEMPLATES_DIR, "hwpx"),   # 우선
+    _TEMPLATES_DIR,                          # 보조(루트 .hwpx)
+)
+
+
+def _is_valid_hwpx_file(path: str) -> bool:
+    """실제 HWPX(zip + Contents/content.hpf)인지 검증 — 구형 HWP 바이너리 제외.
+    (quick_doc._is_valid_hwpx 와 동일 기준; 순환 import 방지를 위해 서비스에도 둔다.)"""
+    import zipfile
+    try:
+        with zipfile.ZipFile(path) as z:
+            return "Contents/content.hpf" in z.namelist()
+    except Exception:
+        return False
+
+
+def list_hwpx_template_files() -> list[dict]:
+    """Git 관리 HWPX 템플릿 목록 — [{filename, dir, display_name}] (유효 HWPX만).
+
+    templates/hwpx/ 우선, templates/ 루트 보조. 같은 파일명이면 hwpx/ 가 우선.
+    관리자 화면의 HWPX 템플릿 선택 드롭다운 소스."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    for d in _HWPX_DIRS:
+        try:
+            names = sorted(os.listdir(d))
+        except OSError:
+            continue
+        rel_dir = "templates/hwpx" if d.endswith("hwpx") else "templates"
+        for fn in names:
+            if not fn.lower().endswith(".hwpx") or fn in seen:
+                continue
+            path = os.path.join(d, fn)
+            if not _is_valid_hwpx_file(path):
+                continue
+            seen.add(fn)
+            out.append({"filename": fn, "dir": rel_dir,
+                        "display_name": os.path.splitext(fn)[0]})
+    return out
+
+
+def resolve_hwpx_filename_path(filename: str) -> Optional[str]:
+    """HWPX 파일명(확장자 포함) → 절대경로. 디렉터리 탈출 방지: basename 만 허용,
+    _HWPX_DIRS 안에서만 찾는다. 유효 HWPX 가 아니면 None."""
+    fn = os.path.basename((filename or "").strip())
+    if not fn or not fn.lower().endswith(".hwpx"):
+        return None
+    for d in _HWPX_DIRS:
+        path = os.path.join(d, fn)
+        if os.path.isfile(path) and _is_valid_hwpx_file(path):
+            return path
+    return None
+
+
+def output_formats_map() -> dict:
+    """활성 필요서류 중 output_format 이 설정된 것만 {서류명: format} 으로 반환.
+
+    generate-full(PDF)/generate-hwpx 가 문서별 출력방식을 강제하는 데 사용:
+      hwpx=HWPX 우선 / pdf=PDF만 / both=둘 다 / disabled=비활성 / 미설정=자동(기존 동작).
+    """
+    with _SL() as s:
+        rows = s.scalars(
+            select(DocRequiredDocument).where(
+                DocRequiredDocument.is_active.is_(True),
+                DocRequiredDocument.output_format.is_not(None),
+            )
+        ).all()
+        return {r.name: r.output_format for r in rows if r.output_format}
+
+
+def hwpx_template_for(doc_name: str) -> Optional[str]:
+    """DB 필요서류(활성)에 명시 매핑된 HWPX 절대경로 반환. 없으면 None(→ 레지스트리 fallback)."""
+    with _SL() as s:
+        row = s.scalar(
+            select(DocRequiredDocument).where(
+                DocRequiredDocument.name == doc_name,
+                DocRequiredDocument.is_active.is_(True),
+                DocRequiredDocument.hwpx_template_filename.is_not(None),
+            ).limit(1)
+        )
+        if row and row.hwpx_template_filename:
+            return resolve_hwpx_filename_path(row.hwpx_template_filename)
+    return None
+
+
 def _doc_to_dict(d: DocRequiredDocument) -> dict:
     return {
         "id": d.id,
@@ -87,6 +175,8 @@ def _doc_to_dict(d: DocRequiredDocument) -> dict:
         "is_active": bool(d.is_active),
         "template_filename": d.template_filename or "",
         "template_status": d.template_status or "missing",
+        "hwpx_template_filename": d.hwpx_template_filename or "",
+        "output_format": d.output_format or "",   # "" = 자동(기존 동작)
     }
 
 
@@ -347,7 +437,9 @@ def update_required_document(doc_id: int, name: Optional[str] = None,
                              doc_group: Optional[str] = None,
                              sort_order: Optional[int] = None,
                              is_active: Optional[bool] = None,
-                             template_filename: Optional[str] = None) -> dict:
+                             template_filename: Optional[str] = None,
+                             hwpx_template_filename: Optional[str] = None,
+                             output_format: Optional[str] = None) -> dict:
     with _SL() as s:
         doc = s.get(DocRequiredDocument, doc_id)
         if doc is None:
@@ -367,6 +459,17 @@ def update_required_document(doc_id: int, name: Optional[str] = None,
             tf = template_filename.strip() or None
             doc.template_filename = tf
             doc.template_status = "mapped" if tf else "missing"
+        if hwpx_template_filename is not None:
+            # "" = 명시 매핑 해제(자동매칭으로 복귀). 파일명은 basename + 존재/유효 검증.
+            hf = os.path.basename(hwpx_template_filename.strip()) or None
+            if hf and resolve_hwpx_filename_path(hf) is None:
+                raise ValueError(f"HWPX 템플릿을 찾을 수 없습니다: {hf}")
+            doc.hwpx_template_filename = hf
+        if output_format is not None:
+            of = output_format.strip().lower() or None
+            if of and of not in ("pdf", "hwpx", "both", "disabled"):
+                raise ValueError("출력방식은 pdf/hwpx/both/disabled 중 하나여야 합니다.")
+            doc.output_format = of
         s.commit()
         s.refresh(doc)
         return _doc_to_dict(doc)

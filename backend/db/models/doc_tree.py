@@ -78,6 +78,11 @@ class DocRequiredDocument(Base):
     template_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
     # mapped | missing — 문서 생성 가능 여부 표시용
     template_status: Mapped[str] = mapped_column(Text, nullable=False, default="missing")
+    # templates/hwpx/ 의 .hwpx 파일명(확장자 포함, migration 0028). NULL = 명시 매핑
+    # 없음 → 파일명 정규화 자동매칭(레지스트리) fallback 유지.
+    hwpx_template_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # pdf | hwpx | both | disabled (0028). NULL = 자동(기존 동작 — 템플릿 존재 여부에 따름).
+    output_format: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

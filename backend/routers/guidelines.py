@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import json
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, File, Form, UploadFile
 from pydantic import BaseModel
 from backend.auth import get_current_user, require_admin, require_guideline_editor
 
@@ -420,6 +420,152 @@ def _verify_token_flexible(token: Optional[str], authorization: Optional[str]) -
     if not payload.get("sub"):
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰")
     return payload
+
+
+# ── 원문 매뉴얼 PDF 저장소 (migration 0029, PG BYTEA) ───────────────────────
+# 검토함 '원문 열기'용. manual_type(visa/stay)별 최신 1 + 직전 1 만 보관(3번째 삭제).
+# 인증: 관리자 전용, Authorization 헤더(프론트가 blob fetch → Blob URL 로 열음 —
+# query token 을 새 탭 URL 에 노출하지 않는다).
+
+def _source_pdf_svc():
+    from backend.services import manual_source_pdf_service as svc
+    return svc
+
+
+def _pdf_inline_response(meta: dict, blob: bytes):
+    from fastapi.responses import Response as _Resp
+    from urllib.parse import quote
+    fn = meta.get("original_filename") or "manual.pdf"
+    return _Resp(content=blob, media_type="application/pdf", headers={
+        "Cache-Control": "private, max-age=600",
+        "ETag": f'"{meta.get("sha256", "")}"',
+        "Content-Disposition": f"inline; filename=\"manual.pdf\"; filename*=UTF-8''{quote(fn, safe='')}",
+    })
+
+
+@router.post("/manual-source-pdfs/upload")
+async def upload_source_pdf(
+    manual_type: str = Form(...),
+    version_label: str = Form(""),
+    notes: str = Form(""),
+    file: UploadFile = File(...),
+    admin: dict = Depends(require_admin),
+):
+    """원문 매뉴얼 PDF 업로드(관리자) — 저장 후 같은 manual_type 은 최신/직전 2개만 유지.
+
+    검증: manual_type(visa/stay), .pdf 확장자, %PDF- magic, PyMuPDF open(page_count),
+    크기 ≤50MB. Git/파일시스템에 저장하지 않고 PG BYTEA 로만 저장.
+    """
+    svc = _source_pdf_svc()
+    # 크기 상한을 넘기 전에 chunk 로 읽으며 조기 차단 (메모리 보호)
+    chunks: list = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > svc.MAX_FILE_SIZE:
+            raise HTTPException(status_code=400,
+                                detail=f"파일이 너무 큽니다 (최대 {svc.MAX_FILE_SIZE // (1024*1024)}MB).")
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    try:
+        meta = svc.upload_pdf(
+            manual_type=manual_type, data=data,
+            original_filename=file.filename or "manual.pdf",
+            version_label=version_label,
+            uploaded_by=str(admin.get("sub", "")),
+            notes=notes,
+        )
+    except svc.SourcePdfError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"uploaded": meta, "list": svc.list_pdfs()}
+
+
+@router.get("/manual-source-pdfs")
+def list_source_pdfs(admin: dict = Depends(require_admin)):
+    """원문 PDF 목록 — {visa: [최신, 직전], stay: [...]} (blob 제외)."""
+    return _source_pdf_svc().list_pdfs()
+
+
+@router.get("/manual-source-pdfs/{pdf_id:int}/content")
+def serve_source_pdf_by_id(pdf_id: int, admin: dict = Depends(require_admin)):
+    """id 단건 PDF inline 서빙 (관리자, blob 단건 조회 — bulk SELECT 금지 규칙 준수)."""
+    got = _source_pdf_svc().get_blob(pdf_id)
+    if not got:
+        raise HTTPException(status_code=404, detail="해당 PDF 가 없습니다 (삭제되었거나 잘못된 id).")
+    meta, blob = got
+    return _pdf_inline_response(meta, blob)
+
+
+@router.get("/manual-source-pdfs/{manual_type}/{which}")
+def serve_source_pdf_by_type(manual_type: str, which: str, admin: dict = Depends(require_admin)):
+    """manual_type(visa/stay) + which(current/previous) → PDF inline 서빙 (관리자).
+
+    페이지 이동은 클라이언트가 Blob URL 에 #page=N fragment 를 붙여 처리한다.
+    """
+    svc = _source_pdf_svc()
+    if manual_type not in svc.ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail=f"manual_type 은 {list(svc.ALLOWED_TYPES)} 만 허용됩니다.")
+    if which not in ("current", "previous"):
+        raise HTTPException(status_code=400, detail="which 는 current 또는 previous 여야 합니다.")
+    meta = svc.resolve_meta(manual_type, which)
+    if not meta:
+        raise HTTPException(status_code=404,
+                            detail="원문 PDF가 업로드되지 않았습니다. [원문 PDF 관리]에서 업로드하세요.")
+    got = svc.get_blob(meta["id"])
+    if not got:
+        raise HTTPException(status_code=404, detail="PDF 데이터를 찾을 수 없습니다.")
+    return _pdf_inline_response(got[0], got[1])
+
+
+# ── (deprecated) 검토함 원문 매뉴얼 — DB 우선 + 로컬 analysis fallback ────────
+# 새 화면은 /manual-source-pdfs/* 를 사용한다. 이 엔드포인트는 DB 에 업로드본이
+# 없을 때 로컬 analysis 파일로 fallback 하는 하위호환 경로로만 유지한다.
+_SOURCE_MANUAL_FILES = {
+    "visa": "260617 사증민원 자격별 안내 매뉴얼.pdf",
+    "stay": "260623 체류민원 자격별 안내 매뉴얼.pdf",
+}
+_ANALYSIS_DIR = os.path.join(os.path.dirname(_BASE_DIR), "analysis")
+
+
+@router.get("/manual-update/source-pdf/{manual}")
+def serve_source_manual_pdf(
+    manual: str,
+    which: str = Query("current", description="current | previous (DB 저장분에만 적용)"),
+    token: Optional[str] = Query(None, description="JWT (하위호환 — 새 화면은 헤더 인증 사용)"),
+    authorization: Optional[str] = Header(None),
+):
+    """[deprecated] 원문 PDF — 1) PG 업로드본 → 2) 로컬 analysis 파일 fallback.
+
+    운영에서는 analysis/ 가 없으므로 DB 업로드본이 유일한 소스다. 둘 다 없으면
+    404 '원문 PDF가 업로드되지 않았습니다'.
+    """
+    _verify_token_flexible(token, authorization)
+    if (manual or "").strip() not in _SOURCE_MANUAL_FILES:
+        raise HTTPException(status_code=400,
+                            detail=f"알 수 없는 manual '{manual}'. 사용 가능: {list(_SOURCE_MANUAL_FILES)}")
+    # 1) DB 업로드본 우선
+    try:
+        svc = _source_pdf_svc()
+        meta = svc.resolve_meta(manual, which if which in ("current", "previous") else "current")
+        if meta:
+            got = svc.get_blob(meta["id"])
+            if got:
+                return _pdf_inline_response(got[0], got[1])
+    except Exception:
+        pass   # PG 미구성/0029 미적용 → 파일 fallback
+    # 2) 로컬 analysis fallback (배포 환경에는 없음)
+    path = os.path.join(_ANALYSIS_DIR, _SOURCE_MANUAL_FILES[manual])
+    if os.path.isfile(path):
+        from urllib.parse import quote
+        return FileResponse(path, media_type="application/pdf", headers={
+            "Cache-Control": "private, max-age=600",
+            "Content-Disposition": f"inline; filename=\"manual.pdf\"; filename*=UTF-8''{quote(_SOURCE_MANUAL_FILES[manual], safe='')}",
+        })
+    raise HTTPException(status_code=404,
+                        detail="원문 PDF가 업로드되지 않았습니다. [원문 PDF 관리]에서 업로드하세요.")
 
 
 @router.get("/manual-pdf/{manual}")

@@ -15,6 +15,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
 import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
 import { ManualUpdatePgView, type PgStateResp } from "@/components/admin/ManualReviewView";
+import GuidelineUpdateInboxTab from "@/components/admin/GuidelineUpdateInboxTab";
 
 // ── PG 저장소 상태 helper ────────────────────────────────────────────────────
 // 운영 기준은 PostgreSQL. 계정 목록은 PG 업무 데이터 유무만 "PG 저장소" 칩으로
@@ -1523,7 +1524,7 @@ export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security" | "guideline-inbox">("accounts");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -1699,6 +1700,13 @@ export default function AdminPage() {
           <FileText size={12} className="inline mr-1" />
           매뉴얼 업데이트
         </button>
+        {/* 최신 매뉴얼 분석 산출물(bundle JSON) 카드형 검토 — v1(로컬 임시 상태) */}
+        <button
+          className={`hw-tab ${activeTab === "guideline-inbox" ? "active" : ""}`}
+          onClick={() => setActiveTab("guideline-inbox")}>
+          <CheckSquare size={12} className="inline mr-1" />
+          실무지침 업데이트 검토함
+        </button>
         {/* 레거시 파일/rematch 검토 — 표시만 유지 */}
         <button
           className={`hw-tab ${activeTab === "manual-review" ? "active" : ""}`}
@@ -1726,6 +1734,9 @@ export default function AdminPage() {
 
       {/* 매뉴얼 업데이트 (PG 단일 출처; PG off 시 파일 staging fallback) */}
       {activeTab === "manual-v1" && <ManualUpdateTab />}
+
+      {/* 실무지침 업데이트 검토함 (bundle JSON 카드형 검토, v1) */}
+      {activeTab === "guideline-inbox" && <GuidelineUpdateInboxTab />}
 
       {/* 레거시 검토 탭 (manual_update_review.json + rematch) */}
       {activeTab === "manual-review" && (

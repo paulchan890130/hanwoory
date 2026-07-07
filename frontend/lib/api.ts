@@ -857,6 +857,10 @@ export interface AdminReqDoc {
   is_active: boolean;
   template_filename: string;
   template_status: "mapped" | "missing";
+  /** HWPX 명시 매핑(0028). "" = 자동매칭(파일명 정규화 레지스트리) */
+  hwpx_template_filename: string;
+  /** pdf | hwpx | both | disabled. "" = 자동(기존 동작) */
+  output_format: string;
 }
 export interface AdminDocNode {
   id: number;
@@ -878,6 +882,35 @@ export interface TemplateFile {
   display_name: string;
   exists: boolean;
 }
+export interface HwpxTemplateFile {
+  filename: string;
+  dir: string; // templates/hwpx | templates
+  display_name: string;
+}
+export interface HwpxFieldInfo {
+  name: string;
+  count: number;
+  status: "fillable" | "fillable_split" | "unmapped";
+}
+export interface HwpxMarkerInfo {
+  marker: string;
+  known: boolean;
+}
+export interface HwpxFieldsResponse {
+  filename: string;
+  summary: {
+    field_count: number;
+    fillable: number;
+    fillable_split: number;
+    unmapped: number;
+    marker_count: number;
+    unknown_markers: number;
+  };
+  fields: HwpxFieldInfo[];
+  seal_markers: HwpxMarkerInfo[];
+  sign_markers: HwpxMarkerInfo[];
+  duplicate_fields: string[];
+}
 
 export const docConfigApi = {
   getTree: () => api.get<AdminDocTree>("/api/quick-doc/admin/tree"),
@@ -895,10 +928,47 @@ export const docConfigApi = {
   updateDoc: (id: number, data: {
     name?: string; doc_group?: "main" | "agent"; sort_order?: number;
     is_active?: boolean; template_filename?: string;
+    hwpx_template_filename?: string; output_format?: string;
   }) => api.patch<AdminReqDoc>(`/api/quick-doc/admin/required-documents/${id}`, data),
   deleteDoc: (id: number) => api.delete(`/api/quick-doc/admin/required-documents/${id}`),
   remapDoc: (id: number) =>
     api.post<AdminReqDoc>(`/api/quick-doc/admin/required-documents/${id}/auto-map-template`),
+  // HWPX 템플릿 매핑(0028)
+  getHwpxTemplates: () =>
+    api.get<{ templates: HwpxTemplateFile[] }>("/api/quick-doc/admin/hwpx-templates"),
+  getHwpxFields: (filename: string) =>
+    api.get<HwpxFieldsResponse>("/api/quick-doc/admin/hwpx-fields", { params: { filename } }),
+};
+
+// 원문 매뉴얼 PDF 저장소 (관리자 — 실무지침 업데이트 검토함, migration 0029)
+export interface ManualSourcePdfMeta {
+  id: number;
+  manual_type: "visa" | "stay";
+  version_label: string;
+  original_filename: string;
+  file_size: number;
+  sha256?: string;
+  page_count: number | null;
+  is_current: boolean;
+  uploaded_by?: string;
+  uploaded_at: string;
+  notes?: string;
+}
+
+export const manualSourcePdfApi = {
+  list: () =>
+    api.get<Record<"visa" | "stay", ManualSourcePdfMeta[]>>("/api/guidelines/manual-source-pdfs"),
+  upload: (fd: FormData) =>
+    api.post<{ uploaded: ManualSourcePdfMeta; list: Record<string, ManualSourcePdfMeta[]> }>(
+      "/api/guidelines/manual-source-pdfs/upload", fd),
+  /** 새 탭 열람용 blob — Authorization 헤더 인증 (query token 미노출) */
+  contentBlob: (manualType: "visa" | "stay", which: "current" | "previous") =>
+    api.get<Blob>(`/api/guidelines/manual-source-pdfs/${manualType}/${which}`, { responseType: "blob" }),
+  /** deprecated fallback — DB 없으면 로컬 analysis 파일 (운영에서는 404) */
+  legacyBlob: (manual: "visa" | "stay", which: "current" | "previous" = "current") =>
+    api.get<Blob>(`/api/guidelines/manual-update/source-pdf/${manual}`, {
+      params: { which }, responseType: "blob",
+    }),
 };
 
 // 통합검색
