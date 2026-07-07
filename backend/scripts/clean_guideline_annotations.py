@@ -256,6 +256,12 @@ def clean_row(row: dict, stats: dict) -> bool:
 
     # 2) supporting_docs / form_docs — 태그 항목 제거 + 중복 제거 (+ 실제 서류 추가)
     for field in ("supporting_docs", "form_docs"):
+        # form_docs 채널 구분(【전자민원】…‖【창구민원】…) 행은 '|' 단순 분해 시
+        # '||' 구분자와 채널별 중복(위임장 등)이 파괴되므로, 태그/추가가 없으면 건드리지
+        # 않는다(과거 이 누락으로 6행 손상 → refine 스크립트 W0 가 백업에서 복원).
+        if field == "form_docs" and "||" in (row.get(field) or "") \
+                and not DOC_TAG_RE.search(row.get(field) or "") and rid not in FORM_DOCS_ADD:
+            continue
         docs = split_field(row.get(field) or "")
         newdocs = []
         removed_here = 0
