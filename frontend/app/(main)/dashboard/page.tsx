@@ -767,7 +767,7 @@ export default function DashboardPage() {
     addPlannedMut.mutate({ period: newPlannedPeriod, date: newPlannedDate, content: newPlannedContent, note: newPlannedNote });
   };
 
-  const handleBatchSave = () => {
+  const handleBatchSave = async () => {
     const completeArr = Array.from(completedIds);
     const deleteArr = Array.from(deleteIds).filter((id) => !completedIds.has(id));
 
@@ -802,13 +802,24 @@ export default function DashboardPage() {
     if (completeArr.length && !confirm(`${completeArr.length}건을 완료 처리하시겠습니까?`)) return;
     if (deleteArr.length && !confirm(`${deleteArr.length}건을 삭제하시겠습니까?`)) return;
 
-    if (completeArr.length) completeTasksMut.mutate(completeArr);
-    if (deleteArr.length) deleteTasksMut.mutate(deleteArr);
-    // Single batch call — 1 read + 1 write regardless of how many rows changed
-    if (progressArr.length) {
-      batchProgressMut.mutate(progressArr.map(({ id, data }) => ({ id, ...data })));
+    // 저장 순서가 중요하다: 완료/삭제는 active_tasks 행을 제거하므로,
+    // 같은 행을 대상으로 하는 progress·money 배치를 **먼저** 커밋한 뒤
+    // 완료/삭제를 수행한다. 예전에는 네 mutation 을 동시에 쏘아서, 완료 요청이
+    // 행을 먼저 지우면 batch-money 가 그 id 를 not_found 로 보고 HTTP 409
+    // (전량 거부) 를 내면서 — 완료와 무관한 다른 사람의 금액 수정까지 —
+    // "금액 저장 실패" 토스트가 뜨는 버그가 있었다. 순차 저장으로 그 레이스를 제거.
+    // (완료로 이동한 행의 금액은 completed_tasks 에 금액 컬럼이 없어 유지되지
+    //  않는데, 이는 기존 스키마 동작이며 완료업무 화면은 금액을 표시하지 않는다.)
+    try {
+      if (moneyUpdates.length) await batchMoneyMut.mutateAsync(moneyUpdates);
+      if (progressArr.length) {
+        await batchProgressMut.mutateAsync(progressArr.map(({ id, data }) => ({ id, ...data })));
+      }
+      if (completeArr.length) await completeTasksMut.mutateAsync(completeArr);
+      if (deleteArr.length) await deleteTasksMut.mutateAsync(deleteArr);
+    } catch {
+      // 각 mutation 의 onError 가 이미 사용자에게 실패 토스트를 표시한다.
     }
-    if (moneyUpdates.length) batchMoneyMut.mutate(moneyUpdates);
   };
 
   const calEvents = useMemo(

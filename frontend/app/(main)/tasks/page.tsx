@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { tasksApi, dailyApi, type ActiveTask, type PlannedTask, type CompletedTask } from "@/lib/api";
 import TaskCardView from "@/components/tasks/TaskCardView";
@@ -246,6 +246,24 @@ export default function TasksPage() {
   const [completedFilterWork, setCompletedFilterWork] = useState("");
   const [completedDateFrom, setCompletedDateFrom] = useState("");
   const [completedDateTo, setCompletedDateTo] = useState("");
+  // 완료업무 서버 페이지네이션
+  const COMPLETED_PAGE_SIZE = 20;
+  const [completedPage, setCompletedPage] = useState(1);
+  // 이름/업무 검색어는 타이핑마다 요청을 쏘지 않도록 350ms 디바운스
+  const [debouncedName, setDebouncedName] = useState("");
+  const [debouncedWork, setDebouncedWork] = useState("");
+  useEffect(() => {
+    const h = setTimeout(() => setDebouncedName(completedFilterName.trim()), 350);
+    return () => clearTimeout(h);
+  }, [completedFilterName]);
+  useEffect(() => {
+    const h = setTimeout(() => setDebouncedWork(completedFilterWork.trim()), 350);
+    return () => clearTimeout(h);
+  }, [completedFilterWork]);
+  // 검색/필터/정렬이 바뀌면 항상 1페이지로 초기화
+  useEffect(() => {
+    setCompletedPage(1);
+  }, [debouncedName, debouncedWork, completedFilterCategory, completedDateFrom, completedDateTo, completedSort]);
 
   type ProgressEntry = { reception: string; processing: string; storage: string };
   const [progressPending, setProgressPending] = useState<Map<string, ProgressEntry>>(new Map());
@@ -306,9 +324,24 @@ export default function TasksPage() {
     queryKey: ["tasks", "planned"],
     queryFn: () => tasksApi.getPlanned().then((r) => r.data),
   });
-  const { data: completed = [] } = useQuery({
-    queryKey: ["tasks", "completed"],
-    queryFn: () => tasksApi.getCompleted().then((r) => r.data),
+  const { data: completedResp, isFetching: completedFetching } = useQuery({
+    queryKey: [
+      "tasks", "completed",
+      completedPage, debouncedName, debouncedWork,
+      completedFilterCategory, completedDateFrom, completedDateTo, completedSort,
+    ],
+    queryFn: () =>
+      tasksApi.getCompleted({
+        page: completedPage,
+        page_size: COMPLETED_PAGE_SIZE,
+        name: debouncedName,
+        work: debouncedWork,
+        category: completedFilterCategory,
+        date_from: completedDateFrom,
+        date_to: completedDateTo,
+        sort: completedSort,
+      }).then((r) => r.data),
+    placeholderData: keepPreviousData, // 페이지 이동 시 이전 목록 유지(깜빡임 방지)
   });
 
   // ── Mutations ──
@@ -438,22 +471,13 @@ export default function TasksPage() {
     );
   });
 
-  // 완료업무 필터/정렬 계산 (컴포넌트 본문 — localStorage 사용 없음)
-  const completedCategories = Array.from(new Set((completed as CompletedTask[]).map((t) => t.category).filter(Boolean)));
-  const filteredCompleted = (completed as CompletedTask[])
-    .filter((t) => {
-      if (completedFilterName && !t.name?.toLowerCase().includes(completedFilterName.toLowerCase())) return false;
-      if (completedFilterCategory && t.category !== completedFilterCategory) return false;
-      if (completedFilterWork && !t.work?.toLowerCase().includes(completedFilterWork.toLowerCase())) return false;
-      if (completedDateFrom && (t.complete_date || t.date || "") < completedDateFrom) return false;
-      if (completedDateTo && (t.complete_date || t.date || "") > completedDateTo) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const da = a.complete_date || a.date || "";
-      const db = b.complete_date || b.date || "";
-      return completedSort === "newest" ? db.localeCompare(da) : da.localeCompare(db);
-    });
+  // 완료업무 — 필터/정렬/페이지네이션은 모두 서버(DB LIMIT/OFFSET)에서 처리한다.
+  // 여기서는 서버 응답을 그대로 렌더링만 한다 (client-side slice/필터 금지).
+  const completedItems = completedResp?.items ?? [];
+  const completedTotal = completedResp?.total ?? 0;
+  const completedHasNext = completedResp?.has_next ?? false;
+  const completedCategories = completedResp?.categories ?? [];
+  const completedPageCount = Math.max(1, Math.ceil(completedTotal / COMPLETED_PAGE_SIZE));
 
   return (
     <div className="space-y-5">
@@ -786,13 +810,13 @@ export default function TasksPage() {
                 </button>
               )}
               <span style={{ fontSize: 11, color: "#A0AEC0", marginLeft: "auto" }}>
-                {filteredCompleted.length} / {(completed as CompletedTask[]).length}건
+                총 {completedTotal}건{completedFetching ? " · 불러오는 중…" : ""}
               </span>
             </div>
           </div>
 
         <div className="hw-card" style={{ padding: 0, overflow: "hidden" }}>
-          {filteredCompleted.length === 0 ? (
+          {completedItems.length === 0 ? (
             <div className="p-6 text-center text-sm" style={{ color: "#A0AEC0" }}>
               완료된 업무가 없습니다.
             </div>
@@ -811,7 +835,7 @@ export default function TasksPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCompleted.map((task) => (
+                  {completedItems.map((task) => (
                     <tr key={task.id}>
                       <td>{task.category}</td>
                       <td>{task.date}</td>
@@ -836,6 +860,29 @@ export default function TasksPage() {
             </div>
           )}
         </div>
+
+        {/* 페이지네이션 — 서버가 20건 단위로 내려주므로 이전/다음으로 조회 */}
+        {completedTotal > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 10 }}>
+            <button
+              onClick={() => setCompletedPage((p) => Math.max(1, p - 1))}
+              disabled={completedPage <= 1 || completedFetching}
+              style={{ height: 30, padding: "0 12px", fontSize: 12, fontWeight: 600, border: "1px solid #CBD5E0", borderRadius: 6, background: completedPage <= 1 ? "#EDF2F7" : "#fff", color: completedPage <= 1 ? "#A0AEC0" : "#4A5568", cursor: completedPage <= 1 ? "default" : "pointer" }}
+            >
+              ← 이전
+            </button>
+            <span style={{ fontSize: 12, color: "#4A5568", fontWeight: 600, minWidth: 90, textAlign: "center" }}>
+              {completedPage} / {completedPageCount} 페이지
+            </span>
+            <button
+              onClick={() => setCompletedPage((p) => (completedHasNext ? p + 1 : p))}
+              disabled={!completedHasNext || completedFetching}
+              style={{ height: 30, padding: "0 12px", fontSize: 12, fontWeight: 600, border: "1px solid #CBD5E0", borderRadius: 6, background: !completedHasNext ? "#EDF2F7" : "#fff", color: !completedHasNext ? "#A0AEC0" : "#4A5568", cursor: !completedHasNext ? "default" : "pointer" }}
+            >
+              다음 →
+            </button>
+          </div>
+        )}
         </div>
       )}
 

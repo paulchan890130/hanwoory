@@ -259,6 +259,86 @@ def list_completed(tenant_id: str) -> list[dict]:
     return [_completed_to_dict(r) for r in rows]
 
 
+def list_completed_paged(
+    tenant_id: str,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    name: str = "",
+    category: str = "",
+    work: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    sort: str = "newest",
+) -> dict:
+    """완료업무 서버 페이지네이션 + 필터/정렬 (화면 목록 전용).
+
+    ``list_completed`` (전량 조회) 는 work-summary/search 가 계속 사용하므로 그대로
+    두고, 완료업무 화면 목록만 LIMIT/OFFSET + 필터를 DB에서 적용한다 → 서버 조회량이
+    한 페이지(기본 20건)로 줄어든다.
+
+    반환: ``{items, total, page, page_size, has_next, categories}``.
+    정렬/날짜필터 기준 = complete_date 가 있으면 그것, 없으면 date (기존 프론트 로직과 동일).
+    """
+    from sqlalchemy import func as _f
+    from backend.db.models.task import CompletedTask
+    from backend.db.session import get_sessionmaker
+
+    page = max(1, int(page or 1))
+    page_size = max(1, min(100, int(page_size or 20)))
+    offset = (page - 1) * page_size
+
+    # 유효 날짜 = NULLIF(complete_date,'') 우선, 없으면 date
+    eff_date = _f.coalesce(_f.nullif(CompletedTask.complete_date, ""), CompletedTask.date, "")
+
+    conds = [CompletedTask.tenant_id == tenant_id]
+    if name:
+        conds.append(CompletedTask.name.ilike(f"%{name}%"))
+    if category:
+        conds.append(CompletedTask.category == category)
+    if work:
+        conds.append(CompletedTask.work.ilike(f"%{work}%"))
+    if date_from:
+        conds.append(eff_date >= date_from)
+    if date_to:
+        conds.append(eff_date <= date_to)
+
+    if sort == "oldest":
+        order_by = (eff_date.asc(), CompletedTask.id.asc())
+    else:
+        order_by = (eff_date.desc(), CompletedTask.id.desc())
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        total = session.scalar(
+            select(_f.count()).select_from(CompletedTask).where(*conds)
+        ) or 0
+        rows = session.scalars(
+            select(CompletedTask).where(*conds).order_by(*order_by).limit(page_size).offset(offset)
+        ).all()
+        # 분류 드롭다운 옵션 — 전체 완료업무의 distinct category (필터 미적용, 텍스트 1컬럼만)
+        cats = session.scalars(
+            select(CompletedTask.category)
+            .where(
+                CompletedTask.tenant_id == tenant_id,
+                CompletedTask.category.isnot(None),
+                CompletedTask.category != "",
+            )
+            .distinct()
+            .order_by(CompletedTask.category.asc())
+        ).all()
+
+    items = [_completed_to_dict(r) for r in rows]
+    return {
+        "items": items,
+        "total": int(total),
+        "page": page,
+        "page_size": page_size,
+        "has_next": offset + len(items) < int(total),
+        "categories": [c for c in cats if c],
+    }
+
+
 def upsert_completed(tenant_id: str, rec: dict) -> dict:
     from backend.db.models.task import CompletedTask
     from backend.db.session import get_sessionmaker

@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.auth import get_current_user
 from backend.models import (
@@ -183,10 +183,35 @@ def delete_planned_tasks(req: DeleteTasksRequest, user: dict = Depends(get_curre
 
 # ────────────────────────────── 완료업무 ──────────────────────────────────────
 
-@router.get("/completed", response_model=List[dict])
-def get_completed_tasks(user: dict = Depends(get_current_user)):
-    from backend.services.tasks_pg_service import list_completed
-    return list_completed(user["tenant_id"])
+@router.get("/completed")
+def get_completed_tasks(
+    user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    name: str = Query(""),
+    category: str = Query(""),
+    work: str = Query(""),
+    date_from: str = Query(""),
+    date_to: str = Query(""),
+    sort: str = Query("newest"),
+):
+    """완료업무 목록 — 서버 페이지네이션(기본 20건/페이지) + 필터/정렬.
+
+    응답: {items, total, page, page_size, has_next, categories}.
+    (work-summary/search 는 tasks_pg_service.list_completed 전량 조회를 계속 사용.)
+    """
+    from backend.services.tasks_pg_service import list_completed_paged
+    return list_completed_paged(
+        user["tenant_id"],
+        page=page,
+        page_size=page_size,
+        name=name,
+        category=category,
+        work=work,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
+    )
 
 
 @router.put("/completed/{task_id}", response_model=dict)

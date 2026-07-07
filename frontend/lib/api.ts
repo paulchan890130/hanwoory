@@ -114,6 +114,28 @@ export interface CompletedTask {
   storage?: string;
 }
 
+/** 완료업무 서버 페이지네이션 응답 (GET /api/tasks/completed) */
+export interface CompletedPage {
+  items: CompletedTask[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+  /** 전체 완료업무의 분류 목록 (필터 드롭다운용, 페이지와 무관) */
+  categories: string[];
+}
+
+export interface CompletedQuery {
+  page?: number;
+  page_size?: number;
+  name?: string;
+  category?: string;
+  work?: string;
+  date_from?: string;
+  date_to?: string;
+  sort?: "newest" | "oldest";
+}
+
 export interface PlannedTask {
   id: string;
   date: string;
@@ -227,7 +249,8 @@ export const tasksApi = {
   updatePlanned: (id: string, task: Partial<PlannedTask>) => api.put(`/api/tasks/planned/${id}`, task),
   deletePlanned: (ids: string[]) => api.delete("/api/tasks/planned", { data: { task_ids: ids } }),
 
-  getCompleted: () => api.get<CompletedTask[]>("/api/tasks/completed"),
+  getCompleted: (params?: CompletedQuery) =>
+    api.get<CompletedPage>("/api/tasks/completed", { params }),
   updateCompleted: (id: string, task: Partial<CompletedTask>) => api.put(`/api/tasks/completed/${id}`, task),
   deleteCompleted: (ids: string[]) => api.delete("/api/tasks/completed", { data: { task_ids: ids } }),
 
