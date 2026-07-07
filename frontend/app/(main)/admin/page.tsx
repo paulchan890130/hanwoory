@@ -1525,6 +1525,10 @@ export default function AdminPage() {
   const user = getUser();
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
+  // "매뉴얼 업데이트" 탭 내부 서브탭 — PG 페이지단위 diff 검토(기존, 자동감지 118p 등
+  // 스크롤이 긴 화면)와 반영내역·패키지 검토(구 "실무지침 업데이트 검토함")를 한
+  // 화면에 이어붙이면 관리자가 전자를 다 지나쳐야 후자에 닿는 문제가 있어 분리한다.
+  const [manualSubTab, setManualSubTab] = useState<"pg-review" | "package-review">("pg-review");
   const [showCreate, setShowCreate] = useState(false);
   const [wsLoadingId, setWsLoadingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -1727,12 +1731,27 @@ export default function AdminPage() {
       {activeTab === "doc-config" && <DocConfigTab />}
 
       {/* 매뉴얼 업데이트 (PG 단일 출처; PG off 시 파일 staging fallback)
-          + 원문 PDF 관리·패키지 검토(구 "실무지침 업데이트 검토함") 통합 */}
+          + 원문 PDF 관리·패키지 검토(구 "실무지침 업데이트 검토함") 통합.
+          두 하위 화면은 서로 다른 시스템(자동 페이지단위 diff 검토 vs 이번
+          batch 반영내역·패키지 검토)이라 스크롤 한 줄로 이어붙이지 않고
+          서브탭으로 분리한다. */}
       {activeTab === "manual-v1" && (
-        <>
-          <ManualUpdateTab />
-          <GuidelineUpdateInboxTab />
-        </>
+        <div style={{ marginTop: 12 }}>
+          <div className="hw-tabs" style={{ marginBottom: 10 }}>
+            <button
+              className={`hw-tab ${manualSubTab === "pg-review" ? "active" : ""}`}
+              onClick={() => setManualSubTab("pg-review")}>
+              PG 페이지 검토
+            </button>
+            <button
+              className={`hw-tab ${manualSubTab === "package-review" ? "active" : ""}`}
+              onClick={() => setManualSubTab("package-review")}>
+              반영 내역 · 패키지 검토
+            </button>
+          </div>
+          {manualSubTab === "pg-review" && <ManualUpdateTab />}
+          {manualSubTab === "package-review" && <GuidelineUpdateInboxTab />}
+        </div>
       )}
 
       {/* 레거시 검토 탭 (manual_update_review.json + rematch) */}

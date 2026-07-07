@@ -771,12 +771,7 @@ export default function GuidelineUpdateInboxTab() {
   const manualMeta = bundle?.manual_meta ?? {};
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: "#2D3748", marginBottom: 8,
-        borderTop: "2px solid #EDF2F7", paddingTop: 16 }}>
-        매뉴얼 반영 내역 · 패키지 검토
-      </div>
-
+    <div>
       {/* 원문 PDF 관리 — 매뉴얼별 최신/직전 보관·업로드 */}
       <SourcePdfManager />
 
