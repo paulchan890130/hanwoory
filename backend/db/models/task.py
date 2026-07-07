@@ -119,6 +119,16 @@ class CompletedTask(Base):
     work: Mapped[str | None] = mapped_column(Text)
     details: Mapped[str | None] = mapped_column(Text)
     complete_date: Mapped[str | None] = mapped_column(Text)
+
+    # 완료 시점의 금액 스냅샷 (migration 0027). active_tasks 와 동일 이름·타입(TEXT),
+    # nullable — NULL = 미확인(과거 완료업무), "0" = 0원 (의미가 다르다).
+    transfer: Mapped[str | None] = mapped_column(Text)
+    cash: Mapped[str | None] = mapped_column(Text)
+    card: Mapped[str | None] = mapped_column(Text)
+    stamp: Mapped[str | None] = mapped_column(Text)
+    receivable: Mapped[str | None] = mapped_column(Text)
+    planned_expense: Mapped[str | None] = mapped_column(Text)
+
     reception: Mapped[str | None] = mapped_column(Text)
     processing: Mapped[str | None] = mapped_column(Text)
     storage: Mapped[str | None] = mapped_column(Text)

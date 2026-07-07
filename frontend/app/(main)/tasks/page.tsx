@@ -10,6 +10,13 @@ import TaskSummaryCards from "@/components/tasks/TaskSummaryCards";
 import TaskCategoryFilter from "@/components/tasks/TaskCategoryFilter";
 import { today, safeInt, formatNumber, normalizeDate } from "@/lib/utils";
 
+// 완료업무 금액 스냅샷 표시(0027): null/undefined/"" = 미확인 → "-", 그 외 = "{천단위}원".
+// NULL(미확인) 과 "0"(0원) 을 구분한다 — "0" 은 "0원" 으로 표시.
+function fmtCompletedMoney(v?: string | null): string {
+  if (v === null || v === undefined || v === "") return "-";
+  return `${formatNumber(safeInt(v))}원`;
+}
+
 // D+ 계산 (요약 카드용)
 function _dPlusFromTs(ts: string): number {
   if (!ts) return 0;
@@ -830,6 +837,11 @@ export default function TasksPage() {
                     <th className="text-left">이름</th>
                     <th className="text-left">업무</th>
                     <th className="text-left">세부내용</th>
+                    <th className="text-right">이체</th>
+                    <th className="text-right">현금</th>
+                    <th className="text-right">카드</th>
+                    <th className="text-right">인지</th>
+                    <th className="text-right">미수</th>
                     <th className="text-left">완료일</th>
                     <th className="text-center w-10">삭제</th>
                   </tr>
@@ -842,6 +854,11 @@ export default function TasksPage() {
                       <td className="font-medium">{task.name}</td>
                       <td>{task.work}</td>
                       <td style={{ color: "#718096" }}>{task.details}</td>
+                      <td className="text-right whitespace-nowrap" style={{ color: task.transfer == null ? "#CBD5E0" : "#4A5568" }}>{fmtCompletedMoney(task.transfer)}</td>
+                      <td className="text-right whitespace-nowrap" style={{ color: task.cash == null ? "#CBD5E0" : "#4A5568" }}>{fmtCompletedMoney(task.cash)}</td>
+                      <td className="text-right whitespace-nowrap" style={{ color: task.card == null ? "#CBD5E0" : "#4A5568" }}>{fmtCompletedMoney(task.card)}</td>
+                      <td className="text-right whitespace-nowrap" style={{ color: task.stamp == null ? "#CBD5E0" : "#4A5568" }}>{fmtCompletedMoney(task.stamp)}</td>
+                      <td className="text-right whitespace-nowrap" style={{ color: task.receivable == null ? "#CBD5E0" : "#E53E3E" }}>{fmtCompletedMoney(task.receivable)}</td>
                       <td style={{ color: "#38A169" }}>{task.complete_date}</td>
                       <td className="text-center">
                         <button

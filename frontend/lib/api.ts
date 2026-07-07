@@ -109,6 +109,13 @@ export interface CompletedTask {
   work: string;
   details: string;
   complete_date: string;
+  // 완료 시점 금액 스냅샷 (migration 0027). null = 미확인(과거 완료업무), "0" = 0원.
+  transfer?: string | null;
+  cash?: string | null;
+  card?: string | null;
+  stamp?: string | null;
+  receivable?: string | null;
+  planned_expense?: string | null;
   reception?: string;
   processing?: string;
   storage?: string;

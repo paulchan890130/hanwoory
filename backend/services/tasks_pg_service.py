@@ -63,6 +63,14 @@ def _completed_to_dict(row) -> dict:
         "work": row.work or "",
         "details": row.details or "",
         "complete_date": row.complete_date or "",
+        # 완료 시점 금액 스냅샷(0027). NULL(미확인)/"0"(0원) 구분을 위해 raw 값을 그대로
+        # 내려준다 — active 와 달리 ``or "0"`` 기본값을 씌우지 않는다(과거 완료업무=NULL).
+        "transfer": row.transfer,
+        "cash": row.cash,
+        "card": row.card,
+        "stamp": row.stamp,
+        "receivable": row.receivable,
+        "planned_expense": row.planned_expense,
         "reception": row.reception or "",
         "processing": row.processing or "",
         "storage": row.storage or "",
@@ -415,6 +423,14 @@ def complete_active(tenant_id: str, task_ids: list[str]) -> int:
                 work=r.work,
                 details=r.details,
                 complete_date=today,
+                # 완료 시점(=active row 삭제 직전)의 최신 금액을 스냅샷으로 복사(0027).
+                # 대시보드 저장 순서(금액→진행→완료)로 인해 이 시점 r.* 에는 최신 금액이 있다.
+                transfer=r.transfer,
+                cash=r.cash,
+                card=r.card,
+                stamp=r.stamp,
+                receivable=r.receivable,
+                planned_expense=r.planned_expense,
                 reception=r.reception,
                 processing=r.processing,
                 storage=r.storage,
