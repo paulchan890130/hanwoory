@@ -1178,6 +1178,8 @@ export interface GuidelineRow {
   basis_section: string;
   status: string;
   // 실무 확장 필드
+  /** 사증 업무 절차 구분: recognition(사증발급인정신청) | consulate(재외공관) | both | confirm_needed */
+  visa_procedure?: string;
   practical_notes?: string;    // 실무 주의사항 (| 구분)
   step_after?: string;         // 허가 후 다음 단계 (| 구분)
   apply_channel?: string;      // 신청 경로 안내

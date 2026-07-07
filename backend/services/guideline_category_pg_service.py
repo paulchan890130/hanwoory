@@ -41,7 +41,7 @@ ACTION_KO: dict = {
     "WORKPLACE": "근무처 변경·추가",
     "GRANT": "체류자격 부여",
     "REENTRY": "재입국허가",
-    "VISA_CONFIRM": "사증발급인정",
+    "VISA_CONFIRM": "사증",   # 상위 트리 라벨 — 인정/공관 구분은 상세의 visa_procedure 로 표시
     "APPLICATION_CLAIM": "각종 신청·신고",
     "DOMESTIC_RESIDENCE_REPORT": "국내거소신고",
     "ACTIVITY_EXTRA": "활동범위 추가",

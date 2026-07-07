@@ -22,7 +22,7 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
   REGISTRATION:              "외국인등록",
   REENTRY:                   "재입국허가",
   GRANT:                     "체류자격 부여",
-  VISA_CONFIRM:              "사증발급인정서",
+  VISA_CONFIRM:              "사증",
   APPLICATION_CLAIM:         "직접신청",
   DOMESTIC_RESIDENCE_REPORT: "국내 거소신고",
   ACTIVITY_EXTRA:            "활동범위 확대",
@@ -37,7 +37,7 @@ const ACTION_LABELS: Record<string, string> = {
   EXTRA_WORK:                "체류자격외 활동",
   WORKPLACE:                 "근무처 변경·추가",
   GRANT:                     "체류자격 부여",
-  VISA_CONFIRM:              "사증발급인정서",
+  VISA_CONFIRM:              "사증",
   DOMESTIC_RESIDENCE_REPORT: "거소신고",
   APPLICATION_CLAIM:         "직접신청",
   ACTIVITY_EXTRA:            "활동범위 확대",
@@ -282,7 +282,7 @@ const ENTRY_POINTS: GuidelineEntryPoint[] = [
   { id:"EX",   label:"체류자격 외 활동",  subtitle:"시간제취업·기타",       codes:"자격외활동", color:"#ED8936", search_query:"시간제취업",  action_types:["EXTRA_WORK"] },
   { id:"WP",   label:"근무처 변경·추가",  subtitle:"취업자격 근무처",       codes:"근무처",     color:"#9F7AEA", search_query:"근무처변경",  action_types:["WORKPLACE"] },
   { id:"GR",   label:"체류자격 부여",     subtitle:"출생·귀화 후 부여",     codes:"부여",       color:"#FC8181", search_query:"체류자격부여",action_types:["GRANT"] },
-  { id:"VC",   label:"사증발급인정서",    subtitle:"국내 초청 사증",         codes:"사증",       color:"#667EEA", search_query:"사증발급인정",action_types:["VISA_CONFIRM"] },
+  { id:"VC",   label:"사증",              subtitle:"자격별 사증 절차",         codes:"사증",       color:"#667EEA", search_query:"사증발급인정",action_types:["VISA_CONFIRM"] },
   { id:"DR",   label:"거소신고",          subtitle:"재외동포 거소",          codes:"거소",       color:"#68D391", search_query:"거소신고",    action_types:["DOMESTIC_RESIDENCE_REPORT"] },
 ];
 
@@ -378,7 +378,7 @@ function buildTree(rows: GuidelineRow[], overlay?: GLOverlay | null): Map<string
 const MAJOR_KO: Record<string, string> = {
   CHANGE: "체류자격 변경", EXTEND: "체류기간 연장", REGISTRATION: "외국인등록",
   EXTRA_WORK: "체류자격외활동", WORKPLACE: "근무처 변경·추가", GRANT: "체류자격 부여",
-  REENTRY: "재입국허가", VISA_CONFIRM: "사증발급인정", APPLICATION_CLAIM: "각종 신청·신고",
+  REENTRY: "재입국허가", VISA_CONFIRM: "사증", APPLICATION_CLAIM: "각종 신청·신고",
   DOMESTIC_RESIDENCE_REPORT: "국내거소신고", ACTIVITY_EXTRA: "활동범위 추가",
 };
 // display_name 이 비었거나 영문코드와 같을 때 쓸 한글 기본 표시명.
@@ -925,6 +925,32 @@ function DetailPanel({
             </div>
             <div style={{ fontSize:16, fontWeight:700, color:"#1A202C", lineHeight:1.4, marginBottom:4 }}>{row.business_name}</div>
             {row.overview_short && <div style={{ fontSize:12, color:"#718096", lineHeight:1.6 }}>{row.overview_short}</div>}
+            {/* 사증 업무 절차 구분 — 트리는 '사증'으로 묶고 상세에서 인정/공관/확인필요를 구분 */}
+            {row.visa_procedure && (
+              <div style={{
+                marginTop:8, padding:"8px 10px", borderRadius:8, fontSize:11, lineHeight:1.6,
+                background: row.visa_procedure==="consulate" ? "#FFFAF0" : row.visa_procedure==="recognition" ? "#EBF8FF" : "#FFF5F5",
+                border: `1px solid ${row.visa_procedure==="consulate" ? "#FBD38D" : row.visa_procedure==="recognition" ? "#BEE3F8" : "#FEB2B2"}`,
+                color: row.visa_procedure==="consulate" ? "#7B341E" : row.visa_procedure==="recognition" ? "#2C5282" : "#822727",
+              }}>
+                {row.visa_procedure === "recognition" && (<>
+                  <b>사증절차:</b> 사증발급인정신청<br/>
+                  <b>신청장소:</b> 국내 출입국·외국인관서 — 인정서 발급 후 재외공관에서 사증 신청
+                </>)}
+                {row.visa_procedure === "consulate" && (<>
+                  <b>사증절차:</b> 재외공관 사증발급신청<br/>
+                  <b>신청장소:</b> 재외공관
+                </>)}
+                {row.visa_procedure === "both" && (<>
+                  <b>사증절차:</b> 사증발급인정신청 또는 재외공관 사증발급신청<br/>
+                  초청자·체류목적·관할 기준에 따라 확인 필요
+                </>)}
+                {row.visa_procedure === "confirm_needed" && (<>
+                  <b>사증절차:</b> 확인 필요<br/>
+                  매뉴얼 또는 재외공관 기준 확인 후 진행
+                </>)}
+              </div>
+            )}
           </div>
           <button onClick={onClose} style={{ padding:6, borderRadius:8, background:"none", border:"none", cursor:"pointer", color:"#A0AEC0", flexShrink:0 }}
             onMouseEnter={e=>(e.currentTarget as HTMLButtonElement).style.background="#F7FAFC"}

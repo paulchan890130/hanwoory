@@ -224,7 +224,7 @@ _ENTRY_POINTS_DATA = [
     {"id": "EX",   "label": "체류자격 외 활동",  "subtitle": "시간제취업·기타",     "codes": "자격외활동", "color": "#ED8936", "search_query": "시간제취업",  "action_types": ["EXTRA_WORK"]},
     {"id": "WP",   "label": "근무처 변경·추가",  "subtitle": "취업자격 근무처",     "codes": "근무처",     "color": "#9F7AEA", "search_query": "근무처변경",  "action_types": ["WORKPLACE"]},
     {"id": "GR",   "label": "체류자격 부여",     "subtitle": "출생·귀화 후 부여",   "codes": "부여",       "color": "#FC8181", "search_query": "체류자격부여","action_types": ["GRANT"]},
-    {"id": "VC",   "label": "사증발급인정서",    "subtitle": "국내 초청 사증",       "codes": "사증",       "color": "#667EEA", "search_query": "사증발급인정","action_types": ["VISA_CONFIRM"]},
+    {"id": "VC",   "label": "사증",              "subtitle": "자격별 사증 절차",     "codes": "사증",       "color": "#667EEA", "search_query": "사증발급인정","action_types": ["VISA_CONFIRM"]},
     {"id": "DR",   "label": "거소신고",          "subtitle": "재외동포 거소",        "codes": "거소",       "color": "#68D391", "search_query": "거소신고",    "action_types": ["DOMESTIC_RESIDENCE_REPORT"]},
     {"id": "AC",   "label": "직접신청",          "subtitle": "체류지·신고 등",       "codes": "신고",       "color": "#A0AEC0", "search_query": "직접신청",    "action_types": ["APPLICATION_CLAIM"]},
 ]
