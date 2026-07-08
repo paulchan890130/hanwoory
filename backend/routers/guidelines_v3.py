@@ -40,6 +40,11 @@ _ROUTES: list = _load("visa_routes.json")
 _PROGRAMS: list = _load("program_tags.json")
 _MAPPING: list = _load("v2_mapping.json")
 _AUX: list = _load("aux_civil.json")
+_DOC_REQS: list = _load("document_requirements.json")
+
+_DR_BY_TARGET: dict = {}
+for _dr in _DOC_REQS:
+    _DR_BY_TARGET.setdefault(_dr["target_id"], []).append(_dr)
 
 _MASTER_BY_CODE: dict = {m["code"]: m for m in _MASTERS}
 _BLOCKS_BY_QID: dict = {}
@@ -142,7 +147,8 @@ def list_aux(admin: dict = Depends(require_admin)):
     out = []
     for a in _AUX:
         row = _ROW_INDEX.get(a["v2_row_id"])
-        out.append({**a, "v2_row": _clean_row_display(row) if row else None})
+        out.append({**a, "v2_row": _clean_row_display(row) if row else None,
+                    "requirements": _DR_BY_TARGET.get(a["aux_id"], [])})
     return {"total": len(out), "data": out}
 
 
@@ -191,6 +197,15 @@ def get_qualification(code: str, admin: dict = Depends(require_admin)):
         pid = master["parent_qualification_id"]
         parent = next((m for m in _MASTERS if m["qualification_id"] == pid), None)
 
+    # v3 document_requirements — 이 자격의 블록/경로 target 별 서류(정독 기준). 없으면 빈 dict.
+    doc_reqs: dict = {}
+    for b in blocks:
+        if b["block_id"] in _DR_BY_TARGET:
+            doc_reqs[b["block_id"]] = _DR_BY_TARGET[b["block_id"]]
+    for r in routes:
+        if r["route_id"] in _DR_BY_TARGET:
+            doc_reqs[r["route_id"]] = _DR_BY_TARGET[r["route_id"]]
+
     return {
         "master": master,
         "parent": {"code": parent["code"], "name_ko": parent["name_ko"]} if parent else None,
@@ -200,4 +215,5 @@ def get_qualification(code: str, admin: dict = Depends(require_admin)):
         "children": child_summaries,
         "programs": programs,
         "v2_rows": _v2_rows_for(v2_ids),
+        "doc_requirements": doc_reqs,
     }

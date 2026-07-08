@@ -64,6 +64,18 @@ function AuxCard({ a, expanded, onToggle, onQuickDoc }: {
       </div>
       {expanded && (
         <div style={{ padding:"0 16px 14px" }}>
+          {(a.requirements?.length ?? 0) > 0 && (
+            <div style={{ marginBottom:8 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"#4A5568", marginBottom:4 }}>
+                서류 (v3 정독 기준 · {a.requirements!.length}건)
+              </div>
+              {a.requirements!.map(d => (
+                <div key={d.requirement_id} style={{ fontSize:11.5, color:"#4A5568", padding:"2px 0" }}>
+                  · {d.doc_name}{d.doc_role === "conditional" && d.condition ? ` (조건: ${d.condition})` : ""}
+                </div>
+              ))}
+            </div>
+          )}
           {a.v2_row ? (
             <>
               <GuidelineCard row={a.v2_row} isSelected={false} onClick={() => {}} />

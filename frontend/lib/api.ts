@@ -1439,6 +1439,33 @@ export interface V3Program {
   source_pages: number[];
   notes: string;
 }
+export interface V3DocRequirement {
+  requirement_id: string;
+  target_type: string;
+  target_id: string;
+  doc_name: string;
+  doc_kind: "form" | "evidence" | string;
+  doc_role: "office" | "client" | "conditional" | string;
+  condition: string | null;
+  is_required: boolean;
+  reuse_of: string | null;
+  form_ref: string | null;
+  source_v2_row_id?: string | null;
+  confidence: string;
+  notes: string;
+  source_manual?: string;
+  source_pages?: number[];
+  source_quote?: string;
+  source_summary?: string;
+  template_candidate?: string | null;
+  quickdoc_link?: { category?: string; kind?: string; detail?: string; minwon?: string } | null;
+  needs_human_review?: boolean;
+  added_from_manual?: boolean;
+  review_category?: string;
+  final_disposition?: string;
+  display_hint?: string;   // "abolished_reference" = 폐지 제도 참고자료
+  s_scope?: string;        // E-7-S 차등화: common | s1_only | s2_only
+}
 export interface V3ChildSummary {
   code: string;
   name_ko: string;
@@ -1456,6 +1483,7 @@ export interface V3QualificationDetail {
   children: V3ChildSummary[];
   programs: V3Program[];
   v2_rows: GuidelineRow[];
+  doc_requirements: Record<string, V3DocRequirement[]>;
 }
 
 export interface V3Aux {
@@ -1467,6 +1495,7 @@ export interface V3Aux {
   quickdoc_link: { category?: string; kind?: string; detail?: string; minwon?: string } | null;
   notes: string;
   v2_row: GuidelineRow | null;
+  requirements?: V3DocRequirement[];
 }
 
 export const guidelinesV3Api = {

@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, FileText, Loader2, ShieldAlert, X } from "lucide-react";
-import { guidelinesV3Api, GuidelineRow, V3Block, V3QualificationDetail, V3Route } from "@/lib/api";
+import { guidelinesV3Api, GuidelineRow, V3Block, V3DocRequirement, V3QualificationDetail, V3Route } from "@/lib/api";
 import { getUser, canManageContent } from "@/lib/auth";
 import {
   ApplicabilityBadge, ConfidenceChip, ProgramChip, ROUTE_TYPE_LABEL, SourceNote, routeTone,
@@ -21,6 +21,60 @@ function unknownSummary(b: V3Block): string {
     return "매뉴얼에 해당 업무 블록 부재 — 관서 확인 후 안내";
   }
   return "원문 확인 전 — 관서 확인 후 안내";
+}
+
+// ── v3 document_requirements 직접 렌더링 ─────────────────────────────────────
+function DrBadge({ text, color, bg, border }: { text: string; color: string; bg: string; border: string }) {
+  return (
+    <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 6px", borderRadius:6,
+      color, background:bg, border:`1px solid ${border}`, whiteSpace:"nowrap", flexShrink:0 }}>
+      {text}
+    </span>
+  );
+}
+
+function DrRow({ d }: { d: V3DocRequirement }) {
+  return (
+    <div style={{ padding:"5px 0", borderBottom:"1px solid #F7FAFC" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
+        <span style={{ fontSize:12, color:"#2D3748", fontWeight: d.is_required ? 600 : 400 }}>{d.doc_name}</span>
+        {d.form_ref && <DrBadge text={d.form_ref} color="#4A5568" bg="#F7FAFC" border="#E2E8F0" />}
+        {d.s_scope === "s1_only" && <DrBadge text="S1 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
+        {d.s_scope === "s2_only" && <DrBadge text="S2 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
+        {d.display_hint === "abolished_reference" && <DrBadge text="폐지 참고" color="#822727" bg="#FFF5F5" border="#FEB2B2" />}
+        {d.confidence && d.confidence !== "high" && <DrBadge text="원문 재확인" color="#975A16" bg="#FFFFF0" border="#F6E05E" />}
+        {d.needs_human_review && <DrBadge text="확인 필요" color="#C53030" bg="#FFF5F5" border="#FEB2B2" />}
+      </div>
+      {d.doc_role === "conditional" && d.condition && (
+        <div style={{ marginTop:2, fontSize:11, color:"#975A16", lineHeight:1.5 }}>조건: {d.condition}</div>
+      )}
+    </div>
+  );
+}
+
+function DrGroups({ drs }: { drs: V3DocRequirement[] }) {
+  const groups: { key: string; title: string; color: string }[] = [
+    { key: "office", title: "사무소 준비 (office)", color: "#4299E1" },
+    { key: "client", title: "손님 지참 (client)", color: "#48BB78" },
+    { key: "conditional", title: "조건부 (conditional)", color: "#975A16" },
+  ];
+  return (
+    <div style={{ marginBottom:12 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:6 }}>
+        서류 (v3 정독 기준 · {drs.length}건)
+      </div>
+      {groups.map(g => {
+        const items = drs.filter(d => d.doc_role === g.key);
+        if (items.length === 0) return null;
+        return (
+          <div key={g.key} style={{ marginBottom:10 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:g.color, marginBottom:2 }}>{g.title} · {items.length}</div>
+            {items.map(d => <DrRow key={d.requirement_id} d={d} />)}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function DocGroup({ title, color, docs }: { title: string; color: string; docs: string[] }) {
@@ -66,8 +120,9 @@ function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDo
   );
 }
 
-function DetailPanelV3({ sel, v2Rows, onClose, onQuickDoc }: {
-  sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; onClose: () => void; onQuickDoc: (url: string) => void;
+function DetailPanelV3({ sel, v2Rows, drs, onClose, onQuickDoc }: {
+  sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; drs: V3DocRequirement[];
+  onClose: () => void; onQuickDoc: (url: string) => void;
 }) {
   const isBlock = sel.kind === "block";
   const b = isBlock ? (sel.item as V3Block) : null;
@@ -133,13 +188,19 @@ function DetailPanelV3({ sel, v2Rows, onClose, onQuickDoc }: {
         </div>
       )}
 
-      <DocGroup title="사무소 준비 (office)" color="#4299E1" docs={sel.item.office_docs} />
-      <DocGroup title="손님 지참 (client)" color="#48BB78" docs={sel.item.client_docs} />
-      <DocGroup title="조건부 (conditional)" color="#975A16" docs={sel.item.conditional_docs} />
-      {(sel.item.office_docs.length + sel.item.client_docs.length + sel.item.conditional_docs.length) === 0 && (
-        <div style={{ fontSize:11, color:"#A0AEC0", marginBottom:10 }}>
-          서류 상세는 후속 입력 단계 — 아래 연결된 기존(v2) 지침의 서류를 참조하세요.
-        </div>
+      {drs.length > 0 ? (
+        <DrGroups drs={drs} />
+      ) : (
+        <>
+          <DocGroup title="사무소 준비 (office)" color="#4299E1" docs={sel.item.office_docs} />
+          <DocGroup title="손님 지참 (client)" color="#48BB78" docs={sel.item.client_docs} />
+          <DocGroup title="조건부 (conditional)" color="#975A16" docs={sel.item.conditional_docs} />
+          {(sel.item.office_docs.length + sel.item.client_docs.length + sel.item.conditional_docs.length) === 0 && (
+            <div style={{ fontSize:11, color:"#A0AEC0", marginBottom:10 }}>
+              v3 서류 정독 전 항목 — 아래 연결된 기존(v2) 지침의 서류를 참조하세요.
+            </div>
+          )}
+        </>
       )}
 
       {sel.item.exceptions.length > 0 && (
@@ -406,7 +467,9 @@ export default function QualificationDetailPage() {
         {/* 화면 3: 상세 패널 */}
         {sel && (
           <div style={{ width:400, flexShrink:0, position:"sticky", top:16 }}>
-            <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows} onClose={() => setSel(null)} onQuickDoc={goQuickDoc} />
+            <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows}
+              drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
+              onClose={() => setSel(null)} onQuickDoc={goQuickDoc} />
           </div>
         )}
       </div>
