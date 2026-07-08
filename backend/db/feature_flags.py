@@ -123,6 +123,13 @@ def pg_manual_update_enabled() -> bool:
     return _bool("FEATURE_PG_MANUAL_UPDATE")
 
 
+def guidelines_v3_enabled() -> bool:
+    """If true, v3 자격 중심 실무지침(read-only 관리자 화면) API 를 활성화한다.
+    Off → /api/guidelines/v3/* 는 404. 데이터는 backend/data/guidelines_v3/*.json
+    (v2 JSON·기존 화면·문서자동작성 연결에는 영향 없음)."""
+    return _bool("FEATURE_GUIDELINES_V3")
+
+
 def snapshot() -> dict[str, bool]:
     """Return the current flag state. Useful for debug endpoints."""
     return {
@@ -144,4 +151,5 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_PG_GUIDELINES": pg_guidelines_enabled(),
         "FEATURE_PG_QUICK_DOC_CONFIG": pg_quick_doc_config_enabled(),
         "FEATURE_SINGLE_SESSION": single_session_enabled(),
+        "FEATURE_GUIDELINES_V3": guidelines_v3_enabled(),
     }

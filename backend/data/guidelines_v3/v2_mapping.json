@@ -1,0 +1,4639 @@
+[
+ {
+  "v2_row_id": "M1-0001",
+  "v2_title": "A-3 협정",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:A-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0002",
+  "v2_title": "D-1 문화예술",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0003",
+  "v2_title": "D-10-1 구직",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-10-1_EXTRA_WORK",
+   "SB:D-10_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0004",
+  "v2_title": "A-1 외교(주한 외국공관원 가족)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:A-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0005",
+  "v2_title": "D-2 유학 시간제취업",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0006",
+  "v2_title": "F-3 동반",
+  "v2_action_type": "GRANT",
+  "v3_target_ids": [
+   "SB:F-3_GRANT"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0007",
+  "v2_title": "F-4-19 재외동포 체류자격 변경 (F-4-19)",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-4-19_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0008",
+  "v2_title": "A-3 협정",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:A-3_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0009",
+  "v2_title": "D-5 취재",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-5_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0010",
+  "v2_title": "D-1 문화예술",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0011",
+  "v2_title": "A-3 협정",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:A-3_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0012",
+  "v2_title": "D-5 취재",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-5_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0013",
+  "v2_title": "D-3 기술연수",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-3_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0014",
+  "v2_title": "D-2 유학",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-2_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0015",
+  "v2_title": "E-10-2 선원취업",
+  "v2_action_type": "WORKPLACE",
+  "v3_target_ids": [
+   "SB:E-10-2_WORKPLACE",
+   "SB:E-10_WORKPLACE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0016",
+  "v2_title": "A-3 협정",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:A-3_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0017",
+  "v2_title": "D-5 취재",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-5_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0018",
+  "v2_title": "D-1 문화예술",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-1_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0019",
+  "v2_title": "개인사업자",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0020",
+  "v2_title": "D-10-3 D-10-3",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-10-3_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0021",
+  "v2_title": "여권변경신고",
+  "v2_action_type": "APPLICATION_CLAIM",
+  "v3_target_ids": [
+   "AUX:M1-0021"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 밖 부가 민원(사실증명 등) — 별도 축(보조 민원)으로 유지, 화면·검색 무변경.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0022",
+  "v2_title": "외국인등록사실증명",
+  "v2_action_type": "APPLICATION_CLAIM",
+  "v3_target_ids": [
+   "AUX:M1-0022"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 밖 부가 민원(사실증명 등) — 별도 축(보조 민원)으로 유지, 화면·검색 무변경.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0023",
+  "v2_title": "거소신고사실증명",
+  "v2_action_type": "APPLICATION_CLAIM",
+  "v3_target_ids": [
+   "AUX:M1-0023"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 밖 부가 민원(사실증명 등) — 별도 축(보조 민원)으로 유지, 화면·검색 무변경.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0024",
+  "v2_title": "출입국에 관한 사실증명",
+  "v2_action_type": "APPLICATION_CLAIM",
+  "v3_target_ids": [
+   "AUX:M1-0024"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 밖 부가 민원(사실증명 등) — 별도 축(보조 민원)으로 유지, 화면·검색 무변경.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0025",
+  "v2_title": "국세증명사실증명 발급민원신청",
+  "v2_action_type": "APPLICATION_CLAIM",
+  "v3_target_ids": [
+   "AUX:M1-0025"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 밖 부가 민원(사실증명 등) — 별도 축(보조 민원)으로 유지, 화면·검색 무변경.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0026",
+  "v2_title": "소득금액증명서식",
+  "v2_action_type": "APPLICATION_CLAIM",
+  "v3_target_ids": [
+   "AUX:M1-0026"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 밖 부가 민원(사실증명 등) — 별도 축(보조 민원)으로 유지, 화면·검색 무변경.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0027",
+  "v2_title": "D-10-2 기술 창업준비",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-10-2_EXTRA_WORK",
+   "SB:D-10_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0028",
+  "v2_title": "D-10-3 첨단기술 인턴",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-10-3_EXTRA_WORK",
+   "SB:D-10_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0029",
+  "v2_title": "D-2-1 전문학사과정 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0030",
+  "v2_title": "D-2-2 학사과정 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0031",
+  "v2_title": "D-2-3 석사과정 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0032",
+  "v2_title": "D-2-4 박사과정 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0033",
+  "v2_title": "D-2-5 연구과정 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-5_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0034",
+  "v2_title": "D-2-6 교환학생 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0035",
+  "v2_title": "D-2-7 일-학습 연계 유학",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0036",
+  "v2_title": "D-2-8 방문학생",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-2-8_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0037",
+  "v2_title": "D-4-1 한국어연수",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-4-1_EXTRA_WORK",
+   "SB:D-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0038",
+  "v2_title": "D-4-2 졸업생에 대한 일반연수",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-4-2_EXTRA_WORK",
+   "SB:D-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0039",
+  "v2_title": "D-4-7 외국어연수",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-4-7_EXTRA_WORK",
+   "SB:D-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0040",
+  "v2_title": "D-6 종교",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0041",
+  "v2_title": "D-8-1 법인투자",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-8-1_EXTRA_WORK",
+   "SB:D-8_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0042",
+  "v2_title": "D-8-2 벤처투자",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-8-2_EXTRA_WORK",
+   "SB:D-8_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0043",
+  "v2_title": "D-8-3 개인기업투자",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-8-3_EXTRA_WORK",
+   "SB:D-8_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0044",
+  "v2_title": "D-7 주재(외국인 투자기업 CEO등 우수전문인력의 대학 강연활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:D-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0045",
+  "v2_title": "E-1 교수(외국인 투자기업 CEO등 우수전문인력의 대학 강연활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0046",
+  "v2_title": "E-3 연구(외국인 투자기업 CEO등 우수전문인력의 대학 강연활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0047",
+  "v2_title": "E-1 교수(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0048",
+  "v2_title": "E-2 회화지도(시도교육감과 근로계약을 체결한 영어보조교사)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0049",
+  "v2_title": "E-2 회화지도강사",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0050",
+  "v2_title": "E-2 대통령 영어봉사 장학생",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0051",
+  "v2_title": "E-2 캠프 외국인강사",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0052",
+  "v2_title": "E-2 회화지도(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-2_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0053",
+  "v2_title": "E-3 연구(외국인 투자기업 CEO등 우수전문인력의 대학 강연활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0054",
+  "v2_title": "E-4 기술지도(외국인 투자기업 CEO등 우수전문인력의 대학 강연활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0055",
+  "v2_title": "E-5 전문직업(외국인 투자기업 CEO등 우수전문인력의 대학 강연활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-5_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0056",
+  "v2_title": "E-1 교수·연구간 상호 체류자격외활동(교수)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0057",
+  "v2_title": "E-3 교수·연구간 상호 체류자격외활동(연구)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0058",
+  "v2_title": "E-1 협정 자격 소지자의 교수 자격외활동",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0059",
+  "v2_title": "E-3 연구(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0060",
+  "v2_title": "E-4 기술지도(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0061",
+  "v2_title": "E-5 전문직업(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-5_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0062",
+  "v2_title": "E-1 교수(단기취업 C-4-5 특정활동 E-7의 유사첨단기술분야 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0063",
+  "v2_title": "E-3 연구(단기취업 C-4-5 특정활동 E-7의 유사첨단기술분야 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0064",
+  "v2_title": "E-4 기술지도(단기취업 C-4-5 특정활동 E-7의 유사첨단기술분야 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0065",
+  "v2_title": "E-1 교수(A-1·A-2 소지자에 대한 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-1_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0066",
+  "v2_title": "E-3 연구(A-1·A-2 소지자에 대한 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0067",
+  "v2_title": "E-7 외국인학교교사(A-1·A-2 소지자에 대한 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0068",
+  "v2_title": "E-7 외국어교열요원(A-1·A-2 소지자에 대한 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0069",
+  "v2_title": "E-7 특정활동-IT·E-business(A-1·A-2 소지자에 대한 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0070",
+  "v2_title": "E-7 특정활동(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0071",
+  "v2_title": "E-7 외국인학교교사(F-1·F-3 소지자의 자격외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0072",
+  "v2_title": "E-7 외국어교열요원(F-1·F-3 소지자의 자격외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0073",
+  "v2_title": "E-7 특정활동(방문동거 중국동포의 취업자격 구비자)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0074",
+  "v2_title": "E-7 제주국제학교 보조교사·강사·보조사감·행정사무원",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0075",
+  "v2_title": "E-7 제주영어교육도시 상업시설 판매종사자",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0076",
+  "v2_title": "E-7 제주도 음식점 통역·판매사무원",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0077",
+  "v2_title": "E-7 기타(G-1) 소지자의 특정활동 취업",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-7_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0078",
+  "v2_title": "E-3 기타(G-1) 소지자의 연구 취업",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0079",
+  "v2_title": "E-6 예술흥행(외교·공무 자격 소지자의 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0080",
+  "v2_title": "E-6 예술흥행(방문동거 중국동포의 취업자격 구비자)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0081",
+  "v2_title": "E-6 예술흥행(특정활동 자격자의 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0082",
+  "v2_title": "E-6 예술흥행(기타 자격 소지자의 체외활동)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0083",
+  "v2_title": "E-6 예술흥행(고액투자 외국인 및 전문인력 배우자에 대한 취업)",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:E-6_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0084",
+  "v2_title": "F-4 인구감소지역 거주 재외동포 체류자격 외 활동",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:F-4_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0085",
+  "v2_title": "F-3-2R 지역동포가족",
+  "v2_action_type": "EXTRA_WORK",
+  "v3_target_ids": [
+   "SB:F-3-2R_EXTRA_WORK",
+   "SB:F-3_EXTRA_WORK"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0086",
+  "v2_title": "F-4-R 지역특화형 재외동포 체류자격 변경",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-4-R_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0087",
+  "v2_title": "F-3-2R 지역동포가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-3-2R_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0088",
+  "v2_title": "F-4-R 지역특화형 재외동포 체류기간 연장",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-4-R_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0089",
+  "v2_title": "F-3-2R 지역동포가족",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-3-2R_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0090",
+  "v2_title": "F-2-71 K-STAR 거주의 동반가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-71_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0091",
+  "v2_title": "F-2-71 K-STAR 거주자의 국내출생 미성년자녀",
+  "v2_action_type": "GRANT",
+  "v3_target_ids": [
+   "SB:F-2-71_GRANT",
+   "SB:F-2_GRANT"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0092",
+  "v2_title": "F-2-71 K-STAR 거주의 동반가족",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-71_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0093",
+  "v2_title": "F-5-S1 K-STAR 영주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-S1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0094",
+  "v2_title": "F-2-T 최우수인재 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-T_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0095",
+  "v2_title": "F-2-T 최우수인재 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-T_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0096",
+  "v2_title": "F-5-T 최우수인재 영주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-T_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0097",
+  "v2_title": "D-10-T 최우수인재 구직",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-10-T_CHANGE",
+   "SB:D-10_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0098",
+  "v2_title": "D-10-T 최우수인재 구직",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-10-T_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0099",
+  "v2_title": "E-7-T 최우수인재 특정활동",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-T_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0100",
+  "v2_title": "E-7-T 최우수인재 특정활동",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-T_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0101",
+  "v2_title": "E-7-T 최우수인재 특정활동",
+  "v2_action_type": "WORKPLACE",
+  "v3_target_ids": [
+   "SB:E-7-T_WORKPLACE",
+   "SB:E-7_WORKPLACE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0102",
+  "v2_title": "F-5-S2 K-STAR 영주의 동반가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-S2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0103",
+  "v2_title": "F-3 최우수인재 구직·특정활동의 동반가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-3_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0104",
+  "v2_title": "F-3 최우수인재 구직·특정활동의 동반가족",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-3_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0105",
+  "v2_title": "F-2 최우수인재 거주의 동반가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거). 탑티어 프로그램 소속 여부 확인 필요(bare F-2 최우수인재).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0106",
+  "v2_title": "F-2 최우수인재 거주의 동반가족",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거). 탑티어 프로그램 소속 여부 확인 필요(bare F-2 최우수인재).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0107",
+  "v2_title": "F-5 최우수인재 영주의 동반가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0108",
+  "v2_title": "D-8-1 법인투자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-8-1_CHANGE",
+   "SB:D-8_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0109",
+  "v2_title": "D-8-2 벤처투자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-8-2_CHANGE",
+   "SB:D-8_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0110",
+  "v2_title": "D-8-3 개인기업투자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-8-3_CHANGE",
+   "SB:D-8_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0111",
+  "v2_title": "D-8-1 법인투자",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-8-1_EXTEND",
+   "SB:D-8_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0112",
+  "v2_title": "D-8-2 벤처투자",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-8-2_EXTEND",
+   "SB:D-8_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0113",
+  "v2_title": "D-8-3 개인기업투자",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-8-3_EXTEND",
+   "SB:D-8_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0114",
+  "v2_title": "D-8-1 법인투자",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-8-1_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0115",
+  "v2_title": "D-8-2 벤처투자",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-8-2_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0116",
+  "v2_title": "D-8-3 개인기업투자",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-8-3_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0117",
+  "v2_title": "D-8-1 법인투자",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-8-1_REGISTRATION",
+   "SB:D-8_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0118",
+  "v2_title": "D-8-2 벤처투자",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-8-2_REGISTRATION",
+   "SB:D-8_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0119",
+  "v2_title": "D-8-3 개인기업투자",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-8-3_REGISTRATION",
+   "SB:D-8_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0120",
+  "v2_title": "D-8-1 법인투자",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-8-1_REENTRY",
+   "SB:D-8_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0121",
+  "v2_title": "D-8-2 벤처투자",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-8-2_REENTRY",
+   "SB:D-8_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0122",
+  "v2_title": "D-8-3 개인기업투자",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-8-3_REENTRY",
+   "SB:D-8_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0123",
+  "v2_title": "D-9-1 무역업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-9-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0124",
+  "v2_title": "D-9-4 개인사업자 무역경영",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-9-4_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0125",
+  "v2_title": "D-9-1 무역업",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-9-1_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0126",
+  "v2_title": "D-9-4 개인사업자 무역경영",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-9-4_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0127",
+  "v2_title": "D-9 무역경영",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0128",
+  "v2_title": "D-9 무역경영",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-9_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0129",
+  "v2_title": "D-9 무역경영",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0130",
+  "v2_title": "D-10-1 일반구직",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-10-1_CHANGE",
+   "SB:D-10_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0131",
+  "v2_title": "D-10-2 기술창업준비",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-10-2_CHANGE",
+   "SB:D-10_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0132",
+  "v2_title": "D-10-3 첨단기술인턴",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-10-3_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0133",
+  "v2_title": "D-10-1 일반구직",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-10-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0134",
+  "v2_title": "D-10-2 기술창업준비",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-10-2_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0135",
+  "v2_title": "D-10-3 첨단기술인턴",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-10-3_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0136",
+  "v2_title": "D-10-1 일반구직",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-10-1_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0137",
+  "v2_title": "D-10-2 기술창업준비",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-10-2_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0138",
+  "v2_title": "D-10-3 첨단기술인턴",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-10-3_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0139",
+  "v2_title": "D-10 구직",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-10_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0140",
+  "v2_title": "E-1 교수",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0141",
+  "v2_title": "E-1 교수",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-1_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0142",
+  "v2_title": "E-1 교수",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0143",
+  "v2_title": "E-1 교수",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-1_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0144",
+  "v2_title": "E-1 교수",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-1_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0145",
+  "v2_title": "E-2 회화지도",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0146",
+  "v2_title": "E-2 회화지도",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-2_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0147",
+  "v2_title": "E-2 회화지도",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-2_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0148",
+  "v2_title": "E-2 회화지도",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-2_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0149",
+  "v2_title": "E-2 회화지도",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-2_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0150",
+  "v2_title": "E-3 연구",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-3_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0151",
+  "v2_title": "E-3 연구",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-3_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0152",
+  "v2_title": "E-3 연구",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-3_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0153",
+  "v2_title": "E-3 연구",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-3_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0154",
+  "v2_title": "E-3 연구",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-3_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0155",
+  "v2_title": "E-4 기술지도",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-4_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0156",
+  "v2_title": "E-4 기술지도",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-4_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0157",
+  "v2_title": "E-4 기술지도",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-4_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0158",
+  "v2_title": "E-4 기술지도",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-4_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0159",
+  "v2_title": "E-4 기술지도",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-4_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0160",
+  "v2_title": "E-5 전문직업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-5_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0161",
+  "v2_title": "E-5 전문직업",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-5_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0162",
+  "v2_title": "E-5 전문직업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-5_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0163",
+  "v2_title": "E-5 전문직업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-5_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0164",
+  "v2_title": "E-5 전문직업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-5_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0165",
+  "v2_title": "E-6 예술흥행",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0166",
+  "v2_title": "E-6 예술흥행",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-6_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0167",
+  "v2_title": "E-6 예술흥행",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-6_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0168",
+  "v2_title": "E-6 예술흥행",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-6_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0169",
+  "v2_title": "E-6 예술흥행",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-6_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0170",
+  "v2_title": "E-7-1 전문인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-1_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0171",
+  "v2_title": "E-7-1 전문인력",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-7-1_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0172",
+  "v2_title": "E-7-1 전문인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-1_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0173",
+  "v2_title": "E-7-1 전문인력",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-1_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0174",
+  "v2_title": "E-7-1 전문인력",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-1_REENTRY",
+   "SB:E-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0175",
+  "v2_title": "E-7-4 숙련기능인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-4_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0176",
+  "v2_title": "E-7-4 숙련기능인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-4_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0177",
+  "v2_title": "E-7-4 숙련기능인력",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-4_REENTRY",
+   "SB:E-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0178",
+  "v2_title": "E-9-1 비전문취업-농축산업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-9-1_CHANGE",
+   "SB:E-9_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0179",
+  "v2_title": "E-9-2 비전문취업-건설업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-9-2_CHANGE",
+   "SB:E-9_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0180",
+  "v2_title": "E-9-3 비전문취업-제조업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-9-3_CHANGE",
+   "SB:E-9_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0181",
+  "v2_title": "E-9-4 비전문취업-어업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-9-4_CHANGE",
+   "SB:E-9_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0182",
+  "v2_title": "E-9-5 비전문취업-서비스업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-9-5_CHANGE",
+   "SB:E-9_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0183",
+  "v2_title": "E-9-1 비전문취업-농축산업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-9-1_EXTEND",
+   "SB:E-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0184",
+  "v2_title": "E-9-2 비전문취업-건설업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-9-2_EXTEND",
+   "SB:E-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0185",
+  "v2_title": "E-9-3 비전문취업-제조업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-9-3_EXTEND",
+   "SB:E-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0186",
+  "v2_title": "E-9-4 비전문취업-어업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-9-4_EXTEND",
+   "SB:E-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0187",
+  "v2_title": "E-9-5 비전문취업-서비스업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-9-5_EXTEND",
+   "SB:E-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0188",
+  "v2_title": "E-9-1 비전문취업-농축산업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-9-1_REGISTRATION",
+   "SB:E-9_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0189",
+  "v2_title": "E-9-2 비전문취업-건설업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-9-2_REGISTRATION",
+   "SB:E-9_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0190",
+  "v2_title": "E-9-3 비전문취업-제조업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-9-3_REGISTRATION",
+   "SB:E-9_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0191",
+  "v2_title": "E-9-4 비전문취업-어업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-9-4_REGISTRATION",
+   "SB:E-9_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0192",
+  "v2_title": "E-9-5 비전문취업-서비스업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-9-5_REGISTRATION",
+   "SB:E-9_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0193",
+  "v2_title": "E-9-1 비전문취업-농축산업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-9-1_REENTRY",
+   "SB:E-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0194",
+  "v2_title": "E-9-2 비전문취업-건설업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-9-2_REENTRY",
+   "SB:E-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0195",
+  "v2_title": "E-9-3 비전문취업-제조업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-9-3_REENTRY",
+   "SB:E-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0196",
+  "v2_title": "E-9-4 비전문취업-어업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-9-4_REENTRY",
+   "SB:E-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0197",
+  "v2_title": "E-9-5 비전문취업-서비스업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-9-5_REENTRY",
+   "SB:E-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0198",
+  "v2_title": "E-10 선원취업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-10_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0199",
+  "v2_title": "E-10 선원취업",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-10_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0200",
+  "v2_title": "E-10 선원취업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-10_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0201",
+  "v2_title": "E-10 선원취업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-10_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0202",
+  "v2_title": "E-10 선원취업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-10_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0203",
+  "v2_title": "F-1-16 난민인정자 가족 방문동거",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-16_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0204",
+  "v2_title": "F-1-52 결혼이민자의 전혼관계 출생 미성년 자녀 방문동거",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-52_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0205",
+  "v2_title": "F-1-5 결혼이민자의 부모 등 가족 방문동거",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:F-1-5_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "경로 확정(confirm_needed→recognition) 1:1 이전.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0206",
+  "v2_title": "F-1-15 우수인재·투자자·유학생 부모 방문동거",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:F-1-15_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "경로 확정(confirm_needed→recognition) 1:1 이전.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0207",
+  "v2_title": "F-1-22 고액투자가 가사보조인",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:F-1-22_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "경로 확정(confirm_needed→recognition) 1:1 이전.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0208",
+  "v2_title": "F-1-24 해외우수인재 가사보조인",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:F-1-24_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "경로 확정(confirm_needed→recognition) 1:1 이전.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0209",
+  "v2_title": "F-1-21 주한 외국공관원 가사보조인",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:F-1-21_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "경로 확정(confirm_needed→recognition) 1:1 이전.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0210",
+  "v2_title": "F-1-5 결혼이민자의 부모 등 가족 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-5_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0211",
+  "v2_title": "F-1-15 우수인재·투자자·유학생 부모 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-15_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0212",
+  "v2_title": "F-1-52 결혼이민자의 전혼관계 출생 자녀 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-52_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0213",
+  "v2_title": "F-1-9 재외동포 가족 방문동거",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-9_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0214",
+  "v2_title": "F-1-11 방문취업자 가족 방문동거",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-11_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0215",
+  "v2_title": "F-1-9 재외동포 가족 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-9_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0216",
+  "v2_title": "F-1-11 방문취업자 가족 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-11_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0217",
+  "v2_title": "F-1-9 재외동포 가족 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1-9_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0218",
+  "v2_title": "F-1-11 방문취업자 가족 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1-11_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0219",
+  "v2_title": "F-1 외국국적동포 가족 방문동거",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-1_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0220",
+  "v2_title": "F-1 외국국적동포 가족 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0221",
+  "v2_title": "F-1 외국국적동포 가족 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0222",
+  "v2_title": "F-1-15 우수인재·투자자·유학생 부모 방문동거",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-1-15_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0223",
+  "v2_title": "F-1-15 우수인재·투자자·유학생 부모 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1-15_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0224",
+  "v2_title": "F-1-21 주한 외국공관원 가사보조인 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-21_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0225",
+  "v2_title": "F-1-21 주한 외국공관원 가사보조인 방문동거",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-1-21_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0226",
+  "v2_title": "F-1-21 주한 외국공관원 가사보조인 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1-21_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0227",
+  "v2_title": "F-1-22 고액투자가 가사보조인 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-22_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0228",
+  "v2_title": "F-1-22 고액투자가 가사보조인 방문동거",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-1-22_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0229",
+  "v2_title": "F-1-22 고액투자가 가사보조인 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1-22_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0230",
+  "v2_title": "F-1-24 해외우수인재 가사보조인 방문동거",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-1-24_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0231",
+  "v2_title": "F-1-24 해외우수인재 가사보조인 방문동거",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-1-24_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0232",
+  "v2_title": "F-1-24 해외우수인재 가사보조인 방문동거",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-1-24_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0233",
+  "v2_title": "F-2-3 영주자의 배우자 및 미성년자녀 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-3_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0234",
+  "v2_title": "F-2-3 영주자의 배우자 및 미성년자녀 거주",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:F-2-3_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0235",
+  "v2_title": "F-2-3 영주자의 배우자 및 미성년자녀 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-3_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0236",
+  "v2_title": "F-2-3 영주자의 배우자 및 미성년자녀 거주",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-2-3_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0237",
+  "v2_title": "F-2-3 영주자의 배우자 및 미성년자녀 거주",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-2-3_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0238",
+  "v2_title": "F-2-4 난민인정자 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-4_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0239",
+  "v2_title": "F-2-4 난민인정자 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-4_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0240",
+  "v2_title": "F-2-4 난민인정자 거주",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-2-4_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0241",
+  "v2_title": "F-2-4 난민인정자 거주",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-2-4_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0242",
+  "v2_title": "F-2-7 점수제 우수인재 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0243",
+  "v2_title": "F-2-7 점수제 우수인재 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0244",
+  "v2_title": "F-2-7 점수제 우수인재 거주",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-2-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0245",
+  "v2_title": "F-2-7 점수제 우수인재 거주",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-2-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0246",
+  "v2_title": "F-2-5 고액투자자 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-5_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0247",
+  "v2_title": "F-2-5 고액투자자 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-5_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0248",
+  "v2_title": "F-2-5 고액투자자 거주",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-2-5_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0249",
+  "v2_title": "F-2-5 고액투자자 거주",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-2-5_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0250",
+  "v2_title": "F-2-6 숙련 생산기능 외국인력 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0251",
+  "v2_title": "F-2-6 숙련 생산기능 외국인력 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-6_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0252",
+  "v2_title": "F-2-6 숙련 생산기능 외국인력 거주",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-2-6_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0253",
+  "v2_title": "F-2-6 숙련 생산기능 외국인력 거주",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-2-6_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0254",
+  "v2_title": "F-2-71 점수제 우수인재 배우자·미성년 자녀 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-71_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0255",
+  "v2_title": "F-2-71 점수제 우수인재 배우자·미성년 자녀 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-71_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0256",
+  "v2_title": "F-2-71 점수제 우수인재 국내출생 자녀 거주",
+  "v2_action_type": "GRANT",
+  "v3_target_ids": [
+   "SB:F-2-71_GRANT",
+   "SB:F-2_GRANT"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0257",
+  "v2_title": "F-2-99 기타 장기체류자 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-99_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0258",
+  "v2_title": "F-2-99 기타 장기체류자 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-99_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0259",
+  "v2_title": "F-3-18 기타 장기체류자 동반가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-3-18_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0260",
+  "v2_title": "F-3-18 기타 장기체류자 동반가족",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-3-18_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0261",
+  "v2_title": "F-4 재외동포 체류자격 변경",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-4_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0262",
+  "v2_title": "F-4 재외동포 체류기간 연장",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-4_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0263",
+  "v2_title": "F-4 재외동포 국내 거소신고",
+  "v2_action_type": "DOMESTIC_RESIDENCE_REPORT",
+  "v3_target_ids": [
+   "SB:F-4_REGISTRATION_residence_report"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0264",
+  "v2_title": "F-4 재외동포 제한직업 동일사업장 계속근무 특례",
+  "v2_action_type": "ACTIVITY_EXTRA",
+  "v3_target_ids": [
+   "SB:F-4_EXTRA_WORK_activity_scope_add"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0265",
+  "v2_title": "F-4 재외동포 재입국허가",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-4_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0266",
+  "v2_title": "F-6-1 국민의 배우자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-6-1_CHANGE",
+   "SB:F-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0267",
+  "v2_title": "F-6-1 국민의 배우자",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-6-1_EXTEND",
+   "SB:F-6_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0268",
+  "v2_title": "F-6-1 국민의 배우자",
+  "v2_action_type": "GRANT",
+  "v3_target_ids": [
+   "SB:F-6-1_GRANT",
+   "SB:F-6_GRANT"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0269",
+  "v2_title": "F-6-1 국민의 배우자",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-6-1_REGISTRATION",
+   "SB:F-6_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0270",
+  "v2_title": "F-6-1 국민의 배우자",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-6-1_REENTRY",
+   "SB:F-6_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0271",
+  "v2_title": "F-6-2 자녀양육자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-6-2_CHANGE",
+   "SB:F-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0272",
+  "v2_title": "F-6-2 자녀양육자",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-6-2_EXTEND",
+   "SB:F-6_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0273",
+  "v2_title": "F-6-3 혼인단절자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-6-3_CHANGE",
+   "SB:F-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0274",
+  "v2_title": "F-6-3 혼인단절자",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-6-3_EXTEND",
+   "SB:F-6_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0275",
+  "v2_title": "F-1-6 혼인단절 가사정리",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-6_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0276",
+  "v2_title": "H-2 방문취업 체류자격 변경 (타 자격 → H-2)",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:H-2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0277",
+  "v2_title": "H-2 방문취업 체류기간 연장",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:H-2_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0278",
+  "v2_title": "H-2 방문취업 외국인 등록",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:H-2_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0279",
+  "v2_title": "H-2 방문취업 재입국허가",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:H-2_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0280",
+  "v2_title": "C-3-8 동포방문",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:C-3-8_CONSULATE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "consulate + abolished('26.2.12 폐지) + 대안 안내 유지.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0281",
+  "v2_title": "F-2-R 지역특화형 우수인재",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-R_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0282",
+  "v2_title": "F-2-R 지역특화형 우수인재",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-R_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0283",
+  "v2_title": "F-3-1R 지역특화형 우수인재가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-3-1R_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0284",
+  "v2_title": "F-3-3R 지역특화형 숙련기능인력가족",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-3-3R_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0285",
+  "v2_title": "F-2-7S K-STAR 거주",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-2-7S_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0286",
+  "v2_title": "F-2-7S K-STAR 거주",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:F-2-7S_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0287",
+  "v2_title": "G-1 기타",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:G-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0288",
+  "v2_title": "G-1 기타",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:G-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0289",
+  "v2_title": "G-1 기타",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:G-1_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0290",
+  "v2_title": "H-1 관광취업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:H-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0291",
+  "v2_title": "H-1 관광취업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:H-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0292",
+  "v2_title": "H-1 관광취업",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:H-1_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0293",
+  "v2_title": "H-1 관광취업",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:H-1_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0294",
+  "v2_title": "E-8 계절근로",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-8_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0295",
+  "v2_title": "E-8 계절근로",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-8_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0296",
+  "v2_title": "E-8 계절근로",
+  "v2_action_type": "WORKPLACE",
+  "v3_target_ids": [
+   "SB:E-8_WORKPLACE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0297",
+  "v2_title": "A-2 공무",
+  "v2_action_type": "GRANT",
+  "v3_target_ids": [
+   "SB:A-2_GRANT"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0298",
+  "v2_title": "A-2 공무",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:A-2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0299",
+  "v2_title": "A-2 공무",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:A-2_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0300",
+  "v2_title": "A-2 공무",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:A-2_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0301",
+  "v2_title": "B-1 사증면제",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0302",
+  "v2_title": "B-2 관광통과",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0303",
+  "v2_title": "C-1 일시취재",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:C-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0304",
+  "v2_title": "C-4 단기취업",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:C-4_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0305",
+  "v2_title": "C-4 단기취업",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:C-4_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0306",
+  "v2_title": "C-4 단기취업",
+  "v2_action_type": "WORKPLACE",
+  "v3_target_ids": [
+   "SB:C-4_WORKPLACE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0307",
+  "v2_title": "E-7-4R 지역특화형 숙련기능인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-4R_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0308",
+  "v2_title": "E-7-4R 지역특화형 숙련기능인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-4R_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0309",
+  "v2_title": "E-7-4R 지역특화형 숙련기능인력",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-4R_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0310",
+  "v2_title": "E-7-2 준전문인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-2_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0311",
+  "v2_title": "E-7-2 준전문인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-2_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0312",
+  "v2_title": "E-7-2 준전문인력",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-2_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0313",
+  "v2_title": "E-7-2 준전문인력",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-2_REENTRY",
+   "SB:E-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0314",
+  "v2_title": "E-7-2 준전문인력",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-7-2_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0315",
+  "v2_title": "E-7-3 일반기능인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-3_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0316",
+  "v2_title": "E-7-3 일반기능인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-3_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0317",
+  "v2_title": "E-7-3 일반기능인력",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-3_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0318",
+  "v2_title": "E-7-3 일반기능인력",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-3_REENTRY",
+   "SB:E-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0319",
+  "v2_title": "E-7-3 일반기능인력",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-7-3_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0320",
+  "v2_title": "E-7-S 네거티브방식 전문인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-S1_CHANGE",
+   "SB:E-7-S2_CHANGE"
+  ],
+  "mapping_type": "split",
+  "confidence": "high",
+  "reason": "S1/S2 분리에 따라 체류 블록도 각자 소유(요건·서류 차등화는 후속).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0321",
+  "v2_title": "E-7-S 네거티브방식 전문인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-S1_EXTEND",
+   "SB:E-7-S2_EXTEND"
+  ],
+  "mapping_type": "split",
+  "confidence": "high",
+  "reason": "S1/S2 분리에 따라 체류 블록도 각자 소유(요건·서류 차등화는 후속).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0322",
+  "v2_title": "E-7-S 네거티브방식 전문인력",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-S1_REGISTRATION",
+   "SB:E-7-S2_REGISTRATION"
+  ],
+  "mapping_type": "split",
+  "confidence": "high",
+  "reason": "S1/S2 분리에 따라 체류 블록도 각자 소유(요건·서류 차등화는 후속).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0323",
+  "v2_title": "E-7-S 네거티브방식 전문인력",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-S1_REENTRY",
+   "SB:E-7-S2_REENTRY"
+  ],
+  "mapping_type": "split",
+  "confidence": "high",
+  "reason": "S1/S2 분리에 따라 체류 블록도 각자 소유(요건·서류 차등화는 후속).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0324",
+  "v2_title": "E-7-S 네거티브방식 전문인력",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:E-7-S1_RECOGNITION",
+   "VR:E-7-S2_RECOGNITION"
+  ],
+  "mapping_type": "split",
+  "confidence": "high",
+  "reason": "E-7-S1/S2 분리(확정) — 인정 경로 각자 소유.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0325",
+  "v2_title": "E-7-Y 국내성장인력",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:E-7-Y_CHANGE",
+   "SB:E-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0326",
+  "v2_title": "E-7-Y 국내성장인력",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:E-7-Y_EXTEND",
+   "SB:E-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0327",
+  "v2_title": "E-7-Y 국내성장인력",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-Y_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0328",
+  "v2_title": "E-7-Y 국내성장인력",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-Y_REENTRY",
+   "SB:E-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0329",
+  "v2_title": "E-7-T 최우수인재",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-T_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0330",
+  "v2_title": "E-7-T 최우수인재",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:E-7-T_REENTRY",
+   "SB:E-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0331",
+  "v2_title": "E-7-4 숙련기능인력(점수제)",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:E-7-4_REGISTRATION",
+   "SB:E-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0332",
+  "v2_title": "D-2 유학",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0333",
+  "v2_title": "D-2 유학",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-2_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0334",
+  "v2_title": "D-2 유학",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-2_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0335",
+  "v2_title": "D-2 유학",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-2_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0336",
+  "v2_title": "D-3 기술연수",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-3_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0337",
+  "v2_title": "D-3 기술연수",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-3_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0338",
+  "v2_title": "D-3 기술연수",
+  "v2_action_type": "VISA_CONFIRM",
+  "v3_target_ids": [
+   "VR:D-3_RECOGNITION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "medium",
+  "reason": "recognition 1:1 이전. 공관장재량 병렬 블록 확인 후 consulate 행 추가 여부 판단.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": "M1-0339",
+  "v2_title": "D-4 일반연수",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-4_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0340",
+  "v2_title": "D-4 일반연수",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-4_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0341",
+  "v2_title": "D-4 일반연수",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-4_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0342",
+  "v2_title": "D-4 일반연수",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-4_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0343",
+  "v2_title": "D-5 취재",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-5_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0344",
+  "v2_title": "D-6 종교",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0345",
+  "v2_title": "D-6 종교",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-6_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0346",
+  "v2_title": "D-6 종교",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-6_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0347",
+  "v2_title": "D-6 종교",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-6_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0348",
+  "v2_title": "D-7 주재",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-7_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0349",
+  "v2_title": "D-7 주재",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-7_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0350",
+  "v2_title": "D-7 주재",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-7_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0351",
+  "v2_title": "D-7 주재",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-7_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0352",
+  "v2_title": "D-9 무역경영",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:D-9_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0353",
+  "v2_title": "D-10 구직",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-10_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0354",
+  "v2_title": "D-10 구직",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:D-10_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0355",
+  "v2_title": "F-2 거주",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-2_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0356",
+  "v2_title": "F-2 거주",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-2_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0357",
+  "v2_title": "D-1 문화예술",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-1_EXTEND"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0358",
+  "v2_title": "D-1 문화예술",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:D-1_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0359",
+  "v2_title": "F-3 동반",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-3_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0360",
+  "v2_title": "F-3 동반",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-3_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0361",
+  "v2_title": "F-5 영주(F-5) 외국인등록",
+  "v2_action_type": "REGISTRATION",
+  "v3_target_ids": [
+   "SB:F-5_REGISTRATION"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0362",
+  "v2_title": "F-5 영주(F-5) 재입국허가",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:F-5_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0363",
+  "v2_title": "G-1 기타",
+  "v2_action_type": "REENTRY",
+  "v3_target_ids": [
+   "SB:G-1_REENTRY"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0364",
+  "v2_title": "F-5-1 영주 변경 — 국민의 배우자·자녀 (5년 이상 합법체류)",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0365",
+  "v2_title": "F-5-2 영주 변경 — 영주권자의 미성년 자녀",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-2_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0366",
+  "v2_title": "F-5-6 영주 변경 — 결혼이민자 (F-6 → F-5)",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-6_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0367",
+  "v2_title": "F-5-10 영주 변경 — 재외동포(F-4) 2년 이상 체류",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-10_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0368",
+  "v2_title": "F-5-11 영주 변경 — 특정분야 능력소유자 (점수제 우수인재)",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-11_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0369",
+  "v2_title": "F-5-14 영주 변경 — 방문취업(H-2) 제조업 4년 이상 근무",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-5-14_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0370",
+  "v2_title": "F-1-4 혼외 미성년 자녀 양육자",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-4_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0371",
+  "v2_title": "F-1-51 국제입양 아동",
+  "v2_action_type": "CHANGE",
+  "v3_target_ids": [
+   "SB:F-1-51_CHANGE",
+   "SB:F-1_CHANGE"
+  ],
+  "mapping_type": "keep",
+  "confidence": "high",
+  "reason": "격자 좌표 1:1 이전(applicable, v2 행이 근거).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": "M1-0372",
+  "v2_title": "D-4-5 한식조리연수",
+  "v2_action_type": "EXTEND",
+  "v3_target_ids": [
+   "SB:D-4-5_EXTEND",
+   "VR:D-4-5_RECOGNITION"
+  ],
+  "mapping_type": "split",
+  "confidence": "medium",
+  "reason": "연장 행 노트의 사증 정보를 route로 분리.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": null,
+  "v2_title": null,
+  "v2_action_type": null,
+  "v3_target_ids": [
+   "VR:F-1-23_RECOGNITION",
+   "Q:F-1-23"
+  ],
+  "mapping_type": "new",
+  "confidence": "high",
+  "reason": "F-1-23 결손 보충(가사보조인 묶음) — 명칭·요건 원문 확인 후 블록 추가.",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": null,
+  "v2_title": null,
+  "v2_action_type": null,
+  "v3_target_ids": [
+   "SB:E-8_GRANT",
+   "SB:E-8_CHANGE",
+   "SB:E-8_REENTRY"
+  ],
+  "mapping_type": "new",
+  "confidence": "high",
+  "reason": "E-8 부재 블록 not_applicable 기록(확정).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": null,
+  "v2_title": null,
+  "v2_action_type": null,
+  "v3_target_ids": [
+   "VR:F-5_NOT_APPLICABLE",
+   "VR:F-6_NOT_APPLICABLE",
+   "VR:H-1_NOT_APPLICABLE",
+   "VR:A-3_EXCLUDED",
+   "VR:B-1_EXCLUDED",
+   "VR:B-2_EXCLUDED"
+  ],
+  "mapping_type": "new",
+  "confidence": "high",
+  "reason": "사증 경로 부정 정보 데이터화 — v2 대응물 없음.",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": null,
+  "v2_title": null,
+  "v2_action_type": null,
+  "v3_target_ids": [
+   "VR:E-8_RECOGNITION"
+  ],
+  "mapping_type": "new",
+  "confidence": "high",
+  "reason": "E-8 인정서 전용 경로 — v2 대응 행 없음(신규).",
+  "needs_human_review": false
+ },
+ {
+  "v2_row_id": null,
+  "v2_title": null,
+  "v2_action_type": null,
+  "v3_target_ids": [
+   "SB:*_WORKPLACE(unknown)"
+  ],
+  "mapping_type": "new",
+  "confidence": "high",
+  "reason": "WORKPLACE 격자 결손 — unknown 생성 완료, 원문 정독 후 확정(일괄 applicable 금지).",
+  "needs_human_review": true
+ },
+ {
+  "v2_row_id": null,
+  "v2_title": null,
+  "v2_action_type": null,
+  "v3_target_ids": [
+   "Q:* 자격 마스터 전체",
+   "PG:* 프로그램 6종"
+  ],
+  "mapping_type": "new",
+  "confidence": "high",
+  "reason": "자격/프로그램 축 신설 — v2 대응물 없음.",
+  "needs_human_review": false
+ }
+]

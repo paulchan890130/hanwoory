@@ -1345,6 +1345,126 @@ export const guidelinesApi = {
     api.get<{ total: number; countries: string[] }>("/api/guidelines/tb/high-risk-countries"),
 };
 
+// ── 실무지침 v3 (자격 중심, 관리자 read-only — FEATURE_GUIDELINES_V3) ────────
+export interface V3Qualification {
+  qualification_id: string;
+  parent_qualification_id: string | null;
+  manual_type: string;
+  group: string;
+  code: string;
+  name_ko: string;
+  activity_scope: string;
+  eligible_persons: string;
+  stay_limit: string;
+  delegated_to: string | null;
+  program_ids: string[];
+  sub_codes: string[];
+  source_manual: string;
+  source_pages: number[];
+  confidence: string;
+  notes: string;
+  status: string;
+  summary?: V3Summary;
+  child_count?: number;
+}
+export interface V3Summary {
+  applicable: number;
+  not_applicable: number;
+  conditional: number;
+  unknown: number;
+  route_count: number;
+}
+export interface V3Block {
+  block_id: string;
+  qualification_id: string;
+  block_type: string;
+  block_order: number;
+  variant: string | null;
+  block_label: string;
+  applicability: "applicable" | "not_applicable" | "conditional" | "unknown";
+  na_source: string | null;
+  na_reason: string | null;
+  redirect_to: string | null;          // 사람이 읽는 대안 문구(내부 id 금지)
+  redirect_route_id?: string | null;   // 기계 연결용(예: VR:E-8_RECOGNITION)
+  cases: Record<string, unknown>[];
+  fee: string | null;
+  office_docs: string[];
+  client_docs: string[];
+  conditional_docs: string[];
+  exceptions: string[];
+  refusal_redirect: string | null;
+  visa_docs_reference: string | null;
+  quickdoc_links: { category?: string; kind?: string; detail?: string; minwon?: string }[];
+  v2_row_ids: string[];
+  program_ids: string[];
+  source_manual: string;
+  source_pages: number[];
+  confidence: string;
+  notes: string;
+  status: string;
+}
+export interface V3Route {
+  route_id: string;
+  qualification_id: string;
+  route_type: string;
+  route_label: string;
+  application_place: string;
+  application_form: string;
+  fee: string | null;
+  requires_recognition_before_consulate: boolean;
+  minister_approval_required: boolean;
+  office_docs: string[];
+  client_docs: string[];
+  conditional_docs: string[];
+  exceptions: string[];
+  v2_row_id: string | null;
+  program_ids: string[];
+  source_manual: string;
+  source_pages: number[];
+  confidence: string;
+  notes: string;
+  status: string;
+}
+export interface V3Program {
+  program_id: string;
+  program_name: string;
+  program_kind: string;
+  applies_to: string[];
+  ladder: { step: number; code: string; label: string }[];
+  replaces_main_chapter: boolean;
+  description: string;
+  source_pages: number[];
+  notes: string;
+}
+export interface V3ChildSummary {
+  code: string;
+  name_ko: string;
+  confidence: string;
+  program_ids: string[];
+  summary: V3Summary;
+  routes: V3Route[];
+}
+export interface V3QualificationDetail {
+  master: V3Qualification;
+  parent: { code: string; name_ko: string } | null;
+  summary: V3Summary;
+  blocks: V3Block[];
+  routes: V3Route[];
+  children: V3ChildSummary[];
+  programs: V3Program[];
+  v2_rows: GuidelineRow[];
+}
+
+export const guidelinesV3Api = {
+  listQualifications: () =>
+    api.get<{ total: number; data: V3Qualification[]; programs: V3Program[] }>(
+      "/api/guidelines/v3/qualifications", { headers: { "X-Skip-Auth-Redirect": "1" } }),
+  getQualification: (code: string) =>
+    api.get<V3QualificationDetail>(`/api/guidelines/v3/qualifications/${encodeURIComponent(code)}`),
+  listPrograms: () =>
+    api.get<{ total: number; data: V3Program[] }>("/api/guidelines/v3/programs"),
+};
+
 // ── 실무지침 분류 오버레이 (A+ 방식, PG 전용) ───────────────────────────────
 export interface GuidelineCategory {
   id: number;

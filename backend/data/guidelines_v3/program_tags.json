@@ -1,0 +1,171 @@
+[
+ {
+  "program_id": "PG:DONGPO",
+  "program_name": "외국국적동포",
+  "program_kind": "target_group",
+  "applies_to": [
+   "C-3-8",
+   "H-2",
+   "F-4",
+   "F-5",
+   "F-3",
+   "F-1"
+  ],
+  "ladder": [],
+  "replaces_main_chapter": true,
+  "description": "동포 대상 사증+체류 통합 재서술(내장 별도 문서). 사증 본편 F-4·H-2 챕터 대체.",
+  "source_pages": [
+   517
+  ],
+  "notes": ""
+ },
+ {
+  "program_id": "PG:TOP_TIER",
+  "program_name": "탑티어(Top-Tier) 비자",
+  "program_kind": "track",
+  "applies_to": [
+   "D-10-T",
+   "E-7-T",
+   "F-2-T",
+   "F-5-T"
+  ],
+  "ladder": [
+   {
+    "step": 1,
+    "code": "D-10-T",
+    "label": "구직"
+   },
+   {
+    "step": 2,
+    "code": "E-7-T",
+    "label": "취업"
+   },
+   {
+    "step": 3,
+    "code": "F-2-T",
+    "label": "거주"
+   },
+   {
+    "step": 4,
+    "code": "F-5-T",
+    "label": "영주"
+   }
+  ],
+  "replaces_main_chapter": false,
+  "description": "신설 세부약호 승급 경로 + 전자사증 전담 심사.",
+  "source_pages": [
+   664,
+   665,
+   445,
+   446,
+   447
+  ],
+  "notes": ""
+ },
+ {
+  "program_id": "PG:K_STAR",
+  "program_name": "K-STAR 비자트랙",
+  "program_kind": "track",
+  "applies_to": [
+   "D-2",
+   "F-2-7S",
+   "F-5-S1",
+   "F-5-S2",
+   "F-2-71"
+  ],
+  "ladder": [
+   {
+    "step": 1,
+    "code": "D-2",
+    "label": "유학 등"
+   },
+   {
+    "step": 2,
+    "code": "F-2-7S",
+    "label": "K-STAR 거주"
+   },
+   {
+    "step": 3,
+    "code": "F-5-S1",
+    "label": "K-STAR 영주(특별귀화 병행)"
+   }
+  ],
+  "replaces_main_chapter": false,
+  "description": "참여대학 추천 축의 단계형 프로그램.",
+  "source_pages": [
+   741,
+   742,
+   456
+  ],
+  "notes": ""
+ },
+ {
+  "program_id": "PG:REGIONAL",
+  "program_name": "지역특화형비자",
+  "program_kind": "special_scheme",
+  "applies_to": [
+   "F-2-R",
+   "F-4-R",
+   "F-3-xR",
+   "E-7-4R"
+  ],
+  "ladder": [],
+  "replaces_main_chapter": false,
+  "description": "기존 자격 조항 기반 사증·변경·연장 특례 + 지자체 추천 축.",
+  "source_pages": [
+   581,
+   582
+  ],
+  "notes": ""
+ },
+ {
+  "program_id": "PG:YOUTH_SETTLE",
+  "program_name": "국내 성장 기반 외국인 청소년 취업·정주",
+  "program_kind": "track",
+  "applies_to": [
+   "D-10-1",
+   "E-7-Y",
+   "F-2-R"
+  ],
+  "ladder": [
+   {
+    "step": 1,
+    "code": "D-10-1",
+    "label": "고교 졸업 후 구직"
+   },
+   {
+    "step": 2,
+    "code": "E-7-Y",
+    "label": "취업"
+   },
+   {
+    "step": 3,
+    "code": "F-2-R",
+    "label": "정주"
+   }
+  ],
+  "replaces_main_chapter": false,
+  "description": "변경허가 트랙(공통요건+자격별 요건 2층).",
+  "source_pages": [
+   649,
+   650
+  ],
+  "notes": ""
+ },
+ {
+  "program_id": "PG:METRO",
+  "program_name": "광역형 비자 시범사업",
+  "program_kind": "special_scheme",
+  "applies_to": [
+   "D-2"
+  ],
+  "ladder": [],
+  "replaces_main_chapter": false,
+  "description": "지자체별 요건·심사기준으로 기존 자격의 지역 변형(지침 원문 수록).",
+  "source_pages": [
+   679,
+   680
+  ],
+  "notes": ""
+ }
+]

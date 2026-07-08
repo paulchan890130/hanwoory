@@ -1,0 +1,19 @@
+{
+ "schema_version": "3.0-draft1",
+ "generated": "2026-07-08",
+ "status": "stage1_2_population_do_not_serve",
+ "note": "1~2단계 산출물(자격 마스터 + 격자 applicability + 경로 + 매핑). 서류 필드는 후속 단계. 운영 미연결(로더 없음) — FEATURE_GUIDELINES_V3 설계 참조.",
+ "source_manuals": [
+  "260617 사증민원 자격별 안내 매뉴얼",
+  "260623 체류민원 자격별 안내 매뉴얼",
+  "동포매뉴얼(체류 매뉴얼 내장 38장, 자체 표지 2026.2)"
+ ],
+ "v2_source_sha256": "007dabf73b7e27769ff4ce7f9f93af49c7fa3767ccc55f0a66c6860b6b8da94e",
+ "counts": {
+  "qualification_master": 116,
+  "stay_blocks": 444,
+  "visa_routes": 41,
+  "program_tags": 6,
+  "v2_mapping": 378
+ }
+}

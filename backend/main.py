@@ -213,6 +213,7 @@ from backend.routers import (
     quick_doc,
     manual,
     guidelines,
+    guidelines_v3,
     guideline_categories,
     marketing,
     signature,
@@ -267,6 +268,7 @@ app.include_router(search.router,    prefix="/api/search",    tags=["통합검�
 app.include_router(reference.router, prefix="/api/reference", tags=["업무참고"])
 app.include_router(quick_doc.router, prefix="/api/quick-doc", tags=["문서자동작성"])
 app.include_router(manual.router,    prefix="/api/manual",     tags=["메뉴얼검색"])
+app.include_router(guidelines_v3.router, prefix="/api/guidelines/v3", tags=["실무지침 v3(자격중심)"])
 app.include_router(guidelines.router, prefix="/api/guidelines", tags=["실무지침"])
 app.include_router(guideline_categories.router, prefix="/api/guideline-categories", tags=["실무지침 분류"])
 app.include_router(marketing.router,  prefix="/api/marketing",  tags=["마케팅"])
