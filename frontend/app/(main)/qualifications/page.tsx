@@ -2,10 +2,11 @@
 // v3 자격 중심 실무지침 — 화면 1: 자격 선택 (관리자 read-only 베타, FEATURE_GUIDELINES_V3)
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Search, ShieldAlert } from "lucide-react";
-import { guidelinesV3Api, V3Program, V3Qualification } from "@/lib/api";
+import { FileText, Loader2, Search, ShieldAlert } from "lucide-react";
+import { guidelinesV3Api, V3Aux, V3Program, V3Qualification } from "@/lib/api";
 import { getUser, canManageContent } from "@/lib/auth";
 import { ProgramChip } from "@/components/qualifications/common";
+import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 
 const GROUP_LABEL: Record<string, string> = {
   A: "A 계열 (외교·공무·협정)",
@@ -46,6 +47,44 @@ function QualCard({ q, onClick }: { q: V3Qualification; onClick: () => void }) {
   );
 }
 
+// 보조 민원(격자 밖 기타 신청·신고) 카드 — 자격 선택 없이 진행되는 민원. 격자와 시각 분리(회색 톤).
+function AuxCard({ a, expanded, onToggle, onQuickDoc }: {
+  a: V3Aux; expanded: boolean; onToggle: () => void; onQuickDoc: (url: string) => void;
+}) {
+  const url = a.v2_row ? buildQuickDocUrl(a.v2_row) : null;
+  return (
+    <div style={{ background:"#FAFAFA", borderRadius:12, border:"1px solid #E2E8F0" }}>
+      <div onClick={onToggle} style={{ padding:"12px 16px", cursor:"pointer" }}>
+        <div style={{ fontSize:13.5, fontWeight:600, color:"#4A5568", marginBottom:3 }}>{a.name}</div>
+        {a.description && (
+          <div style={{ fontSize:11.5, color:"#A0AEC0", lineHeight:1.5 }}>
+            {a.description.length > 70 ? a.description.slice(0, 70) + "…" : a.description}
+          </div>
+        )}
+      </div>
+      {expanded && (
+        <div style={{ padding:"0 16px 14px" }}>
+          {a.v2_row ? (
+            <>
+              <GuidelineCard row={a.v2_row} isSelected={false} onClick={() => {}} />
+              {url && (
+                <button onClick={() => onQuickDoc(url)}
+                  style={{ marginTop:6, display:"inline-flex", alignItems:"center", gap:5, fontSize:11,
+                    padding:"4px 12px", borderRadius:20, border:"1px solid rgba(212,168,67,0.45)",
+                    background:"rgba(212,168,67,0.08)", color:"var(--hw-gold-text)", cursor:"pointer", fontWeight:600 }}>
+                  <FileText size={12} /> 문서자동작성으로
+                </button>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize:12, color:"#A0AEC0" }}>연결된 기존 지침 없음</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProgramCard({ p, onCodeClick }: { p: V3Program; onCodeClick: (code: string) => void }) {
   return (
     <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", padding:"14px 16px" }}>
@@ -78,6 +117,8 @@ export default function QualificationsPage() {
 
   const [items, setItems] = useState<V3Qualification[]>([]);
   const [programs, setPrograms] = useState<V3Program[]>([]);
+  const [auxItems, setAuxItems] = useState<V3Aux[]>([]);
+  const [expandedAux, setExpandedAux] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -92,6 +133,10 @@ export default function QualificationsPage() {
           : "v3 데이터를 불러오지 못했습니다.");
       })
       .finally(() => setLoading(false));
+    // 보조 민원(별도 축) — 실패해도 자격 화면은 정상 동작
+    guidelinesV3Api.listAux()
+      .then(res => setAuxItems(res.data.data))
+      .catch(() => setAuxItems([]));
   }, [isAdmin]);
 
   const filtered = useMemo(() => {
@@ -175,6 +220,24 @@ export default function QualificationsPage() {
                 {programs.map(p => (
                   <ProgramCard key={p.program_id} p={p}
                     onCodeClick={code => router.push(`/qualifications/${encodeURIComponent(code)}`)} />
+                ))}
+              </div>
+            </div>
+          )}
+          {auxItems.length > 0 && (
+            <div style={{ marginTop:28 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#718096", marginBottom:4 }}>
+                기타 신청·신고 (보조 민원) <span style={{ fontWeight:400, color:"#A0AEC0" }}>({auxItems.length})</span>
+              </div>
+              <div style={{ fontSize:11.5, color:"#A0AEC0", marginBottom:10 }}>
+                매뉴얼의 자격×업무 체계 밖의 민원(사실증명 등) — 자격 선택 없이 진행합니다.
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:10 }}>
+                {auxItems.map(a => (
+                  <AuxCard key={a.aux_id} a={a}
+                    expanded={expandedAux === a.aux_id}
+                    onToggle={() => setExpandedAux(expandedAux === a.aux_id ? null : a.aux_id)}
+                    onQuickDoc={url => router.push(url)} />
                 ))}
               </div>
             </div>

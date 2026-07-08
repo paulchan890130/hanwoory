@@ -1402,6 +1402,8 @@ export interface V3Block {
   confidence: string;
   notes: string;
   status: string;
+  conflict?: string | null;          // 기존(v2) 지침 vs 매뉴얼 원문 충돌 안내문
+  needs_human_review?: boolean;
 }
 export interface V3Route {
   route_id: string;
@@ -1424,6 +1426,7 @@ export interface V3Route {
   confidence: string;
   notes: string;
   status: string;
+  review_note?: string;              // 초기 가정을 정정한 항목의 이력 기록(F-1-23 등)
 }
 export interface V3Program {
   program_id: string;
@@ -1455,6 +1458,17 @@ export interface V3QualificationDetail {
   v2_rows: GuidelineRow[];
 }
 
+export interface V3Aux {
+  aux_id: string;
+  v2_row_id: string;
+  name: string;
+  kind: string;
+  description: string;
+  quickdoc_link: { category?: string; kind?: string; detail?: string; minwon?: string } | null;
+  notes: string;
+  v2_row: GuidelineRow | null;
+}
+
 export const guidelinesV3Api = {
   listQualifications: () =>
     api.get<{ total: number; data: V3Qualification[]; programs: V3Program[] }>(
@@ -1463,6 +1477,8 @@ export const guidelinesV3Api = {
     api.get<V3QualificationDetail>(`/api/guidelines/v3/qualifications/${encodeURIComponent(code)}`),
   listPrograms: () =>
     api.get<{ total: number; data: V3Program[] }>("/api/guidelines/v3/programs"),
+  listAux: () =>
+    api.get<{ total: number; data: V3Aux[] }>("/api/guidelines/v3/aux"),
 };
 
 // ── 실무지침 분류 오버레이 (A+ 방식, PG 전용) ───────────────────────────────

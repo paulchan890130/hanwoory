@@ -808,6 +808,29 @@
   "status": "active"
  },
  {
+  "qualification_id": "Q:C-3-8",
+  "parent_qualification_id": "Q:C-3",
+  "manual_type": "both",
+  "group": "C",
+  "code": "C-3-8",
+  "name_ko": "동포방문",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:DONGPO"
+  ],
+  "sub_codes": [],
+  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
+  "source_pages": [
+   517
+  ],
+  "confidence": "high",
+  "notes": "상세는 동포매뉴얼(본편 C-3 챕터는 약호표 언급뿐 — 2026-07-08 확정 답변). '26.2.12 제도 폐지 — 경로는 abolished 유지.",
+  "status": "active"
+ },
+ {
   "qualification_id": "Q:E-7-S1",
   "parent_qualification_id": "Q:E-7",
   "manual_type": "both",
@@ -855,19 +878,20 @@
   "manual_type": "both",
   "group": "F",
   "code": "F-1-23",
-  "name_ko": "전문인력 가사보조인(추정 명칭 — 원문 재확인)",
+  "name_ko": "첨단투자자의 외국인 가사보조인(방문동거)",
   "activity_scope": "",
-  "eligible_persons": "",
+  "eligible_persons": "가사보조인 묶음(F-1-22 고액투자자·F-1-23 첨단투자자·F-1-24 전문인력) 중 '첨단투자자'가 고용한 가사보조인",
   "stay_limit": "",
   "delegated_to": null,
   "program_ids": [],
   "sub_codes": [],
   "source_manual": "260617 사증민원 자격별 안내 매뉴얼",
   "source_pages": [
-   299
+   301,
+   308
   ],
-  "confidence": "medium",
-  "notes": "매뉴얼 묶음 '투자가 및 전문인력의 외국인 가사보조인(F-1-22·23·24)' 중 v2 전무 — 신규.",
+  "confidence": "high",
+  "notes": "정독(2026-07-08 배치2) 원문 확인: «3. 투자가 및 전문인력의 외국인 가사보조인(F-1-22, F-1-23, F-1-24) … 사증발급 (고액투자자 : F-1-22, 첨단투자자 : F-1-23, 전문인력 : F-1-24) - 공관장 재량으로 체류자격 방문동거(F-1), 체류기간 1년 이하의 단수사증 발급»",
   "status": "active"
  },
  {
@@ -1161,25 +1185,6 @@
   "source_pages": [],
   "confidence": "high",
   "notes": "변경허가 예외 경로(2026-07-08 확정): 뿌리산업 숙련기능공 등 기량검증·쿼터 선발(조선용접공 절차 준용).",
-  "status": "active"
- },
- {
-  "qualification_id": "Q:C-3-8",
-  "parent_qualification_id": "Q:C-3",
-  "manual_type": "both",
-  "group": "C",
-  "code": "C-3-8",
-  "name_ko": "동포방문",
-  "activity_scope": "",
-  "eligible_persons": "",
-  "stay_limit": "",
-  "delegated_to": null,
-  "program_ids": [],
-  "sub_codes": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
-  "confidence": "medium",
-  "notes": "명칭은 v2 업무명 유래 — 매뉴얼 원문 명칭 대조 필요.",
   "status": "active"
  },
  {

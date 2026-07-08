@@ -1,0 +1,86 @@
+[
+ {
+  "aux_id": "AUX:M1-0021",
+  "v2_row_id": "M1-0021",
+  "name": "여권변경신고",
+  "kind": "application_claim",
+  "description": "여권 변경사항 신고 업무",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ },
+ {
+  "aux_id": "AUX:M1-0022",
+  "v2_row_id": "M1-0022",
+  "name": "외국인등록사실증명",
+  "kind": "application_claim",
+  "description": "외국인등록 사실증명 발급 관련 업무",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ },
+ {
+  "aux_id": "AUX:M1-0023",
+  "v2_row_id": "M1-0023",
+  "name": "거소신고사실증명",
+  "kind": "application_claim",
+  "description": "국내거소신고 사실증명 발급 관련 업무",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ },
+ {
+  "aux_id": "AUX:M1-0024",
+  "v2_row_id": "M1-0024",
+  "name": "출입국에 관한 사실증명",
+  "kind": "application_claim",
+  "description": "출입국 사실증명 발급 관련 업무",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ },
+ {
+  "aux_id": "AUX:M1-0025",
+  "v2_row_id": "M1-0025",
+  "name": "국세증명사실증명 발급민원신청",
+  "kind": "application_claim",
+  "description": "국세 관련 증명 발급 민원신청 업무",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ },
+ {
+  "aux_id": "AUX:M1-0026",
+  "v2_row_id": "M1-0026",
+  "name": "소득금액증명서식",
+  "kind": "application_claim",
+  "description": "소득금액증명 관련 서식 작성 또는 발급 연계 업무",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ }
+]

@@ -14,6 +14,15 @@ import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared"
 
 type Selection = { kind: "block"; item: V3Block } | { kind: "route"; item: V3Route } | null;
 
+// unknown 칸 안내 문구(최종) — 블록 부재형과 원문 미확인형을 구분(2026-07-08 확정 문구)
+function unknownSummary(b: V3Block): string {
+  const n = b.notes || "";
+  if (n.includes("부재") || n.includes("규정 없음") || n.includes("언급 자체 없음")) {
+    return "매뉴얼에 해당 업무 블록 부재 — 관서 확인 후 안내";
+  }
+  return "원문 확인 전 — 관서 확인 후 안내";
+}
+
 function DocGroup({ title, color, docs }: { title: string; color: string; docs: string[] }) {
   if (!docs || docs.length === 0) return null;
   return (
@@ -95,10 +104,17 @@ function DetailPanelV3({ sel, v2Rows, onClose, onQuickDoc }: {
           {b!.redirect_to && <div style={{ marginTop:4 }}><strong>대안:</strong> {stripInternalIds(b!.redirect_to)}</div>}
         </div>
       )}
+      {isBlock && b!.conflict && (
+        <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFFAF0",
+          border:"1px solid #F6AD55", fontSize:12, color:"#975A16", lineHeight:1.6 }}>
+          ⚠ {stripInternalIds(b!.conflict)}
+        </div>
+      )}
       {isBlock && b!.applicability === "unknown" && (
         <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFF5F5",
           border:"1px solid #FEB2B2", fontSize:12, color:"#C53030", lineHeight:1.6 }}>
-          원문 확인 전 — 손님에게는 "관서 확인 후 안내"로 응대하세요. {stripInternalIds(b!.notes)}
+          {unknownSummary(b!)} — 손님에게 확답하지 말고 관서 확인 후 안내하세요.
+          <div style={{ marginTop:4, color:"#975A16", fontSize:11.5 }}>{stripInternalIds(b!.notes)}</div>
         </div>
       )}
       {!isBlock && (
@@ -291,11 +307,17 @@ export default function QualificationDetailPage() {
                   <span style={{ fontSize:11, color:"#A0AEC0", width:18, flexShrink:0 }}>{b.block_order}</span>
                   <span style={{ fontSize:13, fontWeight:600, color:"#2D3748", width:170, flexShrink:0 }}>{b.block_label}</span>
                   <ApplicabilityBadge value={b.applicability} />
+                  {b.conflict && (
+                    <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:99,
+                      background:"#FFFAF0", color:"#975A16", border:"1px solid #F6AD55", flexShrink:0 }}>
+                      ⚠ 원문 충돌 — 확인 필요
+                    </span>
+                  )}
                   <span style={{ fontSize:11.5, color:"#718096", overflow:"hidden", textOverflow:"ellipsis",
                     whiteSpace:"nowrap", flex:1 }}>
                     {b.applicability === "not_applicable"
                       ? stripInternalIds(`${b.na_reason ?? ""}${b.redirect_to ? ` → 대안: ${b.redirect_to}` : ""}`)
-                      : b.applicability === "unknown" ? "원문 확인 전 — 관서 확인 후 안내"
+                      : b.applicability === "unknown" ? unknownSummary(b)
                       : b.applicability === "conditional" ? stripInternalIds(b.notes || "케이스에 따라 갈림")
                       : b.v2_row_ids.length > 0 ? `기존 지침 ${b.v2_row_ids.length}건 연결` : ""}
                   </span>

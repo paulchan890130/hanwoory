@@ -39,6 +39,7 @@ _BLOCKS: list = _load("stay_blocks.json")
 _ROUTES: list = _load("visa_routes.json")
 _PROGRAMS: list = _load("program_tags.json")
 _MAPPING: list = _load("v2_mapping.json")
+_AUX: list = _load("aux_civil.json")
 
 _MASTER_BY_CODE: dict = {m["code"]: m for m in _MASTERS}
 _BLOCKS_BY_QID: dict = {}
@@ -132,6 +133,17 @@ def list_qualifications(admin: dict = Depends(require_admin)):
 def list_programs(admin: dict = Depends(require_admin)):
     _require_enabled()
     return {"total": len(_PROGRAMS), "data": _PROGRAMS}
+
+
+@router.get("/aux")
+def list_aux(admin: dict = Depends(require_admin)):
+    """보조 민원(APPLICATION_CLAIM 별도 축) — 격자 밖 기타 신청·신고 6건 + 연결 v2 행."""
+    _require_enabled()
+    out = []
+    for a in _AUX:
+        row = _ROW_INDEX.get(a["v2_row_id"])
+        out.append({**a, "v2_row": _clean_row_display(row) if row else None})
+    return {"total": len(out), "data": out}
 
 
 @router.get("/qualifications/{code}")
