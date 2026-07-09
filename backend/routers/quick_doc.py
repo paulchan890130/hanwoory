@@ -220,7 +220,7 @@ def _resolve_template_path(doc_name: str) -> Optional[str]:
 
 # 역할별 도장 필드 이름 (PDF 위젯)
 ROLE_WIDGETS: dict = {
-    "applicant":     "yin",   # 신청인 (미성년자면 대리인 이름)
+    "applicant":     "yin",   # 신청인 (미성년자여도 신청인 본인 — 대리인은 gyin 별도)
     "accommodation": "hyin",  # 숙소제공자
     "guarantor":     "byin",  # 신원보증인
     "guardian":      "gyin",  # 법정대리인 (별도 필드)
@@ -269,6 +269,26 @@ def _load_account(tenant_id: str) -> Optional[dict]:
         return acc
     except Exception:
         return None
+
+
+def _name_or_english(korean, surname="", given="") -> str:
+    """사람 이름 필드 공통 fallback — 한글명이 **완전히 비어 있을 때만** 영문(성+명)으로 대체.
+
+    공백 문자열은 빈 값으로 본다. 한글명이 있으면 영문으로 절대 덮어쓰지 않는다.
+    PDF/HWPX 는 같은 build_field_values() 를 쓰므로 양쪽에 동일 적용된다."""
+    kn = str(korean or "").strip()
+    if kn:
+        return kn
+    return " ".join(p for p in (str(surname or "").strip(), str(given or "").strip()) if p)
+
+
+def _reg_back_digits(value) -> str:
+    """등록번호 뒷자리 정규화 — 숫자만 남긴다(정의상 숫자 7자리).
+
+    맵핑 필드명 접두어 등 잘못 섞인 문자(예: 'h1234567')가 데이터에 들어와도
+    문서에는 숫자만 출력되도록 하는 방어 규칙. 빈 값은 그대로 빈 값."""
+    import re
+    return re.sub(r"[^0-9]", "", str(value or ""))
 
 
 def _split_phone(phone: str) -> tuple:
@@ -521,7 +541,7 @@ def build_field_values(
         "girl":           girl,
         "V":              row.get("V", ""),
         "fnumber":        row.get("등록증", ""),
-        "rnumber":        row.get("번호", ""),
+        "rnumber":        _reg_back_digits(row.get("번호", "")),
         "passport":       row.get("여권", ""),
         "issue":          row.get("발급", ""),
         "expiry":         row.get("만기", ""),
@@ -530,12 +550,13 @@ def build_field_values(
         "phone1":         row.get("연", ""),
         "phone2":         row.get("락", ""),
         "phone3":         row.get("처", ""),
-        "koreanname":     row.get("한글", ""),
+        "koreanname":     _name_or_english(row.get("한글", ""), row.get("성", ""), row.get("명", "")),
         "bankaccount":    row.get("환불계좌", ""),
         "why":            row.get("신청이유", ""),
         "hope":           row.get("희망자격", ""),
         "partner":        row.get("배우자", ""),
-        "parents":        guardian.get("한글", "") if is_minor and guardian else row.get("부모", ""),
+        "parents":        (_name_or_english(guardian.get("한글", ""), guardian.get("성", ""), guardian.get("명", ""))
+                           if is_minor and guardian else row.get("부모", "")),
         "registration":   "",
         "card":           "",
         "extension":      "",
@@ -549,7 +570,7 @@ def build_field_values(
 
     for i, digit in enumerate(str(row.get("등록증", "")).strip(), 1):
         field_values[f"fnumber{i}"] = digit
-    for i, digit in enumerate(str(row.get("번호", "")).strip(), 1):
+    for i, digit in enumerate(_reg_back_digits(row.get("번호", "")), 1):
         field_values[f"rnumber{i}"] = digit
 
     if prov:
@@ -559,12 +580,12 @@ def build_field_values(
             "hsurname":     prov.get("성", ""),
             "hgiven names": prov.get("명", ""),
             "hfnumber":     prov.get("등록증", ""),
-            "hrnumber":     prov.get("번호", ""),
+            "hrnumber":     _reg_back_digits(prov.get("번호", "")),
             "hphone1":      prov.get("연", ""),
             "hphone2":      prov.get("락", ""),
             "hphone3":      prov.get("처", ""),
             "hnation":      prov.get("국적", ""),
-            "hkoreanname":  prov.get("한글", ""),
+            "hkoreanname":  _name_or_english(prov.get("한글", ""), prov.get("성", ""), prov.get("명", "")),
         })
 
     # ── 숙소제공자연결 탭 데이터로 h* 필드 보완 + 관계/날짜/체크박스 매핑 ──────
@@ -574,11 +595,13 @@ def build_field_values(
         # 수동 입력이거나 DB 고객이 조회 안 된 경우: 저장된 필드로 h* 직접 채움
         if ptype == "manual" or not prov:
             field_values.update({
-                "hkoreanname":  accommodation_provider.get("provider_name", ""),
+                "hkoreanname":  _name_or_english(accommodation_provider.get("provider_name", ""),
+                                                 accommodation_provider.get("provider_last_name", ""),
+                                                 accommodation_provider.get("provider_first_name", "")),
                 "hsurname":     accommodation_provider.get("provider_last_name", ""),
                 "hgiven names": accommodation_provider.get("provider_first_name", ""),
                 "hfnumber":     accommodation_provider.get("provider_reg_front", ""),
-                "hrnumber":     accommodation_provider.get("provider_reg_back", ""),
+                "hrnumber":     _reg_back_digits(accommodation_provider.get("provider_reg_back", "")),
                 "hnation":      accommodation_provider.get("provider_nation", ""),
             })
             ph1, ph2, ph3 = _split_phone(accommodation_provider.get("provider_phone", ""))
@@ -622,13 +645,13 @@ def build_field_values(
             "bman":         bman,
             "bgirl":        bgirl,
             "bfnumber":     g.get("등록증", ""),
-            "brnumber":     g.get("번호", ""),
+            "brnumber":     _reg_back_digits(g.get("번호", "")),
             "badress":      g.get("주소", ""),
             "bnation":      g.get("국적", ""),
             "bphone1":      g.get("연", ""),
             "bphone2":      g.get("락", ""),
             "bphone3":      g.get("처", ""),
-            "bkoreanname":  g.get("한글", ""),
+            "bkoreanname":  _name_or_english(g.get("한글", ""), g.get("성", ""), g.get("명", "")),
         })
         for i, digit in enumerate(g_reg, 1):
             field_values[f"bfnumber{i}"] = digit
@@ -648,12 +671,12 @@ def build_field_values(
             "gman":         dman,
             "ggirl":        dgirl,
             "gfnumber":     d.get("등록증", ""),
-            "grnumber":     d.get("번호", ""),
+            "grnumber":     _reg_back_digits(d.get("번호", "")),
             "gadress":      d.get("주소", ""),
             "gphone1":      d.get("연", ""),
             "gphone2":      d.get("락", ""),
             "gphone3":      d.get("처", ""),
-            "gkoreanname":  d.get("한글", ""),
+            "gkoreanname":  _name_or_english(d.get("한글", ""), d.get("성", ""), d.get("명", "")),
         })
         for i, digit in enumerate(d_reg, 1):
             field_values[f"gfnumber{i}"] = digit
@@ -673,12 +696,12 @@ def build_field_values(
             "pman":         aman,
             "pgirl":        agirl,
             "pfnumber":     a.get("등록증", ""),
-            "prnumber":     a.get("번호", ""),
+            "prnumber":     _reg_back_digits(a.get("번호", "")),
             "padress":      a.get("주소", ""),
             "pphone1":      a.get("연", ""),
             "pphone2":      a.get("락", ""),
             "pphone3":      a.get("처", ""),
-            "pkoreanname":  a.get("한글", ""),
+            "pkoreanname":  _name_or_english(a.get("한글", ""), a.get("성", ""), a.get("명", "")),
         })
         for i, digit in enumerate(a_reg, 1):
             field_values[f"pfnumber{i}"] = digit
@@ -1593,10 +1616,10 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
 
     # ── 도장 이미지 준비 ──
-    # 신청인 위치 도장: 미성년이면 대리인 이름 사용
-    applicant_seal_name = (
-        guardian.get("한글", "") if is_minor and guardian else applicant.get("한글", "")
-    )
+    # 신청인란(yin/ysign) 도장은 **미성년자여도 신청인 본인 이름**으로 만든다.
+    # 법정대리인 도장/서명은 guardian 역할(gyin/gysign)이 별도로 처리한다 —
+    # 미성년이라는 이유로 신청인란에 대리인 이름 도장을 넣지 않는다(2026-07-09 수정).
+    applicant_seal_name = applicant.get("한글", "")
     accommodation_seal_name = (
         prov.get("한글", "") if prov else req.accommodation_name
     )
@@ -1615,8 +1638,8 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
         req.seal_guarantor = False
 
     # 도장 자동판단(I-1J-6N): 역할별로 한글이름 우선 → 영문이니셜 → 생략. use_english_stamp 의존 폐기.
-    # 신청인 영문 소스는 미성년이면 대리인(guardian). 영문 이름은 role dict 의 "성"/"명"(=Surname/Given names).
-    _app_src = guardian if (is_minor and guardian) else applicant
+    # 신청인 영문 소스도 신청인 본인(성/명 = Surname/Given names) — 미성년 대리인 치환 폐기(2026-07-09).
+    _app_src = applicant
     def _en_names(d):
         d = d or {}
         return d.get("성", ""), d.get("명", "")
@@ -2062,7 +2085,8 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
     guardian = ctx["guardian"]; aggregator = ctx["aggregator"]; account = ctx["account"]
     is_minor = ctx["is_minor"]; tenant_id = ctx["tenant_id"]
 
-    applicant_seal_name = guardian.get("한글", "") if (is_minor and guardian) else applicant.get("한글", "")
+    # 신청인란 도장은 미성년자여도 신청인 본인 이름(PDF 경로와 동일 규칙 — 대리인은 gyin 별도).
+    applicant_seal_name = applicant.get("한글", "")
     accommodation_seal_name = prov.get("한글", "") if prov else req.accommodation_name
     guarantor_seal_name = guarantor.get("한글", "") if guarantor else (req.guarantor_name or "")
     guardian_seal_name = guardian.get("한글", "") if guardian else (req.guardian_name or "")
@@ -2072,7 +2096,7 @@ def _compute_hwpx_marker_pngs(req: "FullDocGenRequest", ctx: dict) -> tuple:
     seal_acc = req.seal_accommodation and not req.sign_accommodation
     seal_gua = req.seal_guarantor and not req.sign_guarantor
 
-    _app_src = guardian if (is_minor and guardian) else applicant
+    _app_src = applicant   # 영문 도장 소스도 신청인 본인(미성년 대리인 치환 폐기 — PDF 와 동일)
 
     def _en(d):
         d = d or {}
