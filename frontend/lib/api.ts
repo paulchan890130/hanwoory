@@ -1465,6 +1465,7 @@ export interface V3DocRequirement {
   final_disposition?: string;
   display_hint?: string;   // "abolished_reference" = 폐지 제도 참고자료
   s_scope?: string;        // E-7-S 차등화: common | s1_only | s2_only
+  display_condition?: string;  // 화면 안내용 사람 말 조건 문구(원 condition 은 내부 검토 전용)
 }
 export interface V3ChildSummary {
   code: string;

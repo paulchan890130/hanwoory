@@ -75,12 +75,14 @@ export const ROUTE_TYPE_LABEL: Record<string, string> = {
   confirm_needed: "경로 확인 필요",
 };
 
+// 경로 배지(2026-07-08 실무 안내형): confidence 기반 '확인필요'는 내부 검토 영역으로 이동 —
+// 기본 화면은 상태 기반 문구만(폐지된 제도 / 제외·대상 아님 / 경로 확인 중 / 가능).
 export function routeTone(r: V3Route): { color: string; bg: string; border: string; badge: string } {
-  if (r.status === "abolished") return { color:"#822727", bg:"#FFF5F5", border:"#FEB2B2", badge:"제도 폐지" };
+  if (r.status === "abolished") return { color:"#822727", bg:"#FFF5F5", border:"#FEB2B2", badge:"폐지된 제도" };
   if (r.route_type === "not_applicable" || r.route_type === "excluded")
     return { color:"#4A5568", bg:"#EDF2F7", border:"#CBD5E0", badge: r.route_type === "excluded" ? "제외" : "대상 아님" };
-  if (r.route_type === "confirm_needed" || r.confidence !== "high")
-    return { color:"#C53030", bg:"#FFF5F5", border:"#FEB2B2", badge:"확인필요" };
+  if (r.route_type === "confirm_needed")
+    return { color:"#975A16", bg:"#FFFFF0", border:"#F6E05E", badge:"경로 확인 중" };
   return { color:"#2C7A7B", bg:"#E6FFFA", border:"#81E6D9", badge:"가능" };
 }
 

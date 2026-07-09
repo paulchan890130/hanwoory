@@ -7,7 +7,7 @@ import { ArrowLeft, ChevronRight, FileText, Loader2, ShieldAlert, X } from "luci
 import { guidelinesV3Api, GuidelineRow, V3Block, V3DocRequirement, V3QualificationDetail, V3Route } from "@/lib/api";
 import { getUser, canManageContent } from "@/lib/auth";
 import {
-  ApplicabilityBadge, ConfidenceChip, ProgramChip, ROUTE_TYPE_LABEL, SourceNote, routeTone,
+  ApplicabilityBadge, ProgramChip, ROUTE_TYPE_LABEL, SourceNote, routeTone,
   compareQualCode, stripInternalIds,
 } from "@/components/qualifications/common";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
@@ -33,46 +33,110 @@ function DrBadge({ text, color, bg, border }: { text: string; color: string; bg:
   );
 }
 
+// 기본 화면 배지 정책(2026-07-08 승인): 별지 서식 / 해당 시 / S1·S2 전용 / 폐지된 제도만.
+// 원문 재확인·확인 필요·confidence 등 내부 검토 정보는 하단 접힘 영역 전용.
 function DrRow({ d }: { d: V3DocRequirement }) {
   return (
     <div style={{ padding:"5px 0", borderBottom:"1px solid #F7FAFC" }}>
       <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
         <span style={{ fontSize:12, color:"#2D3748", fontWeight: d.is_required ? 600 : 400 }}>{d.doc_name}</span>
         {d.form_ref && <DrBadge text={d.form_ref} color="#4A5568" bg="#F7FAFC" border="#E2E8F0" />}
+        {d.doc_role === "conditional" && <DrBadge text="해당 시" color="#975A16" bg="#FFFFF0" border="#F6E05E" />}
         {d.s_scope === "s1_only" && <DrBadge text="S1 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
         {d.s_scope === "s2_only" && <DrBadge text="S2 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
-        {d.display_hint === "abolished_reference" && <DrBadge text="폐지 참고" color="#822727" bg="#FFF5F5" border="#FEB2B2" />}
-        {d.confidence && d.confidence !== "high" && <DrBadge text="원문 재확인" color="#975A16" bg="#FFFFF0" border="#F6E05E" />}
-        {d.needs_human_review && <DrBadge text="확인 필요" color="#C53030" bg="#FFF5F5" border="#FEB2B2" />}
+        {d.display_hint === "abolished_reference" && <DrBadge text="폐지된 제도" color="#822727" bg="#FFF5F5" border="#FEB2B2" />}
       </div>
-      {d.doc_role === "conditional" && d.condition && (
-        <div style={{ marginTop:2, fontSize:11, color:"#975A16", lineHeight:1.5 }}>조건: {d.condition}</div>
+      {d.doc_role === "conditional" && (
+        <div style={{ marginTop:2, fontSize:11, color:"#718096", lineHeight:1.5 }}>
+          — {d.display_condition || "해당하는 경우에만 준비합니다."}
+        </div>
       )}
     </div>
   );
 }
 
+// 그룹 순서·명칭(승인): 신청인 준비서류 → 행정사 사무소 준비서류 → 해당 시 추가서류
 function DrGroups({ drs }: { drs: V3DocRequirement[] }) {
   const groups: { key: string; title: string; color: string }[] = [
-    { key: "office", title: "사무소 준비 (office)", color: "#4299E1" },
-    { key: "client", title: "손님 지참 (client)", color: "#48BB78" },
-    { key: "conditional", title: "조건부 (conditional)", color: "#975A16" },
+    { key: "client", title: "신청인 준비서류", color: "#48BB78" },
+    { key: "office", title: "행정사 사무소 준비서류", color: "#4299E1" },
+    { key: "conditional", title: "해당 시 추가서류", color: "#975A16" },
   ];
   return (
     <div style={{ marginBottom:12 }}>
-      <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:6 }}>
-        서류 (v3 정독 기준 · {drs.length}건)
-      </div>
       {groups.map(g => {
         const items = drs.filter(d => d.doc_role === g.key);
         if (items.length === 0) return null;
         return (
           <div key={g.key} style={{ marginBottom:10 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:g.color, marginBottom:2 }}>{g.title} · {items.length}</div>
+            <div style={{ fontSize:11, fontWeight:700, color:g.color, marginBottom:2 }}>{g.title} · {items.length}</div>
             {items.map(d => <DrRow key={d.requirement_id} d={d} />)}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// 핵심 안내문(승인 문안) — applicability 기반 표준 문장
+function keyGuidance(applicability: string): string | null {
+  if (applicability === "applicable") {
+    return "이 업무는 일반적으로 신청 가능한 업무입니다. 다만 신청인의 체류상태, 가족관계 입증 여부, "
+      + "체류기간, 관할 출입국 판단에 따라 추가서류가 달라질 수 있습니다.";
+  }
+  if (applicability === "not_applicable") {
+    return "이 업무는 일반적인 신청 대상이 아닙니다. 다만 예외 사유나 관할 출입국 판단에 따라 별도 확인이 필요할 수 있습니다.";
+  }
+  if (applicability === "conditional") {
+    return "이 업무는 일정 요건을 충족하는 경우에만 진행할 수 있습니다. 신청 전 대상 여부와 추가서류를 확인해야 합니다.";
+  }
+  return null; // unknown 은 기존 관서 확인 박스가 담당
+}
+
+// 내부 검토 정보 접힘 영역 — 품질관리 정보 전용(기본 닫힘)
+function InternalReview({ sel, drs }: { sel: NonNullable<Selection>; drs: V3DocRequirement[] }) {
+  const [open, setOpen] = useState(false);
+  const flagged = drs.filter(d => d.needs_human_review || (d.confidence && d.confidence !== "high"));
+  const item = sel.item as V3Block & V3Route;
+  const count = flagged.length;
+  return (
+    <div style={{ borderTop:"1px solid #EDF2F7", paddingTop:10, marginTop:12 }}>
+      <button onClick={() => setOpen(!open)}
+        style={{ fontSize:11, color:"#A0AEC0", background:"none", border:"none", cursor:"pointer", padding:0 }}>
+        {open ? "▾" : "▸"} 내부 검토 정보 보기{count > 0 ? ` · ${count}건` : ""}
+      </button>
+      {open && (
+        <div style={{ marginTop:8, padding:"10px 12px", borderRadius:10, background:"#F7FAFC",
+          border:"1px solid #E2E8F0", fontSize:11, color:"#718096", lineHeight:1.7 }}>
+          <div><strong>항목 신뢰도:</strong> {item.confidence || "-"}
+            {("needs_human_review" in item) && (item as V3Block).needs_human_review ? " · 확인 필요" : ""}</div>
+          {item.source_manual && (
+            <div><strong>근거:</strong> {item.source_manual}
+              {item.source_pages?.length ? ` p.${item.source_pages.join(", ")}` : ""}</div>
+          )}
+          {item.notes && <div><strong>검수 노트:</strong> {item.notes}</div>}
+          {"review_note" in item && (item as V3Route).review_note && (
+            <div><strong>정정 이력:</strong> {(item as V3Route).review_note}</div>
+          )}
+          {flagged.length > 0 && (
+            <div style={{ marginTop:8 }}>
+              <strong>서류별 검토 플래그:</strong>
+              {flagged.map(d => (
+                <div key={d.requirement_id} style={{ marginTop:4, paddingLeft:8, borderLeft:"2px solid #E2E8F0" }}>
+                  <div style={{ color:"#4A5568" }}>{d.doc_name}
+                    {d.confidence && d.confidence !== "high" ? " · 원문 재확인" : ""}
+                    {d.needs_human_review ? " · 확인 필요" : ""}
+                    {d.source_v2_row_id ? ` · v2 유래(${d.source_v2_row_id})` : ""}</div>
+                  {d.condition && <div>내부 조건 원문: {d.condition}</div>}
+                  {d.source_quote && <div>인용: {d.source_quote}</div>}
+                  {d.source_summary && <div>{d.source_summary}</div>}
+                  {(d.source_pages?.length ?? 0) > 0 && <div>근거 p.{d.source_pages!.join(", ")}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -144,13 +208,20 @@ function DetailPanelV3({ sel, v2Rows, drs, onClose, onQuickDoc }: {
                   <span style={{ fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:99,
                     color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
                 ); })()}
-            <ConfidenceChip value={sel.item.confidence} />
           </div>
         </div>
         <button onClick={onClose} style={{ padding:4, color:"#A0AEC0", background:"none", border:"none", cursor:"pointer" }}>
           <X size={16} />
         </button>
       </div>
+
+      {/* ① 핵심 안내문(승인 문안) — 손님 안내용 표준 문장 */}
+      {isBlock && keyGuidance(b!.applicability) && (
+        <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#F0FFF4",
+          border:"1px solid #C6F6D5", fontSize:12, color:"#276749", lineHeight:1.7 }}>
+          {keyGuidance(b!.applicability)}
+        </div>
+      )}
 
       {isBlock && b!.applicability === "not_applicable" && (
         <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#EDF2F7",
@@ -169,7 +240,6 @@ function DetailPanelV3({ sel, v2Rows, drs, onClose, onQuickDoc }: {
         <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFF5F5",
           border:"1px solid #FEB2B2", fontSize:12, color:"#C53030", lineHeight:1.6 }}>
           {unknownSummary(b!)} — 손님에게 확답하지 말고 관서 확인 후 안내하세요.
-          <div style={{ marginTop:4, color:"#975A16", fontSize:11.5 }}>{stripInternalIds(b!.notes)}</div>
         </div>
       )}
       {!isBlock && (
@@ -216,17 +286,14 @@ function DetailPanelV3({ sel, v2Rows, drs, onClose, onQuickDoc }: {
           서류 준용: <span style={{ fontWeight:600 }}>{b!.visa_docs_reference}</span> (사증 인정신청 기준)
         </div>
       )}
-      {sel.item.notes && (
-        <div style={{ marginBottom:12, fontSize:11, color:"#718096", lineHeight:1.6 }}>{stripInternalIds(sel.item.notes)}</div>
-      )}
-      <div style={{ marginBottom:14 }}>
-        <SourceNote manual={sel.item.source_manual} pages={sel.item.source_pages} />
-      </div>
 
       <div style={{ borderTop:"1px solid #EDF2F7", paddingTop:12 }}>
         <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:8 }}>연결된 기존 지침 (v2)</div>
         <LinkedV2Section rows={linked} onQuickDoc={onQuickDoc} />
       </div>
+
+      {/* ⑥ 내부 검토 정보 — 품질관리 전용(기본 닫힘). 검수 노트·confidence·근거·원문재확인/확인필요 등 */}
+      <InternalReview sel={sel} drs={drs} />
     </div>
   );
 }
@@ -321,7 +388,6 @@ export default function QualificationDetailPage() {
               본편 챕터 없음 — 동포매뉴얼 기준
             </span>
           )}
-          <ConfidenceChip value={m.confidence} />
         </div>
         <div style={{ fontSize:12.5, color:"#4A5568", lineHeight:1.7 }}>
           {m.activity_scope && <div>활동범위: {m.activity_scope}</div>}
@@ -379,7 +445,7 @@ export default function QualificationDetailPage() {
                     {b.applicability === "not_applicable"
                       ? stripInternalIds(`${b.na_reason ?? ""}${b.redirect_to ? ` → 대안: ${b.redirect_to}` : ""}`)
                       : b.applicability === "unknown" ? unknownSummary(b)
-                      : b.applicability === "conditional" ? stripInternalIds(b.notes || "케이스에 따라 갈림")
+                      : b.applicability === "conditional" ? "일정 요건을 충족하는 경우에만 진행합니다 — 상세 참조"
                       : b.v2_row_ids.length > 0 ? `기존 지침 ${b.v2_row_ids.length}건 연결` : ""}
                   </span>
                   <ChevronRight size={14} style={{ color:"#CBD5E0", flexShrink:0 }} />
