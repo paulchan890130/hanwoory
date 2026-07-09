@@ -11,7 +11,7 @@ import {
   type AccommodationProvider, type GuarantorConnection,
   type CustomerSearchResult, type WorkSummary,
 } from "@/lib/api";
-import { Search, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield } from "lucide-react";
+import { Search, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield, Copy } from "lucide-react";
 import SignatureModal from "@/components/SignatureModal";
 import QuickDocPanel from "@/components/QuickDocPanel";
 import QuickPoaPanel from "@/components/QuickPoaPanel";
@@ -239,11 +239,12 @@ function guarantorStatus(g: GuarantorConnection | null | undefined):
 
 // ── 신원보증인 설정 모달 ──────────────────────────────────────────────────────
 function GuarantorModal({
-  customerId, customerName, current, onClose, onSaved,
+  customerId, customerName, current, counterpart, onClose, onSaved,
 }: {
   customerId: string;
   customerName: string;
   current: GuarantorConnection | null;
+  counterpart: AccommodationProvider | null;   // 숙소제공자 연결 — "동일" 복사 소스
   onClose: () => void;
   onSaved: (g: GuarantorConnection | null) => void;
 }) {
@@ -352,6 +353,49 @@ function GuarantorModal({
     finally { setDeleting(false); }
   };
 
+  // "숙소제공자와 동일" — 상대 영역 공통 필드 복사. 기본은 빈 칸만 채우기,
+  // 빈 칸이 없으면 confirm 후 덮어쓰기(무조건 덮어쓰기 금지).
+  const applyCounterpart = () => {
+    const c = counterpart;
+    if (!c || !resolveProviderName(c)) { toast.error("설정된 숙소제공자가 없습니다."); return; }
+    if (c.provider_type === "customer_db" && c.provider_customer_id) {
+      if (selectedDB && selectedDB.id !== c.provider_customer_id &&
+          !confirm("이미 선택된 고객이 있습니다. 숙소제공자와 같은 고객으로 바꿀까요?")) return;
+      setTab("search");
+      setSelectedDB({ id: c.provider_customer_id, name: c.provider_name, label: c.provider_name, reg_no: c.provider_reg_front || "" });
+      setSearchQ(c.provider_name || "");
+      setSearchResults([]);
+      if (!mRelation.trim() && (c.provider_relation || "").trim()) setMRelation(c.provider_relation);
+      if (!mSearchAddress.trim() && (c.provider_address || "").trim()) setMSearchAddress(c.provider_address);
+      toast.success("숙소제공자와 동일한 고객으로 설정했습니다.");
+      return;
+    }
+    // manual — 공통 필드(이름/영문/국적/등록번호/연락처/주소/관계) 복사
+    const pairs: { cur: string; set: (v: string) => void; src: string }[] = [
+      { cur: mName,      set: setMName,      src: c.provider_name || "" },
+      { cur: mLastName,  set: setMLastName,  src: c.provider_last_name || "" },
+      { cur: mFirstName, set: setMFirstName, src: c.provider_first_name || "" },
+      { cur: mNation,    set: setMNation,    src: c.provider_nation || "" },
+      { cur: mRegFront,  set: setMRegFront,  src: c.provider_reg_front || "" },
+      { cur: mRegBack,   set: setMRegBack,   src: c.provider_reg_back || "" },
+      { cur: mPhone,     set: setMPhone,     src: c.provider_phone || "" },
+      { cur: mAddress,   set: setMAddress,   src: c.provider_address || "" },
+      { cur: mRelation,  set: setMRelation,  src: c.provider_relation || "" },
+    ];
+    setTab("manual");
+    const copyable = pairs.filter(p => p.src.trim());
+    if (copyable.length === 0) { toast.error("복사할 숙소제공자 정보가 없습니다."); return; }
+    const emptyTargets = copyable.filter(p => !p.cur.trim());
+    if (emptyTargets.length > 0) {
+      emptyTargets.forEach(p => p.set(p.src));
+      toast.success(`숙소제공자 정보로 빈 칸 ${emptyTargets.length}개를 채웠습니다.`);
+    } else {
+      if (!confirm("빈 칸이 없습니다. 기존 입력값을 숙소제공자 정보로 덮어쓸까요?")) return;
+      copyable.forEach(p => p.set(p.src));
+      toast.success("숙소제공자 정보로 덮어썼습니다.");
+    }
+  };
+
   return (
     <>
       <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:300 }} onClick={onClose} />
@@ -404,6 +448,17 @@ function GuarantorModal({
               기존 연결 정보가 비어 있어 새로 연결할 수 있습니다.
             </div>
           ) : null}
+
+          {/* 숙소제공자와 동일인인 경우 — 상대 영역 공통 필드 복사(빈 칸만 채우기 기본) */}
+          <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:8 }}>
+            <button onClick={applyCounterpart}
+              title="숙소제공자로 설정된 정보를 이 영역의 빈 칸에 복사합니다."
+              style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600,
+                padding:"4px 10px", borderRadius:6, border:`1px solid ${BORDER}`,
+                background:"#F7FAFC", color:"#4A5568", cursor:"pointer" }}>
+              <Copy size={11} /> 숙소제공자와 동일
+            </button>
+          </div>
 
           {/* 탭 — 두 모달 공통 모양 (높이 36px 일치) */}
           <div style={{
@@ -706,11 +761,12 @@ function CompletedTasksModal({
 
 // ── 숙소제공자 설정 모달 ───────────────────────────────────────────────────────
 function AccommodationProviderModal({
-  customerId, customerName, current, onClose, onSaved,
+  customerId, customerName, current, counterpart, onClose, onSaved,
 }: {
   customerId: string;
   customerName: string;
   current: AccommodationProvider | null;
+  counterpart: GuarantorConnection | null;   // 신원보증인 연결 — "동일" 복사 소스
   onClose: () => void;
   onSaved: (p: AccommodationProvider | null) => void;
 }) {
@@ -833,6 +889,46 @@ function AccommodationProviderModal({
     finally { setDeleting(false); }
   };
 
+  // "신원보증인과 동일" — 상대 영역 공통 필드 복사. 기본은 빈 칸만 채우기,
+  // 빈 칸이 없으면 confirm 후 덮어쓰기. 제공일자 등 이 영역 전용 필드는 그대로 두어
+  // 사용자가 추가 입력한다. (이 모달에 입력칸이 없는 주소/관계는 복사하지 않음)
+  const applyCounterpart = () => {
+    const c = counterpart;
+    if (!c || !resolveGuarantorName(c)) { toast.error("설정된 신원보증인이 없습니다."); return; }
+    if (c.guarantor_type === "customer_db" && c.guarantor_customer_id) {
+      if (selectedDB && selectedDB.id !== c.guarantor_customer_id &&
+          !confirm("이미 선택된 고객이 있습니다. 신원보증인과 같은 고객으로 바꿀까요?")) return;
+      setTab("search");
+      setSelectedDB({ id: c.guarantor_customer_id, name: c.guarantor_name, label: c.guarantor_name, reg_no: c.guarantor_reg_front || "" });
+      setSearchQ(c.guarantor_name || "");
+      setSearchResults([]);
+      toast.success("신원보증인과 동일한 고객으로 설정했습니다.");
+      return;
+    }
+    // manual — 공통 필드(이름/영문/국적/등록번호/연락처) 복사
+    const pairs: { cur: string; set: (v: string) => void; src: string }[] = [
+      { cur: mName,      set: setMName,      src: c.guarantor_name || "" },
+      { cur: mLastName,  set: setMLastName,  src: c.guarantor_last_name || "" },
+      { cur: mFirstName, set: setMFirstName, src: c.guarantor_first_name || "" },
+      { cur: mNation,    set: setMNation,    src: c.guarantor_nation || "" },
+      { cur: mRegFront,  set: setMRegFront,  src: c.guarantor_reg_front || "" },
+      { cur: mRegBack,   set: setMRegBack,   src: c.guarantor_reg_back || "" },
+      { cur: mPhone,     set: setMPhone,     src: c.guarantor_phone || "" },
+    ];
+    setTab("manual");
+    const copyable = pairs.filter(p => p.src.trim());
+    if (copyable.length === 0) { toast.error("복사할 신원보증인 정보가 없습니다."); return; }
+    const emptyTargets = copyable.filter(p => !p.cur.trim());
+    if (emptyTargets.length > 0) {
+      emptyTargets.forEach(p => p.set(p.src));
+      toast.success(`신원보증인 정보로 빈 칸 ${emptyTargets.length}개를 채웠습니다.`);
+    } else {
+      if (!confirm("빈 칸이 없습니다. 기존 입력값을 신원보증인 정보로 덮어쓸까요?")) return;
+      copyable.forEach(p => p.set(p.src));
+      toast.success("신원보증인 정보로 덮어썼습니다.");
+    }
+  };
+
   return (
     <>
       <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:300 }} onClick={onClose} />
@@ -887,6 +983,17 @@ function AccommodationProviderModal({
               기존 연결 정보가 비어 있어 새로 연결할 수 있습니다.
             </div>
           ) : null}
+
+          {/* 신원보증인과 동일인인 경우 — 상대 영역 공통 필드 복사(빈 칸만 채우기 기본) */}
+          <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:8 }}>
+            <button onClick={applyCounterpart}
+              title="신원보증인으로 설정된 정보를 이 영역의 빈 칸에 복사합니다."
+              style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600,
+                padding:"4px 10px", borderRadius:6, border:`1px solid ${BORDER}`,
+                background:"#F7FAFC", color:"#4A5568", cursor:"pointer" }}>
+              <Copy size={11} /> 신원보증인과 동일
+            </button>
+          </div>
 
           {/* 탭 — 두 모달 공통 모양 (높이 36px 일치) */}
           <div style={{
@@ -2071,6 +2178,7 @@ export function CustomerDrawer({
           customerId={id}
           customerName={name}
           current={providerData}
+          counterpart={guarantorData}
           onClose={() => setShowProviderModal(false)}
           onSaved={(p) => setProviderData(p)}
         />
@@ -2082,6 +2190,7 @@ export function CustomerDrawer({
           customerId={id}
           customerName={name}
           current={guarantorData}
+          counterpart={providerData}
           onClose={() => setShowGuarantorModal(false)}
           onSaved={(g) => setGuarantorData(g)}
         />
