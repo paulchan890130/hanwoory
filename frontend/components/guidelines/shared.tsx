@@ -95,7 +95,7 @@ export function ActionBadge({ type }: { type: string }) {
 }
 
 // ── 실무지침 행 카드 ───────────────────────────────────────────────────────────
-export function GuidelineCard({ row, isSelected, onClick, defaultExpanded }: { row: GuidelineRow; isSelected: boolean; onClick: () => void; defaultExpanded?: boolean }) {
+export function GuidelineCard({ row, isSelected, onClick, defaultExpanded, docsPendingNote }: { row: GuidelineRow; isSelected: boolean; onClick: () => void; defaultExpanded?: boolean; docsPendingNote?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const color = ACTION_TYPE_COLORS[row.action_type] || "#A0AEC0";
   const officeDocs   = (row.form_docs ?? "").split("|").map(s => s.trim()).filter(Boolean);
@@ -128,6 +128,12 @@ export function GuidelineCard({ row, isSelected, onClick, defaultExpanded }: { r
       </div>
       {expanded && (
         <div style={{ padding:"0 16px 14px", borderTop:"1px solid #F7FAFC" }}>
+          {docsPendingNote && (
+            <div style={{ marginTop:12, padding:"8px 10px", borderRadius:8, background:"#FFFAF0",
+              border:"1px solid #F6AD55", fontSize:12, color:"#975A16", lineHeight:1.5 }}>
+              {docsPendingNote}
+            </div>
+          )}
           <div style={{ paddingTop:12, display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:12 }}>
             {officeDocs.length > 0 && (
               <div>

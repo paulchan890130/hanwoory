@@ -11,7 +11,7 @@ import {
   ApplicabilityBadge, ProgramChip, ROUTE_TYPE_LABEL, routeTone,
   compareQualCode, stripInternalIds,
 } from "@/components/qualifications/common";
-import { sanitizeConflictText, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
+import { DOC_PENDING_NOTE, isDocBlockedV2Row, sanitizeConflictText, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 
 type Selection = { kind: "block"; item: V3Block } | { kind: "route"; item: V3Route } | null;
@@ -194,6 +194,7 @@ function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDo
         return (
           <div key={row.row_id}>
             <GuidelineCard row={displayRow} isSelected={selectedId === row.row_id} defaultExpanded
+              docsPendingNote={isDocBlockedV2Row(row.row_id) ? DOC_PENDING_NOTE : undefined}
               onClick={() => setSelectedId(selectedId === row.row_id ? null : row.row_id)} />
             {url && (
               <button onClick={() => onQuickDoc(url)}
@@ -577,8 +578,8 @@ export default function QualificationDetailPage() {
             </div>
             {totalRoutes === 0 ? (
               <div style={{ padding:"14px 16px", borderRadius:12, background:"#fff", border:"1px solid #E2E8F0",
-                fontSize:12.5, color:"#718096" }}>
-                사증 경로 없음
+                fontSize:12.5, color:"#975A16" }}>
+                사증 경로 미정리 — 검수 필요
               </div>
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:12 }}>

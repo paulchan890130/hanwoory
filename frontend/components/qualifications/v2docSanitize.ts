@@ -100,12 +100,27 @@ function sanitizeDocList(s: string): string {
     .join("|");
 }
 
-/** v2 행 표시용 복사본 생성 — form_docs·supporting_docs·overview_short만 정제(원본 불변). */
+// 서류 목록 신뢰 불가로 확정된 v2 행 — 검수 완료 전까지 서류 표시를 차단한다(원본 데이터 무수정).
+// v3 document_requirements 가 있으면 그쪽이 우선 표시되므로, 이 차단은 v2 fallback 표시에만 작용.
+const DOC_BLOCKED_V2_ROWS = new Set([
+  "M1-0233", "M1-0238", "M1-0242", "M1-0246", "M1-0250", "M1-0254", "M1-0257", "M1-0281",
+  "M1-0123", "M1-0124",
+]);
+
+export const DOC_PENDING_NOTE = "제출서류 미정리 항목입니다. 검수 후 반영이 필요합니다.";
+
+export function isDocBlockedV2Row(rowId: string): boolean {
+  return DOC_BLOCKED_V2_ROWS.has(rowId);
+}
+
+/** v2 행 표시용 복사본 생성 — form_docs·supporting_docs·overview_short만 정제(원본 불변).
+ *  서류 차단 행은 서류 목록을 비운다(카드 제목·업무명·설명은 유지). */
 export function sanitizeV2RowForDisplay(row: GuidelineRow): GuidelineRow {
+  const blocked = isDocBlockedV2Row(row.row_id);
   return {
     ...row,
-    form_docs: sanitizeDocList(row.form_docs),
-    supporting_docs: sanitizeDocList(row.supporting_docs),
+    form_docs: blocked ? "" : sanitizeDocList(row.form_docs),
+    supporting_docs: blocked ? "" : sanitizeDocList(row.supporting_docs),
     overview_short: sanitizeV2DocText(row.overview_short ?? ""),
   };
 }
