@@ -77,7 +77,7 @@ export function buildQuickDocUrl(row: GuidelineRow): string | null {
 // ── 서류 칩 ──────────────────────────────────────────────────────────────────
 export function DocChip({ text, color }: { text: string; color: string }) {
   return (
-    <span style={{ display:"inline-block", fontSize:11, padding:"3px 9px", borderRadius:99, background:`${color}18`, color, border:`1px solid ${color}40`, whiteSpace:"normal", wordBreak:"break-word", fontWeight:500 }}>
+    <span style={{ display:"inline-block", fontSize:11, padding:"3px 9px", borderRadius:99, background:`${color}18`, color, border:`1px solid ${color}40`, whiteSpace:"normal", wordBreak:"break-word", overflowWrap:"anywhere", maxWidth:"100%", fontWeight:500 }}>
       {text}
     </span>
   );
@@ -95,8 +95,8 @@ export function ActionBadge({ type }: { type: string }) {
 }
 
 // ── 실무지침 행 카드 ───────────────────────────────────────────────────────────
-export function GuidelineCard({ row, isSelected, onClick }: { row: GuidelineRow; isSelected: boolean; onClick: () => void }) {
-  const [expanded, setExpanded] = useState(false);
+export function GuidelineCard({ row, isSelected, onClick, defaultExpanded }: { row: GuidelineRow; isSelected: boolean; onClick: () => void; defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const color = ACTION_TYPE_COLORS[row.action_type] || "#A0AEC0";
   const officeDocs   = (row.form_docs ?? "").split("|").map(s => s.trim()).filter(Boolean);
   const requiredDocs = (row.supporting_docs ?? "").split("|").map(s => s.trim()).filter(Boolean);

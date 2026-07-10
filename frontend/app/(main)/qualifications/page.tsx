@@ -67,7 +67,7 @@ function AuxCard({ a, expanded, onToggle, onQuickDoc }: {
           {(a.requirements?.length ?? 0) > 0 && (
             <div style={{ marginBottom:8 }}>
               <div style={{ fontSize:10, fontWeight:700, color:"#4A5568", marginBottom:4 }}>
-                서류 (v3 정독 기준 · {a.requirements!.length}건)
+                서류 (v3 기준 · {a.requirements!.length}건)
               </div>
               {a.requirements!.map(d => (
                 <div key={d.requirement_id} style={{ fontSize:11.5, color:"#4A5568", padding:"2px 0" }}>
@@ -117,7 +117,8 @@ function ProgramCard({ p, onCodeClick }: { p: V3Program; onCodeClick: (code: str
       ) : (
         <div style={{ fontSize:12, color:"#718096" }}>{p.applies_to.join(" · ")}</div>
       )}
-      {p.description && <div style={{ marginTop:8, fontSize:11, color:"#A0AEC0", lineHeight:1.5 }}>{p.description}</div>}
+      {/* 표시 정제: 데이터 무수정 원칙 — description의 내부용 어휘만 화면에서 치환 */}
+      {p.description && <div style={{ marginTop:8, fontSize:11, color:"#A0AEC0", lineHeight:1.5 }}>{p.description.replace(/원문/g, "전문")}</div>}
     </div>
   );
 }
@@ -183,11 +184,11 @@ export default function QualificationsPage() {
         <h1 style={{ fontSize:20, fontWeight:700, color:"#2D3748", margin:0 }}>자격으로 찾기</h1>
         <span style={{ fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:99,
           background:"rgba(212,168,67,0.10)", color:"var(--hw-gold-text)", border:"1px solid rgba(212,168,67,0.35)" }}>
-          관리자 read-only 베타 · 매뉴얼 원문(v3) 기준
+          관리자 read-only 베타 · 매뉴얼(v3) 기준
         </span>
       </div>
       <div style={{ fontSize:12, color:"#718096", marginBottom:16 }}>
-        손님의 체류자격을 선택하면 가능한 업무·사증 경로를 매뉴얼 원문 구조로 안내합니다.
+        손님의 체류자격을 선택하면 가능한 업무·사증 경로를 매뉴얼 구조로 안내합니다.
         기존 실무지침 화면·데이터는 그대로 유지됩니다.
       </div>
 
