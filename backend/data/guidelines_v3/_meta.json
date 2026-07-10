@@ -12,10 +12,10 @@
  "counts": {
   "qualification_master": 116,
   "stay_blocks": 444,
-  "visa_routes": 55,
+  "visa_routes": 66,
   "program_tags": 6,
   "v2_mapping": 378,
   "aux_civil": 11,
-  "document_requirements": 287
+  "document_requirements": 365
  }
 }
