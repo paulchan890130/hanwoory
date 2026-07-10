@@ -82,5 +82,75 @@
    "minwon": null
   },
   "notes": "매뉴얼 자격×업무 격자 밖의 부가 민원 — v3에서는 격자에 넣지 않고 별도 축으로 보존."
+ },
+ {
+  "aux_id": "AUX:CIVIL-0001",
+  "v2_row_id": null,
+  "name": "출국기한 유예",
+  "kind": "application_claim",
+  "description": "출국기한 유예 관련 보조민원입니다.",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": ""
+ },
+ {
+  "aux_id": "AUX:CIVIL-0002",
+  "v2_row_id": null,
+  "name": "체류지 변경신고",
+  "kind": "application_claim",
+  "description": "체류지 변경신고 관련 보조민원입니다.",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": ""
+ },
+ {
+  "aux_id": "AUX:CIVIL-0003",
+  "v2_row_id": null,
+  "name": "외국인등록사항 변경신고",
+  "kind": "application_claim",
+  "description": "등록사항 변경신고 관련 보조민원입니다.",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": ""
+ },
+ {
+  "aux_id": "AUX:CIVIL-0004",
+  "v2_row_id": null,
+  "name": "고용·연수외국인 변동사유 발생신고",
+  "kind": "application_claim",
+  "description": "고용변동신고 관련 보조민원입니다.",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": ""
+ },
+ {
+  "aux_id": "AUX:CIVIL-0005",
+  "v2_row_id": null,
+  "name": "외국인등록증 재발급",
+  "kind": "application_claim",
+  "description": "외국인등록증 재발급 관련 보조민원입니다.",
+  "quickdoc_link": {
+   "category": null,
+   "kind": null,
+   "detail": null,
+   "minwon": null
+  },
+  "notes": ""
  }
 ]

@@ -15617,9 +15617,9 @@
   "block_order": 7,
   "variant": null,
   "block_label": "체류기간 연장허가",
-  "applicability": "unknown",
-  "na_source": null,
-  "na_reason": null,
+  "applicability": "not_applicable",
+  "na_source": "user_approved",
+  "na_reason": "영주자는 체류기간 연장허가 대상이 아니며, 영주증 재발급·갱신은 별도 절차입니다.",
   "redirect_to": null,
   "redirect_route_id": null,
   "cases": [],
@@ -15639,7 +15639,7 @@
    427
   ],
   "confidence": "low",
-  "notes": "정독(2026-07-08 배치2): 발췌(p443)는 영주 심사용 체류기간 계산 내 부수 언급뿐 — 연장 절차·부정 명시 미확인. F-5 상한 없음(p427)이나 연장 블록 직접 규정이 아니므로 추정 판정 안 함",
+  "notes": "영주증 재발급·갱신은 체류기간 연장허가와 구분되는 별도 절차입니다.",
   "status": "active"
  },
  {
