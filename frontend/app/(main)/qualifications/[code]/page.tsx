@@ -16,6 +16,13 @@ import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared"
 
 type Selection = { kind: "block"; item: V3Block } | { kind: "route"; item: V3Route } | null;
 
+// 사증 경로 '없음'(행 자체 부재)과 '미정리'(행은 있으나 실질 내용 공백)를 구분한다.
+function isRouteUnfilled(r: V3Route): boolean {
+  if (r.route_type === "not_applicable" || r.route_type === "excluded") return false;
+  return !(r.application_place || "").trim() && !(r.application_form || "").trim()
+    && !String(r.fee ?? "").trim() && !(r.notes || "").trim();
+}
+
 // unknown 칸 안내 문구(최종) — 블록 부재형과 추가 확인형을 구분(2026-07-08 확정 문구)
 function unknownSummary(b: V3Block): string {
   const n = b.notes || "";
@@ -340,6 +347,9 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
           )}
           {!isBlock && (
             <div style={{ marginBottom:12, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
+              {isRouteUnfilled(r!) && (
+                <div style={{ color:"#975A16", fontWeight:600 }}>사증 경로 미정리 — 검수 필요</div>
+              )}
               {r!.application_place && <div>신청처: <strong>{r!.application_place}</strong></div>}
               {r!.application_form && <div>신청 서식: {r!.application_form}</div>}
               {r!.fee !== null && r!.fee !== "" && <div>수수료: {r!.fee}</div>}
@@ -498,7 +508,7 @@ export default function QualificationDetailPage() {
           {m.eligible_persons && <div>해당자: {m.eligible_persons}</div>}
           {m.stay_limit
             ? <div>1회 체류기간 상한: {m.stay_limit}</div>
-            : <div style={{ color:"#C53030" }}>1회 체류기간 상한: 미입력 — 확인필요</div>}
+            : <div style={{ color:"#C53030" }}>1회 체류기간 상한: 확인 필요</div>}
         </div>
         {m.sub_codes.length > 0 && (
           <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
@@ -591,6 +601,9 @@ export default function QualificationDetailPage() {
                           <div style={{ fontSize:11.5, color:"#718096", lineHeight:1.6 }}>
                             {r.application_place && <div>{r.application_place}</div>}
                             {r.application_form && <div>{r.application_form}{r.fee ? ` · 수수료 ${r.fee}` : ""}</div>}
+                            {isRouteUnfilled(r) && (
+                              <div style={{ color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+                            )}
                           </div>
                         </div>
                       );
