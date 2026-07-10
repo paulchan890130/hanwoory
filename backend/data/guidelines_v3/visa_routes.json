@@ -456,11 +456,11 @@
  {
   "route_id": "VR:F-2-3_RECOGNITION",
   "qualification_id": "Q:F-2-3",
-  "route_type": "recognition",
-  "route_label": "사증발급인정신청",
-  "application_place": "국내 출입국·외국인관서",
-  "application_form": "별지 제21호 사증발급인정신청서",
-  "fee": "없음",
+  "route_type": "not_applicable",
+  "route_label": "사증발급인정서 대상 아님",
+  "application_place": "",
+  "application_form": "",
+  "fee": null,
   "requires_recognition_before_consulate": true,
   "minister_approval_required": false,
   "office_docs": [],
@@ -473,7 +473,7 @@
   "source_manual": "260617 사증민원 자격별 안내 매뉴얼",
   "source_pages": [],
   "confidence": "high",
-  "notes": "v2 recognition 1:1 이전. 공관장재량 병렬 블록 존재 여부·서류는 원문 확인 후 consulate 행 추가(사람 확인 대상). | 공관장재량 병렬 경로 확인·추가(배치2 정독).",
+  "notes": "사증발급인정서 경로는 해당 없음으로 정리합니다.",
   "status": "active"
  },
  {

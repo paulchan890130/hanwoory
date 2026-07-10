@@ -2863,7 +2863,7 @@
   ],
   "mapping_type": "keep",
   "confidence": "high",
-  "reason": "recognition 1:1 이전. 정독(배치2) 종결: 공관장재량 병렬 확인 → consulate 행 추가.",
+  "reason": "인정 경로는 대상 아님으로 정리하고, 공관 사증 경로는 유지합니다.",
   "needs_human_review": false
  },
  {
