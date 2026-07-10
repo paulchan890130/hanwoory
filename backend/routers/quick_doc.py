@@ -306,6 +306,25 @@ def _split_phone(phone: str) -> tuple:
     return cleaned, "", ""
 
 
+def _backfill_guarantor_from_connection(guarantor: Optional[dict], gc_data: Optional[dict]) -> None:
+    """신원보증인이 DB 고객으로 조회된 경우, 고객 레코드에 **비어 있는** 주소/전화만
+    신원보증인연결 탭 저장값으로 보완한다(덮어쓰기 없음).
+
+    전화는 '연/락/처' 3분할 키가 모두 비어 있을 때만 guarantor_phone 을 분할해 채운다 —
+    보증인 전화가 연결 탭에만 저장된 경우 bphone1/2/3 이 빈칸으로 출력되던 문제 방지.
+    (수동입력 보증인 dict 는 이미 gc_data 값으로 구성되므로 통과해도 no-op.)"""
+    if not guarantor or not gc_data:
+        return
+    if not str(guarantor.get("주소", "") or "").strip():
+        addr = str(gc_data.get("guarantor_address", "") or "").strip()
+        if addr:
+            guarantor["주소"] = addr
+    if not any(str(guarantor.get(k, "") or "").strip() for k in ("연", "락", "처")):
+        ph1, ph2, ph3 = _split_phone(gc_data.get("guarantor_phone", ""))
+        if ph1 or ph2 or ph3:
+            guarantor["연"], guarantor["락"], guarantor["처"] = ph1, ph2, ph3
+
+
 def _split_date(date_str: str) -> tuple:
     """날짜 문자열 → (year, month, day). month/day는 앞 0 제거."""
     import re
@@ -461,7 +480,8 @@ def need_aggregator(category: str, minwon: str, kind: str, detail: str) -> bool:
 
 
 def calc_is_minor(reg_no: str) -> bool:
-    reg = str(reg_no or "").replace("-", "")
+    # 문자 접두 오염("h650101" 류) 방어 — 숫자만 남기고 판별
+    reg = _reg_back_digits(reg_no)
     if len(reg) < 6 or not reg[:6].isdigit():
         return False
     yy = int(reg[:2])
@@ -476,8 +496,8 @@ def calc_is_minor(reg_no: str) -> bool:
 
 
 def _parse_birth(reg_no: str) -> tuple:
-    """등록증 번호 앞 6자리에서 yyyy, mm, dd 추출"""
-    reg = str(reg_no or "").replace("-", "")
+    """등록증 번호 앞 6자리에서 yyyy, mm, dd 추출 (숫자만 — 문자 접두 오염 방어)"""
+    reg = _reg_back_digits(reg_no)
     birth_raw = reg[:6]
     if len(birth_raw) == 6 and birth_raw.isdigit():
         yy = int(birth_raw[:2])
@@ -488,8 +508,8 @@ def _parse_birth(reg_no: str) -> tuple:
 
 
 def _parse_gender(id_no: str) -> tuple:
-    """번호 첫 자리로 성별 판별 → (gender, man, girl)"""
-    num = str(id_no or "").replace("-", "").strip()
+    """번호 첫 자리로 성별 판별 → (gender, man, girl). 숫자만 — 문자 접두 오염 방어."""
+    num = _reg_back_digits(id_no)
     gdigit = num[0] if num else ""
     if gdigit in ("5", "7"):
         return "남", "V", ""
@@ -540,7 +560,7 @@ def build_field_values(
         "man":            man,
         "girl":           girl,
         "V":              row.get("V", ""),
-        "fnumber":        row.get("등록증", ""),
+        "fnumber":        _reg_back_digits(row.get("등록증", "")),
         "rnumber":        _reg_back_digits(row.get("번호", "")),
         "passport":       row.get("여권", ""),
         "issue":          row.get("발급", ""),
@@ -568,7 +588,7 @@ def build_field_values(
         "changeregist":   "",
     })
 
-    for i, digit in enumerate(str(row.get("등록증", "")).strip(), 1):
+    for i, digit in enumerate(_reg_back_digits(row.get("등록증", "")), 1):
         field_values[f"fnumber{i}"] = digit
     for i, digit in enumerate(_reg_back_digits(row.get("번호", "")), 1):
         field_values[f"rnumber{i}"] = digit
@@ -579,7 +599,7 @@ def build_field_values(
         field_values.update({
             "hsurname":     prov.get("성", ""),
             "hgiven names": prov.get("명", ""),
-            "hfnumber":     prov.get("등록증", ""),
+            "hfnumber":     _reg_back_digits(prov.get("등록증", "")),
             "hrnumber":     _reg_back_digits(prov.get("번호", "")),
             "hphone1":      prov.get("연", ""),
             "hphone2":      prov.get("락", ""),
@@ -600,7 +620,7 @@ def build_field_values(
                                                  accommodation_provider.get("provider_first_name", "")),
                 "hsurname":     accommodation_provider.get("provider_last_name", ""),
                 "hgiven names": accommodation_provider.get("provider_first_name", ""),
-                "hfnumber":     accommodation_provider.get("provider_reg_front", ""),
+                "hfnumber":     _reg_back_digits(accommodation_provider.get("provider_reg_front", "")),
                 "hrnumber":     _reg_back_digits(accommodation_provider.get("provider_reg_back", "")),
                 "hnation":      accommodation_provider.get("provider_nation", ""),
             })
@@ -634,7 +654,7 @@ def build_field_values(
         g = guarantor
         byyyy, bmm, bdd = _parse_birth(str(g.get("등록증", "")))
         bgender, bman, bgirl = _parse_gender(str(g.get("번호", "")))
-        g_reg = str(g.get("등록증", "")).replace("-", "")
+        g_reg = _reg_back_digits(g.get("등록증", ""))
         field_values.update({
             "bsurname":     g.get("성", ""),
             "bgiven names": g.get("명", ""),
@@ -644,7 +664,7 @@ def build_field_values(
             "bgender":      bgender,
             "bman":         bman,
             "bgirl":        bgirl,
-            "bfnumber":     g.get("등록증", ""),
+            "bfnumber":     _reg_back_digits(g.get("등록증", "")),
             "brnumber":     _reg_back_digits(g.get("번호", "")),
             "badress":      g.get("주소", ""),
             "bnation":      g.get("국적", ""),
@@ -660,7 +680,7 @@ def build_field_values(
         d = guardian
         dyyyy, dmm, ddd = _parse_birth(str(d.get("등록증", "")))
         dgender, dman, dgirl = _parse_gender(str(d.get("번호", "")))
-        d_reg = str(d.get("등록증", "")).replace("-", "")
+        d_reg = _reg_back_digits(d.get("등록증", ""))
         field_values.update({
             "gsurname":     d.get("성", ""),
             "ggiven names": d.get("명", ""),
@@ -670,7 +690,7 @@ def build_field_values(
             "ggender":      dgender,
             "gman":         dman,
             "ggirl":        dgirl,
-            "gfnumber":     d.get("등록증", ""),
+            "gfnumber":     _reg_back_digits(d.get("등록증", "")),
             "grnumber":     _reg_back_digits(d.get("번호", "")),
             "gadress":      d.get("주소", ""),
             "gphone1":      d.get("연", ""),
@@ -685,7 +705,7 @@ def build_field_values(
         a = aggregator
         ayyyy, amm, addd = _parse_birth(str(a.get("등록증", "")))
         agender, aman, agirl = _parse_gender(str(a.get("번호", "")))
-        a_reg = str(a.get("등록증", "")).replace("-", "")
+        a_reg = _reg_back_digits(a.get("등록증", ""))
         field_values.update({
             "psurname":     a.get("성", ""),
             "pgiven names": a.get("명", ""),
@@ -695,7 +715,7 @@ def build_field_values(
             "pgender":      agender,
             "pman":         aman,
             "pgirl":        agirl,
-            "pfnumber":     a.get("등록증", ""),
+            "pfnumber":     _reg_back_digits(a.get("등록증", "")),
             "prnumber":     _reg_back_digits(a.get("번호", "")),
             "padress":      a.get("주소", ""),
             "pphone1":      a.get("연", ""),
@@ -1599,13 +1619,9 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
                     "락":    ph2,
                     "처":    ph3,
                 }
-        else:
-            # DB 고객을 찾았지만 주소가 비어 있으면 연결 탭 저장값으로 보완
-            # (보증인 DB 고객 주소가 없는 경우 → badress 빈값 방지)
-            if not str(guarantor.get("주소", "") or "").strip():
-                addr = str(gc_data.get("guarantor_address", "") or "").strip()
-                if addr:
-                    guarantor["주소"] = addr
+        # DB 고객을 찾은 경우(직접 guarantor_id 또는 연결 탭 guarantor_customer_id 조회 모두)
+        # 비어 있는 주소/전화를 연결 탭 저장값으로 보완 — badress/bphone1~3 빈값 방지
+        _backfill_guarantor_from_connection(guarantor, gc_data)
     guardian   = find_customer(req.guardian_id)
     aggregator = find_customer(req.aggregator_id)
 
@@ -2009,11 +2025,8 @@ def _collect_full_field_values(req: "FullDocGenRequest", user: dict) -> dict:
                     "국적":  gc_data.get("guarantor_nation", ""),
                     "연": ph1, "락": ph2, "처": ph3,
                 }
-        else:
-            if not str(guarantor.get("주소", "") or "").strip():
-                addr = str(gc_data.get("guarantor_address", "") or "").strip()
-                if addr:
-                    guarantor["주소"] = addr
+        # PDF 경로(_generate_full_impl)와 동일 — 빈 주소/전화를 연결 탭 값으로 보완
+        _backfill_guarantor_from_connection(guarantor, gc_data)
     guardian   = find_customer(req.guardian_id)
     aggregator = find_customer(req.aggregator_id)
 
