@@ -1427,6 +1427,7 @@ export interface V3Route {
   notes: string;
   status: string;
   review_note?: string;              // 초기 가정을 정정한 항목의 이력 기록(F-1-23 등)
+  docs_notice?: string | null;       // 서류 목록을 의도적으로 제공하지 않는 route의 안내문(미정리 문구 대체)
 }
 export interface V3Program {
   program_id: string;

@@ -378,6 +378,11 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
             <div style={{ fontSize:11, color:"#718096", marginBottom:10 }}>
               연결된 기존 지침의 서류를 참고하세요.
             </div>
+          ) : !isBlock && r!.docs_notice ? (
+            <div style={{ marginBottom:10, padding:"10px 12px", borderRadius:10, background:"#F7FAFC",
+              border:"1px solid #E2E8F0", fontSize:12, color:"#4A5568", lineHeight:1.6 }}>
+              {r!.docs_notice}
+            </div>
           ) : (
             <div style={{ fontSize:11, color:"#A0AEC0", marginBottom:10 }}>
               제출서류 미정리 항목입니다. 검수 후 반영이 필요합니다.
