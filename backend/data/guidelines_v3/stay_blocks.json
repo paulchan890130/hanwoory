@@ -14813,7 +14813,7 @@
   "block_label": "체류자격외 활동",
   "applicability": "not_applicable",
   "na_source": "manual_explicit",
-  "na_reason": "«체류자격외 활동 억제»(p323) — 허용 절차·예외 없음('억제' 문언 유의)",
+  "na_reason": "«체류자격외 활동 억제» 명시 — 허용 절차·예외 없음",
   "redirect_to": null,
   "redirect_route_id": null,
   "cases": [],
@@ -14832,7 +14832,7 @@
    323
   ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격외 활동 억제»(p323) — 허용 절차·예외 없음('억제' 문언 유의)",
+  "notes": "",
   "status": "active"
  },
  {
