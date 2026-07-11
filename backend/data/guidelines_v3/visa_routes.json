@@ -1618,7 +1618,8 @@
   "status": "active",
   "confidence": "high",
   "requires_recognition_before_consulate": false,
-  "minister_approval_required": false
+  "minister_approval_required": false,
+  "docs_notice": "특수 경로로, 일반 신청인 준비서류 목록을 제공하지 않습니다."
  },
  {
   "route_id": "VR:A-1_RECOGNITION",
@@ -1641,7 +1642,8 @@
   "status": "active",
   "confidence": "high",
   "requires_recognition_before_consulate": true,
-  "minister_approval_required": false
+  "minister_approval_required": false,
+  "docs_notice": "특수 경로로, 일반 신청인 준비서류 목록을 제공하지 않습니다."
  },
  {
   "route_id": "VR:A-2_CONSULATE",
@@ -1664,7 +1666,8 @@
   "status": "active",
   "confidence": "high",
   "requires_recognition_before_consulate": false,
-  "minister_approval_required": false
+  "minister_approval_required": false,
+  "docs_notice": "특수 경로로, 일반 신청인 준비서류 목록을 제공하지 않습니다."
  },
  {
   "route_id": "VR:A-2_RECOGNITION",
@@ -1687,7 +1690,8 @@
   "status": "active",
   "confidence": "high",
   "requires_recognition_before_consulate": true,
-  "minister_approval_required": false
+  "minister_approval_required": false,
+  "docs_notice": "특수 경로로, 일반 신청인 준비서류 목록을 제공하지 않습니다."
  },
  {
   "route_id": "VR:C-4_CONSULATE",
@@ -1823,6 +1827,7 @@
   "status": "active",
   "confidence": "high",
   "requires_recognition_before_consulate": true,
-  "minister_approval_required": false
+  "minister_approval_required": false,
+  "docs_notice": "신청 주체가 제한되는 경로입니다. 제출서류는 해당 기관 또는 사업장 절차에 따라 확인해야 합니다."
  }
 ]
