@@ -14,9 +14,6 @@
   "ladder": [],
   "replaces_main_chapter": true,
   "description": "동포 대상 사증+체류 통합 재서술(내장 별도 문서). 사증 본편 F-4·H-2 챕터 대체.",
-  "source_pages": [
-   517
-  ],
   "notes": ""
  },
  {
@@ -53,13 +50,6 @@
   ],
   "replaces_main_chapter": false,
   "description": "신설 세부약호 승급 경로 + 전자사증 전담 심사.",
-  "source_pages": [
-   664,
-   665,
-   445,
-   446,
-   447
-  ],
   "notes": ""
  },
  {
@@ -92,11 +82,6 @@
   ],
   "replaces_main_chapter": false,
   "description": "참여대학 추천 축의 단계형 프로그램.",
-  "source_pages": [
-   741,
-   742,
-   456
-  ],
   "notes": ""
  },
  {
@@ -112,10 +97,6 @@
   "ladder": [],
   "replaces_main_chapter": false,
   "description": "기존 자격 조항 기반 사증·변경·연장 특례 + 지자체 추천 축.",
-  "source_pages": [
-   581,
-   582
-  ],
   "notes": ""
  },
  {
@@ -146,10 +127,6 @@
   ],
   "replaces_main_chapter": false,
   "description": "변경허가 트랙(공통요건+자격별 요건 2층).",
-  "source_pages": [
-   649,
-   650
-  ],
   "notes": ""
  },
  {
@@ -161,11 +138,7 @@
   ],
   "ladder": [],
   "replaces_main_chapter": false,
-  "description": "지자체별 요건·심사기준으로 기존 자격의 지역 변형(지침 원문 수록).",
-  "source_pages": [
-   679,
-   680
-  ],
+  "description": "지자체별 요건·심사기준으로 기존 자격의 지역 변형(지침 매뉴얼 기준 수록).",
   "notes": ""
  }
 ]

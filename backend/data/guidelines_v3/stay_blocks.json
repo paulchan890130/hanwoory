@@ -8,7 +8,7 @@
   "block_label": "체류자격 부여",
   "applicability": "not_applicable",
   "na_source": "confirmed_by_practice",
-  "na_reason": "체류자격 부여는 국내 출생 영아 대상 업무 — E-8은 계절근로 성인 대상이라 성립 불가(2026-07-08 확정)",
+  "na_reason": "체류자격 부여는 국내 출생 영아 대상 업무  E-8은 계절근로 성인 대상이라 성립 불가",
   "redirect_to": null,
   "redirect_route_id": null,
   "cases": [],
@@ -22,11 +22,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   321,
-   322
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -40,7 +35,7 @@
   "block_label": "체류자격 변경허가",
   "applicability": "not_applicable",
   "na_source": "confirmed_by_practice",
-  "na_reason": "타 자격에서 E-8로 변경 불가(2026-07-08 확정)",
+  "na_reason": "타 자격에서 E-8로 변경 불가",
   "redirect_to": "신규 입국은 사증발급인정신청 경로로 진행",
   "redirect_route_id": "VR:E-8_RECOGNITION",
   "cases": [],
@@ -54,11 +49,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   321,
-   322
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -72,7 +62,7 @@
   "block_label": "재입국허가",
   "applicability": "not_applicable",
   "na_source": "confirmed_by_practice",
-  "na_reason": "일정기간 근로 후 출국 조건이므로 재입국허가 불요(2026-07-08 확정)",
+  "na_reason": "일정기간 근로 후 출국 조건이므로 재입국허가 불요",
   "redirect_to": null,
   "redirect_route_id": null,
   "cases": [],
@@ -86,11 +76,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   321,
-   322
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -118,11 +103,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15,
-   219
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -150,10 +130,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -181,10 +157,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -212,10 +184,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -243,11 +211,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15,
-   116
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -275,11 +238,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15,
-   515
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -307,10 +265,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   515
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -338,13 +292,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24,
-   40
-  ],
   "confidence": "medium",
-  "notes": "원문은 '변경 및 연장' 통합 블록 — 원칙 불허 + 예외 허용(케이스 분해 필요). v2 대응 주의.",
+  "notes": "매뉴얼 기준은 '변경 및 연장' 통합 블록  원칙 불허 + 예외 허용(케이스 분해 필요). v2 대응 주의.",
   "status": "active"
  },
  {
@@ -379,13 +328,8 @@
    "M1-0301"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24,
-   40
-  ],
   "confidence": "medium",
-  "notes": "원문은 '변경 및 연장' 통합 블록 — 원칙 불허 + 예외 허용(케이스 분해 필요). v2 M1-0301 대응 주의.",
+  "notes": "매뉴얼 기준은 '변경 및 연장' 통합 블록  원칙 불허 + 예외 허용(케이스 분해 필요). v2 M1-0301 대응 주의.",
   "status": "active"
  },
  {
@@ -411,13 +355,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24,
-   40
-  ],
   "confidence": "medium",
-  "notes": "원문은 '변경 및 연장' 통합 블록 — 원칙 불허 + 예외 허용(케이스 분해 필요). v2 대응 주의.",
+  "notes": "매뉴얼 기준은 '변경 및 연장' 통합 블록  원칙 불허 + 예외 허용(케이스 분해 필요). v2 대응 주의.",
   "status": "active"
  },
  {
@@ -452,13 +391,8 @@
    "M1-0302"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24,
-   40
-  ],
   "confidence": "medium",
-  "notes": "원문은 '변경 및 연장' 통합 블록 — 원칙 불허 + 예외 허용(케이스 분해 필요). v2 대응 주의.",
+  "notes": "매뉴얼 기준은 '변경 및 연장' 통합 블록  원칙 불허 + 예외 허용(케이스 분해 필요). v2 대응 주의.",
   "status": "active"
  },
  {
@@ -493,8 +427,6 @@
    "M1-0004"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -531,8 +463,6 @@
    "M1-0298"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -569,8 +499,6 @@
    "M1-0299"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -607,8 +535,6 @@
    "M1-0297"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -645,8 +571,6 @@
    "M1-0300"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -683,8 +607,6 @@
    "M1-0008"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -721,8 +643,6 @@
    "M1-0011"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -759,8 +679,6 @@
    "M1-0001"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -797,8 +715,6 @@
    "M1-0016"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -835,8 +751,6 @@
    "M1-0303"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -873,8 +787,6 @@
    "M1-0304"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -911,8 +823,6 @@
    "M1-0305"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -949,8 +859,6 @@
    "M1-0306"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -987,8 +895,6 @@
    "M1-0010"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1025,8 +931,6 @@
    "M1-0357"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1063,8 +967,6 @@
    "M1-0002"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1101,8 +1003,6 @@
    "M1-0358"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1139,8 +1039,6 @@
    "M1-0018"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1177,8 +1075,6 @@
    "M1-0353"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1215,8 +1111,6 @@
    "M1-0139"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1253,8 +1147,6 @@
    "M1-0354"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1291,8 +1183,6 @@
    "M1-0130"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1329,8 +1219,6 @@
    "M1-0133"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1367,8 +1255,6 @@
    "M1-0003"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1405,8 +1291,6 @@
    "M1-0136"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1443,8 +1327,6 @@
    "M1-0131"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1481,8 +1363,6 @@
    "M1-0134"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1519,8 +1399,6 @@
    "M1-0027"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1557,8 +1435,6 @@
    "M1-0137"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1595,8 +1471,6 @@
    "M1-0135"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1633,8 +1507,6 @@
    "M1-0028"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1672,8 +1544,6 @@
    "M1-0138"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1710,8 +1580,6 @@
    "M1-0097"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1748,8 +1616,6 @@
    "M1-0098"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1786,8 +1652,6 @@
    "M1-0332"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1824,8 +1688,6 @@
    "M1-0014"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1862,8 +1724,6 @@
    "M1-0005"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1900,8 +1760,6 @@
    "M1-0334"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1938,8 +1796,6 @@
    "M1-0333"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -1976,8 +1832,6 @@
    "M1-0029"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2014,8 +1868,6 @@
    "M1-0030"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2052,8 +1904,6 @@
    "M1-0031"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2090,8 +1940,6 @@
    "M1-0032"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2128,8 +1976,6 @@
    "M1-0033"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2166,8 +2012,6 @@
    "M1-0034"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2204,8 +2048,6 @@
    "M1-0035"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2242,8 +2084,6 @@
    "M1-0036"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2280,8 +2120,6 @@
    "M1-0013"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2318,8 +2156,6 @@
    "M1-0337"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2356,8 +2192,6 @@
    "M1-0336"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2394,8 +2228,6 @@
    "M1-0339"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2432,8 +2264,6 @@
    "M1-0340"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2470,8 +2300,6 @@
    "M1-0342"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2508,8 +2336,6 @@
    "M1-0341"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2546,8 +2372,6 @@
    "M1-0037"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2584,8 +2408,6 @@
    "M1-0038"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2622,8 +2444,6 @@
    "M1-0372"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2660,8 +2480,6 @@
    "M1-0039"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2698,8 +2516,6 @@
    "M1-0009"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2736,8 +2552,6 @@
    "M1-0012"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2774,8 +2588,6 @@
    "M1-0017"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2812,8 +2624,6 @@
    "M1-0343"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2850,8 +2660,6 @@
    "M1-0344"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2888,8 +2696,6 @@
    "M1-0345"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2926,8 +2732,6 @@
    "M1-0040"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -2964,8 +2768,6 @@
    "M1-0347"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3002,8 +2804,6 @@
    "M1-0346"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3040,8 +2840,6 @@
    "M1-0348"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3078,8 +2876,6 @@
    "M1-0349"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3116,8 +2912,6 @@
    "M1-0044"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3154,8 +2948,6 @@
    "M1-0351"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3192,8 +2984,6 @@
    "M1-0350"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3230,8 +3020,6 @@
    "M1-0108"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3268,8 +3056,6 @@
    "M1-0111"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3306,8 +3092,6 @@
    "M1-0041"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3344,8 +3128,6 @@
    "M1-0120"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3382,8 +3164,6 @@
    "M1-0117"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3420,8 +3200,6 @@
    "M1-0109"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3458,8 +3236,6 @@
    "M1-0112"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3496,8 +3272,6 @@
    "M1-0042"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3534,8 +3308,6 @@
    "M1-0121"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3572,8 +3344,6 @@
    "M1-0118"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3610,8 +3380,6 @@
    "M1-0110"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3648,8 +3416,6 @@
    "M1-0113"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3686,8 +3452,6 @@
    "M1-0043"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3724,8 +3488,6 @@
    "M1-0122"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3762,8 +3524,6 @@
    "M1-0119"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3800,8 +3560,6 @@
    "M1-0352"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3838,8 +3596,6 @@
    "M1-0127"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3876,8 +3632,6 @@
    "M1-0129"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3914,8 +3668,6 @@
    "M1-0128"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3952,8 +3704,6 @@
    "M1-0123"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -3990,8 +3740,6 @@
    "M1-0124"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4028,8 +3776,6 @@
    "M1-0140"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4066,8 +3812,6 @@
    "M1-0142"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4109,8 +3853,6 @@
    "M1-0065"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4147,8 +3889,6 @@
    "M1-0144"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4185,8 +3925,6 @@
    "M1-0143"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4223,14 +3961,10 @@
    "M1-0198"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   334
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active",
-  "conflict": "기존 지침과 매뉴얼 원문 충돌 — 확인 필요. 매뉴얼 원문(체류 p.334)은 '체류자격 변경허가 해당사항 없음'으로 명시하나 기존 지침(E-10 변경)이 있습니다. 관서 확인 전까지는 기존 지침 기준으로 안내하세요.",
+  "conflict": "기존 지침과 매뉴얼 기준 충돌 — 확인 필요. 매뉴얼 기준은 '체류자격 변경허가 해당사항 없음'으로 명시하나 기존 지침(E-10 변경)이 있습니다. 관서 확인 전까지는 기존 지침 기준으로 안내하세요.",
   "needs_human_review": true
  },
  {
@@ -4265,8 +3999,6 @@
    "M1-0200"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4303,8 +4035,6 @@
    "M1-0202"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4341,8 +4071,6 @@
    "M1-0201"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4379,8 +4107,6 @@
    "M1-0015"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4417,8 +4143,6 @@
    "M1-0145"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4455,8 +4179,6 @@
    "M1-0147"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4497,8 +4219,6 @@
    "M1-0052"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4535,8 +4255,6 @@
    "M1-0149"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4573,8 +4291,6 @@
    "M1-0148"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4611,8 +4327,6 @@
    "M1-0150"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4649,8 +4363,6 @@
    "M1-0152"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4693,8 +4405,6 @@
    "M1-0078"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4731,8 +4441,6 @@
    "M1-0154"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4769,8 +4477,6 @@
    "M1-0153"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4807,8 +4513,6 @@
    "M1-0155"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4845,8 +4549,6 @@
    "M1-0157"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4885,8 +4587,6 @@
    "M1-0064"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4923,8 +4623,6 @@
    "M1-0159"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4961,8 +4659,6 @@
    "M1-0158"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -4999,8 +4695,6 @@
    "M1-0160"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5037,8 +4731,6 @@
    "M1-0162"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5076,8 +4768,6 @@
    "M1-0061"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5114,8 +4804,6 @@
    "M1-0164"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5152,8 +4840,6 @@
    "M1-0163"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5190,8 +4876,6 @@
    "M1-0165"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5228,8 +4912,6 @@
    "M1-0167"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5270,8 +4952,6 @@
    "M1-0083"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5308,8 +4988,6 @@
    "M1-0169"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5346,8 +5024,6 @@
    "M1-0168"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5394,8 +5070,6 @@
    "M1-0077"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5432,8 +5106,6 @@
    "M1-0170"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5470,8 +5142,6 @@
    "M1-0172"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5508,8 +5178,6 @@
    "M1-0174"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5546,8 +5214,6 @@
    "M1-0173"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5584,8 +5250,6 @@
    "M1-0310"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5622,8 +5286,6 @@
    "M1-0311"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5660,8 +5322,6 @@
    "M1-0313"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5698,8 +5358,6 @@
    "M1-0312"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5736,8 +5394,6 @@
    "M1-0315"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5774,8 +5430,6 @@
    "M1-0316"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5812,8 +5466,6 @@
    "M1-0318"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5850,8 +5502,6 @@
    "M1-0317"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5888,8 +5538,6 @@
    "M1-0175"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5926,8 +5574,6 @@
    "M1-0176"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -5964,8 +5610,6 @@
    "M1-0177"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6002,8 +5646,6 @@
    "M1-0331"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6040,8 +5682,6 @@
    "M1-0307"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6078,8 +5718,6 @@
    "M1-0308"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6116,8 +5754,6 @@
    "M1-0309"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6154,10 +5790,8 @@
    "M1-0320"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6192,10 +5826,8 @@
    "M1-0320"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6230,10 +5862,8 @@
    "M1-0321"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6268,10 +5898,8 @@
    "M1-0321"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6306,10 +5934,8 @@
    "M1-0323"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6344,10 +5970,8 @@
    "M1-0323"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6382,10 +6006,8 @@
    "M1-0322"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6420,10 +6042,8 @@
    "M1-0322"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
-  "notes": "v2 E-7-S 행에서 S1/S2 분리(2026-07-08 확정) — 서류·요건 차등화는 후속 입력.",
+  "notes": "v2 E-7-S 행에서 S1/S2 분리  서류·요건 차등화는 후속 입력.",
   "status": "active"
  },
  {
@@ -6458,8 +6078,6 @@
    "M1-0099"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6496,8 +6114,6 @@
    "M1-0100"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6534,8 +6150,6 @@
    "M1-0330"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6572,8 +6186,6 @@
    "M1-0329"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6610,8 +6222,6 @@
    "M1-0101"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6648,8 +6258,6 @@
    "M1-0325"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6686,8 +6294,6 @@
    "M1-0326"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6724,8 +6330,6 @@
    "M1-0328"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6762,8 +6366,6 @@
    "M1-0327"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6800,8 +6402,6 @@
    "M1-0295"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6838,8 +6438,6 @@
    "M1-0294"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6876,8 +6474,6 @@
    "M1-0296"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6914,8 +6510,6 @@
    "M1-0178"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6952,8 +6546,6 @@
    "M1-0183"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -6990,8 +6582,6 @@
    "M1-0193"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7028,8 +6618,6 @@
    "M1-0188"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7066,8 +6654,6 @@
    "M1-0179"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7104,8 +6690,6 @@
    "M1-0184"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7142,8 +6726,6 @@
    "M1-0194"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7180,8 +6762,6 @@
    "M1-0189"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7218,8 +6798,6 @@
    "M1-0180"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7256,8 +6834,6 @@
    "M1-0185"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7294,8 +6870,6 @@
    "M1-0195"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7332,8 +6906,6 @@
    "M1-0190"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7370,8 +6942,6 @@
    "M1-0181"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7408,8 +6978,6 @@
    "M1-0186"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7446,8 +7014,6 @@
    "M1-0196"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7484,8 +7050,6 @@
    "M1-0191"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7522,8 +7086,6 @@
    "M1-0182"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7560,8 +7122,6 @@
    "M1-0187"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7598,8 +7158,6 @@
    "M1-0197"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7636,8 +7194,6 @@
    "M1-0192"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7674,8 +7230,6 @@
    "M1-0220"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7712,8 +7266,6 @@
    "M1-0221"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7750,8 +7302,6 @@
    "M1-0219"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7788,8 +7338,6 @@
    "M1-0214"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7826,8 +7374,6 @@
    "M1-0216"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7864,8 +7410,6 @@
    "M1-0218"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7902,8 +7446,6 @@
    "M1-0211"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7940,8 +7482,6 @@
    "M1-0223"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -7978,8 +7518,6 @@
    "M1-0222"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8016,8 +7554,6 @@
    "M1-0203"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8054,8 +7590,6 @@
    "M1-0224"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8092,8 +7626,6 @@
    "M1-0226"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8130,8 +7662,6 @@
    "M1-0225"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8168,8 +7698,6 @@
    "M1-0227"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8206,8 +7734,6 @@
    "M1-0229"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8244,8 +7770,6 @@
    "M1-0228"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8282,8 +7806,6 @@
    "M1-0230"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8320,8 +7842,6 @@
    "M1-0232"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8358,8 +7878,6 @@
    "M1-0231"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8396,8 +7914,6 @@
    "M1-0370"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8434,8 +7950,6 @@
    "M1-0210"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8472,8 +7986,6 @@
    "M1-0371"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8510,8 +8022,6 @@
    "M1-0204"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8548,8 +8058,6 @@
    "M1-0212"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8586,8 +8094,6 @@
    "M1-0275"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8624,8 +8130,6 @@
    "M1-0213"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8662,8 +8166,6 @@
    "M1-0215"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8700,8 +8202,6 @@
    "M1-0217"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8738,8 +8238,6 @@
    "M1-0105"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8776,8 +8274,6 @@
    "M1-0106"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8814,8 +8310,6 @@
    "M1-0356"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8852,8 +8346,6 @@
    "M1-0355"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8890,8 +8382,6 @@
    "M1-0233"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8928,8 +8418,6 @@
    "M1-0235"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -8966,8 +8454,6 @@
    "M1-0237"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9004,8 +8490,6 @@
    "M1-0236"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9042,8 +8526,6 @@
    "M1-0238"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9080,8 +8562,6 @@
    "M1-0239"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9118,8 +8598,6 @@
    "M1-0241"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9156,8 +8634,6 @@
    "M1-0240"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9194,8 +8670,6 @@
    "M1-0246"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9232,8 +8706,6 @@
    "M1-0247"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9270,8 +8742,6 @@
    "M1-0249"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9308,8 +8778,6 @@
    "M1-0248"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9346,8 +8814,6 @@
    "M1-0250"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9384,8 +8850,6 @@
    "M1-0251"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9422,8 +8886,6 @@
    "M1-0253"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9460,8 +8922,6 @@
    "M1-0252"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9498,8 +8958,6 @@
    "M1-0242"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9536,8 +8994,6 @@
    "M1-0243"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9574,8 +9030,6 @@
    "M1-0245"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9612,8 +9066,6 @@
    "M1-0244"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9651,8 +9103,6 @@
    "M1-0254"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9690,8 +9140,6 @@
    "M1-0255"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9729,8 +9177,6 @@
    "M1-0256"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9767,8 +9213,6 @@
    "M1-0285"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9805,8 +9249,6 @@
    "M1-0286"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9843,8 +9285,6 @@
    "M1-0257"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9881,8 +9321,6 @@
    "M1-0258"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9919,8 +9357,6 @@
    "M1-0281"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9957,8 +9393,6 @@
    "M1-0282"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -9995,8 +9429,6 @@
    "M1-0094"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10033,8 +9465,6 @@
    "M1-0095"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10071,8 +9501,6 @@
    "M1-0103"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10109,8 +9537,6 @@
    "M1-0104"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10147,8 +9573,6 @@
    "M1-0006"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10185,8 +9609,6 @@
    "M1-0360"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10223,8 +9645,6 @@
    "M1-0359"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10261,8 +9681,6 @@
    "M1-0259"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10299,8 +9717,6 @@
    "M1-0260"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10337,8 +9753,6 @@
    "M1-0283"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10375,8 +9789,6 @@
    "M1-0087"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10413,8 +9825,6 @@
    "M1-0089"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10451,8 +9861,6 @@
    "M1-0085"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10489,8 +9897,6 @@
    "M1-0284"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10527,8 +9933,6 @@
    "M1-0261"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10565,8 +9969,6 @@
    "M1-0262"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10603,8 +10005,6 @@
    "M1-0084"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10641,8 +10041,6 @@
    "M1-0264"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10679,8 +10077,6 @@
    "M1-0265"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10717,8 +10113,6 @@
    "M1-0263"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10755,8 +10149,6 @@
    "M1-0007"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10793,8 +10185,6 @@
    "M1-0086"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10831,8 +10221,6 @@
    "M1-0088"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10869,8 +10257,6 @@
    "M1-0107"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10907,8 +10293,6 @@
    "M1-0362"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10945,8 +10329,6 @@
    "M1-0361"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -10983,8 +10365,6 @@
    "M1-0364"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11021,8 +10401,6 @@
    "M1-0367"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11059,8 +10437,6 @@
    "M1-0368"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11097,8 +10473,6 @@
    "M1-0369"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11135,8 +10509,6 @@
    "M1-0365"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11173,8 +10545,6 @@
    "M1-0366"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11211,8 +10581,6 @@
    "M1-0093"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11249,8 +10617,6 @@
    "M1-0102"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11287,8 +10653,6 @@
    "M1-0096"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11325,8 +10689,6 @@
    "M1-0266"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11363,8 +10725,6 @@
    "M1-0267"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11401,8 +10761,6 @@
    "M1-0268"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11439,8 +10797,6 @@
    "M1-0270"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11477,8 +10833,6 @@
    "M1-0269"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11515,8 +10869,6 @@
    "M1-0271"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11553,8 +10905,6 @@
    "M1-0272"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11591,8 +10941,6 @@
    "M1-0273"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11629,8 +10977,6 @@
    "M1-0274"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11667,8 +11013,6 @@
    "M1-0287"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11705,8 +11049,6 @@
    "M1-0288"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11743,8 +11085,6 @@
    "M1-0363"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11781,8 +11121,6 @@
    "M1-0289"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11819,8 +11157,6 @@
    "M1-0290"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11857,8 +11193,6 @@
    "M1-0291"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11895,8 +11229,6 @@
    "M1-0293"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11933,8 +11265,6 @@
    "M1-0292"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -11971,8 +11301,6 @@
    "M1-0276"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -12009,8 +11337,6 @@
    "M1-0277"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -12047,8 +11373,6 @@
    "M1-0279"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -12085,8 +11409,6 @@
    "M1-0278"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -12114,13 +11436,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   15,
-   16
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 챕터에 '체류자격 부여' 블록 표제와 절차·서류가 규정됨(국내 출생자 대상). «체류자격 부여 … 출생일부터 90일 이내신청 / 제출서류 ①신청서(별지 제34호 서식), 여권 ②출생증명서 사본 ③대사관 협조공한 ④부양자의 외국공관원 신분증»",
+  "notes": "챕터에 '체류자격 부여' 블록 표제와 절차·서류가 규정됨(국내 출생자 대상). «체류자격 부여 … 출생일부터 90일 이내신청 / 제출서류 ①신청서(별지 제34호 서식), 여권 ②출생증명서 사본 ③대사관 협조공한 ④부양자의 외국공관원 신분증»",
   "status": "active"
  },
  {
@@ -12146,12 +11463,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   16
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: '체류자격 변경허가' 블록에 대상·절차·서류가 상세 규정됨. «외교(A-1) 자격 이외의 자격으로 입국 시 외교(A-1) 자격으로 체류자격 변경 허가(청장, 사무소장, 출장소장 위임) ◦허가 내용 : 외교(A-1), 체류기간(재직기간 내)» + 대상별 제출서류 3종 명시",
+  "notes": "'체류자격 변경허가' 블록에 대상·절차·서류가 상세 규정됨. «외교(A-1) 자격 이외의 자격으로 입국 시 외교(A-1) 자격으로 체류자격 변경 허가(청장, 사무소장, 출장소장 위임) ◦허가 내용  외교(A-1), 체류기간(재직기간 내)» + 대상별 제출서류 3종 명시",
   "status": "active"
  },
  {
@@ -12177,12 +11490,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   16
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: '체류기간 연장허가' 블록 존재, 기간·서류 규정. «체류기간 연장허가 / 재임기간 범위 내 체류기간연장 / 제출 서류 : 체류자격 변경허가와 동일(수수료 면제)»",
+  "notes": "'체류기간 연장허가' 블록 존재, 기간·서류 규정. «체류기간 연장허가 / 재임기간 범위 내 체류기간연장 / 제출 서류  체류자격 변경허가와 동일(수수료 면제)»",
   "status": "active"
  },
  {
@@ -12208,12 +11517,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   17
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 면제 원칙 + 특정 대상(단수사증 소지자) 요청 시 허가의 케이스 분기. «출국한 날로부터 1년 이내 재입국하려는 경우 면제» + «단수사증을 소지한 외교(A-1)~협정(A-3) 소지자 중 재임기간…내에 재입국하고자 하는 경우 대상자의 요청이 있으면 재입국허가 가능»",
+  "notes": "면제 원칙 + 특정 대상(단수사증 소지자) 요청 시 허가의 케이스 분기. «출국한 날로부터 1년 이내 재입국하려는 경우 면제» + «단수사증을 소지한 외교(A-1)~협정(A-3) 소지자 중 재임기간…내에 재입국하고자 하는 경우 대상자의 요청이 있으면 재입국허가 가능»",
   "status": "active"
  },
  {
@@ -12239,12 +11544,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   17
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 등록 면제 원칙 + 본인 희망 시 발급의 분기. «외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지 변경 신고 등)도 적용 면제»",
+  "notes": "등록 면제 원칙 + 본인 희망 시 발급의 분기. «외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지 변경 신고 등)도 적용 면제»",
   "status": "active"
  },
  {
@@ -12270,13 +11571,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   18,
-   19
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 특정 대상 한정(상호주의 29개국 공관원 가족 중 추천 받은 자 / 국제기구 직원 동반가족)의 케이스 분기 명시. «공무(A-2) 자격을 소지한 '주한외국공관원 가족'의 국내취업은 상호주의에 따라 외교부장관(외교사절담당관)의 추천을 받은 자에 한하여 체류자격외 활동허가» + «국제기구 직원의 동반가족에 대한 체류자격외 활동 허가(상호주의 비적용…)»",
+  "notes": "특정 대상 한정(상호주의 29개국 공관원 가족 중 추천 받은 자 / 국제기구 직원 동반가족)의 케이스 분기 명시. «공무(A-2) 자격을 소지한 '주한외국공관원 가족'의 국내취업은 상호주의에 따라 외교부장관(외교사절담당관)의 추천을 받은 자에 한하여 체류자격외 활동허가» + «국제기구 직원의 동반가족에 대한 체류자격외 활동 허가(상호주의 비적용…)»",
   "status": "active"
  },
  {
@@ -12302,12 +11598,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   20
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 등록 면제 원칙 + 본인 희망 시 발급의 분기. «외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지 변경 신고 등)도 적용 면제 ※인터넷 쇼핑 등 온라인 이용 시 본인 인증 곤란으로 국내생활 불편 해소 목적»",
+  "notes": "등록 면제 원칙 + 본인 희망 시 발급의 분기. «외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지 변경 신고 등)도 적용 면제 ※인터넷 쇼핑 등 온라인 이용 시 본인 인증 곤란으로 국내생활 불편 해소 목적»",
   "status": "active"
  },
  {
@@ -12333,12 +11625,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   21
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: '체류자격 부여' 블록 표제와 절차·서류 규정(국내 출생자). «체류자격 부여 … 1. 국내 출생자 / 출생일로부터 90일 이내 신청 / 90일 이내 출국하는 경우 별도허가 불필요 / 제출서류 ①신청서(별지 제34호 서식), 여권 ②출생증명서 등 가족관계 입증서류…»",
+  "notes": "'체류자격 부여' 블록 표제와 절차·서류 규정(국내 출생자). «체류자격 부여 … 1. 국내 출생자 / 출생일로부터 90일 이내 신청 / 90일 이내 출국하는 경우 별도허가 불필요 / 제출서류 ①신청서(별지 제34호 서식), 여권 ②출생증명서 등 가족관계 입증서류…»",
   "status": "active"
  },
  {
@@ -12364,12 +11652,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   23
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 등록 면제 원칙 + 본인 희망 시 발급의 분기. «외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지 변경 신고 등)도 적용 면제»",
+  "notes": "등록 면제 원칙 + 본인 희망 시 발급의 분기. «외국인등록 면제 대상이나 본인이 원할 경우 외국인등록증 발급 - 기타 등록외국인에게 부여 되는 각종 의무(등록사항변경 신고, 체류지 변경 신고 등)도 적용 면제»",
   "status": "active"
  },
  {
@@ -12395,12 +11679,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-1 챕터(1쪽)에는 활동범위/해당자/체류기간상한과 통합 블록 «체류자격변경 및 체류기간연장»만 있고 '체류자격외 활동' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-1 챕터(1쪽)에는 활동범위/해당자/체류기간상한과 통합 블록 «체류자격변경 및 체류기간연장»만 있고 '체류자격외 활동' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12426,12 +11706,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-1 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-1 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12457,12 +11733,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. '체류자격 부여' 표제도 부정 명시도 없음. 통합 블록 «…원칙적으로 체류기간 연장이나 체류자격 변경허가를 하지 아니하므로»는 변경·연장 규정이며 부여 판정 근거가 아님",
+  "notes": "블록 자체 부재. '체류자격 부여' 표제도 부정 명시도 없음. 통합 블록 «…원칙적으로 체류기간 연장이나 체류자격 변경허가를 하지 아니하므로»는 변경·연장 규정이며 부여 판정 기준이 아님",
   "status": "active"
  },
  {
@@ -12488,12 +11760,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-1 챕터에 '재입국허가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-1 챕터에 '재입국허가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12519,12 +11787,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   24
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-1 챕터에 '외국인등록' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-1 챕터에 '외국인등록' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12550,12 +11814,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   25
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-2 챕터(1쪽)에는 활동범위/해당자/체류기간상한과 통합 블록 «체류자격변경 및 체류기간연장»만 있고 '체류자격외 활동' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-2 챕터(1쪽)에는 활동범위/해당자/체류기간상한과 통합 블록 «체류자격변경 및 체류기간연장»만 있고 '체류자격외 활동' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12581,12 +11841,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   25
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-2 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-2 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12612,12 +11868,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   25
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. '체류자격 부여' 표제도 부정 명시도 없음. 통합 블록 «사증면제협정 또는 관광통과 목적으로 입국한 자에 대하여는 원칙적으로 체류기간 연장이나 체류자격 변경허가를 하지 아니하므로»는 변경·연장 규정이며 부여 판정 근거가 아님",
+  "notes": "블록 자체 부재. '체류자격 부여' 표제도 부정 명시도 없음. 통합 블록 «사증면제협정 또는 관광통과 목적으로 입국한 자에 대하여는 원칙적으로 체류기간 연장이나 체류자격 변경허가를 하지 아니하므로»는 변경·연장 규정이며 부여 판정 기준이 아님",
   "status": "active"
  },
  {
@@ -12643,12 +11895,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   25
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-2 챕터에 '재입국허가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-2 챕터에 '재입국허가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12674,12 +11922,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   25
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. B-2 챕터에 '외국인등록' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. B-2 챕터에 '외국인등록' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12705,12 +11949,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   26
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-1 챕터(1쪽)에는 자격해당자/체류기간상한/«체류기간 연장허가» 블록만 있고 '체류자격외 활동' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-1 챕터(1쪽)에는 자격해당자/체류기간상한/«체류기간 연장허가» 블록만 있고 '체류자격외 활동' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12736,12 +11976,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   26
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-1 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-1 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12767,12 +12003,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   26
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-1 챕터에 '체류자격 부여' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-1 챕터에 '체류자격 부여' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12800,10 +12032,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   26
-  ],
   "confidence": "high",
   "notes": "예외 사유 해당 여부는 관할 확인 후 진행합니다.",
   "status": "active"
@@ -12831,12 +12059,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   26
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-1 챕터에 '재입국허가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-1 챕터에 '재입국허가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12862,12 +12086,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   26
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-1 챕터에 '외국인등록' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-1 챕터에 '외국인등록' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12893,13 +12113,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   27,
-   28
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-3 챕터에 '체류자격외 활동' 표제도 부정 명시도 없음(자격해당자/약호표/연장허가/외국인등록만 존재)",
+  "notes": "블록 자체 부재. C-3 챕터에 '체류자격외 활동' 표제도 부정 명시도 없음(자격해당자/약호표/연장허가/외국인등록만 존재)",
   "status": "active"
  },
  {
@@ -12925,13 +12140,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   27,
-   28
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-3 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-3 챕터에 '근무처의 변경·추가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12957,13 +12167,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   27,
-   28
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-3 챕터에 '체류자격 부여' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-3 챕터에 '체류자격 부여' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -12991,11 +12196,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   27,
-   28
-  ],
   "confidence": "medium",
   "notes": "예외 사유 해당 여부는 관할 확인 후 진행합니다.",
   "status": "active"
@@ -13023,13 +12223,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   27,
-   28
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: '체류기간 연장허가' 블록에 요건·절차·서류 규정. «단기방문(C-3) 활동 범위에 해당하고, 불법취업의 의심이 없으며 연장의 필요성이 인정되는 경우에 입국일로부터 체류기간 90일 범위 내 연장 가능» + 제출서류. 단 C-3-2는 «부득이한 사유가 있는 경우에 한하여» 제한(하위 케이스 분기)",
+  "notes": "'체류기간 연장허가' 블록에 요건·절차·서류 규정. «단기방문(C-3) 활동 범위에 해당하고, 불법취업의 의심이 없으며 연장의 필요성이 인정되는 경우에 입국일로부터 체류기간 90일 범위 내 연장 가능» + 제출서류. 단 C-3-2는 «부득이한 사유가 있는 경우에 한하여» 제한(하위 케이스 분기)",
   "status": "active"
  },
  {
@@ -13055,13 +12250,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   27,
-   28
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-3 챕터에 '재입국허가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-3 챕터에 '재입국허가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -13087,12 +12277,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   28
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: '외국인등록' 블록 존재하나 특정 대상만 규정. «단기상용(C-3-4) 소지자로 91일 이상 체류하고자 하는 칠레 국민 ①신청서(별지 제34호 서식), 여권원본… ②거래실적, 초청장, 계약서, 수출입관련서류 등 입국목적을 증명하는 서류를 제출받아 C-3로 등록»",
+  "notes": "'외국인등록' 블록 존재하나 특정 대상만 규정. «단기상용(C-3-4) 소지자로 91일 이상 체류하고자 하는 칠레 국민 ①신청서(별지 제34호 서식), 여권원본… ②거래실적, 초청장, 계약서, 수출입관련서류 등 입국목적을 증명하는 서류를 제출받아 C-3로 등록»",
   "status": "active"
  },
  {
@@ -13118,14 +12304,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   29,
-   30,
-   31
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-4 챕터에 '체류자격외 활동' 표제도 부정 명시도 없음(근무처 변경·추가/체류자격 변경허가/체류기간 연장허가 블록만 존재)",
+  "notes": "블록 자체 부재. C-4 챕터에 '체류자격외 활동' 표제도 부정 명시도 없음(근무처 변경·추가/체류자격 변경허가/체류기간 연장허가 블록만 존재)",
   "status": "active"
  },
  {
@@ -13151,14 +12331,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   29,
-   30,
-   31
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-4 챕터에 '체류자격 부여' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-4 챕터에 '체류자격 부여' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -13184,14 +12358,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   29,
-   30,
-   31
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-4 챕터에 '재입국허가' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-4 챕터에 '재입국허가' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -13217,14 +12385,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   29,
-   30,
-   31
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2): 블록 자체 부재. C-4 챕터에 '외국인등록' 표제도 부정 명시도 없음",
+  "notes": "블록 자체 부재. C-4 챕터에 '외국인등록' 표제도 부정 명시도 없음",
   "status": "active"
  },
  {
@@ -13250,13 +12412,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   32,
-   33
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: D-1 챕터 근무처의 변경·추가 블록 부정 명시: «근무처의 변경․추가 신고대상 아님» + «영리목적이 아닌 아래 체류자격 소지자는 근무처의 변경․추가 신고가 아닌 외국인등록사항 변경신고를 받아 처리(시행규칙 제49조의2)»",
+  "notes": "D-1 챕터 근무처의 변경·추가 블록 부정 명시: «근무처의 변경․추가 신고대상 아님» + «영리목적이 아닌 아래 체류자격 소지자는 근무처의 변경․추가 신고가 아닌 외국인등록사항 변경신고를 받아 처리(시행규칙 제49조의2)»",
   "status": "active"
  },
  {
@@ -13282,12 +12439,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   33
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: 체류자격 부여 절 명시: «체류자격 부 여 “해당사항 없음”»",
+  "notes": "체류자격 부여 절 명시: «체류자격 부 여 “해당사항 없음”»",
   "status": "active"
  },
  {
@@ -13313,12 +12466,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   40
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 ❍해당사항 없음»(2차 정규화 검색으로 확인) (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 ❍해당사항 없음»",
   "status": "active"
  },
  {
@@ -13344,13 +12493,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   55,
-   71
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2) 확정: «원칙적으로 체류자격외 활동 억제»(p55) + 훈령 «① 체류자격외활동허가는 원칙적으로 억제»(p71) — 허용 절차·예외 없음('불허'가 아닌 '억제' 문언 유의)",
+  "notes": "«원칙적으로 체류자격외 활동 억제» + 훈령 «① 체류자격외활동허가는 원칙적으로 억제»  허용 절차·예외 없음('불허'가 아닌 '억제' 문언 유의)",
   "status": "active"
  },
  {
@@ -13376,13 +12520,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   55,
-   71
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 챕터 첫 페이지 좌측 라벨 블록 명시: «근무처의 변경․추가 해당사항 없음». p.71 각주 «체류자격부여, 체류자격변경, 근무처변경 및 추가는 제한»과 일관",
+  "notes": "",
   "status": "active"
  },
  {
@@ -13408,13 +12547,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   55,
-   71
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음»(p55) + 훈령 «체류자격부여, 체류자격변경 … 제한»(p71)",
+  "notes": "«체류자격 부 여 해당사항 없음» + 훈령 «체류자격부여, 체류자격변경 … 제한»",
   "status": "active"
  },
  {
@@ -13440,13 +12574,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   55,
-   71
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 변경 불가 원칙»(p55) + 훈령 «체류자격부여, 체류자격변경 … 제한»(p71) — '원칙' 문언이므로 개별지침 예외 가능성 유의",
+  "notes": "«체류자격 변경 불가 원칙» + 훈령 «체류자격부여, 체류자격변경 … 제한»  '원칙' 문언이므로 개별지침 예외 가능성 유의",
   "status": "active"
  },
  {
@@ -13476,8 +12605,6 @@
    "M1-0039"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -13505,12 +12632,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   82
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처의 변경․추가 해당사항 없음» 명시 + 소속기관·단체 변경(명칭변경 포함)은 «법 제35조의 외국인등록사항 변경신고를 받아 처리(시행규칙 제49조의2)»",
+  "notes": "«근무처의 변경․추가 해당사항 없음» 명시 + 소속기관·단체 변경(명칭변경 포함)은 «법 제35조의 외국인등록사항 변경신고를 받아 처리(시행규칙 제49조의2)»",
   "status": "active"
  },
  {
@@ -13536,12 +12659,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   82
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -13567,12 +12686,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   102
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «1. 체류자격외활동허가 면제범위 확대 … 정규교육기관…교육 … 별도의 허가 절차 불요» + 회화지도 자율허용 대상에 «취재(D-5) ~ 무역경영(D-9)…합법 체류자» 포함",
+  "notes": "«1. 체류자격외활동허가 면제범위 확대 … 정규교육기관…교육 … 별도의 허가 절차 불요» + 회화지도 자율허용 대상에 «취재(D-5) ~ 무역경영(D-9)…합법 체류자» 포함",
   "status": "active"
  },
  {
@@ -13598,12 +12713,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   103
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처 변경․추가 신고대상 아님» 명시 + 소속기관 명칭 변경 시 «법 제35조의 외국인등록사항 변경신고를 받아 처리»",
+  "notes": "«근무처 변경․추가 신고대상 아님» 명시 + 소속기관 명칭 변경 시 «법 제35조의 외국인등록사항 변경신고를 받아 처리»",
   "status": "active"
  },
  {
@@ -13629,12 +12740,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   103
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» 명시",
+  "notes": "«체류자격 부 여 해당사항 없음» 명시",
   "status": "active"
  },
  {
@@ -13660,12 +12767,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   106
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처 변경․추가 허가(신고) 대상 아님» 명시 + 소속기관·단체 명칭 변경은 «법 제35조의 외국인등록사항 변경신고를 받아 처리»",
+  "notes": "«근무처 변경․추가 허가(신고) 대상 아님» 명시 + 소속기관·단체 명칭 변경은 «법 제35조의 외국인등록사항 변경신고를 받아 처리»",
   "status": "active"
  },
  {
@@ -13691,12 +12794,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   106
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» 명시",
+  "notes": "«체류자격 부 여 해당사항 없음» 명시",
   "status": "active"
  },
  {
@@ -13722,14 +12821,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   109,
-   110,
-   113
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처 변경․추가 허가(신고) 대상 아님 : 외국인등록사항 변경신고» 명시. 같은 계열회사 내 이동은 «'외국인등록사항 변동신고'로 업무처리»(파견명령서·동일계열사 입증서류)",
+  "notes": "«근무처 변경․추가 허가(신고) 대상 아님  외국인등록사항 변경신고» 명시. 같은 계열회사 내 이동은 «'외국인등록사항 변동신고'로 업무처리»(파견명령서·동일계열사 입증서류)",
   "status": "active"
  },
  {
@@ -13755,10 +12848,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   110
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -13790,8 +12879,6 @@
    "M1-0043"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -13819,12 +12906,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   117
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -13854,8 +12937,6 @@
    "M1-0110"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -13887,8 +12968,6 @@
    "M1-0113"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -13920,8 +12999,6 @@
    "M1-0122"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -13953,8 +13030,6 @@
    "M1-0119"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -13982,12 +13057,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   130
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격외활동허가 면제범위 확대 … 외국인투자기업 CEO 등 우수전문인력의 대학 강연활동 … 대상 ①투자자 등(D-7, D-8, D-9)의 자격 소지자 … 제출서류 ①신청서(별지 34호 서식)…»",
+  "notes": "«체류자격외활동허가 면제범위 확대 … 외국인투자기업 CEO 등 우수전문인력의 대학 강연활동 … 대상 ①투자자 등(D-7, D-8, D-9)의 자격 소지자 … 제출서류 ①신청서(별지 34호 서식)…»",
   "status": "active"
  },
  {
@@ -14013,12 +13084,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   130
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처 변경․추가 허가(신고) 대상 아님 : 외국인등록사항 변경신고» 명시(D-7 공통 단서와 일관)",
+  "notes": "«근무처 변경․추가 허가(신고) 대상 아님  외국인등록사항 변경신고» 명시(D-7 공통 단서와 일관)",
   "status": "active"
  },
  {
@@ -14044,12 +13111,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   131
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 “해당사항 없음”» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 “해당사항 없음”»",
   "status": "active"
  },
  {
@@ -14079,8 +13142,6 @@
    "M1-0028"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14108,12 +13169,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   143
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 좌측 라벨 블록 «근무처의 변경․추가 해당사항 없음» 명시. 범위 내 다른 '근무처' 언급은 구직·인턴 신고 등 타 블록 부수 언급",
+  "notes": "좌측 라벨 블록 «근무처의 변경․추가 해당사항 없음» 명시. 범위 내 다른 '근무처' 언급은 구직·인턴 신고 등 타 블록 부수 언급",
   "status": "active"
  },
  {
@@ -14139,12 +13196,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   143
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -14174,8 +13227,6 @@
    "M1-0131"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14203,13 +13254,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   168,
-   169
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 사후신고제: «'10.11.15.부 사후 신고제로 개정(시행령 제26조의2제1항)», 신고기한 15일. 예외: 귀책 해고·중도퇴직 + 이적동의 미취득자는 신고제 제외(허가 경로), 타 대학 일시 강연·강의는 신고 불요",
+  "notes": "사후신고제: «'10.11.15.부 사후 신고제로 개정(시행령 제26조의2제1항)», 신고기한 15일. 예외: 귀책 해고·중도퇴직 + 이적동의 미취득자는 신고제 제외(허가 경로), 타 대학 일시 강연·강의는 신고 불요",
   "status": "active"
  },
  {
@@ -14235,12 +13281,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   169
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -14266,14 +13308,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   177,
-   178,
-   179
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 신고제: «신고만으로 근무처를 변경․추가할 수 있도록 허용», 15일 이내 + 근무처변경·추가신고서. 예외: 학사 미소지 정부초청 영어봉사장학생은 «근무처변경 자체가 불가», 귀책 퇴직+이적동의 미취득자 제외",
+  "notes": "신고제: «신고만으로 근무처를 변경․추가할 수 있도록 허용», 15일 이내 + 근무처변경·추가신고서. 예외: 학사 미소지 정부초청 영어봉사장학생은 «근무처변경 자체가 불가», 귀책 퇴직+이적동의 미취득자 제외",
   "status": "active"
  },
  {
@@ -14299,12 +13335,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   179
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -14330,13 +13362,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   188,
-   189
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 사후신고제(시행령 제26조의2제1항, 15일 이내). 예외: 귀책 해고·중도퇴직 시 원 고용주 동의 없으면 제외 — «근무처변경허가 또는 사증발급인정서 신청 대상자임»",
+  "notes": "사후신고제(시행령 제26조의2제1항, 15일 이내). 예외: 귀책 해고·중도퇴직 시 원 고용주 동의 없으면 제외  «근무처변경허가 또는 사증발급인정서 신청 대상자임»",
   "status": "active"
  },
  {
@@ -14362,12 +13389,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   189
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 ◦해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 ◦해당사항 없음»",
   "status": "active"
  },
  {
@@ -14393,13 +13416,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   195,
-   196
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 사후신고제(15일 이내, 제출서류 규정). 예외: 귀책 퇴직+이적동의 미취득자 제외. «근무처 변경 시 소관부처 장관의 고용추천서 필요»",
+  "notes": "사후신고제(15일 이내, 제출서류 규정). 예외: 귀책 퇴직+이적동의 미취득자 제외. «근무처 변경 시 소관부처 장관의 고용추천서 필요»",
   "status": "active"
  },
  {
@@ -14425,12 +13443,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   196
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -14456,13 +13470,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   200,
-   201
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 사후신고제(15일 이내, 별지 제38호의3서식). 예외: 귀책 퇴직+이적동의 미취득자 제외. «근무처 변경 시 소관부처 장관의 고용추천서 필요»",
+  "notes": "사후신고제(15일 이내, 별지 제38호의3서식). 예외: 귀책 퇴직+이적동의 미취득자 제외. «근무처 변경 시 소관부처 장관의 고용추천서 필요»",
   "status": "active"
  },
  {
@@ -14488,12 +13497,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   201
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -14519,13 +13524,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   205,
-   206
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 세부약호 분기: E-6-1·E-6-3 사후 신고제(15일 이내) vs «E-6-2(호텔업 시설, 유흥업소 등에서의 공연) 사전 허가대상». 제출서류(별지 34호, 원 근무처 장의 동의서 등) 규정",
+  "notes": "세부약호 분기: E-6-1·E-6-3 사후 신고제(15일 이내) vs «E-6-2(호텔업 시설, 유흥업소 등에서의 공연) 사전 허가대상». 제출서류(별지 34호, 원 근무처 장의 동의서 등) 규정",
   "status": "active"
  },
  {
@@ -14551,12 +13551,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   207
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -14584,8 +13580,6 @@
    "M1-0101"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14613,12 +13607,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   222
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음»(p222 — p319 서식 언급과 별개로 블록 자체가 부정 명시) (1차: 발췌(p319)는 통합신청서 서식 선택란 — 부수 언급…)",
+  "notes": "«체류자격 부 여 해당사항 없음» 는 통합신청서 서식 선택란  부수 언급…)",
   "status": "active"
  },
  {
@@ -14653,8 +13643,6 @@
    "M1-0325"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14691,8 +13679,6 @@
    "M1-0326"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14728,8 +13714,6 @@
    "M1-0330"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14766,8 +13750,6 @@
    "M1-0331"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14795,13 +13777,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   321,
-   322
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «계절근로자(C-4, E-8)는 계절근로 이외의 다른 활동을 위한 체류자격외 활동허가를 허용하지 않음»(p322). 같은 절의 허가 절차는 타 자격 등록외국인의 계절근로 참여용",
+  "notes": "«계절근로자(C-4, E-8)는 계절근로 이외의 다른 활동을 위한 체류자격외 활동허가를 허용하지 않음». 같은 절의 허가 절차는 타 자격 등록외국인의 계절근로 참여용",
   "status": "active"
  },
  {
@@ -14827,10 +13804,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   323
-  ],
   "confidence": "medium",
   "notes": "",
   "status": "active"
@@ -14858,15 +13831,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   323,
-   324,
-   325,
-   326
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 원칙: 최초 고용허가 사업장 계속 취업, 예외적 변경(휴·폐업 등, 원칙 3회+연장기간 2회). 관할 분기: «직업안정기관으로부터 사업장변경허가를 받은 경우에는 관할 출입국·외국인청(사무소·출장소)장의 근무처변경허가를 받은 후에 취업을 개시» — 고용부 선행 + 출입국 허가",
+  "notes": "원칙: 최초 고용허가 사업장 계속 취업, 예외적 변경(휴·폐업 등, 원칙 3회+연장기간 2회). 관할 분기: «직업안정기관으로부터 사업장변경허가를 받은 경우에는 관할 출입국·외국인청(사무소·출장소)장의 근무처변경허가를 받은 후에 취업을 개시»  고용부 선행 + 출입국 허가",
   "status": "active"
  },
  {
@@ -14892,10 +13858,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   326
-  ],
   "confidence": "high",
   "notes": "",
   "status": "active"
@@ -14929,8 +13891,6 @@
    "M1-0182"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14964,8 +13924,6 @@
    "M1-0187"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -14999,8 +13957,6 @@
    "M1-0197"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15034,8 +13990,6 @@
    "M1-0192"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15063,12 +14017,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   333
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «어선원(E-10-2) 「체류자격 외 활동」허가 - (허용하는 다른 체류자격) 비전문취업(E-9) - (해당활동) 어획물에 대한 건조, 포장 등 … (허용요건) 아래 사항 모두 충족 필요»(p333) — E-10-2 한정 분기",
+  "notes": "«어선원(E-10-2) 「체류자격 외 활동」허가 - (허용하는 다른 체류자격) 비전문취업(E-9) - (해당활동) 어획물에 대한 건조, 포장 등 … (허용요건) 아래 사항 모두 충족 필요»  E-10-2 한정 분기",
   "status": "active"
  },
  {
@@ -15096,8 +14046,6 @@
    "M1-0015"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15125,12 +14073,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   334
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "«체류자격 부 여 해당사항 없음»",
   "status": "active"
  },
  {
@@ -15156,13 +14100,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   338,
-   339
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «방문동거(F-1) 자격을 소지한 중국동포 중 … 교수(E-1) 내지 특정활동(E-7)으로의 자격외 활동 허가»(p338), F-1-12 «(예외) … 사전에 체류자격외 활동허가를 받아 취업 가능»(p339) 등 대상·서류 규정",
+  "notes": "«방문동거(F-1) 자격을 소지한 중국동포 중 … 교수(E-1) 내지 특정활동(E-7)으로의 자격외 활동 허가», F-1-12 «(예외) … 사전에 체류자격외 활동허가를 받아 취업 가능» 등 대상·서류 규정",
   "status": "active"
  },
  {
@@ -15188,12 +14127,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   341
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처의 변경․추가 해당사항 없음» 명시",
+  "notes": "«근무처의 변경․추가 해당사항 없음» 명시",
   "status": "active"
  },
  {
@@ -15219,13 +14154,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   341,
-   342
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «출입국관리법 제23조(체류자격부여) … 국내 출생 외국인 : 출생일로부터 90일 이내에 자격부여», «거주(F-2)자격 소지자의 한국출생 자녀에 대한 방문동거(F-1) 체류자격 부여», «난민인정자의 국내출생 미성년 자녀 체류자격 부여»(p341~342)",
+  "notes": "«출입국관리법 제23조(체류자격부여) … 국내 출생 외국인  출생일로부터 90일 이내에 자격부여», «거주(F-2)자격 소지자의 한국출생 자녀에 대한 방문동거(F-1) 체류자격 부여», «난민인정자의 국내출생 미성년 자녀 체류자격 부여»",
   "status": "active"
  },
  {
@@ -15259,8 +14189,6 @@
    "M1-0371"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15288,13 +14216,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   360,
-   361
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «1. 기타 장기체류자(F-2-99)의 체류자격외 활동허가 기준 … 받아야 하는 경우와 받지 않은 경우로 구분»(p360), «2. 점수이민제 우수인재(F-2-7)의 체류자격외 활동허가 기준»(p361)",
+  "notes": "«1. 기타 장기체류자(F-2-99)의 체류자격외 활동허가 기준 … 받아야 하는 경우와 받지 않은 경우로 구분», «2. 점수이민제 우수인재(F-2-7)의 체류자격외 활동허가 기준»",
   "status": "active"
  },
  {
@@ -15320,12 +14243,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   362
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처의 변경․추가 해당사항 없음» 명시(취업 제한 업종 열거 직후 위치)",
+  "notes": "«근무처의 변경․추가 해당사항 없음» 명시(취업 제한 업종 열거 직후 위치)",
   "status": "active"
  },
  {
@@ -15354,8 +14273,6 @@
    "M1-0256"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15385,8 +14302,6 @@
    "M1-0085"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15414,12 +14329,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   422
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «근무처의 변경․추가 해당사항 없음» 명시. 취업은 자격외활동허가 체계(포괄허가·취업개시/종료 신고)로 처리",
+  "notes": "«근무처의 변경․추가 해당사항 없음» 명시. 취업은 자격외활동허가 체계(포괄허가·취업개시/종료 신고)로 처리",
   "status": "active"
  },
  {
@@ -15445,15 +14356,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   521,
-   524,
-   525,
-   538
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2): 동포매뉴얼 발췌의 근무처 규정은 전부 H-2 대상(«취업희망자는 … 근무처 변경도 신고만으로 가능» p521 등) — F-4 본인 규정·부정 명시 없음",
+  "notes": "동포매뉴얼 확인의 근무처 규정은 전부 H-2 대상  F-4 본인 규정·부정 명시 없음",
   "status": "active"
  },
  {
@@ -15479,10 +14383,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   527
-  ],
   "confidence": "medium",
   "notes": "특수한 가족관계·출생관계 사례는 관할 확인 대상입니다.",
   "status": "active"
@@ -15510,14 +14410,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   550,
-   542,
-   531
-  ],
   "confidence": "medium",
-  "notes": "갈음의 직접 부정 명시 문구는 원문에 없음(정황 근거) — confidence medium. 거소신고 절차 자체는 변형 블록(REGISTRATION residence_report) 참조.",
+  "notes": "갈음의 직접 부정 명시 문구는 매뉴얼 기준에 없음(정황 기준)  confidence medium. 거소신고 절차 자체는 변형 블록(REGISTRATION residence_report) 참조.",
   "status": "active"
  },
  {
@@ -15543,12 +14437,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   427
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격외 활동 해당사항 없음»(p427) 명시. p445 언급은 영주 요건 심사 내 과거 이력",
+  "notes": "«체류자격외 활동 해당사항 없음» 명시. 언급은 영주 요건 심사 내 과거 이력",
   "status": "active"
  },
  {
@@ -15574,12 +14464,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   427
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: «체류자격외 활동 해당사항 없음 / 근무처의 변경․추가 해당사항 없음» 명시. p.456·457·470의 '근무처 변경'은 영주 요건 내 근무 계속성 산정 문구(절차 아님)",
+  "notes": "«체류자격외 활동 해당사항 없음 / 근무처의 변경․추가 해당사항 없음» 명시.·457·470의 '근무처 변경'은 영주 요건 내 근무 계속성 산정 문구(절차 아님)",
   "status": "active"
  },
  {
@@ -15605,13 +14491,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   427,
-   466
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «영주(F-5) 자격의 부 또는 모가 대한민국에서 출생한 자녀에 대하여 체류자격부여를 신청한 경우 영주(F-5)자격 부여 … 출생한 날부터 90일 이내 … 나. 제출서류»(p427) + 상세(p466 F-5-20)",
+  "notes": "«영주(F-5) 자격의 부 또는 모가 대한민국에서 출생한 자녀에 대하여 체류자격부여를 신청한 경우 영주(F-5)자격 부여 … 출생한 날부터 90일 이내 … 나. 제출서류» + 상세",
   "status": "active"
  },
  {
@@ -15637,11 +14518,6 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   443,
-   427
-  ],
   "confidence": "low",
   "notes": "영주증 재발급·갱신은 체류기간 연장허가와 구분되는 별도 절차입니다.",
   "status": "active"
@@ -15669,12 +14545,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   473
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격외 활동: 체류자격 구분에 따른 취업활동의 제한을 받지 않음»(p473) — 취업 제한이 없어 허가 업무 자체 해당 없음",
+  "notes": "«체류자격외 활동: 체류자격 구분에 따른 취업활동의 제한을 받지 않음»  취업 제한이 없어 허가 업무 자체 해당 없음",
   "status": "active"
  },
  {
@@ -15702,8 +14574,6 @@
    "M1-0268"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15735,8 +14605,6 @@
    "M1-0273"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15768,8 +14636,6 @@
    "M1-0274"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15799,8 +14665,6 @@
    "M1-0270"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15830,8 +14694,6 @@
    "M1-0269"
   ],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [],
   "confidence": "high",
   "notes": "세부약호 레벨 v2 행 집계에 따른 기초 칸 판정.",
   "status": "active"
@@ -15859,16 +14721,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   497,
-   498,
-   499,
-   500,
-   501
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «1. 성폭력 피해자 등에 대한 체류자격외 활동허가 … (G-1-7)(G-1-11)(G-1-99)»(p497) + 허가기간·서류·취업제한(p498~499) + 난민신청자(p500)·인도적체류자(p501)",
+  "notes": "«1. 성폭력 피해자 등에 대한 체류자격외 활동허가 … (G-1-7)(G-1-11)(G-1-99)» + 허가기간·서류·취업제한 + 난민신청자·인도적체류자",
   "status": "active"
  },
  {
@@ -15894,12 +14748,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   501
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08) 확정: 블록 존재하되 자격외활동허가 체계로 갈음: «취업허가는 사전 허가 사항임(난민신청자, 인도적체류자 등 동일) * 근무처(고용주)가 변경되는 경우 새로운 체류자격외활동허가 필요», 수수료는 일반 체류외국인과 동일",
+  "notes": "블록 존재하되 자격외활동허가 체계로 갈음: «취업허가는 사전 허가 사항임(난민신청자, 인도적체류자 등 동일) * 근무처(고용주)가 변경되는 경우 새로운 체류자격외활동허가 필요», 수수료는 일반 체류외국인과 동일",
   "status": "active"
  },
  {
@@ -15925,12 +14775,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   501
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 1. 국내출생 난민신청자(G-1-5) 가. 체류허가기간 1년 이내 … 나. 제출서류»(2차 정규화 검색으로 확인) (1차: 발췌(p509)는 연장 서류 목록 속 서류명 — 부수 언급…)",
+  "notes": "«체류자격 부 여 1. 국내출생 난민신청자(G-1-5) 가. 체류허가기간 1년 이내 … 나. 제출서류» 는 연장 서류 목록 속 서류명  부수 언급…)",
   "status": "active"
  },
  {
@@ -15956,15 +14802,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   513,
-   514,
-   515,
-   516
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2): H-1 챕터 전문 확인 — '체류자격외 활동' 절 자체 없음. 취업은 활동범위 내장(«별도의 근무처 추가 또는 변경없이 취업 활동 가능»), 전문직종은 변경 절차(p515) — 블록 부재",
+  "notes": "H-1 챕터 전문 확인  '체류자격외 활동' 절 자체 없음. 취업은 활동범위 내장(«별도의 근무처 추가 또는 변경없이 취업 활동 가능»), 전문직종은 변경 절차  블록 부재",
   "status": "active"
  },
  {
@@ -15990,12 +14829,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   515
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음»(p515) 명시",
+  "notes": "«체류자격 부 여 해당사항 없음» 명시",
   "status": "active"
  },
  {
@@ -16021,14 +14856,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   531,
-   575,
-   576
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2): 동포매뉴얼 발췌의 자격외활동 규정은 F-4 자격자 대상(p531 «재외동포(F-4) 체류자격으로 변경한 동포가…») — H-2 본인 규정·부정 명시 없음",
+  "notes": "동포매뉴얼 확인의 자격외활동 규정은 F-4 자격자 대상 체류자격으로 변경한 동포가…»)  H-2 본인 규정·부정 명시 없음",
   "status": "active"
  },
  {
@@ -16054,14 +14883,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   521,
-   524,
-   525
-  ],
   "confidence": "high",
-  "notes": "정독(2026-07-08) 확정: 동포매뉴얼(체류 본편 챕터 없음): 특례고용허가제 하 신고제 — «근무처 변경도 신고만으로 가능», 변경일로부터 15일 이내 신고(하이코리아 전자민원 가능), 특례고용가능확인서·표준근로계약서·사업자등록증 사본, 위반 시 100만원 이하 과태료",
+  "notes": "동포매뉴얼(체류 본편 챕터 없음): 특례고용허가제 하 신고제  «근무처 변경도 신고만으로 가능», 변경일로부터 15일 이내 신고(하이코리아 전자민원 가능), 특례고용가능확인서·표준근로계약서·사업자등록증 사본, 위반 시 100만원 이하 과태료",
   "status": "active"
  },
  {
@@ -16087,14 +14910,8 @@
   "quickdoc_links": [],
   "v2_row_ids": [],
   "program_ids": [],
-  "source_manual": "260623 체류민원 자격별 안내 매뉴얼",
-  "source_pages": [
-   518,
-   520,
-   521
-  ],
   "confidence": "medium",
-  "notes": "정독(2026-07-08 배치2): 동포매뉴얼 '자격부여' 발췌는 F-4/F-5 자격 부여 제도 설명(p518, 521) — H-2 본인 법 §23 부여 절 미확인(블록 부재)",
+  "notes": "동포매뉴얼 '자격부여' 확인는 F-4/F-5 자격 부여 제도 설명  H-2 본인 법 §23 부여 절 미확인(블록 부재)",
   "status": "active"
  }
 ]
