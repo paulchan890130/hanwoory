@@ -14913,5 +14913,42 @@
   "confidence": "medium",
   "notes": "동포매뉴얼 '자격부여' 확인는 F-4/F-5 자격 부여 제도 설명  H-2 본인 법 §23 부여 절 미확인(블록 부재)",
   "status": "active"
+ },
+ {
+  "block_id": "SB:D-9_CHANGE_equipment_ship",
+  "qualification_id": "Q:D-9",
+  "block_type": "CHANGE",
+  "block_order": 6,
+  "variant": "산업설비 파견·선박건조 필수전문인력",
+  "block_label": "체류자격 변경허가",
+  "applicability": "conditional",
+  "na_source": null,
+  "na_reason": null,
+  "redirect_to": null,
+  "redirect_route_id": null,
+  "cases": [],
+  "fee": null,
+  "office_docs": [],
+  "client_docs": [],
+  "conditional_docs": [],
+  "exceptions": [
+   "사증면제(B-1) 또는 단기사증으로 입국한 외국인이 부득이한 사유가 있는 경우에 한하여 신청할 수 있습니다.",
+   "대상: 산업설비(기계) 도입회사에 파견·초청되어 설치·운영·보수 기술을 제공하는 사람, 또는 선박건조·산업설비 제작 과정에 참여하기 위하여 파견되는 필수전문인력(임원·상급관리자·전문기술자 등)."
+  ],
+  "refusal_redirect": null,
+  "visa_docs_reference": null,
+  "quickdoc_links": [
+   {
+    "category": "체류",
+    "kind": "D",
+    "detail": "9",
+    "minwon": "변경"
+   }
+  ],
+  "v2_row_ids": [],
+  "program_ids": [],
+  "confidence": "high",
+  "notes": "",
+  "status": "active"
  }
 ]
