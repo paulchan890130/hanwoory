@@ -13741,7 +13741,7 @@
   "block_label": "체류자격 부여",
   "applicability": "not_applicable",
   "na_source": "manual_explicit",
-  "na_reason": "«체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "na_reason": "«체류자격 부여 해당사항 없음» 명시",
   "redirect_to": null,
   "redirect_route_id": null,
   "cases": [],
@@ -13760,7 +13760,7 @@
    110
   ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "",
   "status": "active"
  },
  {
@@ -14878,7 +14878,7 @@
   "block_label": "체류자격 부여",
   "applicability": "not_applicable",
   "na_source": "manual_explicit",
-  "na_reason": "«체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "na_reason": "«체류자격 부여 해당사항 없음» 명시",
   "redirect_to": null,
   "redirect_route_id": null,
   "cases": [],
@@ -14897,7 +14897,7 @@
    326
   ],
   "confidence": "high",
-  "notes": "정독(2026-07-08 배치2) 확정: «체류자격 부 여 해당사항 없음» (1차: 1차 발췌 없음…)",
+  "notes": "",
   "status": "active"
  },
  {
