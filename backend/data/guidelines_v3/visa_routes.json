@@ -1756,7 +1756,8 @@
   "status": "active",
   "confidence": "high",
   "requires_recognition_before_consulate": true,
-  "minister_approval_required": false
+  "minister_approval_required": false,
+  "docs_notice": "특정국가 국민 대상 절차로, 세부 제출서류는 관할 출입국·외국인관서 확인에 따릅니다."
  },
  {
   "route_id": "VR:D-7_CONSULATE",
@@ -1770,7 +1771,9 @@
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "칠레 FTA 관련 유형은 별도 요건 확인이 필요하며, 제출서류는 관할 공관 또는 관할 출입국·외국인관서 확인이 필요합니다."
+  ],
   "quickdoc_links": [],
   "program_ids": [],
   "v2_row_id": null,
