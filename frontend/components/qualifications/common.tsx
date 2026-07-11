@@ -91,7 +91,7 @@ export function ConfidenceChip({ value }: { value: string }) {
   return (
     <span style={{ fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:6,
       background:"#FFF5F5", color:"#C53030", border:"1px solid #FEB2B2" }}>
-      {value === "medium" ? "원문 재확인" : "확인 필요"}
+      {value === "medium" ? "추가 확인 필요" : "확인 필요"}
     </span>
   );
 }

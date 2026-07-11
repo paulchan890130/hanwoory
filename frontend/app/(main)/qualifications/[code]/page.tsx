@@ -133,10 +133,6 @@ function InternalReview({ sel, drs }: { sel: NonNullable<Selection>; drs: V3DocR
           border:"1px solid #E2E8F0", fontSize:11, color:"#718096", lineHeight:1.7 }}>
           <div><strong>항목 신뢰도:</strong> {item.confidence || "-"}
             {("needs_human_review" in item) && (item as V3Block).needs_human_review ? " · 확인 필요" : ""}</div>
-          {item.source_manual && (
-            <div><strong>근거:</strong> {item.source_manual}
-              {item.source_pages?.length ? ` p.${item.source_pages.join(", ")}` : ""}</div>
-          )}
           {item.notes && <div><strong>검수 노트:</strong> {item.notes}</div>}
           {"review_note" in item && (item as V3Route).review_note && (
             <div><strong>정정 이력:</strong> {(item as V3Route).review_note}</div>
@@ -147,13 +143,10 @@ function InternalReview({ sel, drs }: { sel: NonNullable<Selection>; drs: V3DocR
               {flagged.map(d => (
                 <div key={d.requirement_id} style={{ marginTop:4, paddingLeft:8, borderLeft:"2px solid #E2E8F0" }}>
                   <div style={{ color:"#4A5568" }}>{d.doc_name}
-                    {d.confidence && d.confidence !== "high" ? " · 원문 재확인" : ""}
+                    {d.confidence && d.confidence !== "high" ? " · 추가 확인 필요" : ""}
                     {d.needs_human_review ? " · 확인 필요" : ""}
                     {d.source_v2_row_id ? ` · v2 유래(${d.source_v2_row_id})` : ""}</div>
-                  {d.condition && <div>내부 조건 원문: {d.condition}</div>}
-                  {d.source_quote && <div>인용: {d.source_quote}</div>}
-                  {d.source_summary && <div>{d.source_summary}</div>}
-                  {(d.source_pages?.length ?? 0) > 0 && <div>근거 p.{d.source_pages!.join(", ")}</div>}
+                  {d.condition && <div>적용 조건: {d.condition}</div>}
                 </div>
               ))}
             </div>

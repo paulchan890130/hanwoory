@@ -1359,8 +1359,8 @@ export interface V3Qualification {
   delegated_to: string | null;
   program_ids: string[];
   sub_codes: string[];
-  source_manual: string;
-  source_pages: number[];
+  source_manual?: string;
+  source_pages?: number[];
   confidence: string;
   notes: string;
   status: string;
@@ -1397,8 +1397,8 @@ export interface V3Block {
   quickdoc_links: { category?: string; kind?: string; detail?: string; minwon?: string }[];
   v2_row_ids: string[];
   program_ids: string[];
-  source_manual: string;
-  source_pages: number[];
+  source_manual?: string;
+  source_pages?: number[];
   confidence: string;
   notes: string;
   status: string;
@@ -1421,8 +1421,8 @@ export interface V3Route {
   exceptions: string[];
   v2_row_id: string | null;
   program_ids: string[];
-  source_manual: string;
-  source_pages: number[];
+  source_manual?: string;
+  source_pages?: number[];
   confidence: string;
   notes: string;
   status: string;
@@ -1437,7 +1437,7 @@ export interface V3Program {
   ladder: { step: number; code: string; label: string }[];
   replaces_main_chapter: boolean;
   description: string;
-  source_pages: number[];
+  source_pages?: number[];
   notes: string;
 }
 export interface V3DocRequirement {
