@@ -9087,7 +9087,9 @@
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "주체류자가 해당 체류자격을 보유 중임을 전제로 하는 경로입니다. 주체류자 관련 확인 자료의 제출 범위는 관할 출입국·외국인관서 확인이 필요합니다."
+  ],
   "refusal_redirect": null,
   "visa_docs_reference": null,
   "quickdoc_links": [
