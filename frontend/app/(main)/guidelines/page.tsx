@@ -14,11 +14,16 @@ import { getUser, canManageContent } from "@/lib/auth";
 import {
   ACTION_TYPE_LABELS, ACTION_TYPE_COLORS, ActionBadge, DocChip, GuidelineCard, buildQuickDocUrl,
 } from "@/components/guidelines/shared";
+import { sanitizeFeeRuleDisplay } from "@/components/qualifications/v2docSanitize";
 import { toast } from "sonner";
 
 // ── 업무유형 한글 라벨 ────────────────────────────────────────────────────────
 // (ACTION_TYPE_LABELS/COLORS · ActionBadge · DocChip · GuidelineCard · buildQuickDocUrl 은
 //  @/components/guidelines/shared 로 이동 — v3 자격 중심 화면과 공용, 동작 불변)
+
+// 운영 화면 출처 비노출 원칙: 자료 출처·페이지가 드러나는 UI(매뉴얼 페이지 버튼·뷰어, 근거 섹션)는
+// 화면에서 숨긴다. manual_ref/basis_section 데이터와 API·PDF 엔드포인트는 그대로 유지(비노출만).
+const SHOW_INTERNAL_SOURCE_UI = false;
 
 // ── 새 트리: 업무유형 전체 라벨 (상세) ─────────────────────────────────────
 const ACTION_LABELS: Record<string, string> = {
@@ -879,7 +884,7 @@ function DetailPanel({
           </button>
         </div>
         <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:8 }}>
-          {manualRefs.length > 0 && (
+          {SHOW_INTERNAL_SOURCE_UI && manualRefs.length > 0 && (
             <button onClick={() => onShowManual(manualRefs)}
               style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"8px 14px", borderRadius:8, background:manualOpen?"#2B6CB0":"rgba(66,153,225,0.10)", border:"1px solid #4299E1", color:manualOpen?"#fff":"#2B6CB0", fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}>
               <BookOpen size={13} /> 공식 매뉴얼 보기
@@ -984,13 +989,13 @@ function DetailPanel({
           )}
         </div>
 
-        {/* 인지세 */}
+        {/* 인지세 — 편집 제외(fee_rule은 v2 원본 수정 금지 대상, 표시도 정제값만 — 원문 노출 방지) */}
         <div>
           <EditableHeader
             title="인지세"
             icon={<span style={{fontSize:12}}>💴</span>}
             color="#718096"
-            isAdmin={isAdmin}
+            isAdmin={false}
             isEditing={editingField === "fee_rule"}
             onToggle={() => startEdit("fee_rule")}
             onSave={() => saveField("fee_rule", editFeeRule)}
@@ -1004,7 +1009,7 @@ function DetailPanel({
               style={{ width:"100%", fontSize:13, padding:"7px 10px", border:"1px solid #CBD5E0", borderRadius:7, outline:"none", boxSizing:"border-box" }}
             />
           ) : row.fee_rule ? (
-            <div style={{ fontSize:13, padding:"10px 14px", borderRadius:8, background:"#FFF9E6", color:"#6B5314", border:"1px solid #E8DFC8", lineHeight:1.5, wordBreak:"break-word", overflowWrap:"break-word" }}>{row.fee_rule}</div>
+            <div style={{ fontSize:13, padding:"10px 14px", borderRadius:8, background:"#FFF9E6", color:"#6B5314", border:"1px solid #E8DFC8", lineHeight:1.5, wordBreak:"break-word", overflowWrap:"break-word" }}>{sanitizeFeeRuleDisplay(row)}</div>
           ) : (
             <div style={{ fontSize:12, color:"#CBD5E0" }}>—</div>
           )}
@@ -1104,8 +1109,8 @@ function DetailPanel({
           </div>
         )}
 
-        {/* 근거 (관리자 편집 가능) */}
-        {(isAdmin || row.basis_section) && (
+        {/* 근거 (관리자 편집 가능) — 출처 비노출 원칙으로 화면에서 숨김(데이터·PATCH API 유지) */}
+        {SHOW_INTERNAL_SOURCE_UI && (isAdmin || row.basis_section) && (
           <div>
             <EditableHeader
               title="근거"

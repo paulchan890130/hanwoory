@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { href: "/daily",      label: "일일결산",       icon: DollarSign },
   { href: "/monthly",    label: "월간결산",       icon: BarChart2 },
   { href: "/quick-doc",  label: "문서자동작성",   icon: FileEdit },
-  { href: "/scan",       label: "OCR 스캔",       icon: ScanLine },
+  { href: "/scan",       label: "문서 인식",      icon: ScanLine },
   // 업무참고는 기타업무참고(각종공인증)로 대체되어 메뉴에서 숨김. 라우트/데이터는 유지.
   // { href: "/reference",            label: "업무참고",    icon: BookOpen },
   { href: "/certification-services",  label: "기타업무참고", icon: Award },

@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { GuidelineRow } from "@/lib/api";
+import { sanitizeFeeRuleDisplay } from "@/components/qualifications/v2docSanitize";
 
 export const ACTION_TYPE_LABELS: Record<string, string> = {
   CHANGE:                    "체류자격 변경",
@@ -150,7 +151,7 @@ export function GuidelineCard({ row, isSelected, onClick, defaultExpanded, docsP
           </div>
           {row.fee_rule && (
             <div style={{ marginTop:8, fontSize:11, color:"#718096", wordBreak:"break-word", overflowWrap:"break-word" }}>
-              인지세: <span style={{color:"#6B5314",fontWeight:600}}>{row.fee_rule}</span>
+              인지세: <span style={{color:"#6B5314",fontWeight:600}}>{sanitizeFeeRuleDisplay(row)}</span>
             </div>
           )}
         </div>

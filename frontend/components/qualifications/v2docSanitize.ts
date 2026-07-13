@@ -1,6 +1,8 @@
-// v2 실무지침 원본 JSON의 OCR 오염 표시 정제 유틸 (qualifications 화면 전용).
-// 원본 데이터(JSON·API 응답 객체)는 절대 수정하지 않는다 — 표시 직전 복사본에만 적용.
-// /guidelines 화면에는 영향 없음 (qualifications [code] 페이지에서만 사용).
+// v2 실무지침 원본 JSON의 OCR 오염 표시 정제 유틸.
+// 원본 데이터(JSON·API 응답 객체)는 절대 수정하지 않는다 — 표시 직전 복사본/표시값에만 적용.
+// 서류·개요 정제(sanitizeV2RowForDisplay)는 qualifications [code] 페이지 전용(/guidelines 무영향).
+// 단 sanitizeFeeRuleDisplay 는 /guidelines·/qualifications 양쪽 인지세 표시에 공용 — 두 화면의
+// 수수료 표시값이 항상 동일해야 한다(오안내 방지).
 import { GuidelineRow } from "@/lib/api";
 
 // 확정된 오탈자 치환표 — 배열 순서대로 적용한다(순서 의존: "결핵진 단서］" → "결핵진 단서" 등).
@@ -89,6 +91,27 @@ export function sanitizeNaReasonDisplay(s: string): string {
   return (s ?? "").replace(/\s*\(\s*20\d{2}-\d{2}-\d{2}[^)]*\)\s*/g, "").trim();
 }
 
+/** fee_rule 표시 직전 정제(원본 무수정).
+ *  ① F-6 체류기간 연장: 표시값 "기본 6만원" → "3만원" (공식 기준 정정 — detailed_code가 F-6 계열이고
+ *     업무가 체류기간 연장인 행에만 적용. 다른 자격의 연장 6만원, F-6의 변경 10만원·부여 4만원은 불변.)
+ *  ② 페이지 참조 표기 제거("매뉴얼 p.39 마항" 류 — 수수료 안내 문구 자체는 유지). */
+export function sanitizeFeeRuleDisplay(row: GuidelineRow): string {
+  let fee = row.fee_rule ?? "";
+  if (!fee.trim()) return fee;
+  const isF6Extend =
+    (row.detailed_code ?? "").startsWith("F-6") &&
+    ((row.major_action_std ?? "").includes("연장") || row.action_type === "EXTEND");
+  if (isF6Extend && fee.includes("기본 6만원")) {
+    fee = fee.split("기본 6만원").join("3만원");
+  }
+  fee = fee
+    .replace(/[,，]?\s*(?:매뉴얼\s*)?(?:p\.\s*\d+|페이지\s*\d+|\d+\s*페이지)(?:\s*[가-힣]항)?/g, "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return fee;
+}
+
 // "|" 구분 서류 문자열: 쓰레기 pill 제거 + 오탈자 정제.
 function sanitizeDocList(s: string): string {
   return (s ?? "")
@@ -122,5 +145,6 @@ export function sanitizeV2RowForDisplay(row: GuidelineRow): GuidelineRow {
     form_docs: blocked ? "" : sanitizeDocList(row.form_docs),
     supporting_docs: blocked ? "" : sanitizeDocList(row.supporting_docs),
     overview_short: sanitizeV2DocText(row.overview_short ?? ""),
+    fee_rule: sanitizeFeeRuleDisplay(row),
   };
 }
