@@ -79,20 +79,28 @@ function DrRow({ d }: { d: V3DocRequirement }) {
 }
 
 // 그룹 순서·명칭: 신청인 준비서류 → 행정사 사무소 준비서류 → 해당 시 추가서류 (기본 펼침)
+// 시각 구분 강화: 그룹별 색 박스(좌측 색 테두리 + 옅은 배경) + 건수 배지 + 성격 설명 한 줄.
 function DrGroups({ drs }: { drs: V3DocRequirement[] }) {
-  const groups: { key: string; title: string; color: string }[] = [
-    { key: "client", title: "신청인 준비서류", color: "#48BB78" },
-    { key: "office", title: "행정사 사무소 준비서류", color: "#4299E1" },
-    { key: "conditional", title: "해당 시 추가서류", color: "#975A16" },
+  const groups: { key: string; title: string; color: string; caption: string }[] = [
+    { key: "client", title: "신청인 준비서류", color: "#48BB78", caption: "손님(신청인)이 지참해야 하는 서류입니다." },
+    { key: "office", title: "행정사 사무소 준비서류", color: "#4299E1", caption: "위임장·대행업무수행확인서 등 사무소에서 준비하는 서류입니다." },
+    { key: "conditional", title: "해당 시 추가서류", color: "#975A16", caption: "조건에 해당하는 경우에만 준비하는 서류입니다." },
   ];
   return (
-    <div style={{ marginBottom:12 }}>
+    <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:10 }}>
       {groups.map(g => {
         const items = drs.filter(d => d.doc_role === g.key);
         if (items.length === 0) return null;
         return (
-          <div key={g.key} style={{ marginBottom:10 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:g.color, marginBottom:2 }}>{g.title} · {items.length}</div>
+          <div key={g.key} style={{ borderLeft:`3px solid ${g.color}`, background:`${g.color}0A`,
+            border:`1px solid ${g.color}30`, borderLeftWidth:3, borderLeftColor:g.color,
+            borderRadius:10, padding:"10px 14px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+              <span style={{ fontSize:12, fontWeight:700, color:g.color }}>{g.title}</span>
+              <span style={{ fontSize:10, fontWeight:700, color:g.color, background:"#fff",
+                border:`1px solid ${g.color}50`, borderRadius:99, padding:"1px 8px" }}>{items.length}</span>
+            </div>
+            <div style={{ fontSize:10.5, color:"#A0AEC0", marginBottom:6 }}>{g.caption}</div>
             {items.map(d => <DrRow key={d.requirement_id} d={d} />)}
           </div>
         );
@@ -204,9 +212,9 @@ function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDo
   );
 }
 
-function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
+function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickDoc }: {
   sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; drs: V3DocRequirement[];
-  subCodes: string[]; onClose: () => void; onQuickDoc: (url: string) => void;
+  subCodes: string[]; subNames: Record<string, string>; onClose: () => void; onQuickDoc: (url: string) => void;
 }) {
   const isBlock = sel.kind === "block";
   const b = isBlock ? (sel.item as V3Block) : null;
@@ -260,6 +268,7 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
     color: active ? "var(--hw-gold-text)" : "#4A5568",
     background: active ? "rgba(212,168,67,0.10)" : "#F7FAFC",
     border: active ? "1px solid rgba(212,168,67,0.55)" : "1px solid #E2E8F0",
+    textAlign:"left", maxWidth:"100%", whiteSpace:"normal", lineHeight:1.45,
   });
 
   return (
@@ -270,6 +279,11 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
           <div style={{ fontSize:14, fontWeight:700, color:"#2D3748", marginBottom:6 }}>
             {isBlock ? b!.block_label : (r!.route_label || ROUTE_TYPE_LABEL[r!.route_type] || r!.route_type)}
           </div>
+          {isBlock && subCode && (
+            <div style={{ fontSize:12, fontWeight:600, color:"var(--hw-gold-text)", marginBottom:6, lineHeight:1.5 }}>
+              {subCode}{subNames[subCode] ? ` ${subNames[subCode]}` : ""}
+            </div>
+          )}
           <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
             {isBlock
               ? <ApplicabilityBadge value={effB!.applicability} />
@@ -291,7 +305,10 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
           <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
             <button style={subChipStyle(subCode === null)} onClick={() => setSubCode(null)}>공통(기초)</button>
             {[...subCodes].sort(compareQualCode).map(c => (
-              <button key={c} style={subChipStyle(subCode === c)} onClick={() => setSubCode(c)}>{c}</button>
+              <button key={c} style={subChipStyle(subCode === c)} onClick={() => setSubCode(c)}>
+                <span style={{ whiteSpace:"nowrap" }}>{c}</span>
+                {subNames[c] && <span style={{ fontWeight:400, marginLeft:5, color: subCode === c ? "var(--hw-gold-text)" : "#718096" }}>{subNames[c]}</span>}
+              </button>
             ))}
           </div>
         </div>
@@ -447,6 +464,17 @@ export default function QualificationDetailPage() {
   const variantBlocks = useMemo(
     () => (detail?.blocks ?? []).filter(b => b.variant !== null),
     [detail]);
+  // 세부약호 코드 → 한글명 (children에 name_ko 포함 — 추가 fetch 불필요)
+  const subNames = useMemo<Record<string, string>>(
+    () => Object.fromEntries((detail?.children ?? []).map(c => [c.code, c.name_ko])),
+    [detail]);
+  // 사증 경로 2분류: 사증발급인정서(인정/대상아님/제외) vs 사증(공관·전자·확인필요)
+  const recogRoutes = useMemo(
+    () => (detail?.routes ?? []).filter(r => ["recognition", "not_applicable", "excluded"].includes(r.route_type)),
+    [detail]);
+  const visaRoutes = useMemo(
+    () => (detail?.routes ?? []).filter(r => !["recognition", "not_applicable", "excluded"].includes(r.route_type)),
+    [detail]);
 
   if (!isAdmin) {
     return (
@@ -468,7 +496,6 @@ export default function QualificationDetailPage() {
 
   const m = detail.master;
   const goQuickDoc = (url: string) => router.push(url);
-  const totalRoutes = detail.routes.length + detail.children.reduce((n, c) => n + c.routes.length, 0);
   const childrenWithRoutes = detail.children.filter(c => c.routes.length > 0);
 
   return (
@@ -521,139 +548,187 @@ export default function QualificationDetailPage() {
             {[...m.sub_codes].sort(compareQualCode).map(c => (
               <button key={c} onClick={() => router.push(`/qualifications/${encodeURIComponent(c)}`)}
                 style={{ fontSize:11, fontWeight:600, color:"#4A5568", background:"#F7FAFC",
-                  border:"1px solid #E2E8F0", borderRadius:8, padding:"2px 8px", cursor:"pointer" }}>
-                {c}
+                  border:"1px solid #E2E8F0", borderRadius:8, padding:"2px 8px", cursor:"pointer",
+                  textAlign:"left", maxWidth:"100%", whiteSpace:"normal", lineHeight:1.45 }}>
+                <span style={{ whiteSpace:"nowrap" }}>{c}</span>
+                {subNames[c] && <span style={{ fontWeight:400, marginLeft:5, color:"#718096" }}>{subNames[c]}</span>}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
-        {/* 좌측 메인 컬럼: 체류 업무 격자(위) + 사증 경로 섹션(아래) */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
-            {baseBlocks.map((b, i) => (
-              <div key={b.block_id}
-                onClick={() => setSel({ kind:"block", item:b })}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", cursor:"pointer",
-                  borderTop: i > 0 ? "1px solid #F7FAFC" : "none",
-                  background: sel?.kind === "block" && sel.item.block_id === b.block_id ? "#FFFDF5" : "#fff" }}>
-                <span style={{ fontSize:11, color:"#A0AEC0", width:18, flexShrink:0 }}>{b.block_order}</span>
-                <span style={{ fontSize:13, fontWeight:600, color:"#2D3748", width:170, flexShrink:0 }}>{b.block_label}</span>
-                <ApplicabilityBadge value={b.applicability} />
-                {b.conflict && (
-                  <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:99,
-                    background:"#FFFAF0", color:"#975A16", border:"1px solid #F6AD55", flexShrink:0 }}>
-                    ⚠ 기준 충돌 — 확인 필요
-                  </span>
-                )}
-                <span style={{ fontSize:11.5, color:"#718096", overflow:"hidden", textOverflow:"ellipsis",
-                  whiteSpace:"nowrap", flex:1 }}>
-                  {b.applicability === "not_applicable"
-                    ? sanitizeNaReasonDisplay(stripInternalIds(`${b.na_reason ?? ""}${b.redirect_to ? ` → 대안: ${b.redirect_to}` : ""}`))
-                    : b.applicability === "unknown" ? unknownSummary(b)
-                    : b.applicability === "conditional" ? "일정 요건을 충족하는 경우에만 진행합니다 — 상세 참조"
-                    : b.v2_row_ids.length > 0 ? `기존 지침 ${b.v2_row_ids.length}건 연결` : ""}
-                </span>
-                <ChevronRight size={14} style={{ color:"#CBD5E0", flexShrink:0 }} />
-              </div>
-            ))}
-            {variantBlocks.length > 0 && (
-              <div style={{ borderTop:"1px solid #EDF2F7", padding:"10px 16px" }}>
-                <div style={{ fontSize:10, fontWeight:700, color:"#A0AEC0", marginBottom:8 }}>변형 블록</div>
-                {variantBlocks.map(b => (
-                  <div key={b.block_id} onClick={() => setSel({ kind:"block", item:b })}
-                    style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 0", cursor:"pointer" }}>
-                    <span style={{ fontSize:12.5, fontWeight:600, color:"#4A5568" }}>
-                      {b.block_label}{b.variant === "residence_report" ? " (거소신고)" : b.variant === "activity_scope_add" ? " (활동범위 추가)" : ` (${b.variant})`}
-                    </span>
-                    <ApplicabilityBadge value={b.applicability} />
+      {/* 레이아웃: 좌측 좁은 선택 패널(체류 민원 → 사증발급인정서 → 사증, 세로 3섹션)
+          + 우측 넓은 상세 패널(세부서류 가독성 우선). 좁은 화면에서는 자연 스택. */}
+      <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
+        <div style={{ flex:"1 1 300px", maxWidth:400, minWidth:280, display:"flex", flexDirection:"column", gap:14 }}>
+          {/* ① 체류 민원 */}
+          <div>
+            <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
+              체류 민원 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({baseBlocks.length})</span>
+            </div>
+            <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+              {baseBlocks.map((b, i) => {
+                const summary = b.applicability === "not_applicable"
+                  ? sanitizeNaReasonDisplay(stripInternalIds(`${b.na_reason ?? ""}${b.redirect_to ? ` → 대안: ${b.redirect_to}` : ""}`))
+                  : b.applicability === "unknown" ? unknownSummary(b)
+                  : b.applicability === "conditional" ? "일정 요건을 충족하는 경우에만 진행합니다 — 상세 참조"
+                  : b.v2_row_ids.length > 0 ? `기존 지침 ${b.v2_row_ids.length}건 연결` : "";
+                return (
+                  <div key={b.block_id}
+                    onClick={() => setSel({ kind:"block", item:b })}
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer",
+                      borderTop: i > 0 ? "1px solid #F7FAFC" : "none",
+                      background: sel?.kind === "block" && sel.item.block_id === b.block_id ? "#FFFDF5" : "#fff" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:10.5, color:"#A0AEC0", flexShrink:0 }}>{b.block_order}</span>
+                        <span style={{ fontSize:12.5, fontWeight:600, color:"#2D3748" }}>{b.block_label}</span>
+                        <ApplicabilityBadge value={b.applicability} />
+                        {b.conflict && (
+                          <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 7px", borderRadius:99,
+                            background:"#FFFAF0", color:"#975A16", border:"1px solid #F6AD55" }}>⚠ 기준 충돌</span>
+                        )}
+                      </div>
+                      {summary && (
+                        <div style={{ marginTop:2, fontSize:10.5, color:"#A0AEC0", overflow:"hidden",
+                          textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{summary}</div>
+                      )}
+                    </div>
+                    <ChevronRight size={13} style={{ color:"#CBD5E0", flexShrink:0 }} />
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+              {variantBlocks.length > 0 && (
+                <div style={{ borderTop:"1px solid #EDF2F7", padding:"8px 12px" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#A0AEC0", marginBottom:6 }}>변형 블록</div>
+                  {variantBlocks.map(b => (
+                    <div key={b.block_id} onClick={() => setSel({ kind:"block", item:b })}
+                      style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", cursor:"pointer", flexWrap:"wrap" }}>
+                      <span style={{ fontSize:12, fontWeight:600, color:"#4A5568" }}>
+                        {b.block_label}{b.variant === "residence_report" ? " (거소신고)" : b.variant === "activity_scope_add" ? " (활동범위 추가)" : ` (${b.variant})`}
+                      </span>
+                      <ApplicabilityBadge value={b.applicability} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 사증 경로 섹션 — 체류 업무 격자와 동시 표시 */}
-          <div style={{ marginTop:16 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:"#4A5568", marginBottom:10 }}>
-              사증 경로{totalRoutes > 0 ? ` (${totalRoutes})` : ""}
+          {/* ② 사증발급인정서 */}
+          <div>
+            <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
+              사증발급인정서 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({recogRoutes.length})</span>
             </div>
-            {totalRoutes === 0 ? (
-              <div style={{ padding:"14px 16px", borderRadius:12, background:"#fff", border:"1px solid #E2E8F0",
-                fontSize:12.5, color:"#975A16" }}>
-                사증 경로 미정리 — 검수 필요
-              </div>
-            ) : (
-              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-                {detail.routes.length > 0 && (
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:10 }}>
-                    {detail.routes.map(r => {
+            <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+              {recogRoutes.length === 0 ? (
+                <div style={{ padding:"12px 14px", fontSize:11.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+              ) : recogRoutes.map((r, i) => {
+                const tone = routeTone(r);
+                return (
+                  <div key={r.route_id} onClick={() => setSel({ kind:"route", item:r })}
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer",
+                      borderTop: i > 0 ? "1px solid #F7FAFC" : "none",
+                      background: sel?.kind === "route" && sel.item.route_id === r.route_id ? "#FFFDF5" : "#fff" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:12.5, fontWeight:600, color:"#2D3748" }}>
+                          {r.route_label || ROUTE_TYPE_LABEL[r.route_type] || r.route_type}
+                        </span>
+                        <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
+                          color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
+                      </div>
+                      {isRouteUnfilled(r) && (
+                        <div style={{ marginTop:2, fontSize:10.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+                      )}
+                    </div>
+                    <ChevronRight size={13} style={{ color:"#CBD5E0", flexShrink:0 }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ③ 사증 (재외공관·전자사증) */}
+          <div>
+            <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
+              사증 <span style={{ fontWeight:600, color:"#A0AEC0" }}>(재외공관·전자) ({visaRoutes.length})</span>
+            </div>
+            <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+              {visaRoutes.length === 0 ? (
+                <div style={{ padding:"12px 14px", fontSize:11.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+              ) : visaRoutes.map((r, i) => {
+                const tone = routeTone(r);
+                return (
+                  <div key={r.route_id} onClick={() => setSel({ kind:"route", item:r })}
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer",
+                      borderTop: i > 0 ? "1px solid #F7FAFC" : "none",
+                      background: sel?.kind === "route" && sel.item.route_id === r.route_id ? "#FFFDF5" : "#fff" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:12.5, fontWeight:600, color:"#2D3748" }}>
+                          {r.route_label || ROUTE_TYPE_LABEL[r.route_type] || r.route_type}
+                        </span>
+                        <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
+                          color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
+                      </div>
+                      {isRouteUnfilled(r) && (
+                        <div style={{ marginTop:2, fontSize:10.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+                      )}
+                    </div>
+                    <ChevronRight size={13} style={{ color:"#CBD5E0", flexShrink:0 }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ④ 세부약호별 사증 경로 (상위 자격에서만) */}
+          {childrenWithRoutes.length > 0 && (
+            <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", padding:"12px 14px" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:8 }}>세부약호별 사증 경로</div>
+              {childrenWithRoutes.map(c => (
+                <div key={c.code} style={{ padding:"7px 0", borderTop:"1px solid #F7FAFC" }}>
+                  <button onClick={() => router.push(`/qualifications/${encodeURIComponent(c.code)}`)}
+                    style={{ fontSize:11.5, fontWeight:700, color:"#2D3748", background:"#F7FAFC",
+                      border:"1px solid #E2E8F0", borderRadius:8, padding:"2px 8px", cursor:"pointer",
+                      textAlign:"left", maxWidth:"100%", whiteSpace:"normal", lineHeight:1.45 }}>
+                    <span style={{ whiteSpace:"nowrap" }}>{c.code}</span>
+                    <span style={{ fontWeight:400, marginLeft:5, color:"#718096" }}>{c.name_ko}</span>
+                  </button>
+                  <div style={{ marginTop:4, display:"flex", gap:4, flexWrap:"wrap" }}>
+                    {c.routes.map(r => {
                       const tone = routeTone(r);
                       return (
-                        <div key={r.route_id} onClick={() => setSel({ kind:"route", item:r })}
-                          style={{ background:"#fff", borderRadius:12, border:`1px solid ${
-                            sel?.kind === "route" && sel.item.route_id === r.route_id ? "var(--hw-gold)" : "#E2E8F0"}`,
-                            padding:"14px 16px", cursor:"pointer" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
-                            <span style={{ fontSize:13, fontWeight:700, color:"#2D3748" }}>
-                              {r.route_label || ROUTE_TYPE_LABEL[r.route_type] || r.route_type}
-                            </span>
-                            <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:99,
-                              color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
-                          </div>
-                          <div style={{ fontSize:11.5, color:"#718096", lineHeight:1.6 }}>
-                            {r.application_place && <div>{r.application_place}</div>}
-                            {r.application_form && <div>{r.application_form}{r.fee ? ` · 수수료 ${r.fee}` : ""}</div>}
-                            {isRouteUnfilled(r) && (
-                              <div style={{ color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
-                            )}
-                          </div>
-                        </div>
+                        <span key={r.route_id} style={{ fontSize:10, fontWeight:600, padding:"2px 8px",
+                          borderRadius:99, color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>
+                          {ROUTE_TYPE_LABEL[r.route_type] ?? r.route_type} · {tone.badge}
+                        </span>
                       );
                     })}
                   </div>
-                )}
-                {childrenWithRoutes.length > 0 && (
-                  <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", padding:"14px 16px" }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:10 }}>세부약호별 사증 경로</div>
-                    {childrenWithRoutes.map(c => (
-                      <div key={c.code} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0",
-                        borderTop:"1px solid #F7FAFC", flexWrap:"wrap" }}>
-                        <button onClick={() => router.push(`/qualifications/${encodeURIComponent(c.code)}`)}
-                          style={{ fontSize:12, fontWeight:700, color:"#2D3748", background:"#F7FAFC",
-                            border:"1px solid #E2E8F0", borderRadius:8, padding:"3px 9px", cursor:"pointer", flexShrink:0 }}>
-                          {c.code}
-                        </button>
-                        <span style={{ fontSize:12, color:"#4A5568", flexShrink:0 }}>{c.name_ko}</span>
-                        {c.routes.map(r => {
-                          const tone = routeTone(r);
-                          return (
-                            <span key={r.route_id} style={{ fontSize:10.5, fontWeight:600, padding:"2px 8px",
-                              borderRadius:99, color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>
-                              {ROUTE_TYPE_LABEL[r.route_type] ?? r.route_type} · {tone.badge}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* 화면 3: 상세 패널 */}
-        {sel && (
-          <div style={{ width:400, flexShrink:0, position:"sticky", top:16 }}>
+        {/* 우측: 상세 패널 (넓게 — 세부서류 가독성 우선) */}
+        <div style={{ flex:"2 1 480px", minWidth:0 }}>
+          {sel ? (
             <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows}
               drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
-              subCodes={m.sub_codes ?? []}
+              subCodes={m.sub_codes ?? []} subNames={subNames}
               onClose={() => setSel(null)} onQuickDoc={goQuickDoc} />
-          </div>
-        )}
+          ) : (
+            <div style={{ background:"#fff", borderRadius:12, border:"1px dashed #CBD5E0",
+              padding:"56px 24px", textAlign:"center", color:"#A0AEC0", fontSize:13, lineHeight:1.8 }}>
+              좌측에서 체류 민원 또는 사증 경로를 선택하세요.<br />
+              수수료·신청인 준비서류·행정사 사무소 준비서류·해당 시 추가서류가 여기에 표시됩니다.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
