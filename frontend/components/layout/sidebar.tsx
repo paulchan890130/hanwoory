@@ -51,6 +51,15 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
 
   const isActive = (href: string) => pathname.startsWith(href) && href !== "/";
 
+  // 실무지침 기본 화면 = 자격별 찾기(/qualifications, 관리자). 일반 사용자는 기존 /guidelines.
+  // 활성 표시는 두 경로 모두 실무지침 메뉴로 취급한다.
+  const navHref = (href: string) =>
+    href === "/guidelines" && canManageContent(user) ? "/qualifications" : href;
+  const navActive = (href: string) =>
+    href === "/guidelines"
+      ? (isActive("/guidelines") || isActive("/qualifications"))
+      : isActive(href);
+
   // 모바일: 항상 expanded 형태로, transform으로 슬라이드
   const showExpanded = isMobile ? true : !collapsed;
 
@@ -146,9 +155,9 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
-              href={href}
+              href={navHref(href)}
               title={!showExpanded ? label : undefined}
-              className={`hw-sidebar-item ${isActive(href) ? "active" : ""}`}
+              className={`hw-sidebar-item ${navActive(href) ? "active" : ""}`}
               onClick={isMobile ? onMobileClose : undefined}
             >
               <Icon size={16} className="shrink-0" />

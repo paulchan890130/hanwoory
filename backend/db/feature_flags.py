@@ -130,6 +130,13 @@ def guidelines_v3_enabled() -> bool:
     return _bool("FEATURE_GUIDELINES_V3")
 
 
+def guidelines_v3_edit_enabled() -> bool:
+    """If true, v3 자격 중심 실무지침의 관리자 CRUD(오버레이 편집, migration 0030)를
+    활성화한다. Off(기본) → 편집 API 409, 읽기는 정본 JSON만(오버레이 병합 없음).
+    켜기 전 guideline_v3_edits 테이블 마이그레이션이 적용되어 있어야 한다."""
+    return _bool("FEATURE_GUIDELINES_V3_EDIT")
+
+
 def snapshot() -> dict[str, bool]:
     """Return the current flag state. Useful for debug endpoints."""
     return {
@@ -152,4 +159,5 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_PG_QUICK_DOC_CONFIG": pg_quick_doc_config_enabled(),
         "FEATURE_SINGLE_SESSION": single_session_enabled(),
         "FEATURE_GUIDELINES_V3": guidelines_v3_enabled(),
+        "FEATURE_GUIDELINES_V3_EDIT": guidelines_v3_edit_enabled(),
     }

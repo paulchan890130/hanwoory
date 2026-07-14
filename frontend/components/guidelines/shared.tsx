@@ -2,7 +2,7 @@
 // 실무지침 공용 표시 컴포넌트 — guidelines/page.tsx 에서 추출(동작 불변).
 // 사유: v3 자격 중심 화면(/qualifications)이 GuidelineCard·quickdoc 딥링크를
 // 재사용해야 하는데, Next.js 페이지 모듈은 값 export 를 허용하지 않음.
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { GuidelineRow } from "@/lib/api";
 import { sanitizeFeeRuleDisplay } from "@/components/qualifications/v2docSanitize";
@@ -84,6 +84,30 @@ export function DocChip({ text, color }: { text: string; color: string }) {
   );
 }
 
+// ── 설명문 전체 보기/접기 ─────────────────────────────────────────────────────
+// CSS 말줄임 대신 명시적 토글 — 상담 중 전체 설명 확인용. 짧은 문장은 버튼 미표시.
+export function ExpandableText({ text, limit = 90, style }: {
+  text: string | null | undefined; limit?: number; style?: CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  const needsToggle = text.length > limit;
+  return (
+    <div style={{ fontSize: 12, color: "#A0AEC0", lineHeight: 1.6, overflowWrap: "anywhere", ...style }}>
+      {needsToggle && !open ? text.slice(0, limit) + "…" : text}
+      {needsToggle && (
+        <button type="button" aria-expanded={open}
+          onClick={e => { e.stopPropagation(); setOpen(!open); }}
+          style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: "var(--hw-gold-text)",
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            textDecoration: "underline", verticalAlign: "baseline" }}>
+          {open ? "접기" : "전체 보기"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── 업무유형 뱃지 ──────────────────────────────────────────────────────────────
 export function ActionBadge({ type }: { type: string }) {
   const color = ACTION_TYPE_COLORS[type] || "#A0AEC0";
@@ -115,11 +139,7 @@ export function GuidelineCard({ row, isSelected, onClick, defaultExpanded, docsP
               <span style={{ fontSize:11, color:"#CBD5E0" }}>{row.major_action_std}</span>
             </div>
             <div style={{ fontSize:14, fontWeight:600, color:"#2D3748", marginBottom:3 }}>{row.business_name}</div>
-            {row.overview_short && (
-              <div style={{ fontSize:12, color:"#A0AEC0", lineHeight:1.5 }}>
-                {row.overview_short.length > 90 ? row.overview_short.slice(0,90)+"…" : row.overview_short}
-              </div>
-            )}
+            {row.overview_short && <ExpandableText text={row.overview_short} limit={90} />}
           </div>
           <button style={{ padding:4, color:"#CBD5E0", background:"none", border:"none", cursor:"pointer", flexShrink:0 }}
             onClick={e=>{e.stopPropagation(); setExpanded(!expanded);}}>

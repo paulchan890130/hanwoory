@@ -1250,6 +1250,14 @@ export default function GuidelinesPage() {
   const [selFamily, setSelFamily]       = useState<string | null>(null);
   const [selMid, setSelMid]             = useState<string | null>(null);
 
+  // 보조 탭 딥링크(/qualifications 화면의 분류별/업무별 탭에서 진입): ?view=class|work
+  // 저장된 이전 탭 상태는 없으며(모드 미영속), 쿼리 없으면 기존 기본값(업무별) 유지.
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    if (v === "class") setTreeMode(false);
+    else if (v === "work") setTreeMode(true);
+  }, []);
+
   // 검색 상태
   const [searchQuery, setSearchQuery]         = useState("");
   const [searchActiveType, setSearchActiveType] = useState("");
@@ -1641,15 +1649,15 @@ export default function GuidelinesPage() {
                 }}>
                 <Trees size={13} /> 업무별 찾기
               </button>
-              {/* v3 자격 중심 화면 진입(관리자 베타 — FEATURE_GUIDELINES_V3 off면 대상 페이지가 안내 표시) */}
+              {/* v3 자격 중심 화면(기본 화면) — 실무지침 진입 기본값은 /qualifications */}
               {isAdmin && (
                 <button
                   onClick={() => pageRouter.push("/qualifications")}
                   style={{
                     display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
-                    border:"1.5px dashed #CBD5E0", background:"#fff", color:"#718096", fontWeight:400, cursor:"pointer",
+                    border:"1.5px solid #CBD5E0", background:"#fff", color:"#718096", fontWeight:400, cursor:"pointer",
                   }}>
-                  <GitBranch size={13} /> 자격별 찾기 (베타)
+                  <GitBranch size={13} /> 자격별 찾기
                 </button>
               )}
               {/* 매뉴얼 PDF 다운로드 버튼 제거(Phase I-1J):

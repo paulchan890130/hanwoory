@@ -2,15 +2,22 @@
 // v3 자격 중심 실무지침 — 화면 2(자격 대시보드) + 화면 3(블록·경로 상세 패널)
 // 관리자 read-only 베타 (FEATURE_GUIDELINES_V3)
 // 좌측 = 체류 업무 격자(위) + 사증 경로 섹션(아래) 동시 표시, 우측 = 상세 패널.
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, FileText, Loader2, ShieldAlert, X } from "lucide-react";
-import { guidelinesV3Api, GuidelineRow, V3Block, V3DocRequirement, V3QualificationDetail, V3Route } from "@/lib/api";
+import {
+  guidelinesV3Api, GuidelineRow, V3Block, V3DeleteImpact, V3DocRequirement,
+  V3EntityType, V3QualificationDetail, V3Route,
+} from "@/lib/api";
 import { getUser, canManageContent } from "@/lib/auth";
 import {
   ApplicabilityBadge, ProgramChip, ROUTE_TYPE_LABEL, routeTone,
   compareQualCode, stripInternalIds,
 } from "@/components/qualifications/common";
+import {
+  DrEditor, EditIconButton, EntityEditModal, FieldSpec, ImpactDialog,
+  blockFields, qualFields, routeFields, runDelete,
+} from "@/components/qualifications/editV3";
 import { isDocBlockedV2Row, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 
@@ -172,9 +179,10 @@ function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDo
   );
 }
 
-function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickDoc }: {
+function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickDoc, editMode, onEdited }: {
   sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; drs: V3DocRequirement[];
   subCodes: string[]; subNames: Record<string, string>; onClose: () => void; onQuickDoc: (url: string) => void;
+  editMode?: boolean; onEdited?: () => void;
 }) {
   const isBlock = sel.kind === "block";
   const b = isBlock ? (sel.item as V3Block) : null;
@@ -350,6 +358,14 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
             </div>
           )}
 
+          {/* 준비서류 편집기 — 편집 모드에서만(각 구분 추가·수정·삭제) */}
+          {editMode && onEdited && (
+            <DrEditor
+              targetId={isBlock ? (effB!.block_id) : (r!.route_id)}
+              drs={effDrs}
+              onChanged={onEdited} />
+          )}
+
           {/* ⑤ 준비서류/필요서류 — A) v3 DR B) 인라인 목록 C) v2 참고 D) 특수경로 안내.
               신청 대상이 아닌 블록(불가)에는 서류 영역을 표시하지 않는다. */}
           {(!isBlock || effB!.applicability === "applicable" || effB!.applicability === "conditional") && (
@@ -410,7 +426,19 @@ export default function QualificationDetailPage() {
   const [error, setError] = useState("");
   const [sel, setSel] = useState<Selection>(null);
 
-  useEffect(() => {
+  // ── 편집(CRUD) 상태 — detail.editable(FEATURE_GUIDELINES_V3_EDIT)일 때만 노출 ──
+  const [editMode, setEditMode] = useState(false);
+  const [modal, setModal] = useState<{
+    etype: V3EntityType; mode: "create" | "edit"; title: string;
+    fields: FieldSpec[]; initial: Record<string, unknown>; id?: string;
+  } | null>(null);
+  const [impactState, setImpactState] = useState<{
+    etype: V3EntityType; id: string; label: string;
+    impact: V3DeleteImpact; cascadeAllowed: boolean;
+  } | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  const loadDetail = useCallback(() => {
     if (!isAdmin || !code) { setLoading(false); return; }
     setLoading(true); setSel(null);
     guidelinesV3Api.getQualification(code)
@@ -422,6 +450,25 @@ export default function QualificationDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [code, isAdmin]);
+
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  // 편집 저장 후 전체 재조회 — 상세 fetch 캐시까지 비워 목록·상세·집계를 일치시킨다
+  const reloadAll = useCallback(() => {
+    _subDetailCache.clear();
+    setReloadTick(t => t + 1);
+    loadDetail();
+  }, [loadDetail]);
+
+  const saveModal = useCallback(async (payload: Record<string, unknown>) => {
+    if (!modal) return;
+    if (modal.mode === "edit" && modal.id) {
+      await guidelinesV3Api.editUpdate(modal.etype, modal.id, payload);
+    } else {
+      await guidelinesV3Api.editCreate(modal.etype, payload);
+    }
+    reloadAll();
+  }, [modal, reloadAll]);
 
   // 세부약호 페이지: 상위 자격의 공통 판정 route(예: F-5 '사증발급인정서 대상 아님',
   // E-9 고용허가 인정서, D-2 유학 공통 경로) 상속 표시용 — 캐시 fetch(원본 데이터 무수정)
@@ -435,7 +482,7 @@ export default function QualificationDetailPage() {
       .then(d => { if (alive) setParentDetail(d); })
       .catch(() => { /* 상위 상세 로드 실패 시 자체 route만 표시 */ });
     return () => { alive = false; };
-  }, [parentCode]);
+  }, [parentCode, reloadTick]);
 
   const baseBlocks = useMemo(
     () => (detail?.blocks ?? []).filter(b => b.variant === null),
@@ -497,7 +544,7 @@ export default function QualificationDetailPage() {
     return (
       <div style={{ padding:"60px 24px", textAlign:"center", color:"#718096" }}>
         <ShieldAlert size={32} style={{ margin:"0 auto 12px", color:"#CBD5E0" }} />
-        <div style={{ fontSize:14, fontWeight:600 }}>관리자 전용 베타 화면입니다.</div>
+        <div style={{ fontSize:14, fontWeight:600 }}>관리자 전용 화면입니다.</div>
       </div>
     );
   }
@@ -513,6 +560,37 @@ export default function QualificationDetailPage() {
 
   const m = detail.master;
   const goQuickDoc = (url: string) => router.push(url);
+  const isEditable = !!detail.editable;
+  const qid = m.qualification_id;
+
+  const openRouteModal = (mode: "create" | "edit", r?: V3Route, presetType?: string) => {
+    setModal({
+      etype: "visa_route", mode, id: r?.route_id,
+      title: mode === "edit" ? `사증 경로 수정 — ${r?.route_label}` : "사증 경로 추가",
+      fields: routeFields(),
+      initial: (r as unknown as Record<string, unknown>)
+        ?? { qualification_id: qid, route_type: presetType ?? "recognition", is_active: true },
+    });
+  };
+  const deleteRoute = (r: V3Route) =>
+    runDelete("visa_route", r.route_id, r.route_label || r.route_id,
+      (impact, cascadeAllowed) => setImpactState({ etype: "visa_route", id: r.route_id,
+        label: r.route_label || r.route_id, impact, cascadeAllowed }),
+      reloadAll);
+  const openBlockModal = (mode: "create" | "edit", b?: V3Block) => {
+    setModal({
+      etype: "stay_block", mode, id: b?.block_id,
+      title: mode === "edit" ? `체류업무 수정 — ${b?.block_label}` : "체류업무 추가",
+      fields: blockFields(mode === "create"),
+      initial: (b as unknown as Record<string, unknown>)
+        ?? { qualification_id: qid, applicability: "applicable", is_active: true },
+    });
+  };
+  const deleteBlock = (b: V3Block) =>
+    runDelete("stay_block", b.block_id, b.block_label,
+      (impact, cascadeAllowed) => setImpactState({ etype: "stay_block", id: b.block_id,
+        label: b.block_label, impact, cascadeAllowed }),
+      reloadAll);
 
   // 사증 영역 공통 행 렌더 — 하위 유래 route는 "코드 한글명" 줄을 함께 표시
   const renderRouteRow = (e: RouteEntry, i: number) => {
@@ -540,6 +618,8 @@ export default function QualificationDetailPage() {
             </span>
             <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
               color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
+            {editMode && <EditIconButton kind="edit" title="경로 수정" onClick={() => openRouteModal("edit", r)} />}
+            {editMode && <EditIconButton kind="delete" title="경로 삭제" onClick={() => deleteRoute(r)} />}
           </div>
         </div>
         <ChevronRight size={13} style={{ color:"#CBD5E0", flexShrink:0 }} />
@@ -569,6 +649,8 @@ export default function QualificationDetailPage() {
           </span>
           <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
             color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
+          {editMode && <EditIconButton kind="edit" title="상태 항목 수정" onClick={() => openRouteModal("edit", r)} />}
+          {editMode && <EditIconButton kind="delete" title="상태 항목 삭제" onClick={() => deleteRoute(r)} />}
         </div>
         {(r.exceptions ?? []).map((x, j) => (
           <div key={j} style={{ marginTop:3, fontSize:11, color:"#718096", lineHeight:1.55 }}>{stripInternalIds(x)}</div>
@@ -591,6 +673,8 @@ export default function QualificationDetailPage() {
           <span style={{ fontSize:12.5, fontWeight:600, color:"#2D3748" }}>{r.route_label}</span>
           <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
             color:"#553C9A", background:"#FAF5FF", border:"1px solid #D6BCFA" }}>대체 경로</span>
+          {editMode && <EditIconButton kind="edit" title="대체 경로 수정" onClick={() => openRouteModal("edit", r)} />}
+          {editMode && <EditIconButton kind="delete" title="대체 경로 삭제" onClick={() => deleteRoute(r)} />}
         </div>
         <div style={{ fontSize:11.5, color:"#4A5568", lineHeight:1.65 }}>
           {r.alt_apply_as && <div>신청 경로: <strong>{r.alt_apply_as}</strong></div>}
@@ -631,6 +715,41 @@ export default function QualificationDetailPage() {
       <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", padding:"16px 18px", marginBottom:16 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, flexWrap:"wrap" }}>
           <span style={{ fontSize:18, fontWeight:700, color:"#2D3748" }}>{m.code} {m.name_ko}</span>
+          {isEditable && (
+            <button onClick={() => setEditMode(v => !v)}
+              style={{ fontSize:11, fontWeight:700, padding:"3px 12px", borderRadius:99, cursor:"pointer",
+                border:`1.5px solid ${editMode ? "#C53030" : "#CBD5E0"}`,
+                background: editMode ? "#FFF5F5" : "#fff", color: editMode ? "#C53030" : "#718096" }}>
+              {editMode ? "편집 종료" : "편집"}
+            </button>
+          )}
+          {isEditable && editMode && (
+            <>
+              <EditIconButton kind="edit" title="자격 정보 수정"
+                onClick={() => setModal({ etype:"qualification", mode:"edit", id: qid,
+                  title:`자격 수정 — ${m.code} ${m.name_ko}`,
+                  fields: qualFields([{ value: m.group, label: m.group }], !!detail.parent)
+                    .map(f => f.key === "code" ? { ...f, readOnly: true } : f),
+                  initial: m as unknown as Record<string, unknown> })} />
+              <EditIconButton kind="delete" title="자격 삭제"
+                onClick={() => runDelete("qualification", qid, `${m.code} ${m.name_ko}`,
+                  (impact, cascadeAllowed) => setImpactState({ etype:"qualification", id: qid,
+                    label:`${m.code} ${m.name_ko}`, impact, cascadeAllowed }),
+                  () => router.push(detail.parent
+                    ? `/qualifications/${encodeURIComponent(detail.parent.code)}` : "/qualifications"))} />
+              {!detail.parent && (
+                <button onClick={() => setModal({ etype:"qualification", mode:"create",
+                  title:`세부약호 추가 — ${m.code}`,
+                  fields: qualFields([], true),
+                  initial: { parent_qualification_id: qid, is_active: true } })}
+                  style={{ fontSize:11, fontWeight:700, padding:"3px 12px", borderRadius:99, cursor:"pointer",
+                    border:"1.5px solid rgba(212,168,67,0.55)", background:"rgba(212,168,67,0.08)",
+                    color:"var(--hw-gold-text)" }}>
+                  + 세부약호
+                </button>
+              )}
+            </>
+          )}
           {detail.programs.map(p => <ProgramChip key={p.program_id} program={p} />)}
           {m.delegated_to && (
             <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:99,
@@ -666,8 +785,11 @@ export default function QualificationDetailPage() {
         <div style={{ flex:"1 1 300px", maxWidth:400, minWidth:280, display:"flex", flexDirection:"column", gap:14 }}>
           {/* ① 체류 민원 */}
           <div>
-            <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
-              체류 민원 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({baseBlocks.length})</span>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+              <span style={{ fontSize:12.5, fontWeight:700, color:"#4A5568" }}>
+                체류 민원 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({baseBlocks.length})</span>
+              </span>
+              {editMode && <EditIconButton kind="add" title="체류업무 추가" onClick={() => openBlockModal("create")} />}
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
               {baseBlocks.map((b, i) => {
@@ -686,6 +808,8 @@ export default function QualificationDetailPage() {
                         <span style={{ fontSize:10.5, color:"#A0AEC0", flexShrink:0 }}>{b.block_order}</span>
                         <span style={{ fontSize:12.5, fontWeight:600, color:"#2D3748" }}>{b.block_label}</span>
                         <ApplicabilityBadge value={b.applicability} />
+                        {editMode && <EditIconButton kind="edit" title="업무 수정" onClick={() => openBlockModal("edit", b)} />}
+                        {editMode && <EditIconButton kind="delete" title="업무 삭제" onClick={() => deleteBlock(b)} />}
                         {b.conflict && (
                           <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 7px", borderRadius:99,
                             background:"#FFFAF0", color:"#975A16", border:"1px solid #F6AD55" }}>⚠ 기준 충돌</span>
@@ -719,8 +843,12 @@ export default function QualificationDetailPage() {
 
           {/* ② 사증발급인정서 — 실제 신청 가능한 경로만 집계, '대상 아님'은 비클릭 상태 안내 */}
           <div>
-            <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
-              사증발급인정서 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({recogEntries.length})</span>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+              <span style={{ fontSize:12.5, fontWeight:700, color:"#4A5568" }}>
+                사증발급인정서 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({recogEntries.length})</span>
+              </span>
+              {editMode && <EditIconButton kind="add" title="인정서 경로 추가"
+                onClick={() => openRouteModal("create", undefined, "recognition")} />}
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
               {recogEntries.map(renderRouteRow)}
@@ -735,8 +863,12 @@ export default function QualificationDetailPage() {
 
           {/* ③ 사증 (재외공관·전자사증) — 실제 신청 가능한 경로만 집계, 신청 중단은 상태 안내 */}
           <div>
-            <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
-              사증 <span style={{ fontWeight:600, color:"#A0AEC0" }}>(재외공관·전자) ({visaEntries.length})</span>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+              <span style={{ fontSize:12.5, fontWeight:700, color:"#4A5568" }}>
+                사증 <span style={{ fontWeight:600, color:"#A0AEC0" }}>(재외공관·전자) ({visaEntries.length})</span>
+              </span>
+              {editMode && <EditIconButton kind="add" title="사증 경로 추가"
+                onClick={() => openRouteModal("create", undefined, "consulate")} />}
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
               {visaEntries.map(renderRouteRow)}
@@ -782,7 +914,8 @@ export default function QualificationDetailPage() {
             <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows}
               drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
               subCodes={m.sub_codes ?? []} subNames={subNames}
-              onClose={() => setSel(null)} onQuickDoc={goQuickDoc} />
+              onClose={() => setSel(null)} onQuickDoc={goQuickDoc}
+              editMode={editMode} onEdited={reloadAll} />
           ) : (
             <div style={{ background:"#fff", borderRadius:12, border:"1px dashed #CBD5E0",
               padding:"56px 24px", textAlign:"center", color:"#A0AEC0", fontSize:13, lineHeight:1.8 }}>
@@ -792,6 +925,27 @@ export default function QualificationDetailPage() {
           )}
         </div>
       </div>
+
+      {/* 편집 모달 + 삭제 영향 확인 */}
+      {modal && (
+        <EntityEditModal title={modal.title} fields={modal.fields} initial={modal.initial}
+          onSave={saveModal} onClose={() => setModal(null)} />
+      )}
+      {impactState && (
+        <ImpactDialog entityLabel={impactState.label} impact={impactState.impact}
+          onCascade={impactState.cascadeAllowed
+            ? async () => {
+                await guidelinesV3Api.editDelete(impactState.etype, impactState.id, true);
+                if (impactState.etype === "qualification" && impactState.id === qid) {
+                  router.push(detail.parent
+                    ? `/qualifications/${encodeURIComponent(detail.parent.code)}` : "/qualifications");
+                } else {
+                  reloadAll();
+                }
+              }
+            : null}
+          onClose={() => setImpactState(null)} />
+      )}
     </div>
   );
 }

@@ -1493,6 +1493,7 @@ export interface V3QualificationDetail {
   programs: V3Program[];
   v2_rows: GuidelineRow[];
   doc_requirements: Record<string, V3DocRequirement[]>;
+  editable?: boolean;
 }
 
 export interface V3Aux {
@@ -1507,9 +1508,29 @@ export interface V3Aux {
   requirements?: V3DocRequirement[];
 }
 
+// v3 대분류(그룹) — 서버 제공(오버레이 편집 가능), 미제공 시 프론트 fallback
+export interface V3Group {
+  group_key: string;
+  label: string;
+  description?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+// v3 편집(CRUD) — FEATURE_GUIDELINES_V3_EDIT + PG 오버레이(guideline_v3_edits)
+export type V3EntityType = "group" | "qualification" | "stay_block" | "visa_route" | "doc_requirement";
+export interface V3DeleteImpact {
+  qualifications: string[];
+  blocks: string[];
+  routes: string[];
+  doc_requirements: string[];
+  blocking: boolean;
+  cascade_allowed: boolean;
+}
+
 export const guidelinesV3Api = {
   listQualifications: () =>
-    api.get<{ total: number; data: V3Qualification[]; programs: V3Program[] }>(
+    api.get<{ total: number; data: V3Qualification[]; programs: V3Program[]; groups?: V3Group[]; editable?: boolean }>(
       "/api/guidelines/v3/qualifications", { headers: { "X-Skip-Auth-Redirect": "1" } }),
   getQualification: (code: string) =>
     api.get<V3QualificationDetail>(`/api/guidelines/v3/qualifications/${encodeURIComponent(code)}`),
@@ -1517,6 +1538,23 @@ export const guidelinesV3Api = {
     api.get<{ total: number; data: V3Program[] }>("/api/guidelines/v3/programs"),
   listAux: () =>
     api.get<{ total: number; data: V3Aux[] }>("/api/guidelines/v3/aux"),
+  // ── 편집(CRUD) ──
+  editStatus: () =>
+    api.get<{ enabled: boolean; flag: boolean }>("/api/guidelines/v3/edit/status"),
+  editImpact: (etype: V3EntityType, id: string) =>
+    api.get<{ entity_id: string; entity: Record<string, unknown>; impact: V3DeleteImpact }>(
+      `/api/guidelines/v3/edit/impact/${etype}/${encodeURIComponent(id)}`),
+  editCreate: (etype: V3EntityType, payload: Record<string, unknown>) =>
+    api.post<{ status: string; entity_id: string }>(`/api/guidelines/v3/edit/${etype}`, payload),
+  editUpdate: (etype: V3EntityType, id: string, payload: Record<string, unknown>) =>
+    api.put<{ status: string; entity_id: string }>(
+      `/api/guidelines/v3/edit/${etype}/${encodeURIComponent(id)}`, payload),
+  editDelete: (etype: V3EntityType, id: string, cascade: boolean) =>
+    api.delete<{ status: string; deleted: string; impact: V3DeleteImpact }>(
+      `/api/guidelines/v3/edit/${etype}/${encodeURIComponent(id)}?cascade=${cascade ? "true" : "false"}`),
+  editRevert: (etype: V3EntityType, id: string) =>
+    api.post<{ status: string; reverted: string }>(
+      `/api/guidelines/v3/edit/${etype}/${encodeURIComponent(id)}/revert`),
 };
 
 // ── 실무지침 분류 오버레이 (A+ 방식, PG 전용) ───────────────────────────────
