@@ -20,8 +20,9 @@ type Selection =
   | { kind: "route"; item: V3Route; child?: { code: string; name_ko: string } }
   | null;
 
-// 상위 화면 사증 영역 집계용: 상위 직접 route + 하위 세부약호 route (route_id 기준 중복 제거)
-type RouteEntry = { route: V3Route; child?: { code: string; name_ko: string } };
+// 상위 화면 사증 영역 집계용: 상위 직접 route + 하위 세부약호 route (route_id 기준 중복 제거).
+// common=true 는 세부약호 페이지에서 상위 자격의 공통 판정 route 를 상속 표시하는 경우.
+type RouteEntry = { route: V3Route; child?: { code: string; name_ko: string }; common?: boolean };
 const RECOG_TYPES = ["recognition", "not_applicable", "excluded"];
 
 // 사증 경로 '없음'(행 자체 부재)과 '미정리'(행은 있으나 실질 내용 공백)를 구분한다.
@@ -492,6 +493,20 @@ export default function QualificationDetailPage() {
       .finally(() => setLoading(false));
   }, [code, isAdmin]);
 
+  // 세부약호 페이지: 상위 자격의 공통 판정 route(예: F-5 '사증발급인정서 대상 아님',
+  // E-9 고용허가 인정서, D-2 유학 공통 경로) 상속 표시용 — 캐시 fetch(원본 데이터 무수정)
+  const parentCode = detail?.parent?.code ?? null;
+  const [parentDetail, setParentDetail] = useState<V3QualificationDetail | null>(null);
+  useEffect(() => {
+    if (!parentCode) { setParentDetail(null); return; }
+    let alive = true;
+    setParentDetail(null);
+    fetchQualDetail(parentCode)
+      .then(d => { if (alive) setParentDetail(d); })
+      .catch(() => { /* 상위 상세 로드 실패 시 자체 route만 표시 */ });
+    return () => { alive = false; };
+  }, [parentCode]);
+
   const baseBlocks = useMemo(
     () => (detail?.blocks ?? []).filter(b => b.variant === null),
     [detail]);
@@ -515,8 +530,17 @@ export default function QualificationDetailPage() {
         if (!seen.has(r.route_id)) { seen.add(r.route_id); out.push({ route: r, child: { code: c.code, name_ko: c.name_ko } }); }
       }
     }
+    // 세부약호 페이지: 상위의 '직접' route만 공통 판정으로 상속(형제 세부약호 전용 route는 제외)
+    if (parentDetail) {
+      for (const r of parentDetail.routes ?? []) {
+        if (!seen.has(r.route_id)) {
+          seen.add(r.route_id);
+          out.push({ route: r, child: { code: parentDetail.master.code, name_ko: parentDetail.master.name_ko }, common: true });
+        }
+      }
+    }
     return out;
-  }, [detail]);
+  }, [detail, parentDetail]);
   const recogEntries = useMemo(
     () => allRouteEntries.filter(e => RECOG_TYPES.includes(e.route.route_type)),
     [allRouteEntries]);
@@ -559,6 +583,10 @@ export default function QualificationDetailPage() {
             <div style={{ fontSize:11, fontWeight:700, color:"var(--hw-gold-text)", marginBottom:2, lineHeight:1.45 }}>
               {e.child.code}{" "}
               <span style={{ fontWeight:400, color:"#718096" }}>{e.child.name_ko}</span>
+              {e.common && (
+                <span style={{ marginLeft:5, fontSize:9, fontWeight:700, padding:"1px 6px", borderRadius:99,
+                  color:"#4A5568", background:"#EDF2F7", border:"1px solid #E2E8F0", verticalAlign:"middle" }}>공통</span>
+              )}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
@@ -702,7 +730,11 @@ export default function QualificationDetailPage() {
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
               {recogEntries.length === 0 ? (
-                <div style={{ padding:"12px 14px", fontSize:11.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+                <div style={{ padding:"12px 14px", fontSize:11.5, color: allRouteEntries.length > 0 ? "#718096" : "#975A16" }}>
+                  {allRouteEntries.length > 0
+                    ? "이 구분의 별도 경로는 정리되어 있지 않습니다."
+                    : "정리된 사증 경로가 없습니다 — 공식 확인이 필요한 경로입니다."}
+                </div>
               ) : recogEntries.map(renderRouteRow)}
             </div>
           </div>
@@ -714,7 +746,11 @@ export default function QualificationDetailPage() {
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
               {visaEntries.length === 0 ? (
-                <div style={{ padding:"12px 14px", fontSize:11.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
+                <div style={{ padding:"12px 14px", fontSize:11.5, color: allRouteEntries.length > 0 ? "#718096" : "#975A16" }}>
+                  {allRouteEntries.length > 0
+                    ? "이 구분의 별도 경로는 정리되어 있지 않습니다."
+                    : "정리된 사증 경로가 없습니다 — 공식 확인이 필요한 경로입니다."}
+                </div>
               ) : visaEntries.map(renderRouteRow)}
             </div>
           </div>
