@@ -51,10 +51,10 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
 
   const isActive = (href: string) => pathname.startsWith(href) && href !== "/";
 
-  // 실무지침 기본 화면 = 자격별 찾기(/qualifications, 관리자). 일반 사용자는 기존 /guidelines.
-  // 활성 표시는 두 경로 모두 실무지침 메뉴로 취급한다.
+  // 실무지침 기본 화면 = 자격별 찾기(/qualifications) — 전 로그인 사용자 공통.
+  // (편집 기능만 관리자 차등 — 서버 editable) 활성 표시는 두 경로 모두 실무지침 메뉴로 취급.
   const navHref = (href: string) =>
-    href === "/guidelines" && canManageContent(user) ? "/qualifications" : href;
+    href === "/guidelines" ? "/qualifications" : href;
   const navActive = (href: string) =>
     href === "/guidelines"
       ? (isActive("/guidelines") || isActive("/qualifications"))

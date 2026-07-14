@@ -1,11 +1,11 @@
 "use client";
-// v3 자격 중심 실무지침 — 화면 1: 자격 선택 (관리자 전용, FEATURE_GUIDELINES_V3)
+// v3 자격 중심 실무지침 — 화면 1: 자격 선택 (전 로그인 사용자 조회, FEATURE_GUIDELINES_V3)
+// 편집 UI 는 서버 editable(관리자+FEATURE_GUIDELINES_V3_EDIT)일 때만 노출.
 // 대분류(그룹)는 서버 제공(오버레이 편집 가능) — 미제공 시 GROUP_LABEL fallback.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, Search, ShieldAlert } from "lucide-react";
+import { FileText, Loader2, Search } from "lucide-react";
 import { guidelinesV3Api, V3Aux, V3DeleteImpact, V3Group, V3Program, V3Qualification } from "@/lib/api";
-import { getUser, canManageContent } from "@/lib/auth";
 import { ProgramChip } from "@/components/qualifications/common";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 import {
@@ -145,8 +145,6 @@ function ProgramCard({ p, onCodeClick }: { p: V3Program; onCodeClick: (code: str
 
 export default function QualificationsPage() {
   const router = useRouter();
-  const user = useMemo(() => getUser(), []);
-  const isAdmin = canManageContent(user);
 
   const [items, setItems] = useState<V3Qualification[]>([]);
   const [programs, setPrograms] = useState<V3Program[]>([]);
@@ -164,6 +162,7 @@ export default function QualificationsPage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
 
+  // 조회는 전 로그인 사용자 — 편집 노출 여부는 서버 editable(관리자+플래그)로만 판단
   const reload = useCallback(() => {
     guidelinesV3Api.listQualifications()
       .then(res => {
@@ -181,13 +180,12 @@ export default function QualificationsPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) { setLoading(false); return; }
     reload();
     // 보조 민원(별도 축) — 실패해도 자격 화면은 정상 동작
     guidelinesV3Api.listAux()
       .then(res => setAuxItems(res.data.data))
       .catch(() => setAuxItems([]));
-  }, [isAdmin, reload]);
+  }, [reload]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -235,22 +233,13 @@ export default function QualificationsPage() {
     reload();
   }, [modal, reload]);
 
-  if (!isAdmin) {
-    return (
-      <div style={{ padding:"60px 24px", textAlign:"center", color:"#718096" }}>
-        <ShieldAlert size={32} style={{ margin:"0 auto 12px", color:"#CBD5E0" }} />
-        <div style={{ fontSize:14, fontWeight:600 }}>관리자 전용 화면입니다.</div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ padding:24, maxWidth:1200, margin:"0 auto" }}>
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6, flexWrap:"wrap" }}>
         <h1 style={{ fontSize:20, fontWeight:700, color:"#2D3748", margin:0 }}>실무지침</h1>
         <span style={{ fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:99,
           background:"rgba(212,168,67,0.10)", color:"var(--hw-gold-text)", border:"1px solid rgba(212,168,67,0.35)" }}>
-          관리자 전용 · v3 기준
+          v3 기준
         </span>
       </div>
       <div style={{ fontSize:12, color:"#718096", marginBottom:12 }}>

@@ -4,12 +4,11 @@
 // 좌측 = 체류 업무 격자(위) + 사증 경로 섹션(아래) 동시 표시, 우측 = 상세 패널.
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, FileText, Loader2, ShieldAlert, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, FileText, Loader2, X } from "lucide-react";
 import {
   guidelinesV3Api, GuidelineRow, V3Block, V3DeleteImpact, V3DocRequirement,
   V3EntityType, V3QualificationDetail, V3Route,
 } from "@/lib/api";
-import { getUser, canManageContent } from "@/lib/auth";
 import {
   ApplicabilityBadge, ProgramChip, ROUTE_TYPE_LABEL, routeTone,
   compareQualCode, stripInternalIds,
@@ -418,8 +417,7 @@ export default function QualificationDetailPage() {
   const router = useRouter();
   const params = useParams<{ code: string }>();
   const code = decodeURIComponent(params.code ?? "");
-  const user = useMemo(() => getUser(), []);
-  const isAdmin = canManageContent(user);
+  // 조회는 전 로그인 사용자 — 편집 UI 는 서버 detail.editable(관리자+플래그)로만 노출
 
   const [detail, setDetail] = useState<V3QualificationDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -439,7 +437,7 @@ export default function QualificationDetailPage() {
   const [reloadTick, setReloadTick] = useState(0);
 
   const loadDetail = useCallback(() => {
-    if (!isAdmin || !code) { setLoading(false); return; }
+    if (!code) { setLoading(false); return; }
     setLoading(true); setSel(null);
     guidelinesV3Api.getQualification(code)
       .then(res => setDetail(res.data))
@@ -449,7 +447,7 @@ export default function QualificationDetailPage() {
           : "v3 데이터를 불러오지 못했습니다.");
       })
       .finally(() => setLoading(false));
-  }, [code, isAdmin]);
+  }, [code]);
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
@@ -540,14 +538,6 @@ export default function QualificationDetailPage() {
     () => statusEntries.filter(e => e.route.route_type === "domestic_only"),
     [statusEntries]);
 
-  if (!isAdmin) {
-    return (
-      <div style={{ padding:"60px 24px", textAlign:"center", color:"#718096" }}>
-        <ShieldAlert size={32} style={{ margin:"0 auto 12px", color:"#CBD5E0" }} />
-        <div style={{ fontSize:14, fontWeight:600 }}>관리자 전용 화면입니다.</div>
-      </div>
-    );
-  }
   if (loading) {
     return <div style={{ display:"flex", justifyContent:"center", padding:"80px 0" }}>
       <Loader2 size={24} className="animate-spin" style={{ color:"var(--hw-gold)" }} /></div>;

@@ -1649,17 +1649,15 @@ export default function GuidelinesPage() {
                 }}>
                 <Trees size={13} /> 업무별 찾기
               </button>
-              {/* v3 자격 중심 화면(기본 화면) — 실무지침 진입 기본값은 /qualifications */}
-              {isAdmin && (
-                <button
-                  onClick={() => pageRouter.push("/qualifications")}
-                  style={{
-                    display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
-                    border:"1.5px solid #CBD5E0", background:"#fff", color:"#718096", fontWeight:400, cursor:"pointer",
-                  }}>
-                  <GitBranch size={13} /> 자격별 찾기
-                </button>
-              )}
+              {/* v3 자격 중심 화면(기본 화면) — 실무지침 진입 기본값은 /qualifications (전 사용자) */}
+              <button
+                onClick={() => pageRouter.push("/qualifications")}
+                style={{
+                  display:"flex", alignItems:"center", gap:5, fontSize:12, padding:"6px 14px", borderRadius:20,
+                  border:"1.5px solid #CBD5E0", background:"#fff", color:"#718096", fontWeight:400, cursor:"pointer",
+                }}>
+                <GitBranch size={13} /> 자격별 찾기
+              </button>
               {/* 매뉴얼 PDF 다운로드 버튼 제거(Phase I-1J):
                   Render(Linux)에서 HWP→전체 PDF 변환 불가(win32com/OpenHwpExe 의존),
                   legacy unlocked_*.pdf 가 최신화되지 않아 "최신 전체 매뉴얼"로 오인 → 삭제. */}
