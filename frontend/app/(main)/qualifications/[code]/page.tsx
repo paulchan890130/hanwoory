@@ -333,6 +333,12 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, onClose, onQuickDoc }: {
               ⚠ {sanitizeConflictText(stripInternalIds(effB!.conflict))}
             </div>
           )}
+          {isBlock && effB!.fee && (
+            <div style={{ marginBottom:12, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
+              <div>수수료: <strong>{effB!.fee}</strong></div>
+              <div style={{ fontSize:11, color:"#A0AEC0" }}>면제·감면 대상 여부는 관할 출입국·외국인관서 기준에 따릅니다.</div>
+            </div>
+          )}
           {isBlock && effB!.applicability === "unknown" && (
             <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFF5F5",
               border:"1px solid #FEB2B2", fontSize:12, color:"#C53030", lineHeight:1.6 }}>

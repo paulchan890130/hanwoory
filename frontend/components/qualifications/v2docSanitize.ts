@@ -94,12 +94,21 @@ export function sanitizeNaReasonDisplay(s: string): string {
 /** fee_rule 표시 직전 정제(원본 무수정).
  *  ① F-6 체류기간 연장: 표시값 "기본 6만원" → "3만원" (공식 기준 정정 — detailed_code가 F-6 계열이고
  *     업무가 체류기간 연장인 행에만 적용. 다른 자격의 연장 6만원, F-6의 변경 10만원·부여 4만원은 불변.)
- *  ② 페이지 참조 표기 제거("매뉴얼 p.39 마항" 류 — 수수료 안내 문구 자체는 유지). */
+ *  ② D-2·D-4 시간제취업(자격외활동 행): 표시값 → "2만원" (현행 공식 기준 — 면제/없음·"12만원(2만원
+ *     가능)" 표기는 과거값. 비 D-2/D-4·다른 업무 미적용, v3 블록 수수료 2만원과 표시 통일.)
+ *  ③ 페이지 참조 표기 제거("매뉴얼 p.39 마항" 류 — 수수료 안내 문구 자체는 유지). */
 export function sanitizeFeeRuleDisplay(row: GuidelineRow): string {
   let fee = row.fee_rule ?? "";
   if (!fee.trim()) return fee;
+  const code = row.detailed_code ?? "";
+  const isD2D4PartTime =
+    (code.startsWith("D-2") || code.startsWith("D-4")) &&
+    (row.action_type === "EXTRA_WORK" || (row.major_action_std ?? "").includes("체류자격외"));
+  if (isD2D4PartTime) {
+    return "2만원";
+  }
   const isF6Extend =
-    (row.detailed_code ?? "").startsWith("F-6") &&
+    code.startsWith("F-6") &&
     ((row.major_action_std ?? "").includes("연장") || row.action_type === "EXTEND");
   if (isF6Extend && fee.includes("기본 6만원")) {
     fee = fee.split("기본 6만원").join("3만원");
