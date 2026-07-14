@@ -122,11 +122,14 @@ export function sanitizeFeeRuleDisplay(row: GuidelineRow): string {
 }
 
 // "|" 구분 서류 문자열: 쓰레기 pill 제거 + 오탈자 정제.
+// "수수료" 단독 pill은 서류가 아니라 납부 항목 — qualifications 화면은 블록 수수료·인지세로
+// 금액을 표시하므로 이중 표시 방지 차원에서 서류 목록에서는 숨긴다(원본 무수정).
 function sanitizeDocList(s: string): string {
   return (s ?? "")
     .split("|")
     .map(t => t.trim())
     .filter(Boolean)
+    .filter(t => t !== "수수료")
     .filter(t => !isGarbageDocText(t))
     .map(sanitizeV2DocText)
     .join("|");

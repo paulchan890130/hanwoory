@@ -1770,31 +1770,6 @@
   }
  },
  {
-  "requirement_id": "DR:0077",
-  "target_type": "stay_block",
-  "target_id": "SB:F-3_EXTEND",
-  "doc_name": "수수료",
-  "doc_kind": "evidence",
-  "doc_role": "client",
-  "condition": null,
-  "is_required": true,
-  "form_ref": null,
-  "source_v2_row_id": "M1-0104",
-  "confidence": "high",
-  "notes": "v2 행 서류 분해 | 매뉴얼 기준 필수서류 ①에 '수수료' 포함",
-  "template_candidate": null,
-  "needs_human_review": false,
-  "added_from_manual": false,
-  "review_category": "sourced",
-  "final_disposition": "confirmed",
-  "quickdoc_link": {
-   "category": "체류",
-   "kind": "F",
-   "detail": "3",
-   "minwon": "연장"
-  }
- },
- {
   "requirement_id": "DR:0078",
   "target_type": "stay_block",
   "target_id": "SB:F-3_EXTEND",
@@ -2088,31 +2063,6 @@
   "template_candidate": null,
   "needs_human_review": true,
   "added_from_manual": false,
-  "review_category": "sourced",
-  "final_disposition": "human_judgment",
-  "quickdoc_link": {
-   "category": "체류",
-   "kind": "F",
-   "detail": "3",
-   "minwon": "등록"
-  }
- },
- {
-  "requirement_id": "DR:0090",
-  "target_type": "stay_block",
-  "target_id": "SB:F-3_REGISTRATION",
-  "doc_name": "수수료",
-  "doc_kind": "evidence",
-  "doc_role": "client",
-  "condition": null,
-  "is_required": true,
-  "form_ref": null,
-  "source_v2_row_id": null,
-  "confidence": "high",
-  "notes": "매뉴얼 서류 절 검토으로 추가",
-  "template_candidate": null,
-  "needs_human_review": true,
-  "added_from_manual": true,
   "review_category": "sourced",
   "final_disposition": "human_judgment",
   "quickdoc_link": {
@@ -2774,31 +2724,6 @@
   "added_from_manual": false,
   "review_category": "template_check",
   "final_disposition": "template_check",
-  "quickdoc_link": {
-   "category": "체류",
-   "kind": "F",
-   "detail": "4",
-   "minwon": "연장"
-  }
- },
- {
-  "requirement_id": "DR:0117",
-  "target_type": "stay_block",
-  "target_id": "SB:F-4_EXTEND",
-  "doc_name": "수수료",
-  "doc_kind": "evidence",
-  "doc_role": "client",
-  "condition": null,
-  "is_required": true,
-  "form_ref": null,
-  "source_v2_row_id": null,
-  "confidence": "high",
-  "notes": "매뉴얼 서류 절 검토으로 추가",
-  "template_candidate": null,
-  "needs_human_review": true,
-  "added_from_manual": true,
-  "review_category": "sourced",
-  "final_disposition": "human_judgment",
   "quickdoc_link": {
    "category": "체류",
    "kind": "F",
