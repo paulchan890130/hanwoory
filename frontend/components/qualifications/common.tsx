@@ -72,17 +72,22 @@ export const ROUTE_TYPE_LABEL: Record<string, string> = {
   both: "공관·인정 병행",
   not_applicable: "사증발급인정서 대상 아님",
   excluded: "사증발급인정서 제외",
-  confirm_needed: "경로 확인 필요",
+  domestic_only: "국내 체류자격 부여·변경 경로",
+  alternative_route: "대체 신청 경로",
+  discontinued: "신규 신청 중단",
 };
 
-// 경로 배지(2026-07-08 실무 안내형): confidence 기반 '확인필요'는 내부 검토 영역으로 이동 —
-// 기본 화면은 상태 기반 문구만(폐지된 제도 / 제외·대상 아님 / 경로 확인 중 / 가능).
+// 경로 배지(2026-07-14 유형 분리): 실제 신청 경로(가능)와 상태 행(대상 아님/국내 경로/신청 중단),
+// 대체 경로를 시각적으로 구분한다.
 export function routeTone(r: V3Route): { color: string; bg: string; border: string; badge: string } {
-  if (r.status === "abolished") return { color:"#822727", bg:"#FFF5F5", border:"#FEB2B2", badge:"폐지된 제도" };
+  if (r.status === "abolished" || r.route_type === "discontinued")
+    return { color:"#822727", bg:"#FFF5F5", border:"#FEB2B2", badge:"신규 신청 불가" };
   if (r.route_type === "not_applicable" || r.route_type === "excluded")
-    return { color:"#4A5568", bg:"#EDF2F7", border:"#CBD5E0", badge: r.route_type === "excluded" ? "제외" : "대상 아님" };
-  if (r.route_type === "confirm_needed")
-    return { color:"#975A16", bg:"#FFFFF0", border:"#F6E05E", badge:"경로 확인 중" };
+    return { color:"#4A5568", bg:"#EDF2F7", border:"#CBD5E0", badge:"대상 아님" };
+  if (r.route_type === "domestic_only")
+    return { color:"#2B6CB0", bg:"#EBF8FF", border:"#90CDF4", badge:"국내 경로" };
+  if (r.route_type === "alternative_route")
+    return { color:"#553C9A", bg:"#FAF5FF", border:"#D6BCFA", badge:"대체 경로" };
   return { color:"#2C7A7B", bg:"#E6FFFA", border:"#81E6D9", badge:"가능" };
 }
 

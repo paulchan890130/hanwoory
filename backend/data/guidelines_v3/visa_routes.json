@@ -424,7 +424,7 @@
  {
   "route_id": "VR:C-3-8_CONSULATE",
   "qualification_id": "Q:C-3-8",
-  "route_type": "consulate",
+  "route_type": "discontinued",
   "route_label": "공관장재량 사증",
   "application_place": "재외공관",
   "application_form": "별지 제17호 사증발급신청서",
@@ -681,17 +681,19 @@
  {
   "route_id": "VR:G-1-10_EVISA",
   "qualification_id": "Q:G-1-10",
-  "route_type": "evisa",
-  "route_label": "전자사증(의료관광)",
-  "application_place": "온라인",
-  "application_form": "",
-  "fee": null,
-  "requires_recognition_before_consulate": false,
+  "route_type": "recognition",
+  "route_label": "사증발급인정신청(외국인환자 — 온라인 전용)",
+  "application_place": "초청자(유치기관) 사업장 소재지 관할 출입국·외국인청(사무소·출장소) — 비자포털 온라인 신청 전용",
+  "application_form": "별지 제21호 사증발급인정신청서",
+  "fee": "없음",
+  "requires_recognition_before_consulate": true,
   "minister_approval_required": false,
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "외국인 환자 유치의료기관·유치업자로 등록한 초청자의 온라인 신청으로만 진행됩니다."
+  ],
   "quickdoc_links": [],
   "v2_row_id": null,
   "program_ids": [],
@@ -700,49 +702,54 @@
   "status": "active"
  },
  {
-  "route_id": "VR:F-4_CONFIRM_NEEDED",
+  "route_id": "VR:F-4_CONSULATE",
   "qualification_id": "Q:F-4",
-  "route_type": "confirm_needed",
-  "route_label": "동포매뉴얼 경로(공관/인정 병행 여부 확인)",
-  "application_place": "",
-  "application_form": "",
-  "fee": null,
+  "route_type": "consulate",
+  "route_label": "재외공관 사증(재외동포)",
+  "application_place": "재외공관",
+  "application_form": "별지 제17호 사증발급신청서",
+  "fee": "있음(공관별 상이)",
   "requires_recognition_before_consulate": false,
   "minister_approval_required": false,
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "외국국적동포 대상이며, 한국어능력 입증 수준에 따라 부여되는 체류기간(최대 3년)이 달라집니다.",
+   "해외 범죄경력증명서 제출 기준이 적용됩니다."
+  ],
   "quickdoc_links": [],
   "v2_row_id": null,
   "program_ids": [
    "PG:DONGPO"
   ],
-  "confidence": "medium",
-  "notes": "동포매뉴얼 사증 절 검토 후 확정.",
+  "confidence": "high",
+  "notes": "",
   "status": "active"
  },
  {
-  "route_id": "VR:H-2_CONFIRM_NEEDED",
+  "route_id": "VR:H-2_DISCONTINUED",
   "qualification_id": "Q:H-2",
-  "route_type": "confirm_needed",
-  "route_label": "동포매뉴얼 경로(쿼터·추첨 등 확인)",
-  "application_place": "",
-  "application_form": "",
+  "route_type": "discontinued",
+  "route_label": "신규 사증 발급 중단",
+  "application_place": null,
+  "application_form": null,
   "fee": null,
   "requires_recognition_before_consulate": false,
   "minister_approval_required": false,
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "방문취업(H-2) 사증의 신규 발급이 중단되었습니다. 이미 사증을 발급받아 입국한 동포의 체류관리(외국인등록·기간연장 등)는 계속 진행됩니다."
+  ],
   "quickdoc_links": [],
   "v2_row_id": null,
   "program_ids": [
    "PG:DONGPO"
   ],
-  "confidence": "medium",
-  "notes": "동포매뉴얼 사증 절 검토 후 확정.",
+  "confidence": "high",
+  "notes": "",
   "status": "active"
  },
  {
@@ -811,8 +818,8 @@
  {
   "route_id": "VR:A-3_EXCLUDED",
   "qualification_id": "Q:A-3",
-  "route_type": "excluded",
-  "route_label": "사증발급인정서 제외",
+  "route_type": "not_applicable",
+  "route_label": "사증발급인정서 대상 아님(발급 제외 대상)",
   "application_place": "",
   "application_form": "",
   "fee": null,
@@ -821,7 +828,9 @@
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "협정(A-3)은 사증발급인정서 발급 제외 대상입니다. 사증은 재외공관에서 발급됩니다."
+  ],
   "quickdoc_links": [],
   "v2_row_id": null,
   "program_ids": [],
@@ -832,8 +841,8 @@
  {
   "route_id": "VR:B-1_EXCLUDED",
   "qualification_id": "Q:B-1",
-  "route_type": "excluded",
-  "route_label": "사증발급인정서 제외",
+  "route_type": "not_applicable",
+  "route_label": "사증발급인정서 대상 아님 — 무사증 입국 자격",
   "application_place": "",
   "application_form": "",
   "fee": null,
@@ -842,7 +851,9 @@
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "사증면제협정에 따라 사증 없이 입국하는 자격으로, 별도의 사증·사증발급인정서 신청 경로가 없습니다."
+  ],
   "quickdoc_links": [],
   "v2_row_id": null,
   "program_ids": [],
@@ -853,8 +864,8 @@
  {
   "route_id": "VR:B-2_EXCLUDED",
   "qualification_id": "Q:B-2",
-  "route_type": "excluded",
-  "route_label": "사증발급인정서 제외",
+  "route_type": "not_applicable",
+  "route_label": "사증발급인정서 대상 아님 — 무사증 입국 자격",
   "application_place": "",
   "application_form": "",
   "fee": null,
@@ -863,7 +874,9 @@
   "office_docs": [],
   "client_docs": [],
   "conditional_docs": [],
-  "exceptions": [],
+  "exceptions": [
+   "관광·통과 등 무사증 입국 허가 대상 자격으로, 별도의 사증·사증발급인정서 신청 경로가 없습니다."
+  ],
   "quickdoc_links": [],
   "v2_row_id": null,
   "program_ids": [],
@@ -1896,8 +1909,8 @@
  {
   "route_id": "VR:F-2-4_NOT_APPLICABLE",
   "qualification_id": "Q:F-2-4",
-  "route_type": "not_applicable",
-  "route_label": "사증 발급 대상 아님 — 국내 체류자격 부여·변경 경로",
+  "route_type": "domestic_only",
+  "route_label": "국내 체류자격 부여·변경 경로 — 재외공관 사증발급 대상 아님",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -1919,8 +1932,8 @@
  {
   "route_id": "VR:F-2-5_NOT_APPLICABLE",
   "qualification_id": "Q:F-2-5",
-  "route_type": "not_applicable",
-  "route_label": "사증 발급 대상 아님 — 국내 체류자격 부여·변경 경로",
+  "route_type": "domestic_only",
+  "route_label": "국내 체류자격 부여·변경 경로 — 재외공관 사증발급 대상 아님",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -1942,8 +1955,8 @@
  {
   "route_id": "VR:F-2-99_NOT_APPLICABLE",
   "qualification_id": "Q:F-2-99",
-  "route_type": "not_applicable",
-  "route_label": "사증 발급 대상 아님 — 국내 체류자격 부여·변경 경로",
+  "route_type": "domestic_only",
+  "route_label": "국내 체류자격 부여·변경 경로 — 재외공관 사증발급 대상 아님",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -1965,8 +1978,8 @@
  {
   "route_id": "VR:F-2-7S_NOT_APPLICABLE",
   "qualification_id": "Q:F-2-7S",
-  "route_type": "not_applicable",
-  "route_label": "사증 발급 대상 아님 — 국내 체류자격 변경 경로",
+  "route_type": "domestic_only",
+  "route_label": "국내 체류자격 변경 경로",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -1988,7 +2001,7 @@
  {
   "route_id": "VR:F-2-6_NOT_APPLICABLE",
   "qualification_id": "Q:F-2-6",
-  "route_type": "not_applicable",
+  "route_type": "discontinued",
   "route_label": "폐지된 제도 — 신규 사증 신청 경로 없음",
   "application_place": null,
   "application_form": null,
@@ -2011,7 +2024,7 @@
  {
   "route_id": "VR:E-7-Y_NOT_APPLICABLE",
   "qualification_id": "Q:E-7-Y",
-  "route_type": "not_applicable",
+  "route_type": "domestic_only",
   "route_label": "국내 체류자격 변경 경로",
   "application_place": null,
   "application_form": null,
@@ -2034,7 +2047,7 @@
  {
   "route_id": "VR:E-7-4R_NOT_APPLICABLE",
   "qualification_id": "Q:E-7-4R",
-  "route_type": "not_applicable",
+  "route_type": "domestic_only",
   "route_label": "국내 체류자격 변경 경로",
   "application_place": null,
   "application_form": null,
@@ -2057,7 +2070,7 @@
  {
   "route_id": "VR:F-2-R_NOT_APPLICABLE",
   "qualification_id": "Q:F-2-R",
-  "route_type": "not_applicable",
+  "route_type": "domestic_only",
   "route_label": "국내 체류자격 변경 경로",
   "application_place": null,
   "application_form": null,
@@ -2080,7 +2093,7 @@
  {
   "route_id": "VR:F-1-6_NOT_APPLICABLE",
   "qualification_id": "Q:F-1-6",
-  "route_type": "not_applicable",
+  "route_type": "domestic_only",
   "route_label": "국내 체류자격 변경 경로",
   "application_place": null,
   "application_form": null,
@@ -2103,7 +2116,7 @@
  {
   "route_id": "VR:F-1-4_NOT_APPLICABLE",
   "qualification_id": "Q:F-1-4",
-  "route_type": "not_applicable",
+  "route_type": "domestic_only",
   "route_label": "국내 체류자격 부여·변경 경로",
   "application_place": null,
   "application_form": null,
@@ -2126,8 +2139,8 @@
  {
   "route_id": "VR:F-1-9_NOT_APPLICABLE",
   "qualification_id": "Q:F-1-9",
-  "route_type": "not_applicable",
-  "route_label": "국내 체류자격 변경·연장 경로 — 가족 초청 사증은 동반(F-3-19)",
+  "route_type": "alternative_route",
+  "route_label": "가족 초청 — 동반(F-3-19) 사증으로 신청",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -2145,13 +2158,17 @@
   "program_ids": [],
   "confidence": "high",
   "notes": "",
-  "status": "active"
+  "status": "active",
+  "alt_apply_as": "동반(F-3-19) 사증 — 재외공관 신청",
+  "alt_relation": "재외동포(F-4) 자격자의 배우자·미성년 자녀 가족초청 경로입니다. F-1-9는 국내 체류관리(변경·연장)에 사용되는 세부유형입니다.",
+  "alt_follow_up": "입국 후 90일 이상 체류 시 외국인등록을 하며, 이후 변경·연장은 국내 절차를 따릅니다.",
+  "alt_caution": "1년 유효 복수사증으로 발급됩니다."
  },
  {
   "route_id": "VR:F-1-11_NOT_APPLICABLE",
   "qualification_id": "Q:F-1-11",
-  "route_type": "not_applicable",
-  "route_label": "국내 체류자격 변경·연장 경로 — 가족 초청 사증은 동반(F-3-20)",
+  "route_type": "alternative_route",
+  "route_label": "가족 초청 — 동반(F-3-20) 사증으로 신청",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -2169,13 +2186,17 @@
   "program_ids": [],
   "confidence": "high",
   "notes": "",
-  "status": "active"
+  "status": "active",
+  "alt_apply_as": "동반(F-3-20) 사증 — 재외공관 신청",
+  "alt_relation": "방문취업(H-2) 자격자의 배우자·미성년 자녀 가족초청 경로입니다. F-1-11은 국내 체류관리(변경·연장)에 사용되는 세부유형입니다.",
+  "alt_follow_up": "입국 후 90일 이상 체류 시 외국인등록을 하며, 이후 변경·연장은 국내 절차를 따릅니다.",
+  "alt_caution": "1년 유효 복수사증(체류기간 90일)으로 발급됩니다."
  },
  {
   "route_id": "VR:F-1-16_NOT_APPLICABLE",
   "qualification_id": "Q:F-1-16",
-  "route_type": "not_applicable",
-  "route_label": "국내 체류자격 변경 경로 — 가족결합 입국은 단기방문(C-3-1) 사증",
+  "route_type": "alternative_route",
+  "route_label": "가족결합 입국 — 단기방문(C-3-1) 사증으로 신청",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -2192,13 +2213,17 @@
   "program_ids": [],
   "confidence": "high",
   "notes": "",
-  "status": "active"
+  "status": "active",
+  "alt_apply_as": "단기방문(C-3-1) 사증 — 재외공관 신청(가족결합)",
+  "alt_relation": "난민인정자의 법적 배우자·미성년 자녀의 입국 경로입니다. F-1-16은 입국 후 국내에서 취득하는 세부유형입니다.",
+  "alt_follow_up": "90일 사증으로 입국한 후 국내에서 방문동거(F-1-16)로 체류자격 변경허가를 받습니다(난민인정자 체류기간 범위 내 최대 2년).",
+  "alt_caution": "난민인정 사실과 가족관계 입증 자료가 필요합니다."
  },
  {
   "route_id": "VR:F-1-52_NOT_APPLICABLE",
   "qualification_id": "Q:F-1-52",
-  "route_type": "not_applicable",
-  "route_label": "국내 체류자격 변경 경로 — 해외 자녀 초청은 방문동거(F-1-5) 사증",
+  "route_type": "alternative_route",
+  "route_label": "해외 자녀 초청 — 방문동거(F-1-5) 사증으로 신청",
   "application_place": null,
   "application_form": null,
   "fee": null,
@@ -2210,6 +2235,57 @@
   "exceptions": [
    "국민과의 혼인관계가 유지되고 있는 결혼이민자의 전혼관계 출생 미성년 자녀가 국내 체류 중 체류자격 변경허가를 통해 취득하는 유형입니다.",
    "해외에 있는 전혼관계 출생 자녀는 요건 충족 시 결혼이민자 가족(F-1-5) 사증으로 초청합니다."
+  ],
+  "quickdoc_links": [],
+  "v2_row_id": null,
+  "program_ids": [],
+  "confidence": "high",
+  "notes": "",
+  "status": "active",
+  "alt_apply_as": "방문동거(F-1-5) 사증 — 재외공관 신청",
+  "alt_relation": "국민과 혼인관계가 유지되고 있는 결혼이민자의 전혼관계 출생 미성년 자녀의 초청 경로입니다. F-1-52는 국내 체류 자녀의 변경허가에 사용되는 세부유형입니다.",
+  "alt_follow_up": "입국 후 국내에서 방문동거(F-1-52)로 체류자격 변경허가를 받습니다.",
+  "alt_caution": "결혼이민자의 부모 모두 입국할 수 없고 피초청인에게 미성년 자녀가 없는 경우에 한합니다."
+ },
+ {
+  "route_id": "VR:A-3_CONSULATE",
+  "qualification_id": "Q:A-3",
+  "route_type": "consulate",
+  "route_label": "공관장재량 사증",
+  "application_place": "재외공관",
+  "application_form": "별지 제17호 사증발급신청서",
+  "fee": "있음(공관별 상이)",
+  "requires_recognition_before_consulate": false,
+  "minister_approval_required": false,
+  "office_docs": [],
+  "client_docs": [],
+  "conditional_docs": [],
+  "exceptions": [
+   "협정(A-3) 해당자에게 단수사증이 발급되며, Fulbright 협정 대상자(A-3-99)에게는 복수사증이 발급됩니다."
+  ],
+  "quickdoc_links": [],
+  "v2_row_id": null,
+  "program_ids": [],
+  "confidence": "high",
+  "notes": "",
+  "status": "active"
+ },
+ {
+  "route_id": "VR:C-3_CONSULATE",
+  "qualification_id": "Q:C-3",
+  "route_type": "consulate",
+  "route_label": "공관장재량 사증(단기방문)",
+  "application_place": "재외공관",
+  "application_form": "별지 제17호 사증발급신청서",
+  "fee": "있음(공관별 상이)",
+  "requires_recognition_before_consulate": false,
+  "minister_approval_required": false,
+  "office_docs": [],
+  "client_docs": [],
+  "conditional_docs": [],
+  "exceptions": [
+   "체류기간 90일 이내이며, 세부유형(단기일반·단체관광·일반상용 등)에 따라 단수·더블·복수사증이 발급됩니다.",
+   "입국목적 소명 서류는 공관별로 주재국 실정에 맞게 지정하여 운영됩니다."
   ],
   "quickdoc_links": [],
   "v2_row_id": null,

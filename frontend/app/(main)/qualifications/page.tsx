@@ -34,11 +34,12 @@ function QualCard({ q, onClick }: { q: V3Qualification; onClick: () => void }) {
         <span style={{ fontSize:13, color:"#4A5568" }}>{q.name_ko}</span>
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", fontSize:11, color:"#718096" }}>
-        <span>업무 {confirmed}/{total} 확인됨</span>
+        <span>체류업무 {confirmed}/{total} 확정</span>
         {(s?.not_applicable ?? 0) > 0 && <span style={{ color:"#4A5568" }}>· 불가 {s!.not_applicable}</span>}
-        {(s?.unknown ?? 0) > 0 && <span style={{ color:"#C53030" }}>· 확인필요 {s!.unknown}</span>}
-        {(s?.route_count ?? 0) > 0 && <span>· 사증 경로 {s!.route_count}</span>}
-        {(q.child_count ?? 0) > 0 && <span>· 세부 {q.child_count}</span>}
+        {(s?.conditional ?? 0) > 0 && <span style={{ color:"#975A16" }}>· 조건부 {s!.conditional}</span>}
+        {(s?.recognition_count ?? 0) > 0 && <span>· 인정서 경로 {s!.recognition_count}</span>}
+        {(s?.visa_count ?? 0) > 0 && <span>· 사증 경로 {s!.visa_count}</span>}
+        {(q.child_count ?? 0) > 0 && <span>· 세부약호 {q.child_count}</span>}
       </div>
       {q.delegated_to && (
         <div style={{ marginTop:6, fontSize:11, color:"var(--hw-gold-text)" }}>※ 동포매뉴얼 기준(본편 위임)</div>

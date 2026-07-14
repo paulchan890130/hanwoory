@@ -11,7 +11,7 @@ import {
   ApplicabilityBadge, ProgramChip, ROUTE_TYPE_LABEL, routeTone,
   compareQualCode, stripInternalIds,
 } from "@/components/qualifications/common";
-import { DOC_PENDING_NOTE, isDocBlockedV2Row, sanitizeConflictText, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
+import { isDocBlockedV2Row, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 
 // route 선택 시 child = 하위 세부약호 유래 경로(상위 화면에 집계 표시) — 상세는 하위 자격 detail에서 로드.
@@ -23,23 +23,12 @@ type Selection =
 // 상위 화면 사증 영역 집계용: 상위 직접 route + 하위 세부약호 route (route_id 기준 중복 제거).
 // common=true 는 세부약호 페이지에서 상위 자격의 공통 판정 route 를 상속 표시하는 경우.
 type RouteEntry = { route: V3Route; child?: { code: string; name_ko: string }; common?: boolean };
-const RECOG_TYPES = ["recognition", "not_applicable", "excluded"];
-
-// 사증 경로 '없음'(행 자체 부재)과 '미정리'(행은 있으나 실질 내용 공백)를 구분한다.
-function isRouteUnfilled(r: V3Route): boolean {
-  if (r.route_type === "not_applicable" || r.route_type === "excluded") return false;
-  return !(r.application_place || "").trim() && !(r.application_form || "").trim()
-    && !String(r.fee ?? "").trim() && !(r.notes || "").trim();
-}
-
-// unknown 칸 안내 문구(최종) — 블록 부재형과 추가 확인형을 구분(2026-07-08 확정 문구)
-function unknownSummary(b: V3Block): string {
-  const n = b.notes || "";
-  if (n.includes("부재") || n.includes("규정 없음") || n.includes("언급 자체 없음")) {
-    return "매뉴얼에 해당 업무 블록 부재 — 관서 확인 후 안내";
-  }
-  return "확인이 더 필요한 항목 — 관서 확인 후 안내";
-}
+// route 유형 분리(2026-07-14 정합성 복구): 섹션 건수는 실제 신청 가능한 경로만 집계.
+// 상태 행(국내 부여·변경 / 대상 아님 / 신청 중단)과 대체 신청 경로는 비클릭 안내로 별도 표시.
+const REAL_RECOG_TYPES = ["recognition"];
+const REAL_VISA_TYPES = ["consulate", "evisa"];
+const ALT_TYPES = ["alternative_route"];
+const STATUS_TYPES = ["not_applicable", "excluded", "domestic_only", "discontinued"];
 
 // ── 세부약호 상세 fetch 캐시 (페이지 이동 없이 패널 내 전환용) ────────────────
 const _subDetailCache = new Map<string, Promise<V3QualificationDetail>>();
@@ -133,47 +122,6 @@ function keyGuidance(applicability: string): string | null {
   return null; // unknown 은 기존 관서 확인 박스가 담당
 }
 
-// 내부 검토 정보 접힘 영역 — 품질관리 정보 전용(기본 닫힘, 유일한 접힘 영역)
-function InternalReview({ sel, drs }: { sel: NonNullable<Selection>; drs: V3DocRequirement[] }) {
-  const [open, setOpen] = useState(false);
-  const flagged = drs.filter(d => d.needs_human_review || (d.confidence && d.confidence !== "high"));
-  const item = sel.item as V3Block & V3Route;
-  const count = flagged.length;
-  return (
-    <div style={{ borderTop:"1px solid #EDF2F7", paddingTop:10, marginTop:12 }}>
-      <button onClick={() => setOpen(!open)}
-        style={{ fontSize:11, color:"#A0AEC0", background:"none", border:"none", cursor:"pointer", padding:0 }}>
-        {open ? "▾" : "▸"} 내부 검토 정보 보기{count > 0 ? ` · ${count}건` : ""}
-      </button>
-      {open && (
-        <div style={{ marginTop:8, padding:"10px 12px", borderRadius:10, background:"#F7FAFC",
-          border:"1px solid #E2E8F0", fontSize:11, color:"#718096", lineHeight:1.7 }}>
-          <div><strong>항목 신뢰도:</strong> {item.confidence || "-"}
-            {("needs_human_review" in item) && (item as V3Block).needs_human_review ? " · 확인 필요" : ""}</div>
-          {item.notes && <div><strong>검수 노트:</strong> {item.notes}</div>}
-          {"review_note" in item && (item as V3Route).review_note && (
-            <div><strong>정정 이력:</strong> {(item as V3Route).review_note}</div>
-          )}
-          {flagged.length > 0 && (
-            <div style={{ marginTop:8 }}>
-              <strong>서류별 검토 플래그:</strong>
-              {flagged.map(d => (
-                <div key={d.requirement_id} style={{ marginTop:4, paddingLeft:8, borderLeft:"2px solid #E2E8F0" }}>
-                  <div style={{ color:"#4A5568" }}>{d.doc_name}
-                    {d.confidence && d.confidence !== "high" ? " · 추가 확인 필요" : ""}
-                    {d.needs_human_review ? " · 확인 필요" : ""}
-                    {d.source_v2_row_id ? ` · v2 유래(${d.source_v2_row_id})` : ""}</div>
-                  {d.condition && <div>적용 조건: {d.condition}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DocGroup({ title, color, docs }: { title: string; color: string; docs: string[] }) {
   if (!docs || docs.length === 0) return null;
   return (
@@ -199,12 +147,15 @@ function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDo
     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
       {rows.map(row => {
         // OCR 오염 표시 정제 — 복사본에만 적용(원본 row 불변, /guidelines 무영향)
-        const displayRow = sanitizeV2RowForDisplay(row);
+        const sanitized = sanitizeV2RowForDisplay(row);
+        // 서류 목록 신뢰 불가로 차단된 v2 행 — 서류는 위 v3 준비서류 구분이 정본이므로 목록만 비표시
+        const displayRow = isDocBlockedV2Row(row.row_id)
+          ? { ...sanitized, form_docs: "", supporting_docs: "" }
+          : sanitized;
         const url = buildQuickDocUrl(row);
         return (
           <div key={row.row_id}>
             <GuidelineCard row={displayRow} isSelected={selectedId === row.row_id} defaultExpanded
-              docsPendingNote={isDocBlockedV2Row(row.row_id) ? DOC_PENDING_NOTE : undefined}
               onClick={() => setSelectedId(selectedId === row.row_id ? null : row.row_id)} />
             {url && (
               <button onClick={() => onQuickDoc(url)}
@@ -291,8 +242,6 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
   const legacyDocCount = effItem
     ? effItem.office_docs.length + effItem.client_docs.length + effItem.conditional_docs.length
     : 0;
-  const effSel: NonNullable<Selection> = subBlock ? { kind: "block", item: subBlock } : sel;
-
   const subChipStyle = (active: boolean): CSSProperties => ({
     fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:8, cursor:"pointer",
     color: active ? "var(--hw-gold-text)" : "#4A5568",
@@ -379,29 +328,14 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
               {effB!.redirect_to && <div style={{ marginTop:4 }}><strong>대안:</strong> {stripInternalIds(effB!.redirect_to)}</div>}
             </div>
           )}
-          {isBlock && effB!.conflict && (
-            <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFFAF0",
-              border:"1px solid #F6AD55", fontSize:12, color:"#975A16", lineHeight:1.6 }}>
-              ⚠ {sanitizeConflictText(stripInternalIds(effB!.conflict))}
-            </div>
-          )}
           {isBlock && effB!.fee && (
             <div style={{ marginBottom:12, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
               <div>수수료: <strong>{effB!.fee}</strong></div>
               <div style={{ fontSize:11, color:"#A0AEC0" }}>면제·감면 대상 여부는 관할 출입국·외국인관서 기준에 따릅니다.</div>
             </div>
           )}
-          {isBlock && effB!.applicability === "unknown" && (
-            <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFF5F5",
-              border:"1px solid #FEB2B2", fontSize:12, color:"#C53030", lineHeight:1.6 }}>
-              {unknownSummary(effB!)} — 손님에게 확답하지 말고 관서 확인 후 안내하세요.
-            </div>
-          )}
           {!isBlock && (
             <div style={{ marginBottom:12, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
-              {isRouteUnfilled(r!) && (
-                <div style={{ color:"#975A16", fontWeight:600 }}>사증 경로 미정리 — 검수 필요</div>
-              )}
               {r!.application_place && <div>신청처: <strong>{r!.application_place}</strong></div>}
               {r!.application_form && <div>신청 서식: {r!.application_form}</div>}
               {r!.fee !== null && r!.fee !== "" && <div>수수료: {r!.fee}</div>}
@@ -416,28 +350,27 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
             </div>
           )}
 
-          {/* ⑤ 준비서류/필요서류 — 규칙: A) v3 DR 있으면 v3만 B) 없으면 v2 참고 안내 C) 둘 다 없으면 미정리 안내 */}
-          {effDrs.length > 0 ? (
-            <DrGroups drs={effDrs} />
-          ) : legacyDocCount > 0 ? (
-            <>
-              <DocGroup title="사무소 준비 (office)" color="#4299E1" docs={effItem.office_docs} />
-              <DocGroup title="손님 지참 (client)" color="#48BB78" docs={effItem.client_docs} />
-              <DocGroup title="조건부 (conditional)" color="#975A16" docs={effItem.conditional_docs} />
-            </>
-          ) : linked.length > 0 ? (
-            <div style={{ fontSize:11, color:"#718096", marginBottom:10 }}>
-              연결된 기존 지침의 서류를 참고하세요.
-            </div>
-          ) : !isBlock && r!.docs_notice ? (
-            <div style={{ marginBottom:10, padding:"10px 12px", borderRadius:10, background:"#F7FAFC",
-              border:"1px solid #E2E8F0", fontSize:12, color:"#4A5568", lineHeight:1.6 }}>
-              {r!.docs_notice}
-            </div>
-          ) : (
-            <div style={{ fontSize:11, color:"#A0AEC0", marginBottom:10 }}>
-              제출서류 미정리 항목입니다. 검수 후 반영이 필요합니다.
-            </div>
+          {/* ⑤ 준비서류/필요서류 — A) v3 DR B) 인라인 목록 C) v2 참고 D) 특수경로 안내.
+              신청 대상이 아닌 블록(불가)에는 서류 영역을 표시하지 않는다. */}
+          {(!isBlock || effB!.applicability === "applicable" || effB!.applicability === "conditional") && (
+            effDrs.length > 0 ? (
+              <DrGroups drs={effDrs} />
+            ) : legacyDocCount > 0 ? (
+              <>
+                <DocGroup title="사무소 준비 (office)" color="#4299E1" docs={effItem.office_docs} />
+                <DocGroup title="손님 지참 (client)" color="#48BB78" docs={effItem.client_docs} />
+                <DocGroup title="조건부 (conditional)" color="#975A16" docs={effItem.conditional_docs} />
+              </>
+            ) : linked.length > 0 ? (
+              <div style={{ fontSize:11, color:"#718096", marginBottom:10 }}>
+                연결된 기존 지침의 서류를 참고하세요.
+              </div>
+            ) : !isBlock && r!.docs_notice ? (
+              <div style={{ marginBottom:10, padding:"10px 12px", borderRadius:10, background:"#F7FAFC",
+                border:"1px solid #E2E8F0", fontSize:12, color:"#4A5568", lineHeight:1.6 }}>
+                {r!.docs_notice}
+              </div>
+            ) : null
           )}
 
           {effItem.exceptions.length > 0 && (
@@ -459,9 +392,6 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
             <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:8 }}>연결된 기존 지침 (v2)</div>
             <LinkedV2Section rows={linked} onQuickDoc={onQuickDoc} />
           </div>
-
-          {/* ⑦ 내부 검토 정보 — 품질관리 전용(기본 닫힘) */}
-          <InternalReview sel={effSel} drs={effDrs} />
         </>
       )}
     </div>
@@ -542,11 +472,26 @@ export default function QualificationDetailPage() {
     return out;
   }, [detail, parentDetail]);
   const recogEntries = useMemo(
-    () => allRouteEntries.filter(e => RECOG_TYPES.includes(e.route.route_type)),
+    () => allRouteEntries.filter(e => REAL_RECOG_TYPES.includes(e.route.route_type)),
     [allRouteEntries]);
   const visaEntries = useMemo(
-    () => allRouteEntries.filter(e => !RECOG_TYPES.includes(e.route.route_type)),
+    () => allRouteEntries.filter(e => REAL_VISA_TYPES.includes(e.route.route_type)),
     [allRouteEntries]);
+  const altEntries = useMemo(
+    () => allRouteEntries.filter(e => ALT_TYPES.includes(e.route.route_type)),
+    [allRouteEntries]);
+  const statusEntries = useMemo(
+    () => allRouteEntries.filter(e => STATUS_TYPES.includes(e.route.route_type)),
+    [allRouteEntries]);
+  const naStatusEntries = useMemo(
+    () => statusEntries.filter(e => e.route.route_type === "not_applicable" || e.route.route_type === "excluded"),
+    [statusEntries]);
+  const discontinuedEntries = useMemo(
+    () => statusEntries.filter(e => e.route.route_type === "discontinued"),
+    [statusEntries]);
+  const domesticEntries = useMemo(
+    () => statusEntries.filter(e => e.route.route_type === "domestic_only"),
+    [statusEntries]);
 
   if (!isAdmin) {
     return (
@@ -596,11 +541,63 @@ export default function QualificationDetailPage() {
             <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
               color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
           </div>
-          {isRouteUnfilled(r) && (
-            <div style={{ marginTop:2, fontSize:10.5, color:"#975A16" }}>사증 경로 미정리 — 검수 필요</div>
-          )}
         </div>
         <ChevronRight size={13} style={{ color:"#CBD5E0", flexShrink:0 }} />
+      </div>
+    );
+  };
+
+  // 상태 행(대상 아님/신청 중단) — 신청 항목이 아니므로 비클릭 안내로만 표시(건수 미집계)
+  const renderStatusRow = (e: RouteEntry, i: number) => {
+    const r = e.route;
+    const tone = routeTone(r);
+    return (
+      <div key={r.route_id} style={{ padding:"10px 12px", background:"#FAFAFA",
+        borderTop: i > 0 ? "1px solid #F1F5F9" : "none" }}>
+        {e.child && (
+          <div style={{ fontSize:11, fontWeight:700, color:"#718096", marginBottom:2, lineHeight:1.45 }}>
+            {e.child.code} <span style={{ fontWeight:400 }}>{e.child.name_ko}</span>
+            {e.common && (
+              <span style={{ marginLeft:5, fontSize:9, fontWeight:700, padding:"1px 6px", borderRadius:99,
+                color:"#4A5568", background:"#EDF2F7", border:"1px solid #E2E8F0", verticalAlign:"middle" }}>공통</span>
+            )}
+          </div>
+        )}
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+          <span style={{ fontSize:12, fontWeight:600, color:"#4A5568" }}>
+            {r.route_label || ROUTE_TYPE_LABEL[r.route_type] || r.route_type}
+          </span>
+          <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
+            color:tone.color, background:tone.bg, border:`1px solid ${tone.border}` }}>{tone.badge}</span>
+        </div>
+        {(r.exceptions ?? []).map((x, j) => (
+          <div key={j} style={{ marginTop:3, fontSize:11, color:"#718096", lineHeight:1.55 }}>{stripInternalIds(x)}</div>
+        ))}
+      </div>
+    );
+  };
+
+  // 대체 신청 경로 — 다른 자격의 사증으로 신청하는 경우(건수 별도, 인정서·사증 건수 미포함)
+  const renderAltRow = (e: RouteEntry, i: number) => {
+    const r = e.route;
+    return (
+      <div key={r.route_id} style={{ padding:"12px 14px", borderTop: i > 0 ? "1px solid #F1F5F9" : "none" }}>
+        {e.child && (
+          <div style={{ fontSize:11, fontWeight:700, color:"var(--hw-gold-text)", marginBottom:2, lineHeight:1.45 }}>
+            {e.child.code} <span style={{ fontWeight:400, color:"#718096" }}>{e.child.name_ko}</span>
+          </div>
+        )}
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:4 }}>
+          <span style={{ fontSize:12.5, fontWeight:600, color:"#2D3748" }}>{r.route_label}</span>
+          <span style={{ fontSize:9.5, fontWeight:700, padding:"1px 8px", borderRadius:99,
+            color:"#553C9A", background:"#FAF5FF", border:"1px solid #D6BCFA" }}>대체 경로</span>
+        </div>
+        <div style={{ fontSize:11.5, color:"#4A5568", lineHeight:1.65 }}>
+          {r.alt_apply_as && <div>신청 경로: <strong>{r.alt_apply_as}</strong></div>}
+          {r.alt_relation && <div>관계: {r.alt_relation}</div>}
+          {r.alt_follow_up && <div>이후 절차: {r.alt_follow_up}</div>}
+          {r.alt_caution && <div style={{ color:"#975A16" }}>주의: {r.alt_caution}</div>}
+        </div>
       </div>
     );
   };
@@ -645,9 +642,7 @@ export default function QualificationDetailPage() {
         <div style={{ fontSize:12.5, color:"#4A5568", lineHeight:1.7 }}>
           {m.activity_scope && <div>활동범위: {m.activity_scope}</div>}
           {m.eligible_persons && <div>해당자: {m.eligible_persons}</div>}
-          {m.stay_limit
-            ? <div>1회 체류기간 상한: {m.stay_limit}</div>
-            : <div style={{ color:"#C53030" }}>1회 체류기간 상한: 확인 필요</div>}
+          {m.stay_limit && <div>1회 체류기간 상한: {m.stay_limit}</div>}
         </div>
         {m.sub_codes.length > 0 && (
           <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
@@ -678,7 +673,6 @@ export default function QualificationDetailPage() {
               {baseBlocks.map((b, i) => {
                 const summary = b.applicability === "not_applicable"
                   ? sanitizeNaReasonDisplay(stripInternalIds(`${b.na_reason ?? ""}${b.redirect_to ? ` → 대안: ${b.redirect_to}` : ""}`))
-                  : b.applicability === "unknown" ? unknownSummary(b)
                   : b.applicability === "conditional" ? "일정 요건을 충족하는 경우에만 진행합니다 — 상세 참조"
                   : b.v2_row_ids.length > 0 ? `기존 지침 ${b.v2_row_ids.length}건 연결` : "";
                 return (
@@ -723,37 +717,63 @@ export default function QualificationDetailPage() {
             </div>
           </div>
 
-          {/* ② 사증발급인정서 — 상위 직접 + 하위 세부약호 route 통합('대상 아님'도 결과 행) */}
+          {/* ② 사증발급인정서 — 실제 신청 가능한 경로만 집계, '대상 아님'은 비클릭 상태 안내 */}
           <div>
             <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
               사증발급인정서 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({recogEntries.length})</span>
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
-              {recogEntries.length === 0 ? (
-                <div style={{ padding:"12px 14px", fontSize:11.5, color: allRouteEntries.length > 0 ? "#718096" : "#975A16" }}>
-                  {allRouteEntries.length > 0
-                    ? "이 구분의 별도 경로는 정리되어 있지 않습니다."
-                    : "정리된 사증 경로가 없습니다 — 공식 확인이 필요한 경로입니다."}
+              {recogEntries.map(renderRouteRow)}
+              {naStatusEntries.map((e, i) => renderStatusRow(e, recogEntries.length + i))}
+              {recogEntries.length === 0 && naStatusEntries.length === 0 && (
+                <div style={{ padding:"12px 14px", fontSize:11.5, color:"#718096" }}>
+                  사증발급인정서 신청 경로가 없는 자격입니다.
                 </div>
-              ) : recogEntries.map(renderRouteRow)}
+              )}
             </div>
           </div>
 
-          {/* ③ 사증 (재외공관·전자사증) — 상위 직접 + 하위 세부약호 route 통합 */}
+          {/* ③ 사증 (재외공관·전자사증) — 실제 신청 가능한 경로만 집계, 신청 중단은 상태 안내 */}
           <div>
             <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
               사증 <span style={{ fontWeight:600, color:"#A0AEC0" }}>(재외공관·전자) ({visaEntries.length})</span>
             </div>
             <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
-              {visaEntries.length === 0 ? (
-                <div style={{ padding:"12px 14px", fontSize:11.5, color: allRouteEntries.length > 0 ? "#718096" : "#975A16" }}>
-                  {allRouteEntries.length > 0
-                    ? "이 구분의 별도 경로는 정리되어 있지 않습니다."
-                    : "정리된 사증 경로가 없습니다 — 공식 확인이 필요한 경로입니다."}
+              {visaEntries.map(renderRouteRow)}
+              {discontinuedEntries.map((e, i) => renderStatusRow(e, visaEntries.length + i))}
+              {visaEntries.length === 0 && discontinuedEntries.length === 0 && (
+                <div style={{ padding:"12px 14px", fontSize:11.5, color:"#718096" }}>
+                  {recogEntries.length > 0
+                    ? "재외공관 직접 신청 경로가 없는 자격입니다 — 사증발급인정서 경로로 진행합니다."
+                    : "재외공관·전자사증 신청 경로가 없는 자격입니다."}
                 </div>
-              ) : visaEntries.map(renderRouteRow)}
+              )}
             </div>
           </div>
+
+          {/* ④ 대체 신청 경로 — 다른 자격의 사증으로 신청(인정서·사증 건수와 중복 집계 안 함) */}
+          {altEntries.length > 0 && (
+            <div>
+              <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
+                대체 신청 경로 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({altEntries.length})</span>
+              </div>
+              <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+                {altEntries.map(renderAltRow)}
+              </div>
+            </div>
+          )}
+
+          {/* ⑤ 국내 신청 안내 — 사증이 아닌 국내 체류자격 부여·변경으로 취득하는 유형 */}
+          {domesticEntries.length > 0 && (
+            <div>
+              <div style={{ fontSize:12.5, fontWeight:700, color:"#4A5568", marginBottom:8 }}>
+                국내 신청 안내 <span style={{ color:"#A0AEC0", fontWeight:600 }}>({domesticEntries.length})</span>
+              </div>
+              <div style={{ background:"#fff", borderRadius:12, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+                {domesticEntries.map(renderStatusRow)}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 우측: 상세 패널 (넓게 — 세부서류 가독성 우선) */}

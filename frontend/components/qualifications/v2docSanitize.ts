@@ -142,8 +142,6 @@ const DOC_BLOCKED_V2_ROWS = new Set([
   "M1-0123", "M1-0124",
 ]);
 
-export const DOC_PENDING_NOTE = "제출서류 미정리 항목입니다. 검수 후 반영이 필요합니다.";
-
 export function isDocBlockedV2Row(rowId: string): boolean {
   return DOC_BLOCKED_V2_ROWS.has(rowId);
 }

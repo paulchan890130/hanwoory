@@ -1372,7 +1372,9 @@ export interface V3Summary {
   not_applicable: number;
   conditional: number;
   unknown: number;
-  route_count: number;
+  route_count: number;             // 실제 신청 경로 합계(인정서+사증)
+  recognition_count?: number;      // 실제 사증발급인정서 경로 수(하위 세부약호 포함)
+  visa_count?: number;             // 실제 재외공관·전자사증 경로 수(하위 포함)
 }
 export interface V3Block {
   block_id: string;
@@ -1427,7 +1429,12 @@ export interface V3Route {
   notes: string;
   status: string;
   review_note?: string;              // 초기 가정을 정정한 항목의 이력 기록(F-1-23 등)
-  docs_notice?: string | null;       // 서류 목록을 의도적으로 제공하지 않는 route의 안내문(미정리 문구 대체)
+  docs_notice?: string | null;       // 서류 목록을 의도적으로 제공하지 않는 route의 안내문
+  // alternative_route 전용 — 다른 자격의 사증으로 신청하는 대체 경로 설명
+  alt_apply_as?: string | null;      // 신청 자격·경로명
+  alt_relation?: string | null;      // 현재 자격과의 관계
+  alt_follow_up?: string | null;     // 입국 후 변경·체류 절차
+  alt_caution?: string | null;       // 주의사항
 }
 export interface V3Program {
   program_id: string;

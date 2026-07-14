@@ -91,16 +91,32 @@ def _require_enabled() -> None:
         raise HTTPException(status_code=404, detail="v3 데이터 파일이 없습니다 (backend/data/guidelines_v3).")
 
 
-def _summary_for(qid: str) -> dict:
+_REAL_RECOG_TYPES = ("recognition",)
+_REAL_VISA_TYPES = ("consulate", "evisa")
+
+
+def _summary_for(qid: str, with_child_routes: bool = False) -> dict:
+    """블록 상태 요약 + 실제 신청 경로 집계.
+
+    route 건수는 실제 신청 가능한 유형(recognition/consulate/evisa)만 센다 —
+    상태 행(domestic_only/not_applicable/discontinued)과 대체 경로(alternative_route)는 제외.
+    with_child_routes=True 면 하위 세부약호의 실제 경로까지 합산(목록 카드용)."""
     own = _BLOCKS_BY_QID.get(qid, [])
     counts = Counter(b["applicability"] for b in own if b.get("variant") is None)
-    routes = _ROUTES_BY_QID.get(qid, [])
+    routes = list(_ROUTES_BY_QID.get(qid, []))
+    if with_child_routes:
+        for c in _CHILDREN_BY_QID.get(qid, []):
+            routes.extend(_ROUTES_BY_QID.get(c["qualification_id"], []))
+    recog = sum(1 for r in routes if r.get("route_type") in _REAL_RECOG_TYPES)
+    visa = sum(1 for r in routes if r.get("route_type") in _REAL_VISA_TYPES)
     return {
         "applicable": counts.get("applicable", 0),
         "not_applicable": counts.get("not_applicable", 0),
         "conditional": counts.get("conditional", 0),
         "unknown": counts.get("unknown", 0),
-        "route_count": len(routes),
+        "route_count": recog + visa,
+        "recognition_count": recog,
+        "visa_count": visa,
     }
 
 
@@ -128,7 +144,7 @@ def list_qualifications(admin: dict = Depends(require_admin)):
         if m.get("parent_qualification_id"):
             continue
         qid = m["qualification_id"]
-        base.append({**m, "summary": _summary_for(qid),
+        base.append({**m, "summary": _summary_for(qid, with_child_routes=True),
                      "child_count": len(_CHILDREN_BY_QID.get(qid, []))})
     base.sort(key=lambda m: (m["group"], qual_code_sort_key(m["code"])))
     return {"total": len(base), "data": base, "programs": _PROGRAMS}
