@@ -1433,6 +1433,63 @@ def admin_delete_node(node_id: int, _: dict = Depends(require_admin)):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+def _audit_doc_config(user: dict, action: str, target_id: str, payload: dict) -> None:
+    try:
+        from backend.services.audit_service import log_event
+        log_event(action=action, actor_login_id=user.get("login_id"), tenant_id=user.get("tenant_id"),
+                  target_type="doc_tree_node", target_id=target_id, payload=payload)
+    except Exception:
+        pass
+
+
+@router.get("/admin/nodes/{node_id}/delete-impact")
+def admin_node_delete_impact(node_id: int, _: dict = Depends(require_admin)):
+    """완전삭제 확인창에 표시할 영향 조사(삭제 실행 없음)."""
+    cfg = _cfg_service()
+    try:
+        return cfg.node_delete_impact(node_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/admin/nodes/{node_id}/hard")
+def admin_hard_delete_node(node_id: int, cascade: bool = False, user: dict = Depends(require_admin)):
+    """완전삭제(물리 삭제, 복원 불가). 숨김 상태의 말단만 단독 삭제 가능하고,
+    하위 항목이 있으면(전부 숨김이어도) cascade=true 로 명시 확인해야 함께 삭제한다."""
+    cfg = _cfg_service()
+    try:
+        impact_before = cfg.node_delete_impact(node_id)
+        result = cfg.hard_delete_node(node_id, cascade=cascade)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    _audit_doc_config(user, "DOC_TREE_NODE_HARD_DELETED", str(node_id),
+                      {"before": impact_before, "result": result, "cascade": cascade})
+    return result
+
+
+@router.get("/admin/required-documents/{doc_id}/delete-impact")
+def admin_doc_delete_impact(doc_id: int, _: dict = Depends(require_admin)):
+    cfg = _cfg_service()
+    try:
+        return cfg.required_document_delete_impact(doc_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/admin/required-documents/{doc_id}/hard")
+def admin_hard_delete_required_doc(doc_id: int, user: dict = Depends(require_admin)):
+    """필요서류 완전삭제(물리 삭제, 복원 불가). 숨김 상태만 가능. 템플릿 파일은 건드리지 않음."""
+    cfg = _cfg_service()
+    try:
+        impact_before = cfg.required_document_delete_impact(doc_id)
+        result = cfg.hard_delete_required_document(doc_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    _audit_doc_config(user, "DOC_REQUIRED_DOCUMENT_HARD_DELETED", str(doc_id),
+                      {"before": impact_before, "result": result})
+    return result
+
+
 @router.post("/admin/required-documents")
 def admin_create_required_doc(req: ReqDocCreateReq, _: dict = Depends(require_admin)):
     cfg = _cfg_service()

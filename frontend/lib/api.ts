@@ -697,6 +697,26 @@ export const boardApi = {
   checkManual: () => api.get<{ updated: boolean; date: string; previous_date?: string }>("/api/board/check-manual"),
 };
 
+// 계정 완전삭제 — 연결 데이터 이관 미리보기
+export interface HardDeleteCandidate {
+  login_id: string;
+  tenant_id: string;
+  is_admin: boolean;
+  office_name: string;
+}
+export interface HardDeletePreview {
+  login_id: string;
+  tenant_id: string;
+  is_active: boolean;
+  is_admin: boolean;
+  other_users_on_tenant: number;
+  needs_migration: boolean;
+  connected: Record<string, number>;
+  migratable: Record<string, number>;
+  unmigratable: Record<string, number>;
+  candidates: HardDeleteCandidate[];
+}
+
 // 관리자
 export const adminApi = {
   listAccounts: () => api.get("/api/admin/accounts"),
@@ -729,8 +749,12 @@ export const adminApi = {
   // 준 관리자 권한 부여/회수 — role: 'sub_admin' | 'user'.
   setAccountRole: (loginId: string, role: "sub_admin" | "user") =>
     api.put(`/api/admin/accounts/${loginId}/role`, { role }),
-  hardDeleteAccount: (loginId: string, confirmLoginId: string) =>
-    api.delete(`/api/admin/accounts/${loginId}/hard`, { params: { confirm_login_id: confirmLoginId } }),
+  hardDeleteAccount: (loginId: string, confirmLoginId: string, migrateToLoginId?: string) =>
+    api.delete(`/api/admin/accounts/${loginId}/hard`, {
+      params: { confirm_login_id: confirmLoginId, migrate_to_login_id: migrateToLoginId || undefined },
+    }),
+  hardDeletePreview: (loginId: string) =>
+    api.get<HardDeletePreview>(`/api/admin/accounts/${loginId}/hard-delete-preview`),
   // 행정사 주민등록번호 — 상태만 조회/저장(원문 미노출). 빈 값 저장 = 삭제.
   getAgentRrn: (loginId: string) =>
     api.get<{ has_agent_rrn: boolean; agent_rrn_last4: string }>(
@@ -879,6 +903,23 @@ export interface AdminDocNode {
 export interface AdminDocTree {
   categories: AdminDocNode[];
 }
+export interface DocNodeDeleteImpact {
+  node_id: number;
+  name: string;
+  level: DocNodeLevel;
+  is_active: boolean;
+  descendant_count: number;
+  active_descendant_count: number;
+  doc_count: number;
+  blocked_reason: string | null;
+}
+export interface DocRequiredDocDeleteImpact {
+  doc_id: number;
+  name: string;
+  doc_group: "main" | "agent";
+  is_active: boolean;
+  blocked_reason: string | null;
+}
 export interface TemplateFile {
   filename: string;
   display_name: string;
@@ -923,6 +964,10 @@ export const docConfigApi = {
   updateNode: (id: number, data: { name?: string; sort_order?: number; is_active?: boolean }) =>
     api.patch<AdminDocNode>(`/api/quick-doc/admin/nodes/${id}`, data),
   deleteNode: (id: number) => api.delete(`/api/quick-doc/admin/nodes/${id}`),
+  nodeDeleteImpact: (id: number) =>
+    api.get<DocNodeDeleteImpact>(`/api/quick-doc/admin/nodes/${id}/delete-impact`),
+  hardDeleteNode: (id: number, cascade: boolean) =>
+    api.delete(`/api/quick-doc/admin/nodes/${id}/hard`, { params: { cascade } }),
   createDoc: (data: {
     node_id: number; name: string; doc_group?: "main" | "agent";
     sort_order?: number; template_filename?: string;
@@ -933,6 +978,9 @@ export const docConfigApi = {
     hwpx_template_filename?: string; output_format?: string;
   }) => api.patch<AdminReqDoc>(`/api/quick-doc/admin/required-documents/${id}`, data),
   deleteDoc: (id: number) => api.delete(`/api/quick-doc/admin/required-documents/${id}`),
+  docDeleteImpact: (id: number) =>
+    api.get<DocRequiredDocDeleteImpact>(`/api/quick-doc/admin/required-documents/${id}/delete-impact`),
+  hardDeleteDoc: (id: number) => api.delete(`/api/quick-doc/admin/required-documents/${id}/hard`),
   remapDoc: (id: number) =>
     api.post<AdminReqDoc>(`/api/quick-doc/admin/required-documents/${id}/auto-map-template`),
   // HWPX 템플릿 매핑(0028)

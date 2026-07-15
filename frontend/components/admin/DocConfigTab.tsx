@@ -5,16 +5,80 @@
  * 구분 → 민원 → 종류 → 세부 4단계를 Miller 컬럼으로 탐색하고, 선택한(가장 깊은)
  * 노드에 연결된 필요서류(민원서류/행정사서류)를 추가·수정·삭제·자동매핑한다.
  * 코드 파일을 고치지 않고 DB 설정만 변경하며, 결과는 일반 문서자동작성 화면(/tree)에 반영된다.
- * 삭제는 soft delete(숨김). 비활성 항목은 흐리게 표시.
+ * 숨김(soft delete)은 그대로 유지 — 완전삭제(물리 삭제, 복원 불가)는 숨김 상태의 말단만
+ * 가능하고, 실제 템플릿 파일(HWPX/HWP/PDF)은 절대 건드리지 않는다.
  */
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   docConfigApi, AdminDocNode, AdminDocTree, AdminReqDoc, DocNodeLevel, TemplateFile,
-  HwpxTemplateFile, HwpxFieldsResponse,
+  HwpxTemplateFile, HwpxFieldsResponse, DocNodeDeleteImpact, DocRequiredDocDeleteImpact,
 } from "@/lib/api";
 import { Plus, Trash2, RotateCcw, Eye, EyeOff, Pencil, FileWarning, FileCheck, FileSearch, X } from "lucide-react";
+
+type FilterMode = "active" | "hidden" | "all";
+
+// ── 완전삭제 확인창(공용) — 노드/필요서류 둘 다 이 컴포넌트를 쓴다 ────────────────
+function HardDeleteConfirmModal({
+  title, impactRows, notice, onCancel, onConfirm, confirming, cascadeChoice, blockedReason,
+}: {
+  title: string;
+  impactRows: { label: string; value: string }[];
+  notice: string[];
+  onCancel: () => void;
+  onConfirm: () => void;
+  confirming: boolean;
+  /** 활성 하위가 없지만 하위 노드가 있는 부모 삭제 시 — 별도 문구로 강조. */
+  cascadeChoice?: boolean;
+  /** 서버 사전조사 결과 차단 사유(활성 하위 존재 등) — 있으면 완전삭제 버튼 비활성화. */
+  blockedReason?: string | null;
+}) {
+  return (
+    <div onClick={onCancel} onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999,
+        display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div onClick={(e) => e.stopPropagation()} className="hw-card" style={{ width: 420, maxWidth: "92vw", background: "#fff" }}>
+        <div className="flex items-center gap-2 mb-2">
+          <Trash2 size={16} style={{ color: "#C53030" }} />
+          <span className="font-semibold text-sm" style={{ color: "#C53030" }}>{title}</span>
+        </div>
+        <div className="text-sm mb-2" style={{ color: "#4A5568" }}>이 항목을 완전히 삭제하시겠습니까?</div>
+        <div className="text-xs mb-3 rounded p-2" style={{ background: "#F7FAFC", lineHeight: 1.7 }}>
+          {impactRows.map((r) => (
+            <div key={r.label} style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "#718096" }}>{r.label}</span>
+              <span style={{ color: "#2D3748", fontWeight: 600 }}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+        <div className="text-xs mb-3" style={{ color: "#975A16", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "6px 8px", lineHeight: 1.6 }}>
+          {notice.map((n) => <div key={n}>· {n}</div>)}
+        </div>
+        {blockedReason && (
+          <div className="text-xs mb-3" style={{ color: "#822727", background: "#FFF5F5", border: "1px solid #FEB2B2", borderRadius: 6, padding: "6px 8px" }}>
+            {blockedReason}
+          </div>
+        )}
+        {!blockedReason && cascadeChoice && (
+          <div className="text-xs mb-3" style={{ color: "#822727" }}>
+            하위 항목이 모두 숨김 상태입니다 — 계속하면 하위 항목까지 전부 함께 완전삭제됩니다(단일 트랜잭션).
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button autoFocus onClick={onCancel} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E2E8F0", color: "#718096", background: "#fff" }}>
+            취소
+          </button>
+          <button onClick={() => { if (!confirming) onConfirm(); }} disabled={confirming || !!blockedReason}
+            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}>
+            완전삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const GOLD = "var(--hw-gold, #B8860B)";
 const LEVEL_LABEL: Record<DocNodeLevel, string> = {
@@ -33,6 +97,7 @@ export default function DocConfigTab() {
   const [sel, setSel] = useState<Record<DocNodeLevel, number | null>>({
     category: null, petition: null, type: null, subtype: null,
   });
+  const [filterMode, setFilterMode] = useState<FilterMode>("active");
 
   const { data: tree, isLoading, error } = useQuery({
     queryKey: ["doc-config-tree"],
@@ -94,17 +159,30 @@ export default function DocConfigTab() {
         </div>
       </div>
 
+      {/* 활성/숨김/전체 필터 — 기본값 활성 */}
+      <div className="flex items-center gap-1">
+        {(["active", "hidden", "all"] as FilterMode[]).map((m) => (
+          <button key={m} onClick={() => setFilterMode(m)}
+            style={{ fontSize: 11, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
+              border: `1px solid ${filterMode === m ? GOLD : "#E2E8F0"}`,
+              background: filterMode === m ? "rgba(184,134,11,0.1)" : "#fff",
+              color: filterMode === m ? GOLD : "#718096", cursor: "pointer" }}>
+            {m === "active" ? "활성" : m === "hidden" ? "숨김" : "전체"}
+          </button>
+        ))}
+      </div>
+
       {/* Miller 컬럼: 구분 / 민원 / 종류 / 세부 */}
       <div className="grid grid-cols-4 gap-2">
         <NodeColumn level="category" parentId={null} items={categories} selectedId={sel.category}
-          onSelect={(id) => select("category", id)} onChanged={refresh} />
+          onSelect={(id) => select("category", id)} onChanged={refresh} filterMode={filterMode} />
         <NodeColumn level="petition" parentId={catNode?.id ?? null} items={petitions} selectedId={sel.petition}
-          onSelect={(id) => select("petition", id)} onChanged={refresh}
+          onSelect={(id) => select("petition", id)} onChanged={refresh} filterMode={filterMode}
           disabledHint={!catNode ? "구분을 선택하세요" : undefined} />
         <NodeColumn level="type" parentId={petNode?.id ?? null} items={types} selectedId={sel.type}
-          onSelect={(id) => select("type", id)} onChanged={refresh}
+          onSelect={(id) => select("type", id)} onChanged={refresh} filterMode={filterMode}
           disabledHint={!petNode ? "민원을 선택하세요" : undefined} />
-        <NodeColumn level="subtype" parentId={typeNode?.id ?? null} items={subtypes} selectedId={sel.subtype}
+        <NodeColumn level="subtype" parentId={typeNode?.id ?? null} items={subtypes} selectedId={sel.subtype} filterMode={filterMode}
           onSelect={(id) => select("subtype", id)} onChanged={refresh}
           disabledHint={!typeNode ? "종류를 선택하세요" : undefined} />
       </div>
@@ -112,7 +190,7 @@ export default function DocConfigTab() {
       {/* 필요서류 편집 */}
       {activeNode ? (
         <DocsEditor node={activeNode} pathLabel={[catNode, petNode, typeNode, subNode].filter(Boolean).map((n) => n!.name).join(" > ")}
-          templates={templates ?? []} hwpxTemplates={hwpxTemplates ?? []} onChanged={refresh} />
+          templates={templates ?? []} hwpxTemplates={hwpxTemplates ?? []} onChanged={refresh} filterMode={filterMode} />
       ) : (
         <div className="hw-card text-sm text-gray-500">위에서 항목을 선택하면 해당 단계의 필요서류를 관리할 수 있습니다.</div>
       )}
@@ -120,18 +198,19 @@ export default function DocConfigTab() {
   );
 }
 
-// ── 트리 컬럼 (노드 목록 + 추가/수정/삭제) ───────────────────────────────────
+// ── 트리 컬럼 (노드 목록 + 추가/수정/숨김/완전삭제) ──────────────────────────
 function NodeColumn({
-  level, parentId, items, selectedId, onSelect, onChanged, disabledHint,
+  level, parentId, items, selectedId, onSelect, onChanged, disabledHint, filterMode,
 }: {
   level: DocNodeLevel; parentId: number | null; items: AdminDocNode[];
   selectedId: number | null; onSelect: (id: number) => void; onChanged: () => void;
-  disabledHint?: string;
+  disabledHint?: string; filterMode: FilterMode;
 }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [editId, setEditId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ node: AdminDocNode; impact: DocNodeDeleteImpact } | null>(null);
   const canAdd = level === "category" || parentId != null;
 
   const createMut = useMutation({
@@ -146,14 +225,25 @@ function NodeColumn({
   });
   const toggleMut = useMutation({
     mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) => docConfigApi.updateNode(id, { is_active }),
-    onSuccess: () => onChanged(),
+    onSuccess: (_r, { is_active }) => { toast.success(is_active ? "복원됨" : "숨김 처리됨"); onChanged(); },
     onError: (e) => toast.error(errMsg(e, "변경 실패")),
   });
-  const delMut = useMutation({
-    mutationFn: (id: number) => docConfigApi.deleteNode(id),
-    onSuccess: () => { toast.success("숨김 처리됨"); onChanged(); },
-    onError: (e) => toast.error(errMsg(e, "삭제 실패")),
+  const hardDeleteMut = useMutation({
+    mutationFn: ({ id, cascade }: { id: number; cascade: boolean }) => docConfigApi.hardDeleteNode(id, cascade),
+    onSuccess: () => { toast.success("완전삭제됨"); setHardDeleteTarget(null); onChanged(); },
+    onError: (e) => toast.error(errMsg(e, "완전삭제 실패")),
   });
+
+  const openHardDelete = async (n: AdminDocNode) => {
+    try {
+      const r = await docConfigApi.nodeDeleteImpact(n.id);
+      setHardDeleteTarget({ node: n, impact: r.data });
+    } catch (e) {
+      toast.error(errMsg(e, "영향 조회 실패"));
+    }
+  };
+
+  const visibleItems = items.filter((n) => filterMode === "all" || n.is_active === (filterMode === "active"));
 
   return (
     <div className="hw-card p-2" style={{ minHeight: 200 }}>
@@ -171,12 +261,12 @@ function NodeColumn({
 
       {!disabledHint && (
         <div className="space-y-1">
-          {items.map((n) => (
+          {visibleItems.map((n) => (
             <div key={n.id}
               className="flex items-center gap-1 rounded px-1.5 py-1"
               style={{
                 background: selectedId === n.id ? "#FEF3C7" : "transparent",
-                opacity: n.is_active ? 1 : 0.45,
+                opacity: n.is_active ? 1 : 0.55,
               }}>
               {editId === n.id ? (
                 <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)}
@@ -184,7 +274,7 @@ function NodeColumn({
                   style={{ flex: 1, fontSize: 12, border: "1px solid #CBD5E0", borderRadius: 4, padding: "2px 4px" }} />
               ) : (
                 <button onClick={() => onSelect(n.id)} title="선택"
-                  style={{ flex: 1, textAlign: "left", fontSize: 12, background: "none", border: "none", cursor: "pointer", color: "#2D3748", fontWeight: selectedId === n.id ? 700 : 400 }}>
+                  style={{ flex: 1, textAlign: "left", fontSize: 12, background: "none", border: "none", cursor: "pointer", color: n.is_active ? "#2D3748" : "#A0AEC0", fontWeight: selectedId === n.id ? 700 : 400 }}>
                   {n.name}{!n.is_active && " (숨김)"}
                 </button>
               )}
@@ -195,20 +285,48 @@ function NodeColumn({
                 <>
                   <button onClick={() => { setEditId(n.id); setEditName(n.name); }} title="이름 수정"
                     style={{ color: "#718096", background: "none", border: "none", cursor: "pointer" }}><Pencil size={12} /></button>
-                  <button onClick={() => toggleMut.mutate({ id: n.id, is_active: !n.is_active })} title={n.is_active ? "숨기기" : "다시 표시"}
-                    style={{ color: "#718096", background: "none", border: "none", cursor: "pointer" }}>
-                    {n.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
-                  </button>
-                  {n.is_active && (
-                    <button onClick={() => { if (confirm(`'${n.name}' 항목을 숨김 처리할까요? (하위 항목/서류는 보존)`)) delMut.mutate(n.id); }} title="삭제(숨김)"
-                      style={{ color: "#E53E3E", background: "none", border: "none", cursor: "pointer" }}><Trash2 size={12} /></button>
+                  {n.is_active ? (
+                    <button onClick={() => toggleMut.mutate({ id: n.id, is_active: false })} title="숨김 처리 — 실제 삭제되지 않고 숨김 목록으로 이동합니다"
+                      style={{ color: "#718096", background: "none", border: "none", cursor: "pointer" }}><EyeOff size={12} /></button>
+                  ) : (
+                    <>
+                      <button onClick={() => toggleMut.mutate({ id: n.id, is_active: true })} title="복원 — 다시 활성 상태로"
+                        style={{ color: "#3182CE", background: "none", border: "none", cursor: "pointer" }}><Eye size={12} /></button>
+                      <button onClick={() => openHardDelete(n)} title="완전삭제 — 물리 삭제, 복원 불가"
+                        style={{ color: "#E53E3E", background: "none", border: "none", cursor: "pointer" }}><Trash2 size={12} /></button>
+                    </>
                   )}
                 </>
               )}
             </div>
           ))}
-          {items.length === 0 && <div className="text-xs text-gray-400 px-1 py-2">항목 없음</div>}
+          {visibleItems.length === 0 && <div className="text-xs text-gray-400 px-1 py-2">항목 없음</div>}
         </div>
+      )}
+
+      {hardDeleteTarget && (
+        <HardDeleteConfirmModal
+          title={`${LEVEL_LABEL[level]} 완전삭제`}
+          impactRows={[
+            { label: "항목명", value: hardDeleteTarget.node.name },
+            { label: "노드 ID", value: String(hardDeleteTarget.node.id) },
+            { label: "하위 항목", value: `${hardDeleteTarget.impact.descendant_count}개` },
+            { label: "연결된 필요서류", value: `${hardDeleteTarget.impact.doc_count}개` },
+          ]}
+          notice={[
+            "문서자동작성 설정만 삭제됩니다.",
+            "실제 HWPX·HWP·PDF 템플릿 파일은 삭제되지 않습니다.",
+            "삭제 후에는 복원할 수 없습니다.",
+          ]}
+          cascadeChoice={hardDeleteTarget.impact.descendant_count > 0}
+          blockedReason={hardDeleteTarget.impact.blocked_reason}
+          confirming={hardDeleteMut.isPending}
+          onCancel={() => setHardDeleteTarget(null)}
+          onConfirm={() => hardDeleteMut.mutate({
+            id: hardDeleteTarget.node.id,
+            cascade: hardDeleteTarget.impact.descendant_count > 0,
+          })}
+        />
       )}
 
       {adding && (
@@ -229,14 +347,18 @@ function NodeColumn({
 
 // ── 필요서류 편집기 ──────────────────────────────────────────────────────────
 function DocsEditor({
-  node, pathLabel, templates, hwpxTemplates, onChanged,
+  node, pathLabel, templates, hwpxTemplates, onChanged, filterMode,
 }: {
   node: AdminDocNode; pathLabel: string; templates: TemplateFile[];
-  hwpxTemplates: HwpxTemplateFile[]; onChanged: () => void;
+  hwpxTemplates: HwpxTemplateFile[]; onChanged: () => void; filterMode: FilterMode;
 }) {
   const docs = node.docs ?? [];
-  const main = useMemo(() => docs.filter((d) => d.doc_group === "main"), [docs]);
-  const agent = useMemo(() => docs.filter((d) => d.doc_group === "agent"), [docs]);
+  const visible = useMemo(
+    () => docs.filter((d) => filterMode === "all" || d.is_active === (filterMode === "active")),
+    [docs, filterMode],
+  );
+  const main = useMemo(() => visible.filter((d) => d.doc_group === "main"), [visible]);
+  const agent = useMemo(() => visible.filter((d) => d.doc_group === "agent"), [visible]);
 
   return (
     <div className="hw-card p-3 space-y-3">
@@ -340,6 +462,7 @@ function DocRow({ doc, templates, hwpxTemplates, onChanged }: {
   const [name, setName] = useState(doc.name);
   const [pdfOpen, setPdfOpen] = useState(false);       // PDF fallback 접힘(기본 닫힘)
   const [fieldsModal, setFieldsModal] = useState<string | null>(null);
+  const [hardDeleteImpact, setHardDeleteImpact] = useState<DocRequiredDocDeleteImpact | null>(null);
 
   const updateMut = useMutation({
     mutationFn: (data: Parameters<typeof docConfigApi.updateDoc>[1]) => docConfigApi.updateDoc(doc.id, data),
@@ -351,11 +474,20 @@ function DocRow({ doc, templates, hwpxTemplates, onChanged }: {
     onSuccess: (r) => { const d = r.data as AdminReqDoc; toast.success(d.template_status === "mapped" ? `PDF 매핑됨: ${d.template_filename}` : "매칭되는 PDF 없음 ⚠"); onChanged(); },
     onError: (e) => toast.error(errMsg(e, "자동매핑 실패")),
   });
-  const delMut = useMutation({
-    mutationFn: () => docConfigApi.deleteDoc(doc.id),
-    onSuccess: () => { toast.success("숨김 처리됨"); onChanged(); },
-    onError: (e) => toast.error(errMsg(e, "삭제 실패")),
+  const hardDeleteMut = useMutation({
+    mutationFn: () => docConfigApi.hardDeleteDoc(doc.id),
+    onSuccess: () => { toast.success("완전삭제됨"); setHardDeleteImpact(null); onChanged(); },
+    onError: (e) => toast.error(errMsg(e, "완전삭제 실패")),
   });
+
+  const openHardDelete = async () => {
+    try {
+      const r = await docConfigApi.docDeleteImpact(doc.id);
+      setHardDeleteImpact(r.data);
+    } catch (e) {
+      toast.error(errMsg(e, "영향 조회 실패"));
+    }
+  };
 
   const pdfMapped = doc.template_status === "mapped" && !!doc.template_filename;
   // HWPX 해석(표시용): 명시 매핑 > 파일명 정규화 자동매칭. 실제 생성 해석은 서버가 담당.
@@ -388,11 +520,15 @@ function DocRow({ doc, templates, hwpxTemplates, onChanged }: {
             <button onClick={() => { setName(doc.name); setEditing(true); }} title="이름 수정"
               style={{ color: "#718096", background: "none", border: "none", cursor: "pointer" }}><Pencil size={12} /></button>
             {doc.is_active ? (
-              <button onClick={() => { if (confirm(`'${doc.name}' 서류를 숨김 처리할까요?`)) delMut.mutate(); }} title="삭제(숨김)"
-                style={{ color: "#E53E3E", background: "none", border: "none", cursor: "pointer" }}><Trash2 size={12} /></button>
+              <button onClick={() => updateMut.mutate({ is_active: false })} title="숨김 처리 — 실제 삭제되지 않고 숨김 목록으로 이동합니다"
+                style={{ color: "#718096", background: "none", border: "none", cursor: "pointer" }}><EyeOff size={12} /></button>
             ) : (
-              <button onClick={() => updateMut.mutate({ is_active: true })} title="다시 표시"
-                style={{ color: "#3182CE", background: "none", border: "none", cursor: "pointer" }}><Eye size={12} /></button>
+              <>
+                <button onClick={() => updateMut.mutate({ is_active: true })} title="복원 — 다시 활성 상태로"
+                  style={{ color: "#3182CE", background: "none", border: "none", cursor: "pointer" }}><Eye size={12} /></button>
+                <button onClick={openHardDelete} title="완전삭제 — 물리 삭제, 복원 불가"
+                  style={{ color: "#E53E3E", background: "none", border: "none", cursor: "pointer" }}><Trash2 size={12} /></button>
+              </>
             )}
           </>
         )}
@@ -457,6 +593,25 @@ function DocRow({ doc, templates, hwpxTemplates, onChanged }: {
 
       {fieldsModal && (
         <HwpxFieldsModal filename={fieldsModal} onClose={() => setFieldsModal(null)} />
+      )}
+
+      {hardDeleteImpact && (
+        <HardDeleteConfirmModal
+          title="필요서류 완전삭제"
+          impactRows={[
+            { label: "항목명", value: hardDeleteImpact.name },
+            { label: "구분", value: hardDeleteImpact.doc_group === "main" ? "민원 서류" : "행정사 서류" },
+          ]}
+          notice={[
+            "문서자동작성 설정만 삭제됩니다.",
+            "실제 HWPX·HWP·PDF 템플릿 파일은 삭제되지 않습니다.",
+            "삭제 후에는 복원할 수 없습니다.",
+          ]}
+          blockedReason={hardDeleteImpact.blocked_reason}
+          confirming={hardDeleteMut.isPending}
+          onCancel={() => setHardDeleteImpact(null)}
+          onConfirm={() => hardDeleteMut.mutate()}
+        />
       )}
     </div>
   );

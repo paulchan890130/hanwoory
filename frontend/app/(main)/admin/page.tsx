@@ -1613,8 +1613,8 @@ export default function AdminPage() {
   });
 
   const hardDeleteMut = useMutation({
-    mutationFn: ({ loginId, confirm }: { loginId: string; confirm: string }) =>
-      adminApi.hardDeleteAccount(loginId, confirm),
+    mutationFn: ({ loginId, confirm, migrateTo }: { loginId: string; confirm: string; migrateTo?: string }) =>
+      adminApi.hardDeleteAccount(loginId, confirm, migrateTo),
     onSuccess: (_, { loginId }) => {
       toast.success(`계정 '${loginId}' 완전 삭제됨`);
       qc.invalidateQueries({ queryKey: ["admin"] });
@@ -2105,7 +2105,7 @@ export default function AdminPage() {
       {hardDeleteTarget && (
         <HardDeleteModal
           acc={hardDeleteTarget}
-          onConfirm={(confirm) => hardDeleteMut.mutate({ loginId: hardDeleteTarget.login_id, confirm })}
+          onConfirm={(confirm, migrateTo) => hardDeleteMut.mutate({ loginId: hardDeleteTarget.login_id, confirm, migrateTo })}
           onClose={() => setHardDeleteTarget(null)}
           isDeleting={hardDeleteMut.isPending}
         />
@@ -2115,31 +2115,92 @@ export default function AdminPage() {
 }
 
 // ── 완전 삭제 확인 모달 (계정 아이디 직접 입력) ────────────────────────────────
+const CONNECTED_LABEL: Record<string, string> = {
+  cert_directions: "방향", cert_groups: "그룹", cert_prices: "가격", cert_regions: "지역",
+  cert_vendors: "업체", customers: "고객", work_reference_rows: "업무참고 행", work_reference_sheets: "업무참고 시트",
+};
+
 function HardDeleteModal({
   acc, onConfirm, onClose, isDeleting,
 }: {
   acc: Record<string, string>;
-  onConfirm: (confirmLoginId: string) => void;
+  onConfirm: (confirmLoginId: string, migrateToLoginId?: string) => void;
   onClose: () => void;
   isDeleting: boolean;
 }) {
   const [text, setText] = useState("");
+  const [migrateTo, setMigrateTo] = useState("");
   const matches = text.trim() === acc.login_id;
+
+  const { data: preview, isLoading: previewLoading } = useQuery({
+    queryKey: ["hard-delete-preview", acc.login_id],
+    queryFn: () => adminApi.hardDeletePreview(acc.login_id).then((r) => r.data),
+  });
+
+  const unmigratableEntries = preview ? Object.entries(preview.unmigratable) : [];
+  const migratableEntries = preview ? Object.entries(preview.migratable) : [];
+  const needsMigration = !!preview?.needs_migration;
+  const migrationBlocked = unmigratableEntries.length > 0;
+  const canConfirm = matches && !previewLoading && !migrationBlocked && (!needsMigration || !!migrateTo);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
       onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="hw-card" style={{ width: 440, maxWidth: "92vw", background: "#fff" }}>
+      <div onClick={(e) => e.stopPropagation()} className="hw-card" style={{ width: 480, maxWidth: "92vw", background: "#fff" }}>
         <div className="flex items-center gap-2 mb-2">
           <Trash2 size={16} style={{ color: "#C53030" }} />
           <span className="font-semibold text-sm" style={{ color: "#C53030" }}>계정 완전 삭제 (복구 불가)</span>
         </div>
         <div className="text-sm mb-3" style={{ color: "#4A5568", lineHeight: 1.6 }}>
-          <strong>{acc.office_name || acc.login_id}</strong> (<code className="font-mono">{acc.login_id}</code>) 계정을
-          <b style={{ color: "#C53030" }}> 영구적으로 삭제</b>합니다. 이 작업은 되돌릴 수 없습니다.
-          <div className="mt-1" style={{ color: "#718096", fontSize: 12 }}>
-            연결된 업무 데이터(고객·결산·문서 등)가 있으면 삭제가 차단됩니다.
-          </div>
+          계정: <strong>{acc.office_name || acc.login_id}</strong> (<code className="font-mono">{acc.login_id}</code>)
         </div>
+
+        {previewLoading && <div className="text-xs mb-3" style={{ color: "#718096" }}>연결 데이터 확인 중…</div>}
+
+        {preview && preview.other_users_on_tenant > 0 && (
+          <div className="text-xs mb-3" style={{ color: "#276749", background: "#F0FFF4", border: "1px solid #C6F6D5", borderRadius: 6, padding: "6px 8px" }}>
+            같은 사업장에 다른 활성 계정이 {preview.other_users_on_tenant}개 남아 있어, 고객·업무참고·분류 데이터는 이관 없이 그대로 유지됩니다.
+          </div>
+        )}
+
+        {preview && migratableEntries.length > 0 && (
+          <div className="text-xs mb-2" style={{ color: "#4A5568" }}>
+            <div className="font-semibold mb-1">연결 데이터:</div>
+            <ul style={{ paddingLeft: 14, lineHeight: 1.7 }}>
+              {migratableEntries.map(([k, v]) => <li key={k}>{CONNECTED_LABEL[k] || k} {v}건</li>)}
+            </ul>
+          </div>
+        )}
+
+        {migrationBlocked && (
+          <div className="text-xs mb-3" style={{ color: "#822727", background: "#FFF5F5", border: "1px solid #FEB2B2", borderRadius: 6, padding: "6px 8px" }}>
+            <div className="font-semibold mb-1">이관 정책이 없는 연결 데이터가 있어 완전 삭제할 수 없습니다:</div>
+            <ul style={{ paddingLeft: 14, lineHeight: 1.7 }}>
+              {unmigratableEntries.map(([k, v]) => <li key={k}>{k} {v}건 — 수동으로 이전·정리한 뒤 다시 시도하세요.</li>)}
+            </ul>
+          </div>
+        )}
+
+        {needsMigration && !migrationBlocked && (
+          <div className="mb-3">
+            <div className="text-xs mb-1" style={{ color: "#718096" }}>연결 데이터 이관 대상 계정</div>
+            <select value={migrateTo} onChange={(e) => setMigrateTo(e.target.value)}
+              className="hw-input w-full text-sm" style={{ fontFamily: "monospace" }}>
+              <option value="">계정 선택…</option>
+              {preview?.candidates.map((c) => (
+                <option key={c.login_id} value={c.login_id}>
+                  {c.login_id} ({c.office_name}){c.is_admin ? " · 관리자" : ""}
+                </option>
+              ))}
+            </select>
+            <div className="text-xs mt-1" style={{ color: "#718096" }}>
+              연결된 데이터는 선택한 계정으로 이관되고, 로그인 계정과 계정 전용 데이터만 삭제됩니다.
+            </div>
+          </div>
+        )}
+
+        <div className="text-xs mb-3" style={{ color: "#C53030", fontWeight: 600 }}>이 작업은 되돌릴 수 없습니다.</div>
+
         <div className="text-xs mb-1" style={{ color: "#718096" }}>삭제하려면 계정 아이디 <b className="font-mono" style={{ color: "#2D3748" }}>{acc.login_id}</b> 를 입력하세요.</div>
         <input
           autoFocus
@@ -2147,15 +2208,15 @@ function HardDeleteModal({
           placeholder={acc.login_id}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && matches && !isDeleting) onConfirm(text.trim()); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && canConfirm && !isDeleting) onConfirm(text.trim(), migrateTo || undefined); }}
         />
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E2E8F0", color: "#718096", background: "#fff" }}>
             취소
           </button>
           <button
-            onClick={() => onConfirm(text.trim())}
-            disabled={!matches || isDeleting}
+            onClick={() => onConfirm(text.trim(), migrateTo || undefined)}
+            disabled={!canConfirm || isDeleting}
             className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}
           >

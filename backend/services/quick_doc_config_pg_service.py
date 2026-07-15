@@ -20,7 +20,7 @@ import os
 import re
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from backend.db.models.doc_tree import DocTreeNode, DocRequiredDocument
 
@@ -400,6 +400,105 @@ def update_node(node_id: int, name: Optional[str] = None,
 def delete_node(node_id: int) -> dict:
     """soft delete(is_active=False). 하위 노드/서류는 보존(조회 시 활성만 노출)."""
     return update_node(node_id, is_active=False)
+
+
+def _descendants(s, node_id: int) -> list[DocTreeNode]:
+    """재귀적으로 모든 하위 노드(활성+비활성 포함) 조회."""
+    out: list[DocTreeNode] = []
+    direct = list(s.scalars(select(DocTreeNode).where(DocTreeNode.parent_id == node_id)).all())
+    for c in direct:
+        out.append(c)
+        out.extend(_descendants(s, c.id))
+    return out
+
+
+def node_delete_impact(node_id: int) -> dict:
+    """완전삭제 영향 조사(삭제 실행 없음) — 하위 노드 수, 활성 하위 존재 여부, 연결 서류 수."""
+    with _SL() as s:
+        node = s.get(DocTreeNode, node_id)
+        if node is None:
+            raise ValueError("노드를 찾을 수 없습니다.")
+        descendants = _descendants(s, node_id)
+        active_descendants = [d for d in descendants if d.is_active]
+        all_ids = [node_id] + [d.id for d in descendants]
+        doc_count = int(s.scalar(
+            select(func.count()).select_from(DocRequiredDocument)
+            .where(DocRequiredDocument.node_id.in_(all_ids))
+        ) or 0)
+        return {
+            "node_id": node_id, "name": node.name, "level": node.level,
+            "is_active": bool(node.is_active),
+            "descendant_count": len(descendants),
+            "active_descendant_count": len(active_descendants),
+            "doc_count": doc_count,
+            "blocked_reason": (
+                "활성 상태 — 먼저 숨김 처리해야 완전삭제할 수 있습니다." if node.is_active else
+                f"활성 하위 항목 {len(active_descendants)}개가 있어 완전삭제할 수 없습니다. 먼저 모두 숨기세요."
+                if active_descendants else None
+            ),
+        }
+
+
+def hard_delete_node(node_id: int, cascade: bool = False) -> dict:
+    """완전삭제(물리 DELETE, 복원 불가). 실제 템플릿 파일(HWPX/HWP/PDF)은 건드리지 않는다.
+
+    조건: 대상 노드가 숨김(is_active=False) 상태 / 활성 하위 노드가 없음. 하위 노드가
+    하나라도 있으면(전부 숨김이어도) cascade=True 로 명시 확인해야 함께 삭제한다.
+    FK(ondelete=CASCADE)로 하위 노드·연결 서류가 자동 정리되므로 최상위 노드 1행만
+    DELETE 하면 된다 — 단, 삭제 전 정확한 영향(건수)을 조회해 함께 반환한다.
+    """
+    with _SL() as s:
+        node = s.get(DocTreeNode, node_id)
+        if node is None:
+            raise ValueError("노드를 찾을 수 없습니다.")
+        if node.is_active:
+            raise ValueError("활성 상태인 항목은 완전삭제할 수 없습니다. 먼저 숨김 처리하세요.")
+        descendants = _descendants(s, node_id)
+        active_descendants = [d for d in descendants if d.is_active]
+        if active_descendants:
+            raise ValueError(f"활성 하위 항목이 {len(active_descendants)}개 있어 완전삭제할 수 없습니다. 먼저 모두 숨기세요.")
+        if descendants and not cascade:
+            raise ValueError(f"하위 항목 {len(descendants)}개를 포함해 삭제하려면 명시적으로 확인이 필요합니다.")
+
+        all_ids = [node_id] + [d.id for d in descendants]
+        doc_count = int(s.scalar(
+            select(func.count()).select_from(DocRequiredDocument)
+            .where(DocRequiredDocument.node_id.in_(all_ids))
+        ) or 0)
+        name, level = node.name, node.level
+        s.delete(node)   # ondelete=CASCADE 로 하위 노드·연결 서류까지 함께 삭제됨
+        s.commit()
+        return {
+            "deleted_node_id": node_id, "deleted_name": name, "deleted_level": level,
+            "deleted_descendant_count": len(descendants), "deleted_doc_count": doc_count,
+        }
+
+
+def required_document_delete_impact(doc_id: int) -> dict:
+    """필요서류 완전삭제 영향 조사(삭제 실행 없음)."""
+    with _SL() as s:
+        doc = s.get(DocRequiredDocument, doc_id)
+        if doc is None:
+            raise ValueError("필요서류를 찾을 수 없습니다.")
+        return {
+            "doc_id": doc_id, "name": doc.name, "doc_group": doc.doc_group,
+            "is_active": bool(doc.is_active),
+            "blocked_reason": "활성 상태 — 먼저 숨김 처리해야 완전삭제할 수 있습니다." if doc.is_active else None,
+        }
+
+
+def hard_delete_required_document(doc_id: int) -> dict:
+    """필요서류 완전삭제(물리 DELETE). 숨김 상태만 가능. 실제 템플릿 파일은 건드리지 않는다."""
+    with _SL() as s:
+        doc = s.get(DocRequiredDocument, doc_id)
+        if doc is None:
+            raise ValueError("필요서류를 찾을 수 없습니다.")
+        if doc.is_active:
+            raise ValueError("활성 상태인 서류는 완전삭제할 수 없습니다. 먼저 숨김 처리하세요.")
+        name = doc.name
+        s.delete(doc)
+        s.commit()
+        return {"deleted_doc_id": doc_id, "deleted_name": name}
 
 
 # ── 관리자: 필요서류 CRUD ────────────────────────────────────────────────────
