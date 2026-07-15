@@ -9,8 +9,8 @@ import { guidelinesV3Api, V3Aux, V3DeleteImpact, V3Group, V3Program, V3Qualifica
 import { ProgramChip } from "@/components/qualifications/common";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 import {
-  EditIconButton, EntityEditModal, FieldSpec, GROUP_FIELDS, ImpactDialog,
-  qualFields, runDelete,
+  DrEditor, EditIconButton, EntityEditModal, FieldSpec, GROUP_FIELDS, ImpactDialog,
+  auxFields, qualFields, runDelete,
 } from "@/components/qualifications/editV3";
 
 const GROUP_LABEL: Record<string, string> = {
@@ -25,7 +25,7 @@ const GROUP_LABEL: Record<string, string> = {
 };
 
 type EditModalState = {
-  etype: "group" | "qualification";
+  etype: "group" | "qualification" | "aux";
   mode: "create" | "edit";
   title: string;
   fields: FieldSpec[];
@@ -68,14 +68,23 @@ function QualCard({ q, onClick, editMode, onEdit, onDelete }: {
 }
 
 // 보조 민원(격자 밖 기타 신청·신고) 카드 — 자격 선택 없이 진행되는 민원. 격자와 시각 분리(회색 톤).
-function AuxCard({ a, expanded, onToggle, onQuickDoc }: {
+function AuxCard({ a, expanded, onToggle, onQuickDoc, editMode, onEdit, onDelete, onDrChanged }: {
   a: V3Aux; expanded: boolean; onToggle: () => void; onQuickDoc: (url: string) => void;
+  editMode?: boolean; onEdit?: () => void; onDelete?: () => void; onDrChanged?: () => void;
 }) {
   const url = a.v2_row ? buildQuickDocUrl(a.v2_row) : null;
+  const infoRows: [string, string | undefined][] = [
+    ["신청처", a.application_place], ["신청 방식", a.application_method],
+    ["신청 서식", a.application_form], ["수수료", a.fee], ["처리 안내", a.processing_note],
+  ];
   return (
     <div style={{ background:"#FAFAFA", borderRadius:12, border:"1px solid #E2E8F0" }}>
       <div onClick={onToggle} style={{ padding:"12px 16px", cursor:"pointer" }}>
-        <div style={{ fontSize:13.5, fontWeight:600, color:"#4A5568", marginBottom:3 }}>{a.name}</div>
+        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+          <div style={{ fontSize:13.5, fontWeight:600, color:"#4A5568", flex:1 }}>{a.name}</div>
+          {editMode && onEdit && <EditIconButton kind="edit" title="보조 민원 수정" onClick={onEdit} />}
+          {editMode && onDelete && <EditIconButton kind="delete" title="보조 민원 삭제" onClick={onDelete} />}
+        </div>
         {a.description && (
           <div style={{ fontSize:11.5, color:"#A0AEC0", lineHeight:1.5 }}>
             {a.description.length > 70 ? a.description.slice(0, 70) + "…" : a.description}
@@ -84,6 +93,20 @@ function AuxCard({ a, expanded, onToggle, onQuickDoc }: {
       </div>
       {expanded && (
         <div style={{ padding:"0 16px 14px" }}>
+          {infoRows.some(([, v]) => v) && (
+            <div style={{ marginBottom:8, fontSize:11.5, color:"#4A5568", lineHeight:1.7 }}>
+              {infoRows.filter(([, v]) => v).map(([k, v]) => (
+                <div key={k}>{k}: <strong>{v}</strong></div>
+              ))}
+            </div>
+          )}
+          {a.notes && (
+            <div style={{ marginBottom:8, padding:"8px 10px", borderRadius:8, background:"#FFFFF0",
+              border:"1px solid #F6E05E", fontSize:11.5, color:"#975A16", lineHeight:1.6 }}>{a.notes}</div>
+          )}
+          {editMode && onDrChanged && (
+            <DrEditor targetId={a.aux_id} drs={a.requirements ?? []} onChanged={onDrChanged} />
+          )}
           {(a.requirements?.length ?? 0) > 0 && (
             <div style={{ marginBottom:8 }}>
               <div style={{ fontSize:10, fontWeight:700, color:"#4A5568", marginBottom:4 }}>
@@ -153,7 +176,7 @@ export default function QualificationsPage() {
   const [editMode, setEditMode] = useState(false);
   const [modal, setModal] = useState<EditModalState>(null);
   const [impactState, setImpactState] = useState<{
-    etype: "group" | "qualification"; id: string; label: string;
+    etype: "group" | "qualification" | "aux"; id: string; label: string;
     impact: V3DeleteImpact; cascadeAllowed: boolean;
   } | null>(null);
   const [auxItems, setAuxItems] = useState<V3Aux[]>([]);
@@ -179,13 +202,17 @@ export default function QualificationsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    reload();
-    // 보조 민원(별도 축) — 실패해도 자격 화면은 정상 동작
+  // 보조 민원(별도 축) — 실패해도 자격 화면은 정상 동작
+  const reloadAux = useCallback(() => {
     guidelinesV3Api.listAux()
       .then(res => setAuxItems(res.data.data))
       .catch(() => setAuxItems([]));
-  }, [reload]);
+  }, []);
+
+  useEffect(() => {
+    reload();
+    reloadAux();
+  }, [reload, reloadAux]);
 
   // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시 —
   // 분류별·업무별 찾기(/guidelines)와 동일한 노출 구조(숨김 토글 뒤에 두지 않음)
@@ -236,7 +263,8 @@ export default function QualificationsPage() {
       await guidelinesV3Api.editCreate(modal.etype, { ...modal.initial, ...payload });
     }
     reload();
-  }, [modal, reload]);
+    if (modal.etype === "aux") reloadAux();
+  }, [modal, reload, reloadAux]);
 
   return (
     <div style={{ padding:24, maxWidth:1200, margin:"0 auto" }}>
@@ -365,10 +393,22 @@ export default function QualificationsPage() {
               </div>
             </div>
           )}
-          {auxItems.length > 0 && (
+          {(auxItems.length > 0 || (editable && editMode)) && (
             <div style={{ marginTop:28 }}>
-              <div style={{ fontSize:13, fontWeight:700, color:"#718096", marginBottom:4 }}>
-                기타 신청·신고 (보조 민원) <span style={{ fontWeight:400, color:"#A0AEC0" }}>({auxItems.length})</span>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                <span style={{ fontSize:13, fontWeight:700, color:"#718096" }}>
+                  기타 신청·신고 (보조 민원) <span style={{ fontWeight:400, color:"#A0AEC0" }}>({auxItems.length})</span>
+                </span>
+                {editable && editMode && (
+                  <button onClick={() => setModal({ etype:"aux", mode:"create", title:"보조 민원 추가",
+                    fields: auxFields(true),
+                    initial: { kind:"application_claim", is_active:true, display_order:900 } })}
+                    style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:700,
+                      padding:"3px 12px", borderRadius:20, border:"1.5px solid rgba(212,168,67,0.55)",
+                      background:"rgba(212,168,67,0.08)", color:"var(--hw-gold-text)", cursor:"pointer" }}>
+                    + 보조 민원
+                  </button>
+                )}
               </div>
               <div style={{ fontSize:11.5, color:"#A0AEC0", marginBottom:10 }}>
                 매뉴얼의 자격×업무 체계 밖의 민원(사실증명 등) — 자격 선택 없이 진행합니다.
@@ -378,7 +418,16 @@ export default function QualificationsPage() {
                   <AuxCard key={a.aux_id} a={a}
                     expanded={expandedAux === a.aux_id}
                     onToggle={() => setExpandedAux(expandedAux === a.aux_id ? null : a.aux_id)}
-                    onQuickDoc={url => router.push(url)} />
+                    onQuickDoc={url => router.push(url)}
+                    editMode={editable && editMode}
+                    onEdit={() => setModal({ etype:"aux", mode:"edit", id:a.aux_id,
+                      title:`보조 민원 수정 — ${a.name}`, fields: auxFields(false),
+                      initial: a as unknown as Record<string, unknown> })}
+                    onDelete={() => runDelete("aux", a.aux_id, a.name,
+                      (impact, cascadeAllowed) => setImpactState({ etype:"aux", id:a.aux_id,
+                        label:a.name, impact, cascadeAllowed }),
+                      reloadAux)}
+                    onDrChanged={reloadAux} />
                 ))}
               </div>
             </div>
@@ -394,7 +443,11 @@ export default function QualificationsPage() {
       {impactState && (
         <ImpactDialog entityLabel={impactState.label} impact={impactState.impact}
           onCascade={impactState.cascadeAllowed
-            ? async () => { await guidelinesV3Api.editDelete(impactState.etype, impactState.id, true); reload(); }
+            ? async () => {
+                await guidelinesV3Api.editDelete(impactState.etype, impactState.id, true);
+                reload();
+                if (impactState.etype === "aux") reloadAux();
+              }
             : null}
           onClose={() => setImpactState(null)} />
       )}

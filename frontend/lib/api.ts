@@ -1498,7 +1498,7 @@ export interface V3QualificationDetail {
 
 export interface V3Aux {
   aux_id: string;
-  v2_row_id: string;
+  v2_row_id: string | null;
   name: string;
   kind: string;
   description: string;
@@ -1506,6 +1506,14 @@ export interface V3Aux {
   notes: string;
   v2_row: GuidelineRow | null;
   requirements?: V3DocRequirement[];
+  // 편집 계층에서 추가 가능한 선택 안내 필드(정본 11건에는 없음 — 있을 때만 표시)
+  application_place?: string;
+  application_method?: string;
+  application_form?: string;
+  fee?: string;
+  processing_note?: string;
+  display_order?: number | null;
+  is_active?: boolean;
 }
 
 // v3 대분류(그룹) — 서버 제공(오버레이 편집 가능), 미제공 시 프론트 fallback
@@ -1518,7 +1526,7 @@ export interface V3Group {
 }
 
 // v3 편집(CRUD) — FEATURE_GUIDELINES_V3_EDIT + PG 오버레이(guideline_v3_edits)
-export type V3EntityType = "group" | "qualification" | "stay_block" | "visa_route" | "doc_requirement";
+export type V3EntityType = "group" | "qualification" | "stay_block" | "visa_route" | "doc_requirement" | "aux";
 export interface V3DeleteImpact {
   qualifications: string[];
   blocks: string[];
@@ -1537,7 +1545,7 @@ export const guidelinesV3Api = {
   listPrograms: () =>
     api.get<{ total: number; data: V3Program[] }>("/api/guidelines/v3/programs"),
   listAux: () =>
-    api.get<{ total: number; data: V3Aux[] }>("/api/guidelines/v3/aux"),
+    api.get<{ total: number; data: V3Aux[]; editable?: boolean }>("/api/guidelines/v3/aux"),
   // ── 편집(CRUD) ──
   editStatus: () =>
     api.get<{ enabled: boolean; flag: boolean; editable: boolean; role: string;

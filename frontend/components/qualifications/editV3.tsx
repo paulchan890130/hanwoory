@@ -327,6 +327,23 @@ export function routeFields(): FieldSpec[] {
   ];
 }
 
+export function auxFields(creating: boolean): FieldSpec[] {
+  return [
+    ...(creating ? [] : [{ key: "aux_id", label: "고유 ID", kind: "text", readOnly: true } as FieldSpec]),
+    { key: "name", label: "보조 민원명", kind: "text", required: true, placeholder: "예: 외국인등록증 재발급" },
+    { key: "description", label: "설명", kind: "textarea" },
+    { key: "kind", label: "업무 분류", kind: "text", placeholder: "application_claim", help: "기본 application_claim" },
+    { key: "application_place", label: "신청처", kind: "text", placeholder: "예: 관할 출입국·외국인관서" },
+    { key: "application_method", label: "신청 방식", kind: "text", placeholder: "예: 방문 / 온라인(하이코리아)" },
+    { key: "application_form", label: "신청 서식", kind: "text", placeholder: "예: 별지 제34호" },
+    { key: "fee", label: "수수료", kind: "text", placeholder: "예: 3만원 / 없음" },
+    { key: "processing_note", label: "처리기간·안내", kind: "text" },
+    { key: "notes", label: "주의사항", kind: "textarea" },
+    { key: "display_order", label: "표시 순서", kind: "number" },
+    { key: "is_active", label: "활성 여부", kind: "bool" },
+  ];
+}
+
 export function drFields(): FieldSpec[] {
   return [
     { key: "doc_name", label: "서류명", kind: "text", required: true },

@@ -16,7 +16,7 @@ from backend.db.models.guideline_v3_edit import GuidelineV3Edit
 
 _log = logging.getLogger("hanwoory.guideline_v3_edit")
 
-ENTITY_TYPES = ("group", "qualification", "stay_block", "visa_route", "doc_requirement")
+ENTITY_TYPES = ("group", "qualification", "stay_block", "visa_route", "doc_requirement", "aux")
 
 
 def edit_enabled() -> bool:

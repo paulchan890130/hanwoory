@@ -88,6 +88,42 @@ def crud_cycle(base: str, hdr: dict, role_label: str, group_key: str) -> None:
     check(r.status_code == 404, f"{role_label}: 재revert 404 = 오버레이 행 완전 제거 (실제 {r.status_code})")
 
 
+def aux_cycle(base: str, hdr: dict, role_label: str) -> None:
+    """보조 민원(aux) CRUD 사이클 — DR 연결·부모 삭제 차단·cascade·완전 제거까지."""
+    name = f"권한검사 보조민원 {role_label}"
+    r = requests.post(f"{base}{V3}/edit/aux", headers=hdr, timeout=15,
+                      json={"name": name, "description": "권한검사", "fee": "없음"})
+    check(r.status_code == 200, f"{role_label}: 보조 민원 추가 200 (실제 {r.status_code})")
+    aid = r.json().get("entity_id", "") if r.status_code == 200 else ""
+    if not aid:
+        return
+    r = requests.put(f"{base}{V3}/edit/aux/{aid}", headers=hdr, timeout=15,
+                     json={"name": name + "2", "application_place": "검사 관서"})
+    check(r.status_code == 200, f"{role_label}: 보조 민원 수정 200 (실제 {r.status_code})")
+
+    r = requests.post(f"{base}{V3}/edit/doc_requirement", headers=hdr, timeout=15,
+                      json={"target_id": aid, "doc_name": "권한검사 서류", "doc_role": "client"})
+    check(r.status_code == 200, f"{role_label}: 보조 민원 준비서류 추가 200 (실제 {r.status_code})")
+    dr_id = r.json().get("entity_id", "") if r.status_code == 200 else ""
+
+    r = requests.delete(f"{base}{V3}/edit/aux/{aid}", headers=hdr, timeout=15)
+    check(r.status_code == 409, f"{role_label}: 서류 있는 보조 민원 즉시 삭제 차단 409 (실제 {r.status_code})")
+    r = requests.delete(f"{base}{V3}/edit/aux/{aid}?cascade=true", headers=hdr, timeout=15)
+    check(r.status_code == 200, f"{role_label}: 연결 데이터 포함 삭제 200 (실제 {r.status_code})")
+
+    r = requests.get(f"{base}{V3}/aux", headers=hdr, timeout=15)
+    data = r.json().get("data", [])
+    check(r.status_code == 200 and all(x["aux_id"] != aid for x in data) and len(data) == 11,
+          f"{role_label}: 삭제 후 목록 잔존 0 + 정본 11건 유지 (실제 {len(data)}건)")
+
+    # 톰스톤 revert 로 오버레이 행 완전 제거
+    ok = True
+    for etype, eid in (("aux", aid), ("doc_requirement", dr_id)):
+        rr = requests.post(f"{base}{V3}/edit/{etype}/{eid}/revert", headers=hdr, timeout=15)
+        ok = ok and rr.status_code == 200
+    check(ok, f"{role_label}: 보조 민원 오버레이 행 완전 제거(revert)")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", required=True)
@@ -125,6 +161,7 @@ def main() -> int:
     hdr = mint(args.user_id)
     denied = [
         ("POST", f"{base}{V3}/edit/group", {"json": {"group_key": "ZUSERTRY", "label": "x"}}),
+        ("POST", f"{base}{V3}/edit/aux", {"json": {"name": "x"}}),
         ("PUT", f"{base}{V3}/edit/group/A", {"json": {"label": "x"}}),
         ("DELETE", f"{base}{V3}/edit/group/A", {}),
         ("GET", f"{base}{V3}/edit/impact/group/A", {}),
@@ -135,9 +172,11 @@ def main() -> int:
         r = requests.request(method, url, headers=hdr, timeout=15, **kw)
         check(r.status_code == 403, f"user: {method} {url.split(V3)[1]} 403 (실제 {r.status_code})")
 
-    # 5) 편집 역할 CRUD 사이클
+    # 5) 편집 역할 CRUD 사이클 (대분류 + 보조 민원)
     crud_cycle(base, mint(args.master_id), "master", TEST_GROUP_KEY_MASTER)
     crud_cycle(base, mint(args.sub_admin_id), "sub_admin", TEST_GROUP_KEY_SUB)
+    aux_cycle(base, mint(args.master_id), "master")
+    aux_cycle(base, mint(args.sub_admin_id), "sub_admin")
 
     passed = sum(1 for ok, _ in _results if ok)
     print(f"\nRESULT: {passed}/{len(_results)} " +

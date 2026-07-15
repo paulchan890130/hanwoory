@@ -193,13 +193,14 @@ def _build_merged() -> _Dataset:
     _normalize_masters(masters)
     blocks = _apply_edits([dict(b) for b in _BASE_DS.blocks], edits.get("stay_block", {}), "block_id")
     routes = _apply_edits([dict(r) for r in _BASE_DS.routes], edits.get("visa_route", {}), "route_id")
+    aux = _apply_edits([dict(a) for a in _BASE_DS.aux], edits.get("aux", {}), "aux_id")
     doc_reqs = _apply_edits([dict(d) for d in _BASE_DS.doc_reqs], edits.get("doc_requirement", {}), "requirement_id")
     # 고아 차단(안전망): 자격이 빠진(삭제·비활성) 블록/경로, 대상이 빠진 서류는 병합 결과에서 제외
     valid_qids = {m["qualification_id"] for m in masters}
     blocks = [b for b in blocks if b.get("qualification_id") in valid_qids]
     routes = [r for r in routes if r.get("qualification_id") in valid_qids]
     valid_targets = ({b["block_id"] for b in blocks} | {r["route_id"] for r in routes}
-                     | {a["aux_id"] for a in _BASE_DS.aux})
+                     | {a["aux_id"] for a in aux})
     doc_reqs = [d for d in doc_reqs if d.get("target_id") in valid_targets]
 
     meta = dict(_BASE_DS.meta)
@@ -207,11 +208,12 @@ def _build_merged() -> _Dataset:
     counts.update({
         "qualification_master": len(masters), "stay_blocks": len(blocks),
         "visa_routes": len(routes), "document_requirements": len(doc_reqs),
+        "aux_civil": len(aux),
     })
     meta["counts"] = counts
     meta["edited_overlay"] = True
     return _Dataset(masters=masters, blocks=blocks, routes=routes, programs=_BASE_DS.programs,
-                    aux=_BASE_DS.aux, doc_reqs=doc_reqs, groups=groups, meta=meta)
+                    aux=aux, doc_reqs=doc_reqs, groups=groups, meta=meta)
 
 
 def get_dataset() -> _Dataset:
@@ -286,11 +288,11 @@ def list_aux(user: dict = Depends(get_current_user)):
     _require_enabled()
     ds = get_dataset()
     out = []
-    for a in ds.aux:
-        row = _ROW_INDEX.get(a["v2_row_id"])
+    for a in sorted(ds.aux, key=lambda a: (a.get("display_order") or 10**9, a.get("aux_id", ""))):
+        row = _ROW_INDEX.get(a.get("v2_row_id"))
         out.append({**a, "v2_row": _clean_row_display(row) if row else None,
                     "requirements": ds.dr_by_target.get(a["aux_id"], [])})
-    return {"total": len(out), "data": out}
+    return {"total": len(out), "data": out, "editable": _editable_for(user)}
 
 
 @router.get("/qualifications/{code}")
@@ -396,6 +398,9 @@ _DR_FIELDS = {"requirement_id", "target_type", "target_id", "doc_name", "doc_kin
               "review_category", "final_disposition", "quickdoc_link", "added_from_manual",
               "display_order", "is_active", "reuse_of", "s_scope", "display_hint"}
 _GROUP_FIELDS = {"group_key", "label", "description", "sort_order", "is_active"}
+_AUX_FIELDS = {"aux_id", "name", "kind", "description", "application_place",
+               "application_method", "application_form", "fee", "processing_note",
+               "notes", "quickdoc_link", "v2_row_id", "display_order", "is_active"}
 
 
 def _require_editable() -> None:
@@ -579,6 +584,10 @@ def _validate_dr(ds: _Dataset, payload: dict, creating: bool, edits: dict) -> di
         if target not in route_ids:
             raise HTTPException(status_code=400, detail=f"존재하지 않는 사증 경로: {target}")
         payload["target_type"] = "visa_route"
+    elif target.startswith("AUX:"):
+        if target not in {a["aux_id"] for a in ds.aux}:
+            raise HTTPException(status_code=400, detail=f"존재하지 않는 보조 민원: {target}")
+        payload["target_type"] = "aux"
     else:
         raise HTTPException(status_code=400, detail=f"서류 대상 형식 오류: {target}")
     if payload["doc_name"].strip() == "수수료":
@@ -627,6 +636,37 @@ def _validate_group(ds: _Dataset, payload: dict, creating: bool) -> dict:
     return merged
 
 
+def _next_aux_id(ds: _Dataset, edits: dict) -> str:
+    """편집 신설 보조 민원 ID — AUX:E0001+ (정본 M1-*/CIVIL-* 대역과 분리)."""
+    used = {a["aux_id"] for a in ds.aux} | set((edits.get("aux") or {}).keys())
+    n = 1
+    while f"AUX:E{n:04d}" in used:
+        n += 1
+    return f"AUX:E{n:04d}"
+
+
+def _validate_aux(ds: _Dataset, payload: dict, creating: bool) -> dict:
+    _clean_fields(payload, _AUX_FIELDS, "aux")
+    _req(payload, "name", "보조 민원")
+    aid = str(payload.get("aux_id") or "").strip()
+    if creating and not aid:
+        aid = _next_aux_id(ds, edit_store.load_all_edits())
+    if not re.match(r"^AUX:[A-Z0-9-]{1,24}$", aid):
+        raise HTTPException(status_code=400, detail=f"보조 민원 ID 형식 오류: {aid}")
+    payload["aux_id"] = aid
+    if creating and any(a["aux_id"] == aid for a in ds.aux):
+        raise HTTPException(status_code=409, detail=f"중복 보조 민원 ID: {aid}")
+    name = payload["name"].strip()
+    if any(a["name"] == name and a["aux_id"] != aid for a in ds.aux):
+        raise HTTPException(status_code=409, detail=f"동일 이름의 보조 민원이 이미 있습니다: {name}")
+    defaults = {"kind": "application_claim", "description": "", "notes": "",
+                "quickdoc_link": None, "v2_row_id": None}
+    base = {} if creating else dict(next((a for a in ds.aux if a["aux_id"] == aid), {}) or {})
+    merged = {**defaults, **base, **payload}
+    _scan_banned(merged, f"보조 민원 {aid}")
+    return merged
+
+
 def _impact_for(ds: _Dataset, entity_type: str, entity_id: str) -> dict:
     """삭제 전 영향 — 연결 데이터 목록(코드·건수)."""
     if entity_type == "group":
@@ -648,7 +688,7 @@ def _impact_for(ds: _Dataset, entity_type: str, entity_id: str) -> dict:
         return {"qualifications": children, "blocks": blocks, "routes": routes,
                 "doc_requirements": drs,
                 "blocking": bool(children or blocks or routes or drs), "cascade_allowed": True}
-    if entity_type in ("stay_block", "visa_route"):
+    if entity_type in ("stay_block", "visa_route", "aux"):
         drs = [d["requirement_id"] for d in ds.doc_reqs if d["target_id"] == entity_id]
         return {"qualifications": [], "blocks": [], "routes": [], "doc_requirements": drs,
                 "blocking": bool(drs), "cascade_allowed": True}
@@ -674,10 +714,11 @@ _VALIDATORS = {
     "stay_block": _validate_block,
     "visa_route": _validate_route,
     "group": _validate_group,
+    "aux": _validate_aux,
 }
 _ID_FIELD = {"group": "group_key", "qualification": "qualification_id",
              "stay_block": "block_id", "visa_route": "route_id",
-             "doc_requirement": "requirement_id"}
+             "doc_requirement": "requirement_id", "aux": "aux_id"}
 
 
 def _current_entity(ds: _Dataset, entity_type: str, entity_id: str) -> Optional[dict]:
@@ -691,6 +732,8 @@ def _current_entity(ds: _Dataset, entity_type: str, entity_id: str) -> Optional[
         return next((r for r in ds.routes if r["route_id"] == entity_id), None)
     if entity_type == "doc_requirement":
         return next((d for d in ds.doc_reqs if d["requirement_id"] == entity_id), None)
+    if entity_type == "aux":
+        return next((a for a in ds.aux if a["aux_id"] == entity_id), None)
     return None
 
 
