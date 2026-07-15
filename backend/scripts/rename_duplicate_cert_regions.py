@@ -4,8 +4,9 @@
 
 병합하지 않는다 — legacy는 6개 대분류/전체 그룹에 무제한 노출되고, 신규는 그중 일부
 (전국 2/6, 중국 3/6, 지역상관없음 1/6+그룹 2종)에만 국한되어 실질적으로 다른 규칙이다.
-대신 신규(rgn-*) 3건의 표시명(name)에 스코프를 드러내는 접미사를 붙여 구분한다.
-legacy 3건과 cert_prices(이름 기준 저장) 데이터는 전혀 건드리지 않는다.
+대신 legacy 3건 + 신규(rgn-*) 3건 전부의 표시명(name)에 접미사를 붙여 구분한다
+(사용자 확정 정책 — legacy="(공통)", 신규="(지정 업무)"; "지역상관없음"은 "지역 무관"으로
+표기 정리). scope·code·연결 업무·활성 상태·cert_prices(이름 기준 저장)는 건드리지 않는다.
 
 사용법(기본 dry-run — 실제 반영은 --apply 필요):
     python -m backend.scripts.rename_duplicate_cert_regions
@@ -23,11 +24,14 @@ from sqlalchemy import text
 
 from backend.db.session import get_sessionmaker
 
-# id -> 새 표시명(스코프를 이름에 드러냄). 병합/삭제 없음 — name 컬럼만 변경.
+# id -> 새 표시명. 병합/삭제/scope 변경 없음 — name 컬럼 6행만 변경.
 RENAMES: dict[str, str] = {
-    "rgn-all": "전국(중국경로 전용)",
-    "rgn-china": "중국(중국경로 전용)",
-    "rgn-region-irrelevant": "지역상관없음(면허갱신·재발급 전용)",
+    "region-02": "전국(공통)",
+    "region-04": "중국(공통)",
+    "region-05": "지역 무관(공통)",
+    "rgn-all": "전국(지정 업무)",
+    "rgn-china": "중국(지정 업무)",
+    "rgn-region-irrelevant": "지역 무관(지정 업무)",
 }
 
 

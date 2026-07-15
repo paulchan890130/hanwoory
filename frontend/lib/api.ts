@@ -1570,6 +1570,23 @@ export const guidelinesV3Api = {
     api.get<{ has_overlay: boolean; op?: string; payload?: Record<string, unknown> | null;
       updated_by?: string | null; updated_at?: string | null; created_at?: string | null }>(
       `/api/guidelines/v3/edit/overlay-status/${etype}/${encodeURIComponent(id)}`),
+  // ── 매뉴얼 후보 ↔ v3 편집 연결 추적(audit_logs 재사용, migration 없음) ──
+  candidateLinks: (candidateRowId: string) =>
+    api.get<{ candidate_row_id: string; links: { entity_type: string; entity_id: string;
+      applied_by?: string | null; applied_at?: string | null }[] }>(
+      `/api/guidelines/v3/candidate-links/${encodeURIComponent(candidateRowId)}`),
+  candidateLinkCreate: (etype: V3EntityType, candidateRowId: string, payload: Record<string, unknown>) =>
+    api.post<{ status: string; entity_id: string; entity: Record<string, unknown> }>(
+      `/api/guidelines/v3/candidate-links/create/${etype}`,
+      { candidate_row_id: candidateRowId, payload }),
+  candidateLinkUpdate: (etype: V3EntityType, id: string, candidateRowId: string, payload: Record<string, unknown>) =>
+    api.put<{ status: string; entity_id: string; entity: Record<string, unknown> }>(
+      `/api/guidelines/v3/candidate-links/update/${etype}/${encodeURIComponent(id)}`,
+      { candidate_row_id: candidateRowId, payload }),
+  candidateLinkRevert: (candidateRowId: string, etype: V3EntityType, id: string) =>
+    api.post<{ status: string; entity_type: string; entity_id: string }>(
+      `/api/guidelines/v3/candidate-links/revert`,
+      { candidate_row_id: candidateRowId, entity_type: etype, entity_id: id }),
 };
 
 // ── 실무지침 분류 오버레이 (A+ 방식, PG 전용) ───────────────────────────────

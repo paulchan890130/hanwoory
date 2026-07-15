@@ -465,10 +465,11 @@ function OverlayBadge({ etype, id }: { etype: V3EntityType; id: string }) {
 }
 
 export function ApplyToV3Modal({
-  hintCode, hintActionType, hintTitle, candidateContext, onClose, onApplied,
+  hintCode, hintActionType, hintTitle, candidateContext, candidateRowId, onClose, onApplied,
 }: {
   hintCode?: string; hintActionType?: string; hintTitle?: string;
   candidateContext?: { existingText?: string; candidateText?: string; reason?: string };
+  candidateRowId?: string;
   onClose: () => void; onApplied: () => void;
 }) {
   const [showSource, setShowSource] = useState(false);
@@ -481,6 +482,19 @@ export function ApplyToV3Modal({
     fields: FieldSpec[]; initial: Record<string, unknown>; id?: string;
   } | null>(null);
   const [drTarget, setDrTarget] = useState<string | null>(null); // 준비서류 편집기 펼침 대상(block_id/route_id)
+  // 이 매뉴얼 후보로 현재 적용 중(취소 안 됨)인 v3 엔터티 목록 — audit_logs 기반, migration 없음.
+  const [links, setLinks] = useState<{ entity_type: string; entity_id: string; applied_by?: string | null; applied_at?: string | null }[]>([]);
+
+  const loadLinks = async () => {
+    if (!candidateRowId) return;
+    try {
+      const r = await guidelinesV3Api.candidateLinks(candidateRowId);
+      setLinks(r.data.links);
+    } catch { /* 조회 실패는 조용히 무시(참고 정보일 뿐, 저장을 막지 않음) */ }
+  };
+  useEffect(() => { loadLinks(); }, [candidateRowId]);
+
+  const linkFor = (etype: string, id: string) => links.find(l => l.entity_type === etype && l.entity_id === id);
 
   const lookup = async (c: string) => {
     if (!c.trim()) return;
@@ -498,11 +512,19 @@ export function ApplyToV3Modal({
 
   useEffect(() => { if (hintCode) lookup(hintCode); }, [hintCode]);
 
-  const refresh = async () => { if (code.trim()) await lookup(code.trim()); onApplied(); };
+  const refresh = async () => { if (code.trim()) await lookup(code.trim()); await loadLinks(); onApplied(); };
 
   const saveModal = async (payload: Record<string, unknown>) => {
     if (!modal) return;
-    if (modal.mode === "edit" && modal.id) {
+    if (candidateRowId) {
+      // 매뉴얼 후보에서 연 경우 — candidate-links 엔드포인트로 저장(기존 검증기 그대로 재사용 +
+      // 적용 이력 기록). 동일 후보가 같은 엔터티에 이미 적용 중이면 백엔드가 409로 차단한다.
+      if (modal.mode === "edit" && modal.id) {
+        await guidelinesV3Api.candidateLinkUpdate(modal.etype, modal.id, candidateRowId, payload);
+      } else {
+        await guidelinesV3Api.candidateLinkCreate(modal.etype, candidateRowId, { ...modal.initial, ...payload });
+      }
+    } else if (modal.mode === "edit" && modal.id) {
       await guidelinesV3Api.editUpdate(modal.etype, modal.id, payload);
     } else {
       await guidelinesV3Api.editCreate(modal.etype, { ...modal.initial, ...payload });
@@ -517,6 +539,20 @@ export function ApplyToV3Modal({
       await guidelinesV3Api.editRevert(etype, id);
       await refresh();
     } catch { window.alert("복원에 실패했습니다."); }
+  };
+
+  const cancelCandidateLink = async (etype: V3EntityType, id: string, label: string) => {
+    if (!candidateRowId) return;
+    if (!window.confirm(`${label}에 대한 이 후보의 적용을 취소할까요?\n이후 다른 관리자가 추가로 수정한 적이 있으면 취소가 거부됩니다.`)) return;
+    try {
+      await guidelinesV3Api.candidateLinkRevert(candidateRowId, etype, id);
+      await refresh();
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail
+        : (detail as { message?: string })?.message || "적용 취소에 실패했습니다.";
+      window.alert(msg);
+    }
   };
 
   const qid = detail?.master.qualification_id ?? "";
@@ -597,6 +633,17 @@ export function ApplyToV3Modal({
                 initial: detail.master as unknown as Record<string, unknown>,
               })} />
               <OverlayBadge etype="qualification" id={qid} />
+              {candidateRowId && linkFor("qualification", qid) && (
+                <>
+                  <span style={{ fontSize: 10.5, color: "#276749", background: "#F0FFF4",
+                    border: "1px solid #C6F6D5", borderRadius: 10, padding: "1px 7px" }}>
+                    ✓ 이 후보로 적용 완료
+                  </span>
+                  <button onClick={() => cancelCandidateLink("qualification", qid, detail.master.code)}
+                    style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #FEB2B2",
+                      background: "#fff", color: "#C53030", cursor: "pointer" }}>적용 취소</button>
+                </>
+              )}
             </div>
 
             {/* 체류업무 */}
@@ -625,6 +672,17 @@ export function ApplyToV3Modal({
                       style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #E2E8F0",
                         background: "#fff", color: "#4A5568", cursor: "pointer" }}>준비서류</button>
                     <OverlayBadge etype="stay_block" id={b.block_id} />
+                    {candidateRowId && linkFor("stay_block", b.block_id) && (
+                      <>
+                        <span style={{ fontSize: 10.5, color: "#276749", background: "#F0FFF4",
+                          border: "1px solid #C6F6D5", borderRadius: 10, padding: "1px 7px" }}>
+                          ✓ 이 후보로 적용 완료
+                        </span>
+                        <button onClick={() => cancelCandidateLink("stay_block", b.block_id, b.block_label)}
+                          style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #FEB2B2",
+                            background: "#fff", color: "#C53030", cursor: "pointer" }}>적용 취소</button>
+                      </>
+                    )}
                     <button onClick={() => revertEntity("stay_block", b.block_id, b.block_label)} title="정본 복원"
                       style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}>
                       <RotateCcw size={12} />
@@ -664,6 +722,17 @@ export function ApplyToV3Modal({
                       style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #E2E8F0",
                         background: "#fff", color: "#4A5568", cursor: "pointer" }}>준비서류</button>
                     <OverlayBadge etype="visa_route" id={r.route_id} />
+                    {candidateRowId && linkFor("visa_route", r.route_id) && (
+                      <>
+                        <span style={{ fontSize: 10.5, color: "#276749", background: "#F0FFF4",
+                          border: "1px solid #C6F6D5", borderRadius: 10, padding: "1px 7px" }}>
+                          ✓ 이 후보로 적용 완료
+                        </span>
+                        <button onClick={() => cancelCandidateLink("visa_route", r.route_id, r.route_label)}
+                          style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #FEB2B2",
+                            background: "#fff", color: "#C53030", cursor: "pointer" }}>적용 취소</button>
+                      </>
+                    )}
                     <button onClick={() => revertEntity("visa_route", r.route_id, r.route_label)} title="정본 복원"
                       style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}>
                       <RotateCcw size={12} />

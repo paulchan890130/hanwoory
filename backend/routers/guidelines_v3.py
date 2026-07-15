@@ -878,3 +878,131 @@ def edit_revert(entity_type: str, entity_id: str, request: Request,
     invalidate_merged()
     _audit(request, admin, "revert", entity_type, entity_id, before, None)
     return {"status": "ok", "reverted": entity_id}
+
+
+# ── 매뉴얼 후보 ↔ v3 편집 연결 추적(신규 테이블·migration 없음, audit_logs 재사용) ──────
+# 위 edit_create/edit_update 와 완전히 동일한 검증기(_VALIDATORS/_validate_dr)·
+# edit_store.save_edit 를 그대로 호출한다 — "동일한 정합성 검증" 요건을 별도
+# 재구현 없이 만족시키기 위함. 차이는 저장 전/후 오버레이 스냅샷을 떠서
+# manual_candidate_v3_link_service 에 적용 이력으로 남기는 것뿐이다.
+from backend.services import manual_candidate_v3_link_service as cand_link  # noqa: E402
+
+
+@router.get("/candidate-links/{candidate_row_id}")
+def list_candidate_links(candidate_row_id: str, admin: dict = Depends(require_guideline_editor)):
+    """이 매뉴얼 후보로 현재 적용(취소 안 된) 중인 v3 엔터티 목록."""
+    _require_editable()
+    return {"candidate_row_id": candidate_row_id, "links": cand_link.list_links_for_candidate(candidate_row_id)}
+
+
+@router.post("/candidate-links/create/{entity_type}")
+def candidate_link_create(entity_type: str, request: Request,
+                          body: dict = Body(...), admin: dict = Depends(require_guideline_editor)):
+    """매뉴얼 후보에서 새 엔터티 생성 + 후보 연결 기록. body = {candidate_row_id, payload}."""
+    _require_editable()
+    candidate_row_id = str(body.get("candidate_row_id") or "").strip()
+    payload = body.get("payload") or {}
+    if not candidate_row_id:
+        raise HTTPException(status_code=400, detail="candidate_row_id 필요")
+    ds = _build_merged()
+    edits = edit_store.load_all_edits()
+    if entity_type == "doc_requirement":
+        merged = _validate_dr(ds, dict(payload), creating=True, edits=edits)
+    elif entity_type in _VALIDATORS:
+        merged = _VALIDATORS[entity_type](ds, dict(payload), creating=True)
+    else:
+        raise HTTPException(status_code=400, detail=f"entity_type 오류: {entity_type}")
+    eid = merged[_ID_FIELD[entity_type]]
+    if _current_entity(ds, entity_type, eid) is not None:
+        raise HTTPException(status_code=409, detail=f"이미 존재합니다: {eid}")
+    actor = admin.get("login_id", "")
+    tenant = admin.get("tenant_id", "")
+    edit_store.save_edit(entity_type, eid, "upsert", merged, actor)
+    invalidate_merged()
+    after = edit_store.get_edit_row(entity_type, eid)
+    cand_link.record_apply(candidate_row_id=candidate_row_id, entity_type=entity_type, entity_id=eid,
+                           actor_login_id=actor, tenant_id=tenant, before=None, after=after)
+    _audit(request, admin, "create", entity_type, eid, None, merged)
+    return {"status": "ok", "entity_id": eid, "entity": merged}
+
+
+@router.put("/candidate-links/update/{entity_type}/{entity_id:path}")
+def candidate_link_update(entity_type: str, entity_id: str, request: Request,
+                          body: dict = Body(...), admin: dict = Depends(require_guideline_editor)):
+    """매뉴얼 후보에서 기존 엔터티 수정 + 후보 연결 기록. body = {candidate_row_id, payload}.
+    동일 (후보, 엔터티) 쌍이 이미 활성 적용 상태면 409(중복 적용 차단)."""
+    _require_editable()
+    candidate_row_id = str(body.get("candidate_row_id") or "").strip()
+    payload = body.get("payload") or {}
+    if not candidate_row_id:
+        raise HTTPException(status_code=400, detail="candidate_row_id 필요")
+    if cand_link.get_active_link(candidate_row_id, entity_type, entity_id) is not None:
+        raise HTTPException(status_code=409, detail="이미 이 후보로 적용된 항목입니다. 먼저 적용 취소하세요.")
+    ds = _build_merged()
+    before_entity = _current_entity(ds, entity_type, entity_id)
+    if before_entity is None:
+        raise HTTPException(status_code=404, detail=f"{entity_id} 없음")
+    body_merged = {**before_entity, **payload}
+    body_merged.pop("summary", None)
+    edits = edit_store.load_all_edits()
+    if entity_type == "doc_requirement":
+        body_merged["requirement_id"] = entity_id
+        merged = _validate_dr(ds, body_merged, creating=False, edits=edits)
+    elif entity_type in _VALIDATORS:
+        body_merged[_ID_FIELD[entity_type]] = entity_id
+        merged = _VALIDATORS[entity_type](ds, body_merged, creating=False)
+    else:
+        raise HTTPException(status_code=400, detail=f"entity_type 오류: {entity_type}")
+    if merged[_ID_FIELD[entity_type]] != entity_id:
+        raise HTTPException(status_code=400, detail="식별 코드는 수정할 수 없습니다 (삭제 후 새로 추가).")
+    actor = admin.get("login_id", "")
+    tenant = admin.get("tenant_id", "")
+    before_overlay = edit_store.get_edit_row(entity_type, entity_id)
+    edit_store.save_edit(entity_type, entity_id, "upsert", merged, actor)
+    invalidate_merged()
+    after_overlay = edit_store.get_edit_row(entity_type, entity_id)
+    cand_link.record_apply(candidate_row_id=candidate_row_id, entity_type=entity_type, entity_id=entity_id,
+                           actor_login_id=actor, tenant_id=tenant, before=before_overlay, after=after_overlay)
+    _audit(request, admin, "update", entity_type, entity_id, before_entity, merged)
+    return {"status": "ok", "entity_id": entity_id, "entity": merged}
+
+
+@router.post("/candidate-links/revert")
+def candidate_link_revert(request: Request, body: dict = Body(...),
+                          admin: dict = Depends(require_guideline_editor)):
+    """이 후보가 만든 특정 엔터티 적용만 취소. body = {candidate_row_id, entity_type, entity_id}.
+    취소 시점의 오버레이가 적용 당시 after 스냅샷과 다르면(다른 관리자가 그 사이 추가로
+    수정) 자동 취소하지 않고 409 — 정본/이전 상태로 임의 덮어쓰지 않는다."""
+    _require_editable()
+    candidate_row_id = str(body.get("candidate_row_id") or "").strip()
+    entity_type = str(body.get("entity_type") or "").strip()
+    entity_id = str(body.get("entity_id") or "").strip()
+    if not (candidate_row_id and entity_type and entity_id):
+        raise HTTPException(status_code=400, detail="candidate_row_id/entity_type/entity_id 필요")
+    link = cand_link.get_active_link(candidate_row_id, entity_type, entity_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="이 후보로 적용된 이력이 없습니다.")
+    current = edit_store.get_edit_row(entity_type, entity_id)
+    before_overlay = link.get("before")
+    after_overlay = link.get("after")
+    ds = _build_merged()
+    before_entity = _current_entity(ds, entity_type, entity_id)
+    if current == before_overlay:
+        # 이미 다른 경로(정본 복원 버튼 등)로 되돌려진 상태 — 덮어쓸 것 없음, 이력만 정리.
+        pass
+    elif current == after_overlay:
+        if before_overlay is None:
+            edit_store.remove_edit(entity_type, entity_id)
+        else:
+            edit_store.save_edit(entity_type, entity_id, before_overlay["op"], before_overlay["payload"],
+                                 admin.get("login_id", ""))
+    else:
+        raise HTTPException(status_code=409, detail={
+            "message": "이후 다른 관리자가 이 항목을 추가로 수정했습니다. 자동 취소할 수 없습니다 — 직접 확인 후 처리하세요.",
+            "current": current, "recorded_after": after_overlay})
+    invalidate_merged()
+    cand_link.record_revert(candidate_row_id=candidate_row_id, entity_type=entity_type, entity_id=entity_id,
+                            actor_login_id=admin.get("login_id", ""), tenant_id=admin.get("tenant_id", ""))
+    after_entity = _current_entity(_build_merged(), entity_type, entity_id)
+    _audit(request, admin, "candidate_revert", entity_type, entity_id, before_entity, after_entity)
+    return {"status": "ok", "entity_type": entity_type, "entity_id": entity_id}
