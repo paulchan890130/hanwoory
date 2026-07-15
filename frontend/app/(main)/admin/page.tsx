@@ -2041,10 +2041,14 @@ export default function AdminPage() {
                             </button>
                             <button
                               onClick={() => setHardDeleteTarget(acc)}
-                              disabled={acc.login_id === user?.login_id}
+                              disabled={acc.login_id === user?.login_id
+                                || (!user?.is_master && (acc.tenant_id || acc.login_id) !== user?.tenant_id)}
                               className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}
-                              title={acc.login_id === user?.login_id ? "자신의 계정은 완전 삭제할 수 없습니다" : "완전 삭제(복구 불가)"}
+                              title={acc.login_id === user?.login_id ? "자신의 계정은 완전 삭제할 수 없습니다"
+                                : (!user?.is_master && (acc.tenant_id || acc.login_id) !== user?.tenant_id)
+                                  ? "다른 사업장의 계정입니다 — 전체 마스터만 완전 삭제할 수 있습니다"
+                                  : "완전 삭제(복구 불가)"}
                             >
                               <Trash2 size={11} /> 완전삭제
                             </button>
@@ -2127,6 +2131,7 @@ function HardDeleteModal({
 }) {
   const [text, setText] = useState("");
   const matches = text.trim() === acc.login_id;
+  const actor = getUser();
 
   const { data: preview, isLoading: previewLoading } = useQuery({
     queryKey: ["hard-delete-preview", acc.login_id],
@@ -2135,7 +2140,10 @@ function HardDeleteModal({
 
   const connectedEntries = preview ? Object.entries(preview.connected) : [];
   const blocked = connectedEntries.length > 0;
-  const canConfirm = matches && !previewLoading && !blocked;
+  const isLastUser = !!preview?.is_last_user_on_tenant;
+  // 백엔드도 동일 조건으로 403 처리 — 여기선 클릭 전에 미리 안내/비활성화만.
+  const lastUserBlockedForActor = isLastUser && !actor?.is_master;
+  const canConfirm = matches && !previewLoading && !blocked && !lastUserBlockedForActor;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -2154,6 +2162,17 @@ function HardDeleteModal({
         <div className="text-xs mb-3" style={{ color: "#276749", background: "#F0FFF4", border: "1px solid #C6F6D5", borderRadius: 6, padding: "6px 8px" }}>
           사업장 공용 데이터(고객·분류·업무참고 등)는 계정 삭제와 관계없이 그대로 유지됩니다. 이 계정을 삭제해도 다른 사업장으로 이동하지 않습니다.
         </div>
+
+        {isLastUser && (
+          <div className="text-xs mb-3" style={{ color: "#7B341E", background: "#FFFAF0", border: "1px solid #FBD38D", borderRadius: 6, padding: "8px 10px", lineHeight: 1.7 }}>
+            <div className="font-semibold mb-1">이 계정은 해당 사업장의 마지막 활성 사용자입니다.</div>
+            <div>계정을 삭제해도 사업장과 고객·업무·분류 데이터는 삭제되지 않지만, 해당 사업장에 로그인할 사용자가 없어집니다.</div>
+            <div className="mt-1">필요한 경우 계정을 삭제하기 전에 새 사용자를 먼저 추가하세요.</div>
+            {lastUserBlockedForActor && (
+              <div className="mt-1 font-semibold">마지막 사용자 완전삭제는 전체 마스터 관리자만 할 수 있습니다.</div>
+            )}
+          </div>
+        )}
 
         {blocked && (
           <div className="text-xs mb-3" style={{ color: "#822727", background: "#FFF5F5", border: "1px solid #FEB2B2", borderRadius: 6, padding: "6px 8px" }}>
@@ -2185,7 +2204,9 @@ function HardDeleteModal({
             className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}
           >
-            {isDeleting ? <><Loader2 size={12} className="animate-spin" /> 삭제 중</> : <><Trash2 size={12} /> 완전 삭제</>}
+            {isDeleting
+              ? <><Loader2 size={12} className="animate-spin" /> 삭제 중</>
+              : <><Trash2 size={12} /> {isLastUser ? "계정만 완전삭제" : "완전 삭제"}</>}
           </button>
         </div>
       </div>

@@ -596,6 +596,16 @@ def set_account_role(login_id: str, body: AccountRoleUpdate, user: dict = Depend
     return {"ok": True, "login_id": login_id, "role": role}
 
 
+def _assert_delete_scope(actor: dict, target_tenant_id: str) -> None:
+    """완전삭제(및 미리보기) 권한 범위 — 전체 마스터는 모든 tenant, 그 외 관리자는
+    자신의 tenant 소속 계정만. sub_admin/일반 사용자는 require_admin 이 이미 403 처리."""
+    if bool(actor.get("is_master")):
+        return
+    actor_tenant = str(actor.get("tenant_id", "")).strip()
+    if actor_tenant != str(target_tenant_id or "").strip():
+        raise HTTPException(status_code=403, detail="다른 사업장의 계정은 완전 삭제할 수 없습니다.")
+
+
 @router.get("/accounts/{login_id}/hard-delete-preview")
 def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
     """완전삭제 전 영향 미리보기 — 계정과 실제로 연관된 데이터만 표시. 실제 삭제는 하지 않는다.
@@ -603,6 +613,8 @@ def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
     tenant 공용 업무 데이터(cert_*/customers/work_reference_*)는 계정 삭제와 무관하게
     항상 그대로 유지되므로 여기 표시되지 않는다(별도 안내만). 이 함수는 tenant 를
     건드리지 않으며, tenant 삭제 기능은 이 엔드포인트에 존재하지 않는다.
+
+    권한 범위: 전체 마스터는 모든 tenant, 그 외 관리자는 자신의 tenant 소속 계정만 조회 가능.
     """
     login_id = login_id.strip()
     from sqlalchemy import select, func
@@ -613,6 +625,7 @@ def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
         u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
         if u is None:
             raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        _assert_delete_scope(user, u.tenant_id)
         tenant_id = u.tenant_id
         other_users = int(session.scalar(
             select(func.count()).select_from(AccountUser)
@@ -620,10 +633,14 @@ def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
         ) or 0)
         # 사용자 FK가 실제로 있는 테이블만(현재 스키마상 사실상 없음 — 확인용 안전망).
         connected = _connected_data_summary(session, tenant_id)
+        is_last_user = other_users == 0
         return {
             "login_id": login_id, "tenant_id": tenant_id,
             "is_active": bool(u.is_active), "is_admin": bool(u.is_admin),
             "other_users_on_tenant": other_users,
+            "is_last_user_on_tenant": is_last_user,
+            # 마지막 사용자 완전삭제는 전체 마스터만 가능 — 프론트가 사전 안내에 사용.
+            "last_user_requires_master": is_last_user and not bool(user.get("is_master")),
             "connected": connected,
             "tenant_business_data_preserved": True,
         }
@@ -637,7 +654,9 @@ def hard_delete_account(
 ):
     """사용자 계정 **완전 삭제**(물리 삭제). 강한 안전검사 통과 시에만 수행.
 
-    조건: 존재 / 자기 자신 아님 / is_active=False / 마지막 관리자 아님 / confirm 문자열 일치.
+    조건: 존재 / 자기 자신 아님 / is_active=False / 마지막 관리자 아님 / confirm 문자열 일치 /
+    권한 범위 내(전체 마스터=모든 tenant, 그 외 관리자=자신의 tenant 소속만) /
+    tenant 의 마지막 사용자 계정은 전체 마스터만 삭제 가능.
 
     tenant(사업장)와 그 공용 업무 데이터(cert_*/customers/work_reference_*)는 **항상 그대로
     유지**된다 — 이 엔드포인트는 사용자 계정 행만 지운다. tenant 를 지우거나 tenant_id 를
@@ -653,7 +672,7 @@ def hard_delete_account(
     if confirm_login_id.strip() != login_id:
         raise HTTPException(status_code=400, detail="확인용 계정 아이디가 일치하지 않습니다.")
 
-    from sqlalchemy import select, text
+    from sqlalchemy import select, text, func
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
     SessionLocal = get_sessionmaker()
@@ -661,12 +680,25 @@ def hard_delete_account(
         u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
         if u is None:
             raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        _assert_delete_scope(user, u.tenant_id)   # tenant 관리자는 자신의 tenant 소속만
         if u.is_active:
             raise HTTPException(status_code=409, detail="비활성 계정만 완전 삭제할 수 있습니다. 먼저 비활성화하세요.")
         if u.is_admin and _other_admin_count(session, login_id, active_only=False) == 0:
             raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
 
         tenant_id = u.tenant_id
+
+        # tenant 의 마지막 사용자 계정(다른 사용자 행이 하나도 안 남음) 완전삭제는
+        # 전체 마스터만 가능 — tenant 관리자는 자신의 tenant 라도 이 경우 차단.
+        other_users = int(session.scalar(
+            select(func.count()).select_from(AccountUser)
+            .where(AccountUser.tenant_id == tenant_id, AccountUser.login_id != login_id)
+        ) or 0)
+        if other_users == 0 and not bool(user.get("is_master")):
+            raise HTTPException(status_code=403, detail=(
+                "이 계정은 해당 사업장의 마지막 사용자입니다. 마지막 사용자 완전삭제는 "
+                "전체 마스터 관리자만 할 수 있습니다."
+            ))
 
         # 사용자 FK가 실제로 있는 데이터 검사(tenant 공용 업무 데이터는 애초에 제외됨).
         # 현재 스키마상 이런 테이블이 없어 대부분 빈 dict — 발견되면 자동 처리하지 않고 차단.

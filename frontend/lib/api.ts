@@ -705,6 +705,8 @@ export interface HardDeletePreview {
   is_active: boolean;
   is_admin: boolean;
   other_users_on_tenant: number;
+  is_last_user_on_tenant: boolean;
+  last_user_requires_master: boolean;
   connected: Record<string, number>;
   tenant_business_data_preserved: boolean;
 }
