@@ -187,6 +187,10 @@ export default function QualificationsPage() {
       .catch(() => setAuxItems([]));
   }, [reload]);
 
+  // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시 —
+  // 분류별·업무별 찾기(/guidelines)와 동일한 노출 구조(숨김 토글 뒤에 두지 않음)
+  useEffect(() => { if (editable) setEditMode(true); }, [editable]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
@@ -228,7 +232,8 @@ export default function QualificationsPage() {
     if (modal.mode === "edit" && modal.id) {
       await guidelinesV3Api.editUpdate(modal.etype, modal.id, payload);
     } else {
-      await guidelinesV3Api.editCreate(modal.etype, payload);
+      // 추가 모달의 initial 은 숨은 필수 키(group 등) 프리셋 — 편집 필드값이 우선
+      await guidelinesV3Api.editCreate(modal.etype, { ...modal.initial, ...payload });
     }
     reload();
   }, [modal, reload]);

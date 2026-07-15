@@ -451,6 +451,10 @@ export default function QualificationDetailPage() {
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
+  // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시 —
+  // 분류별·업무별 찾기(/guidelines)와 동일한 노출 구조(숨김 토글 뒤에 두지 않음)
+  useEffect(() => { if (detail?.editable) setEditMode(true); }, [detail?.editable]);
+
   // 편집 저장 후 전체 재조회 — 상세 fetch 캐시까지 비워 목록·상세·집계를 일치시킨다
   const reloadAll = useCallback(() => {
     _subDetailCache.clear();
@@ -463,7 +467,9 @@ export default function QualificationDetailPage() {
     if (modal.mode === "edit" && modal.id) {
       await guidelinesV3Api.editUpdate(modal.etype, modal.id, payload);
     } else {
-      await guidelinesV3Api.editCreate(modal.etype, payload);
+      // 추가 모달의 initial 은 숨은 필수 키 프리셋(세부약호 parent_qualification_id,
+      // 체류업무·사증경로 qualification_id 등) — 이것이 빠지면 서버 400. 편집 필드값이 우선.
+      await guidelinesV3Api.editCreate(modal.etype, { ...modal.initial, ...payload });
     }
     reloadAll();
   }, [modal, reloadAll]);
