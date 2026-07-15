@@ -398,6 +398,27 @@ def _is_unified_application(doc_name: str) -> bool:
     return _normalize_doc_name(doc_name) == _UNIFIED_APP_NORM
 
 
+_FACT_CERT_NORM = "사실증명발급열람신청서"   # _normalize_doc_name 결과 기준(공백 제거)
+
+
+def _is_fact_cert_application(doc_name: str) -> bool:
+    return _normalize_doc_name(doc_name) == _FACT_CERT_NORM
+
+
+def _fact_cert_field_overlay(field_values: dict) -> dict:
+    """사실증명발급열람신청서 전용 field_values 사본.
+
+    이 템플릿의 행정사 생년월일 누름틀은 ayyyy 와 짝지어진 mm/dd (amm/add 관례가 아님).
+    bare mm/dd 는 신청인 몫으로 이미 채워져 있어(build_field_values, 신청인 등록증 기준)
+    그대로 두면 행정사 연도(ayyyy)에 신청인 월/일이 섞인다. 이 문서에서만 mm/dd 를
+    행정사 몫(amm/add)으로 덮어써 ayyyy 와 짝을 맞춘다. 이 템플릿에는 신청인 생년월일
+    필드가 따로 없어(위 필드 목록 확인) 덮어써도 다른 용도와 충돌하지 않는다."""
+    fv = dict(field_values)
+    fv["mm"] = field_values.get("amm", "")
+    fv["dd"] = field_values.get("add", "")
+    return fv
+
+
 def _unified_sp_field_overlay(field_values: dict, has_aggregator: bool, p_relation: str) -> dict:
     """통합신청서 전용 field_values 사본 — p_relation 에 따라 배우자(s)/부모(p) 분기.
 
@@ -2324,6 +2345,8 @@ def _generate_hwpx_impl(req: FullDocGenRequest, user: dict):
             if _is_unified_application(doc_name):
                 doc_fv = _unified_sp_field_overlay(field_values, has_aggregator, p_relation)
                 doc_marker_pngs = _unified_sp_marker_pngs(marker_pngs, has_aggregator, p_relation)
+            elif _is_fact_cert_application(doc_name):
+                doc_fv, doc_marker_pngs = _fact_cert_field_overlay(field_values), marker_pngs
             else:
                 doc_fv, doc_marker_pngs = field_values, marker_pngs
             # empty_placeholder=" " (기본) → 빈 누름틀 안내문 억제. marker 유지(삭제/공백치환 안 함).
