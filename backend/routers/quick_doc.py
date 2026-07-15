@@ -727,6 +727,10 @@ def build_field_values(
             field_values[f"pfnumber{i}"] = digit
 
     if account:
+        # 행정사 생년월일(ayyyy/amm/add) — agent_rrn 앞 6자리(YYMMDD)에서 파싱.
+        # 별도 저장 필드 없음: 이미 _load_account 가 복호화해 둔 agent_rrn 하나로 충분
+        # (기존 신청인/보증인 등 다른 역할과 동일하게 _parse_birth 재사용 — 새 로직 아님).
+        agent_yyyy, agent_mm, agent_dd = _parse_birth(str(account.get("agent_rrn", "") or ""))
         field_values.update({
             "agency_name":  str(account.get("office_name", "") or "").strip(),
             "agent_name":   str(account.get("contact_name", "") or "").strip(),
@@ -734,6 +738,9 @@ def build_field_values(
             "agent_biz_no": str(account.get("biz_reg_no", "") or "").strip(),
             "agent_tel":    str(account.get("contact_tel", "") or "").strip(),
             "office_adr":   str(account.get("office_adr", "") or "").strip(),
+            "ayyyy":        agent_yyyy,
+            "amm":          agent_mm,
+            "add":          agent_dd,
         })
 
     if category == "체류":
