@@ -7,11 +7,11 @@ import { useState, useEffect, Fragment, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  customersApi, accommodationApi, guarantorApi, quickDocApi,
+  customersApi, accommodationApi, guarantorApi, quickDocApi, guidelinesV3Api,
   type AccommodationProvider, type GuarantorConnection,
-  type CustomerSearchResult, type WorkSummary,
+  type CustomerSearchResult, type WorkSummary, type V3Aux,
 } from "@/lib/api";
-import { Search, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield, Copy } from "lucide-react";
+import { Search, Trash2, X, Save, FolderOpen, ExternalLink, FileText, Home, Zap, Globe, Shield, Copy, Landmark } from "lucide-react";
 import SignatureModal from "@/components/SignatureModal";
 import QuickDocPanel from "@/components/QuickDocPanel";
 import QuickPoaPanel from "@/components/QuickPoaPanel";
@@ -1145,6 +1145,79 @@ export function CustomerDrawer({
   const [docPreset, setDocPreset] = useState<ExtensionWorktype | null>(null);
   const [quickPoaOverlayOpen, setQuickPoaOverlayOpen] = useState(false);
 
+  // ── 기타 신청·신고 (보조 민원, 격자 밖) — 자격×업무 카테고리 없이 HWPX 템플릿이 있는 서류만 노출 ──
+  const [auxDocsOpen, setAuxDocsOpen] = useState(false);
+  const [auxDocs, setAuxDocs] = useState<{ auxName: string; docName: string }[]>([]);
+  const [auxGenerating, setAuxGenerating] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([guidelinesV3Api.listAux(), quickDocApi.listHwpxTemplates()])
+      .then(([auxRes, tplRes]) => {
+        if (cancelled) return;
+        const normalized = new Set(tplRes.data.normalized);
+        const norm = (s: string) => (s || "").replace(/\s+/g, "");
+        const docs: { auxName: string; docName: string }[] = [];
+        for (const a of auxRes.data.data as V3Aux[]) {
+          for (const d of a.requirements ?? []) {
+            if (normalized.has(norm(d.doc_name)) && !docs.some((x) => x.docName === d.doc_name)) {
+              docs.push({ auxName: a.name, docName: d.doc_name });
+            }
+          }
+        }
+        setAuxDocs(docs);
+      })
+      .catch(() => { if (!cancelled) setAuxDocs([]); });
+    return () => { cancelled = true; };
+  }, []);
+  const handleGenerateAuxDoc = async (docName: string) => {
+    if (!customer || isNew) return;
+    setAuxGenerating(docName);
+    try {
+      const res = await quickDocApi.generateHwpx({
+        category: "", minwon: docName, kind: "", detail: "",
+        applicant_id: customer["고객ID"] || undefined,
+        applicant_name: !customer["고객ID"]
+          ? (customer["한글"] || [customer["성"], customer["명"]].filter(Boolean).join(" "))
+          : undefined,
+        selected_docs: [docName],
+      });
+      const blob = res.data as Blob;
+      if (blob.type?.includes("application/json")) {
+        const text = await blob.text();
+        try {
+          const j = JSON.parse(text);
+          toast.error("HWPX 생성 실패: " + (j?.detail?.message || j?.detail || text));
+        } catch { toast.error("HWPX 생성 실패"); }
+        return;
+      }
+      const ymd = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+      const nm = (customer["한글"] || [customer["성"], customer["명"]].filter(Boolean).join("") || "신청인")
+        .replace(/[\\/:*?"<>|\s]+/g, "");
+      const wk = docName.replace(/[\\/:*?"<>|\s]+/g, "");
+      let fname = `${ymd}_${wk}_${nm}.hwpx`;
+      const cd = res.headers?.["content-disposition"] as string | undefined;
+      const m = cd?.match(/filename\*=UTF-8''([^;]+)/i);
+      if (m?.[1]) { try { fname = decodeURIComponent(m[1]); } catch {} }
+      const dlUrl = URL.createObjectURL(blob);
+      const el = document.createElement("a");
+      el.href = dlUrl; el.download = fname; el.click();
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 60_000);
+      toast.success("HWPX 생성 완료");
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: Blob | { detail?: unknown } } })?.response?.data;
+      if (errData instanceof Blob) {
+        try {
+          const j = JSON.parse(await errData.text());
+          toast.error("HWPX 생성 실패: " + String((j?.detail as { message?: string })?.message || j?.detail || "").slice(0, 200));
+        } catch { toast.error("HWPX 생성 실패 (파싱 오류)"); }
+      } else {
+        toast.error(String((errData as { detail?: string })?.detail || "HWPX 생성 실패"));
+      }
+    } finally {
+      setAuxGenerating(null);
+    }
+  };
+
   // ESC → 문서자동작성/원클릭 오버레이 닫기(열려 있을 때만 등록 — 리스너 누수 방지)
   useEffect(() => {
     if (!docOverlayOpen && !quickPoaOverlayOpen) return;
@@ -1668,6 +1741,48 @@ export function CustomerDrawer({
                   >
                     <Zap size={12} />
                   </button>
+                  {auxDocs.length > 0 && (
+                    <div style={{ position:"relative" }}>
+                      <button
+                        onClick={() => setAuxDocsOpen(v => !v)}
+                        title="기타 신청·신고 (보조 민원)"
+                        style={{
+                          display:"flex", alignItems:"center", gap:5,
+                          fontSize:11, padding:"5px 12px", borderRadius:6,
+                          border: auxDocsOpen ? "1px solid #D4A843" : "1px solid #CBD5E0",
+                          background: auxDocsOpen ? "#FFF9E6" : "#F7FAFC",
+                          color:"#6B5314", cursor:"pointer", fontWeight:600, flexShrink:0,
+                        }}
+                      >
+                        <Landmark size={11} /> 기타 신청·신고
+                      </button>
+                      {auxDocsOpen && (
+                        <div style={{
+                          position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:20,
+                          minWidth:220, background:"#fff", border:"1px solid #E2E8F0",
+                          borderRadius:8, boxShadow:"0 4px 12px rgba(0,0,0,0.1)", padding:6,
+                        }}>
+                          {auxDocs.map(({ auxName, docName }) => (
+                            <button key={docName}
+                              onClick={() => handleGenerateAuxDoc(docName)}
+                              disabled={auxGenerating === docName}
+                              style={{
+                                display:"block", width:"100%", textAlign:"left",
+                                fontSize:11.5, padding:"6px 8px", borderRadius:6,
+                                border:"none", background:"transparent", cursor: auxGenerating === docName ? "default" : "pointer",
+                                color:"#4A5568", opacity: auxGenerating === docName ? 0.6 : 1,
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#FFF9E6"; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                            >
+                              <div style={{ fontWeight:600 }}>{docName}</div>
+                              <div style={{ fontSize:10, color:"#A0AEC0" }}>{auxName}{auxGenerating === docName ? " · 생성 중..." : ""}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {!isNew && (
                     <button
                       onClick={() => { setShowHikoreaPanel(v => !v); setShowIdFindPanel(false); }}

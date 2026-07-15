@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, Search } from "lucide-react";
-import { guidelinesV3Api, V3Aux, V3DeleteImpact, V3Group, V3Program, V3Qualification } from "@/lib/api";
+import { toast } from "sonner";
+import { guidelinesV3Api, quickDocApi, V3Aux, V3DeleteImpact, V3Group, V3Program, V3Qualification } from "@/lib/api";
 import { ProgramChip } from "@/components/qualifications/common";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
 import {
@@ -67,12 +68,64 @@ function QualCard({ q, onClick, editMode, onEdit, onDelete }: {
   );
 }
 
+const normalizeDocName = (s: string) => (s || "").replace(/\s+/g, "");
+
 // 보조 민원(격자 밖 기타 신청·신고) 카드 — 자격 선택 없이 진행되는 민원. 격자와 시각 분리(회색 톤).
-function AuxCard({ a, expanded, onToggle, onQuickDoc, editMode, onEdit, onDelete, onDrChanged }: {
+function AuxCard({ a, expanded, onToggle, onQuickDoc, editMode, onEdit, onDelete, onDrChanged, hwpxNormalized }: {
   a: V3Aux; expanded: boolean; onToggle: () => void; onQuickDoc: (url: string) => void;
   editMode?: boolean; onEdit?: () => void; onDelete?: () => void; onDrChanged?: () => void;
+  hwpxNormalized?: Set<string>;
 }) {
   const url = a.v2_row ? buildQuickDocUrl(a.v2_row) : null;
+  const [applicantName, setApplicantName] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const genDocs = (a.requirements ?? []).filter(
+    d => hwpxNormalized?.has(normalizeDocName(d.doc_name)),
+  );
+  const handleGenerate = async () => {
+    if (!applicantName.trim()) { toast.error("신청인 이름을 입력해 주세요."); return; }
+    setGenerating(true);
+    try {
+      const res = await quickDocApi.generateHwpx({
+        category: "", minwon: a.name, kind: "", detail: "",
+        applicant_name: applicantName.trim(),
+        selected_docs: genDocs.map(d => d.doc_name),
+      });
+      const blob = res.data as Blob;
+      if (blob.type?.includes("application/json")) {
+        const text = await blob.text();
+        try {
+          const j = JSON.parse(text);
+          toast.error("HWPX 생성 실패: " + (j?.detail?.message || j?.detail || text));
+        } catch { toast.error("HWPX 생성 실패"); }
+        return;
+      }
+      const ymd = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+      const nm = applicantName.trim().replace(/[\\/:*?"<>|\s]+/g, "");
+      const wk = a.name.replace(/[\\/:*?"<>|\s]+/g, "");
+      let fname = genDocs.length > 1 ? `${ymd}_${wk}_${nm}.zip` : `${ymd}_${wk}_${nm}.hwpx`;
+      const cd = res.headers?.["content-disposition"] as string | undefined;
+      const m = cd?.match(/filename\*=UTF-8''([^;]+)/i);
+      if (m?.[1]) { try { fname = decodeURIComponent(m[1]); } catch {} }
+      const dlUrl = URL.createObjectURL(blob);
+      const el = document.createElement("a");
+      el.href = dlUrl; el.download = fname; el.click();
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 60_000);
+      toast.success("HWPX 생성 완료");
+    } catch (err: unknown) {
+      const errData = (err as { response?: { data?: Blob | { detail?: unknown } } })?.response?.data;
+      if (errData instanceof Blob) {
+        try {
+          const j = JSON.parse(await errData.text());
+          toast.error("HWPX 생성 실패: " + String((j?.detail as { message?: string })?.message || j?.detail || "").slice(0, 200));
+        } catch { toast.error("HWPX 생성 실패 (파싱 오류)"); }
+      } else {
+        toast.error(String((errData as { detail?: string })?.detail || "HWPX 생성 실패"));
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
   const infoRows: [string, string | undefined][] = [
     ["신청처", a.application_place], ["신청 방식", a.application_method],
     ["신청 서식", a.application_form], ["수수료", a.fee], ["처리 안내", a.processing_note],
@@ -115,8 +168,30 @@ function AuxCard({ a, expanded, onToggle, onQuickDoc, editMode, onEdit, onDelete
               {a.requirements!.map(d => (
                 <div key={d.requirement_id} style={{ fontSize:11.5, color:"#4A5568", padding:"2px 0" }}>
                   · {d.doc_name}{d.doc_role === "conditional" && d.condition ? ` (조건: ${d.condition})` : ""}
+                  {hwpxNormalized?.has(normalizeDocName(d.doc_name)) && (
+                    <span style={{ marginLeft:6, fontSize:10, color:"var(--hw-gold-text)", fontWeight:600 }}>
+                      · 자동작성 가능
+                    </span>
+                  )}
                 </div>
               ))}
+            </div>
+          )}
+          {genDocs.length > 0 && (
+            <div style={{ marginBottom:10, padding:"8px 10px", borderRadius:8, background:"#fff",
+              border:"1px solid #E2E8F0", display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+              <input value={applicantName} onChange={e => setApplicantName(e.target.value)}
+                onClick={e => e.stopPropagation()} placeholder="신청인 이름"
+                style={{ fontSize:11.5, padding:"5px 8px", borderRadius:6, border:"1px solid #E2E8F0",
+                  width:110 }} />
+              <button onClick={e => { e.stopPropagation(); handleGenerate(); }} disabled={generating}
+                style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600,
+                  padding:"5px 12px", borderRadius:20, border:"1px solid rgba(212,168,67,0.45)",
+                  background:"rgba(212,168,67,0.08)", color:"var(--hw-gold-text)",
+                  cursor: generating ? "default" : "pointer", opacity: generating ? 0.6 : 1 }}>
+                {generating ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                {genDocs.map(d => d.doc_name).join(", ")} HWPX 다운로드
+              </button>
             </div>
           )}
           {a.v2_row ? (
@@ -184,6 +259,7 @@ export default function QualificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [hwpxNormalized, setHwpxNormalized] = useState<Set<string>>(new Set());
 
   // 조회는 전 로그인 사용자 — 편집 노출 여부는 서버 editable(관리자+플래그)로만 판단
   const reload = useCallback(() => {
@@ -212,6 +288,9 @@ export default function QualificationsPage() {
   useEffect(() => {
     reload();
     reloadAux();
+    quickDocApi.listHwpxTemplates()
+      .then(res => setHwpxNormalized(new Set(res.data.normalized)))
+      .catch(() => setHwpxNormalized(new Set()));
   }, [reload, reloadAux]);
 
   // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시 —
@@ -427,7 +506,8 @@ export default function QualificationsPage() {
                       (impact, cascadeAllowed) => setImpactState({ etype:"aux", id:a.aux_id,
                         label:a.name, impact, cascadeAllowed }),
                       reloadAux)}
-                    onDrChanged={reloadAux} />
+                    onDrChanged={reloadAux}
+                    hwpxNormalized={hwpxNormalized} />
                 ))}
               </div>
             </div>

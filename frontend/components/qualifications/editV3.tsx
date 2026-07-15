@@ -465,11 +465,13 @@ function OverlayBadge({ etype, id }: { etype: V3EntityType; id: string }) {
 }
 
 export function ApplyToV3Modal({
-  hintCode, hintActionType, hintTitle, onClose, onApplied,
+  hintCode, hintActionType, hintTitle, candidateContext, onClose, onApplied,
 }: {
   hintCode?: string; hintActionType?: string; hintTitle?: string;
+  candidateContext?: { existingText?: string; candidateText?: string; reason?: string };
   onClose: () => void; onApplied: () => void;
 }) {
+  const [showSource, setShowSource] = useState(false);
   const [code, setCode] = useState(hintCode ?? "");
   const [detail, setDetail] = useState<V3QualificationDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -531,6 +533,34 @@ export function ApplyToV3Modal({
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}><X size={18} /></button>
         </div>
+        {candidateContext && (candidateContext.existingText || candidateContext.candidateText || candidateContext.reason) && (
+          <div style={{ marginBottom: 10 }}>
+            <button onClick={() => setShowSource(v => !v)}
+              style={{ fontSize: 11, color: "#6B46C1", background: "none", border: "none", cursor: "pointer",
+                padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
+              {showSource ? "▼" : "▶"} 매뉴얼 원문 비교(참고용, 자동 반영 아님)
+            </button>
+            {showSource && (
+              <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {candidateContext.reason && (
+                  <div style={{ flex: "1 1 100%", fontSize: 11, color: "#718096" }}>매칭 사유: {candidateContext.reason}</div>
+                )}
+                <div style={{ flex: 1, minWidth: 220, background: "#F7FAFC", border: "1px solid #E2E8F0",
+                  borderRadius: 6, padding: 8, fontSize: 11, color: "#4A5568", whiteSpace: "pre-wrap",
+                  wordBreak: "break-word", maxHeight: 220, overflow: "auto" }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>기존(정본 근거)</div>
+                  {candidateContext.existingText || "(없음)"}
+                </div>
+                <div style={{ flex: 1, minWidth: 220, background: "#FFFBEB", border: "1px solid #F6E05E",
+                  borderRadius: 6, padding: 8, fontSize: 11, color: "#4A5568", whiteSpace: "pre-wrap",
+                  wordBreak: "break-word", maxHeight: 220, overflow: "auto" }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>후보(신규 매뉴얼)</div>
+                  {candidateContext.candidateText || "(없음)"}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ fontSize: 11.5, color: "#975A16", background: "#FFFBEB", border: "1px solid #F6E05E",
           borderRadius: 8, padding: "7px 10px", marginBottom: 14, lineHeight: 1.6 }}>
           매뉴얼 업로드·분석만으로는 아무것도 바뀌지 않습니다. 아래에서 자격을 조회한 뒤 항목을

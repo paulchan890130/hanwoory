@@ -567,7 +567,10 @@ function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: ()
 
 export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const router = useRouter();
-  const [applyV3Cand, setApplyV3Cand] = useState<{ code?: string | null; title: string } | null>(null);
+  const [applyV3Cand, setApplyV3Cand] = useState<{
+    code?: string | null; title: string;
+    existingText?: string; candidateText?: string; reason?: string;
+  } | null>(null);
   const [versions, setVersions] = useState<PgVersion[]>([]);
   const [version, setVersion] = useState<string>("");
   const [changed, setChanged] = useState<PgChangedPage[]>([]);
@@ -1573,6 +1576,7 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                     <button disabled={groupBusy} title="오탐/무관으로 이번 변경에서 종결(무시)" onClick={() => bulkDecision("reject", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>무시</button>
                     <button onClick={() => setApplyV3Cand({
                       code: codes[0], title: `${codes.length ? codes.join(", ") : g.key} — p.${g.new_from}${g.new_to && g.new_to !== g.new_from ? `-${g.new_to}` : ""}`,
+                      existingText: g.cands[0]?.match_text, candidateText: g.cands[0]?.new_snippet, reason: g.cands[0]?.reason,
                     })}
                       title="v3에 적용 — 자격/체류업무/사증경로/준비서류 오버레이 편집"
                       className="text-[11px] px-2 py-1 rounded border flex items-center gap-1" style={{ borderColor: "#D6BCFA", color: "#6B46C1", background: "#fff" }}>
@@ -1663,7 +1667,10 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                                   style={{ background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}>
                                   <ExternalLink size={11} />
                                 </button>
-                                <button onClick={() => setApplyV3Cand({ code: c.detailed_code, title: `${c.detailed_code || c.row_id} — ${c.business_name || ""}` })}
+                                <button onClick={() => setApplyV3Cand({
+                                  code: c.detailed_code, title: `${c.detailed_code || c.row_id} — ${c.business_name || ""}`,
+                                  existingText: c.match_text, candidateText: c.new_snippet, reason: c.reason,
+                                })}
                                   title="v3에 적용 — 자격/체류업무/사증경로/준비서류 오버레이 편집" className="ml-1"
                                   style={{ background: "none", border: "none", cursor: "pointer", color: "#6B46C1", verticalAlign: "middle" }}>
                                   <GitMerge size={11} />
@@ -1951,6 +1958,11 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
         <ApplyToV3Modal
           hintCode={applyV3Cand.code ?? undefined}
           hintTitle={applyV3Cand.title}
+          candidateContext={{
+            existingText: applyV3Cand.existingText,
+            candidateText: applyV3Cand.candidateText,
+            reason: applyV3Cand.reason,
+          }}
           onClose={() => setApplyV3Cand(null)}
           onApplied={() => toast.success("v3 오버레이에 반영되었습니다.")}
         />
