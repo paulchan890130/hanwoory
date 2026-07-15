@@ -697,24 +697,16 @@ export const boardApi = {
   checkManual: () => api.get<{ updated: boolean; date: string; previous_date?: string }>("/api/board/check-manual"),
 };
 
-// 계정 완전삭제 — 연결 데이터 이관 미리보기
-export interface HardDeleteCandidate {
-  login_id: string;
-  tenant_id: string;
-  is_admin: boolean;
-  office_name: string;
-}
+// 계정 완전삭제 — 미리보기. tenant 공용 업무 데이터(cert_*/customers/work_reference_*)는
+// 계정 삭제와 무관하게 항상 보존되므로 여기 표시되지 않는다 — 실제 사용자 FK 데이터만.
 export interface HardDeletePreview {
   login_id: string;
   tenant_id: string;
   is_active: boolean;
   is_admin: boolean;
   other_users_on_tenant: number;
-  needs_migration: boolean;
   connected: Record<string, number>;
-  migratable: Record<string, number>;
-  unmigratable: Record<string, number>;
-  candidates: HardDeleteCandidate[];
+  tenant_business_data_preserved: boolean;
 }
 
 // 관리자
@@ -749,10 +741,8 @@ export const adminApi = {
   // 준 관리자 권한 부여/회수 — role: 'sub_admin' | 'user'.
   setAccountRole: (loginId: string, role: "sub_admin" | "user") =>
     api.put(`/api/admin/accounts/${loginId}/role`, { role }),
-  hardDeleteAccount: (loginId: string, confirmLoginId: string, migrateToLoginId?: string) =>
-    api.delete(`/api/admin/accounts/${loginId}/hard`, {
-      params: { confirm_login_id: confirmLoginId, migrate_to_login_id: migrateToLoginId || undefined },
-    }),
+  hardDeleteAccount: (loginId: string, confirmLoginId: string) =>
+    api.delete(`/api/admin/accounts/${loginId}/hard`, { params: { confirm_login_id: confirmLoginId } }),
   hardDeletePreview: (loginId: string) =>
     api.get<HardDeletePreview>(`/api/admin/accounts/${loginId}/hard-delete-preview`),
   // 행정사 주민등록번호 — 상태만 조회/저장(원문 미노출). 빈 값 저장 = 삭제.

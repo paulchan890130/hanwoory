@@ -427,35 +427,35 @@ _PERSONAL_CLEANUP_TABLES_BY_LOGIN_ID = ("user_sessions", "login_attempts", "acco
 # recipient_login_id 기준(자신에게 온 알림만 — related_login_id 로 자신을 "언급"하는
 # 다른 사람의 알림은 남긴다).
 _PERSONAL_CLEANUP_TABLES_BY_RECIPIENT = ("security_notifications",)
-# tenant_id 기준(로그인 이력 등, tenant 삭제 시 함께 정리).
-_PERSONAL_CLEANUP_TABLES_BY_TENANT_ID = ("login_events", "user_terms_acceptances")
 
-# 연결 업무 데이터 중 "이관 정책이 확정된" 테이블만 자동 이관한다. 나머지(tasks/daily/
-# events/memos/documents/finance/signatures/roi_presets 등)는 정책이 없으므로 발견되면
-# 완전삭제를 막고 구체적으로 보고한다(3-7) — 임의로 강제 이관하지 않는다.
-# unique_cols: 이관 시 대상 tenant 와 충돌 가능한 자연키(있으면 사전 충돌검사).
-MIGRATABLE_TENANT_TABLES: dict[str, list[str] | None] = {
-    "cert_directions": None,
-    "cert_groups": None,
-    "cert_prices": None,
-    "cert_regions": None,
-    "cert_vendors": None,
-    "customers": ["customer_id"],
-    "work_reference_sheets": ["sheet_name"],
-    "work_reference_rows": ["sheet_name", "row_index"],
+# ── tenant 공용(사업장 소유) 업무 데이터 — 사용자 계정과 무관 ───────────────────
+# 이 8개 테이블은 owner_user_id/created_by 같은 사용자 FK가 전혀 없다(스키마 확인,
+# 2026-07-15). tenant_id 로만 사업장에 귀속되므로 "계정 연결 데이터"가 아니다.
+# 계정을 완전삭제해도 절대 건드리지 않고, 연결 건수 차단 대상에도 포함하지 않는다.
+# (직전 라운드에서 "이관"이라는 이름으로 tenant_id 를 바꿔 다른 사업장으로 옮기던
+# 로직은 tenant 격리 위반이라 전부 제거함 — MIGRATABLE_TENANT_TABLES/_migration_candidates/
+# _collision_check/_migrate_tenant_data 는 더 이상 존재하지 않는다.)
+_TENANT_OWNED_BUSINESS_TABLES = {
+    "cert_directions", "cert_groups", "cert_prices", "cert_regions", "cert_vendors",
+    "customers", "work_reference_rows", "work_reference_sheets",
 }
 
 
 def _connected_data_summary(session, tenant_id: str) -> dict:
-    """해당 tenant 에 연결된 업무 데이터 건수(0 이면 완전삭제 안전).
+    """해당 tenant 에 연결된, **사용자 계정과 실제로 연관된** 데이터 건수(0 이면 완전삭제 안전).
 
     information_schema 로 tenant_id 컬럼을 가진 테이블을 찾아 행 수를 센다(스키마 적응형).
-    계정/세션/인프라/계정 라이프사이클 테이블은 제외(이들은 삭제 절차에서 직접 정리하거나
-    감사 목적으로 보존). 테이블명은 information_schema 출처라 인젝션 위험 없음, tenant_id
-    는 파라미터 바인딩.
+    계정/세션/인프라/계정 라이프사이클 테이블은 제외. tenant 공용 업무 데이터
+    (_TENANT_OWNED_BUSINESS_TABLES — cert_*/customers/work_reference_*)도 제외한다: 이건
+    사업장 소유 데이터라 사용자 계정 삭제와 무관하게 항상 그대로 유지되고, 절대 삭제를
+    차단하지도 않는다. 남는 건 "이 테이블에 정말 사용자 FK가 있다면" 발견하기 위한
+    안전망(예: marketing_images.created_by 같은 예외적 케이스) — 실제 사용자 FK가
+    없는 한 여기 걸릴 일은 거의 없다. 테이블명은 information_schema 출처라 인젝션
+    위험 없음, tenant_id 는 파라미터 바인딩.
     """
     from sqlalchemy import text
-    exclude = {"users", "tenants", "user_sessions", "signature_pad_tokens", "audit_logs"} | _ACCOUNT_LIFECYCLE_TABLES
+    exclude = ({"users", "tenants", "user_sessions", "signature_pad_tokens", "audit_logs"}
+               | _ACCOUNT_LIFECYCLE_TABLES | _TENANT_OWNED_BUSINESS_TABLES)
     counts: dict = {}
     try:
         rows = session.execute(text(
@@ -477,49 +477,6 @@ def _connected_data_summary(session, tenant_id: str) -> dict:
         if n:
             counts[tbl] = int(n)
     return counts
-
-
-def _migration_candidates(session, exclude_login_id: str) -> list[dict]:
-    """연결 데이터 이관 대상으로 선택 가능한 계정 — 활성 + 자기 자신 아님.
-    tenant 제한 없음(삭제 대상이 자기 tenant 의 유일한 사용자일 때만 이관이 필요하므로,
-    이관 대상은 필연적으로 다른 tenant 소속이다)."""
-    from sqlalchemy import select
-    from backend.db.models.user import AccountUser
-    from backend.db.models.tenant import Tenant
-    rows = session.execute(
-        select(AccountUser.login_id, AccountUser.tenant_id, AccountUser.is_admin, Tenant.office_name)
-        .join(Tenant, Tenant.tenant_id == AccountUser.tenant_id)
-        .where(AccountUser.is_active.is_(True), AccountUser.login_id != exclude_login_id)
-        .order_by(AccountUser.login_id)
-    ).all()
-    return [{"login_id": r[0], "tenant_id": r[1], "is_admin": bool(r[2]), "office_name": r[3]} for r in rows]
-
-
-def _collision_check(session, table: str, unique_cols: list[str], old_tenant: str, new_tenant: str) -> list[dict]:
-    """이관 시 대상 tenant 와 자연키가 충돌하는 행 나열(비어 있으면 이관 안전)."""
-    from sqlalchemy import text
-    cols_sql = ", ".join(f'a."{c}"' for c in unique_cols)
-    join_cond = " AND ".join(f'a."{c}" = b."{c}"' for c in unique_cols)
-    rows = session.execute(text(
-        f'SELECT {cols_sql} FROM "{table}" a JOIN "{table}" b ON {join_cond} '
-        f'WHERE a.tenant_id = :old_t AND b.tenant_id = :new_t'
-    ), {"old_t": old_tenant, "new_t": new_tenant}).all()
-    return [dict(zip(unique_cols, r)) for r in rows]
-
-
-def _migrate_tenant_data(session, old_tenant: str, new_tenant: str) -> dict:
-    """MIGRATABLE_TENANT_TABLES 를 old_tenant → new_tenant 로 이관(같은 트랜잭션 내 호출 전제).
-    호출 전 충돌검사·비이관대상 테이블 검사가 끝났다고 가정한다(이 함수는 검사하지 않음)."""
-    from sqlalchemy import text
-    migrated: dict = {}
-    for table in MIGRATABLE_TENANT_TABLES:
-        n = session.execute(
-            text(f'UPDATE "{table}" SET tenant_id = :new_t WHERE tenant_id = :old_t'),
-            {"new_t": new_tenant, "old_t": old_tenant},
-        ).rowcount
-        if n:
-            migrated[table] = n
-    return migrated
 
 
 def _audit_account(action: str, actor: dict, target_login_id: str, tenant_id: str, payload: dict | None = None) -> None:
@@ -641,8 +598,12 @@ def set_account_role(login_id: str, body: AccountRoleUpdate, user: dict = Depend
 
 @router.get("/accounts/{login_id}/hard-delete-preview")
 def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
-    """완전삭제 전 영향 미리보기 — 연결 데이터, tenant 공존 여부, 이관 필요 여부,
-    이관 가능 대상 계정 목록. 실제 삭제는 하지 않는다."""
+    """완전삭제 전 영향 미리보기 — 계정과 실제로 연관된 데이터만 표시. 실제 삭제는 하지 않는다.
+
+    tenant 공용 업무 데이터(cert_*/customers/work_reference_*)는 계정 삭제와 무관하게
+    항상 그대로 유지되므로 여기 표시되지 않는다(별도 안내만). 이 함수는 tenant 를
+    건드리지 않으며, tenant 삭제 기능은 이 엔드포인트에 존재하지 않는다.
+    """
     login_id = login_id.strip()
     from sqlalchemy import select, func
     from backend.db.models.user import AccountUser
@@ -657,17 +618,14 @@ def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
             select(func.count()).select_from(AccountUser)
             .where(AccountUser.tenant_id == tenant_id, AccountUser.login_id != login_id)
         ) or 0)
-        connected = _connected_data_summary(session, tenant_id) if other_users == 0 else {}
-        migratable = {k: v for k, v in connected.items() if k in MIGRATABLE_TENANT_TABLES}
-        unmigratable = {k: v for k, v in connected.items() if k not in MIGRATABLE_TENANT_TABLES}
-        candidates = _migration_candidates(session, login_id) if (other_users == 0 and connected) else []
+        # 사용자 FK가 실제로 있는 테이블만(현재 스키마상 사실상 없음 — 확인용 안전망).
+        connected = _connected_data_summary(session, tenant_id)
         return {
             "login_id": login_id, "tenant_id": tenant_id,
             "is_active": bool(u.is_active), "is_admin": bool(u.is_admin),
             "other_users_on_tenant": other_users,
-            "needs_migration": other_users == 0 and bool(connected),
-            "connected": connected, "migratable": migratable, "unmigratable": unmigratable,
-            "candidates": candidates,
+            "connected": connected,
+            "tenant_business_data_preserved": True,
         }
 
 
@@ -675,18 +633,18 @@ def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
 def hard_delete_account(
     login_id: str,
     confirm_login_id: str = Query("", description="삭제 확인용 — 대상 login_id 와 동일해야 함"),
-    migrate_to_login_id: str = Query("", description="연결 데이터 이관 대상 계정(이관이 필요한 경우 필수)"),
     user: dict = Depends(require_admin),
 ):
-    """비활성 계정 **완전 삭제**(물리 삭제). 강한 안전검사 통과 시에만 수행.
+    """사용자 계정 **완전 삭제**(물리 삭제). 강한 안전검사 통과 시에만 수행.
 
     조건: 존재 / 자기 자신 아님 / is_active=False / 마지막 관리자 아님 / confirm 문자열 일치.
-    이 계정이 tenant 의 유일한 사용자면(tenant 도 함께 삭제) 연결 업무 데이터 존재 여부를 검사한다:
-    - 다른 사용자가 tenant 에 남아 있으면 tenant/데이터는 그대로 보존 — 이관 불필요.
-    - 이관 정책이 있는 8개 테이블(cert_*, customers, work_reference_*)은 자연키 충돌이 없으면
-      migrate_to_login_id 의 tenant 로 이관.
-    - 이관 정책이 없는 테이블에 연결 데이터가 있으면(tasks/daily/events/memos/documents/
-      finance/signatures/roi_presets 등) 자동 이관하지 않고 완전삭제를 차단, 구체적으로 보고한다.
+
+    tenant(사업장)와 그 공용 업무 데이터(cert_*/customers/work_reference_*)는 **항상 그대로
+    유지**된다 — 이 엔드포인트는 사용자 계정 행만 지운다. tenant 를 지우거나 tenant_id 를
+    다른 사업장으로 바꾸는 로직은 여기 없다(그런 동작은 tenant 격리 위반이라 전부 제거함 —
+    사업장 자체를 삭제하는 기능은 별도의 고위험 기능으로, 이 작업 범위에 포함되지 않는다).
+    사용자 FK가 실제로 있는 데이터가 발견되면(현재 스키마상 사실상 없음) 자동으로 처리하지
+    않고 차단·보고한다.
     """
     login_id = login_id.strip()
     if login_id == str(user.get("login_id", "")).strip():
@@ -694,13 +652,9 @@ def hard_delete_account(
     _assert_not_master(login_id, "hard_delete")   # 마스터 계정 완전삭제 금지(서버 강제)
     if confirm_login_id.strip() != login_id:
         raise HTTPException(status_code=400, detail="확인용 계정 아이디가 일치하지 않습니다.")
-    migrate_to_login_id = migrate_to_login_id.strip()
-    if migrate_to_login_id and migrate_to_login_id == login_id:
-        raise HTTPException(status_code=400, detail="삭제 대상 계정을 이관 대상으로 지정할 수 없습니다.")
 
-    from sqlalchemy import select, text, func
+    from sqlalchemy import select, text
     from backend.db.models.user import AccountUser
-    from backend.db.models.tenant import Tenant
     from backend.db.session import get_sessionmaker
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
@@ -713,56 +667,20 @@ def hard_delete_account(
             raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
 
         tenant_id = u.tenant_id
-        # 같은 tenant 에 다른 user 가 남는지 먼저 확인 — 남아 있으면 tenant/데이터 보존,
-        # 연결 데이터 검사·이관 자체가 불필요(FK 위반 위험이 없음).
-        other_users = int(session.scalar(
-            select(func.count()).select_from(AccountUser)
-            .where(AccountUser.tenant_id == tenant_id, AccountUser.login_id != login_id)
-        ) or 0)
 
-        migrated: dict = {}
-        deleted_tenant = False
-        target_tenant_id: Optional[str] = None
-        if other_users == 0:
-            connected = _connected_data_summary(session, tenant_id)
-            if connected:
-                unmigratable = {k: v for k, v in connected.items() if k not in MIGRATABLE_TENANT_TABLES}
-                if unmigratable:
-                    detail_rows = [{"table": k, "count": v, "column": "tenant_id",
-                                    "reason": "이관 정책 미정의 — 자동 이관하지 않음",
-                                    "manual_action": "수동으로 데이터를 이전하거나 정리한 뒤 다시 시도하세요."}
-                                   for k, v in sorted(unmigratable.items())]
-                    raise HTTPException(status_code=409, detail={
-                        "message": "이관 정책이 없는 연결 데이터가 있어 완전 삭제할 수 없습니다.",
-                        "unmigratable": detail_rows})
-                if not migrate_to_login_id:
-                    raise HTTPException(status_code=409, detail={
-                        "message": "연결된 업무 데이터가 있어 이관 대상 계정을 지정해야 완전 삭제할 수 있습니다.",
-                        "connected": connected})
-                target = session.scalar(select(AccountUser).where(AccountUser.login_id == migrate_to_login_id))
-                if target is None:
-                    raise HTTPException(status_code=400, detail="이관 대상 계정을 찾을 수 없습니다.")
-                if not target.is_active:
-                    raise HTTPException(status_code=400, detail="이관 대상 계정은 활성 계정이어야 합니다.")
-                target_tenant_id = target.tenant_id
-                if target_tenant_id == tenant_id:
-                    raise HTTPException(status_code=400, detail="이관 대상 계정이 같은 tenant 입니다(발생 불가 상태).")
+        # 사용자 FK가 실제로 있는 데이터 검사(tenant 공용 업무 데이터는 애초에 제외됨).
+        # 현재 스키마상 이런 테이블이 없어 대부분 빈 dict — 발견되면 자동 처리하지 않고 차단.
+        connected = _connected_data_summary(session, tenant_id)
+        if connected:
+            detail_rows = [{"table": k, "count": v, "column": "tenant_id",
+                            "reason": "사용자 계정 연결 데이터로 추정되나 이관 정책이 없음 — 자동 처리하지 않음",
+                            "manual_action": "수동으로 확인·정리한 뒤 다시 시도하세요."}
+                           for k, v in sorted(connected.items())]
+            raise HTTPException(status_code=409, detail={
+                "message": "계정과 연결된 데이터가 있어 완전 삭제할 수 없습니다.",
+                "unresolved": detail_rows})
 
-                collisions: dict = {}
-                for table, unique_cols in MIGRATABLE_TENANT_TABLES.items():
-                    if unique_cols is None or table not in connected:
-                        continue
-                    hits = _collision_check(session, table, unique_cols, tenant_id, target_tenant_id)
-                    if hits:
-                        collisions[table] = hits
-                if collisions:
-                    raise HTTPException(status_code=409, detail={
-                        "message": "이관 대상 계정과 데이터가 충돌해 완전 삭제할 수 없습니다.",
-                        "collisions": collisions})
-
-                migrated = _migrate_tenant_data(session, tenant_id, target_tenant_id)
-
-        # 계정 개인 데이터/라이프사이클 정리(연결 업무 데이터는 위에서 이관/부재 확인됨).
+        # 계정 개인 데이터/라이프사이클 정리 — tenant·tenant 공용 업무 데이터는 건드리지 않음.
         for tbl in _PERSONAL_CLEANUP_TABLES_BY_LOGIN_ID:
             try:
                 session.execute(text(f'delete from "{tbl}" where login_id = :v'), {"v": login_id})
@@ -773,34 +691,15 @@ def hard_delete_account(
                 session.execute(text(f'delete from "{tbl}" where recipient_login_id = :v'), {"v": login_id})
             except Exception:
                 pass
-        try:
-            session.execute(text('delete from "signature_pad_tokens" where tenant_id = :v'), {"v": tenant_id})
-        except Exception:
-            pass
-        if other_users == 0:
-            for tbl in _PERSONAL_CLEANUP_TABLES_BY_TENANT_ID:
-                try:
-                    session.execute(text(f'delete from "{tbl}" where tenant_id = :v'), {"v": tenant_id})
-                except Exception:
-                    pass
 
         session.delete(u)
-        session.flush()   # 사용자 행을 먼저 삭제(users.tenant_id FK) 후 tenant 삭제 순서 보장
-        if other_users == 0:
-            t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-            if t is not None:
-                session.delete(t)
-                session.flush()
-                deleted_tenant = True
         session.commit()
 
     _bust_tenant_cache()
     _audit_account("ACCOUNT_HARD_DELETED", user, login_id, tenant_id,
                    {"deleted_account_identifier": login_id, "tenant_id": tenant_id,
-                    "deleted_tenant": deleted_tenant, "migrated_to_tenant_id": target_tenant_id,
-                    "migrated": migrated})
-    return {"ok": True, "login_id": login_id, "deleted_tenant": deleted_tenant,
-            "migrated_to_tenant_id": target_tenant_id, "migrated": migrated}
+                    "tenant_preserved": True})
+    return {"ok": True, "login_id": login_id, "tenant_preserved": True}
 
 
 @router.post("/accounts")

@@ -1613,8 +1613,8 @@ export default function AdminPage() {
   });
 
   const hardDeleteMut = useMutation({
-    mutationFn: ({ loginId, confirm, migrateTo }: { loginId: string; confirm: string; migrateTo?: string }) =>
-      adminApi.hardDeleteAccount(loginId, confirm, migrateTo),
+    mutationFn: ({ loginId, confirm }: { loginId: string; confirm: string }) =>
+      adminApi.hardDeleteAccount(loginId, confirm),
     onSuccess: (_, { loginId }) => {
       toast.success(`계정 '${loginId}' 완전 삭제됨`);
       qc.invalidateQueries({ queryKey: ["admin"] });
@@ -2105,7 +2105,7 @@ export default function AdminPage() {
       {hardDeleteTarget && (
         <HardDeleteModal
           acc={hardDeleteTarget}
-          onConfirm={(confirm, migrateTo) => hardDeleteMut.mutate({ loginId: hardDeleteTarget.login_id, confirm, migrateTo })}
+          onConfirm={(confirm) => hardDeleteMut.mutate({ loginId: hardDeleteTarget.login_id, confirm })}
           onClose={() => setHardDeleteTarget(null)}
           isDeleting={hardDeleteMut.isPending}
         />
@@ -2115,21 +2115,17 @@ export default function AdminPage() {
 }
 
 // ── 완전 삭제 확인 모달 (계정 아이디 직접 입력) ────────────────────────────────
-const CONNECTED_LABEL: Record<string, string> = {
-  cert_directions: "방향", cert_groups: "그룹", cert_prices: "가격", cert_regions: "지역",
-  cert_vendors: "업체", customers: "고객", work_reference_rows: "업무참고 행", work_reference_sheets: "업무참고 시트",
-};
-
+// tenant 공용 업무 데이터(cert_*/customers/work_reference_*)는 계정 삭제와 무관하게
+// 항상 그대로 유지된다 — 다른 사업장으로 이관하는 기능은 tenant 격리 위반이라 존재하지 않는다.
 function HardDeleteModal({
   acc, onConfirm, onClose, isDeleting,
 }: {
   acc: Record<string, string>;
-  onConfirm: (confirmLoginId: string, migrateToLoginId?: string) => void;
+  onConfirm: (confirmLoginId: string) => void;
   onClose: () => void;
   isDeleting: boolean;
 }) {
   const [text, setText] = useState("");
-  const [migrateTo, setMigrateTo] = useState("");
   const matches = text.trim() === acc.login_id;
 
   const { data: preview, isLoading: previewLoading } = useQuery({
@@ -2137,11 +2133,9 @@ function HardDeleteModal({
     queryFn: () => adminApi.hardDeletePreview(acc.login_id).then((r) => r.data),
   });
 
-  const unmigratableEntries = preview ? Object.entries(preview.unmigratable) : [];
-  const migratableEntries = preview ? Object.entries(preview.migratable) : [];
-  const needsMigration = !!preview?.needs_migration;
-  const migrationBlocked = unmigratableEntries.length > 0;
-  const canConfirm = matches && !previewLoading && !migrationBlocked && (!needsMigration || !!migrateTo);
+  const connectedEntries = preview ? Object.entries(preview.connected) : [];
+  const blocked = connectedEntries.length > 0;
+  const canConfirm = matches && !previewLoading && !blocked;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -2157,45 +2151,16 @@ function HardDeleteModal({
 
         {previewLoading && <div className="text-xs mb-3" style={{ color: "#718096" }}>연결 데이터 확인 중…</div>}
 
-        {preview && preview.other_users_on_tenant > 0 && (
-          <div className="text-xs mb-3" style={{ color: "#276749", background: "#F0FFF4", border: "1px solid #C6F6D5", borderRadius: 6, padding: "6px 8px" }}>
-            같은 사업장에 다른 활성 계정이 {preview.other_users_on_tenant}개 남아 있어, 고객·업무참고·분류 데이터는 이관 없이 그대로 유지됩니다.
-          </div>
-        )}
+        <div className="text-xs mb-3" style={{ color: "#276749", background: "#F0FFF4", border: "1px solid #C6F6D5", borderRadius: 6, padding: "6px 8px" }}>
+          사업장 공용 데이터(고객·분류·업무참고 등)는 계정 삭제와 관계없이 그대로 유지됩니다. 이 계정을 삭제해도 다른 사업장으로 이동하지 않습니다.
+        </div>
 
-        {preview && migratableEntries.length > 0 && (
-          <div className="text-xs mb-2" style={{ color: "#4A5568" }}>
-            <div className="font-semibold mb-1">연결 데이터:</div>
-            <ul style={{ paddingLeft: 14, lineHeight: 1.7 }}>
-              {migratableEntries.map(([k, v]) => <li key={k}>{CONNECTED_LABEL[k] || k} {v}건</li>)}
-            </ul>
-          </div>
-        )}
-
-        {migrationBlocked && (
+        {blocked && (
           <div className="text-xs mb-3" style={{ color: "#822727", background: "#FFF5F5", border: "1px solid #FEB2B2", borderRadius: 6, padding: "6px 8px" }}>
-            <div className="font-semibold mb-1">이관 정책이 없는 연결 데이터가 있어 완전 삭제할 수 없습니다:</div>
+            <div className="font-semibold mb-1">계정과 직접 연결된 데이터가 있어 완전 삭제할 수 없습니다:</div>
             <ul style={{ paddingLeft: 14, lineHeight: 1.7 }}>
-              {unmigratableEntries.map(([k, v]) => <li key={k}>{k} {v}건 — 수동으로 이전·정리한 뒤 다시 시도하세요.</li>)}
+              {connectedEntries.map(([k, v]) => <li key={k}>{k} {v}건 — 수동으로 확인·정리한 뒤 다시 시도하세요.</li>)}
             </ul>
-          </div>
-        )}
-
-        {needsMigration && !migrationBlocked && (
-          <div className="mb-3">
-            <div className="text-xs mb-1" style={{ color: "#718096" }}>연결 데이터 이관 대상 계정</div>
-            <select value={migrateTo} onChange={(e) => setMigrateTo(e.target.value)}
-              className="hw-input w-full text-sm" style={{ fontFamily: "monospace" }}>
-              <option value="">계정 선택…</option>
-              {preview?.candidates.map((c) => (
-                <option key={c.login_id} value={c.login_id}>
-                  {c.login_id} ({c.office_name}){c.is_admin ? " · 관리자" : ""}
-                </option>
-              ))}
-            </select>
-            <div className="text-xs mt-1" style={{ color: "#718096" }}>
-              연결된 데이터는 선택한 계정으로 이관되고, 로그인 계정과 계정 전용 데이터만 삭제됩니다.
-            </div>
           </div>
         )}
 
@@ -2208,14 +2173,14 @@ function HardDeleteModal({
           placeholder={acc.login_id}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && canConfirm && !isDeleting) onConfirm(text.trim(), migrateTo || undefined); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && canConfirm && !isDeleting) onConfirm(text.trim()); }}
         />
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E2E8F0", color: "#718096", background: "#fff" }}>
             취소
           </button>
           <button
-            onClick={() => onConfirm(text.trim(), migrateTo || undefined)}
+            onClick={() => onConfirm(text.trim())}
             disabled={!canConfirm || isDeleting}
             className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: "#fff", background: "#C53030", border: "1px solid #9B2C2C" }}
