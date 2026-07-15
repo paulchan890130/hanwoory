@@ -2,9 +2,10 @@
 // 관리자 "매뉴얼 검토" 뷰 — admin/page.tsx 에서 분리(표시 개선용).
 // 데이터 형태/엔드포인트/운영 반영(apply)·분류 로직은 변경하지 않는다.
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api, manualApi, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, ExternalLink } from "lucide-react";
 import {
   recommendGroup, summarizeGroup, judgmentPoints, affectedTargets,
   REC_KR, REC_CONF_KR, type RecResult, type RecKind,
@@ -564,6 +565,7 @@ function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: ()
 }
 
 export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
+  const router = useRouter();
   const [versions, setVersions] = useState<PgVersion[]>([]);
   const [version, setVersion] = useState<string>("");
   const [changed, setChanged] = useState<PgChangedPage[]>([]);
@@ -1645,6 +1647,13 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                         <td>
                           <div style={{ fontWeight: 600 }}>
                             {c.detailed_code || "(코드없음)"}
+                            {!!c.detailed_code && (
+                              <button onClick={() => router.push(`/qualifications/${encodeURIComponent(c.detailed_code!)}`)}
+                                title="해당 업무 화면 열기" className="ml-1"
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}>
+                                <ExternalLink size={11} />
+                              </button>
+                            )}
                             {artifactByRow[c.row_id] && (
                               <button onClick={() => setPdfView({ artifactId: artifactByRow[c.row_id], page: 1, label: `변경 페이지 PDF — ${c.detailed_code || c.row_id} (#${artifactByRow[c.row_id]})` })}
                                 title="이 후보의 변경 페이지 PDF artifact 보기" className="ml-1" style={{ fontSize: 10, padding: "0 5px", borderRadius: 8, background: "#C6F6D5", color: "#22543D", border: "1px solid #9AE6B4", cursor: "pointer", fontWeight: 700 }}>

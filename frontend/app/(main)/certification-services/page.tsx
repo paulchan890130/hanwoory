@@ -4,7 +4,7 @@ import {
   certApi,
   CertBootstrap, CertVendor, CertDirection, CertGroup, CertRegion, CertPrice,
 } from "@/lib/api";
-import { RefreshCw, Plus, Trash2, Edit2, Save, X, Copy, Search } from "lucide-react";
+import { RefreshCw, Plus, Trash2, Edit2, Save, X, Copy, Search, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
 type Tab = "comparison" | "db" | "vendors" | "classification";
 
@@ -255,6 +255,37 @@ export default function CertificationServicesPage() {
       return true;
     });
   }, [data, filterDir, filterGrp]);
+
+  // ── 분류 정합성 진단(6-3) — 드롭다운/검색과 같은 bootstrap 정본으로 클라이언트에서 계산 ──
+  type ClassDiag = {
+    total: number; active: number; inactive: number; usedCount: number;
+    orphanUsed: string[]; inactiveButUsed: string[]; duplicateNames: string[];
+  };
+  function diagClass<T extends { id: string; active: string }>(
+    items: T[], usedValues: (string | undefined)[], keyOf: (item: T) => string, nameOf: (item: T) => string,
+  ): ClassDiag {
+    const usedCounts = new Map<string, number>();
+    usedValues.forEach(v => { if (v) usedCounts.set(v, (usedCounts.get(v) ?? 0) + 1); });
+    const isActive = (i: T) => i.active === "true" || i.active === "TRUE";
+    const keySet = new Set(items.map(keyOf));
+    const orphanUsed = Array.from(usedCounts.keys()).filter(v => !keySet.has(v));
+    const inactiveButUsed = items.filter(i => !isActive(i) && usedCounts.has(keyOf(i))).map(nameOf);
+    const usedCount = items.filter(i => usedCounts.has(keyOf(i))).length;
+    const nameCounts = new Map<string, number>();
+    items.forEach(i => { const n = nameOf(i); if (n) nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1); });
+    const duplicateNames = Array.from(nameCounts.entries()).filter(([, c]) => c > 1).map(([n]) => n);
+    return {
+      total: items.length, active: items.filter(isActive).length,
+      inactive: items.filter(i => !isActive(i)).length, usedCount, orphanUsed, inactiveButUsed, duplicateNames,
+    };
+  }
+  const dirDiag = useMemo(() => data
+    ? diagClass(data.directions, data.prices.map(p => p.direction), d => d.name, d => d.name) : null, [data]);
+  const grpDiag = useMemo(() => data
+    ? diagClass(data.groups, data.prices.map(p => p.group_id), g => g.id, g => g.group_name) : null, [data]);
+  const rgnDiag = useMemo(() => data
+    ? diagClass(data.regions, data.prices.map(p => p.region), r => r.name, r => r.name) : null, [data]);
+  const [showDiag, setShowDiag] = useState(false);
 
   // 대분류 변경 → 현재 중분류/소분류가 후보 밖이면 자동 초기화 (API 호출 없음)
   useEffect(() => {
@@ -824,9 +855,67 @@ export default function CertificationServicesPage() {
     );
   }
 
+  // ── 정합성 요약 + 경고(6-3) ──────────────────────────────────────────────
+  const DiagSummaryCard = ({ label, d }: { label: string; d: ClassDiag | null }) => (
+    <div style={{ flex: 1, minWidth: 140, border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px 12px" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12, color: "#718096", lineHeight: 1.6 }}>
+        전체 {d?.total ?? 0} · 활성 {d?.active ?? 0} · 비활성 {d?.inactive ?? 0} · 사용중 {d?.usedCount ?? 0}
+      </div>
+    </div>
+  );
+  const diagWarnings: { level: "error" | "warn"; text: string }[] = [
+    ...(dirDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `대분류 "${v}" — 가격조건에서 사용되지만 대분류 목록에 없음(고아 값)` })) ?? []),
+    ...(grpDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `중분류 ID "${v}" — 가격조건에서 사용되지만 중분류 목록에 없음(고아 값)` })) ?? []),
+    ...(rgnDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `소분류/지역 "${v}" — 가격조건에서 사용되지만 목록에 없음(고아 값)` })) ?? []),
+    ...(dirDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `대분류 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음` })) ?? []),
+    ...(grpDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `중분류 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음` })) ?? []),
+    ...(rgnDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `소분류/지역 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음` })) ?? []),
+    ...(dirDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `대분류 "${v}" — 동일한 표시명이 중복 등록됨` })) ?? []),
+    ...(grpDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `중분류 "${v}" — 동일한 표시명이 중복 등록됨` })) ?? []),
+    ...(rgnDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `소분류/지역 "${v}" — 동일한 표시명이 중복 등록됨` })) ?? []),
+  ];
+  const DiagPanel = (
+    <div style={{ marginBottom: 20, border: "1px solid #E2E8F0", borderRadius: 10, padding: 16, background: "#F9FAFB" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
+          <DiagSummaryCard label="대분류" d={dirDiag} />
+          <DiagSummaryCard label="중분류" d={grpDiag} />
+          <DiagSummaryCard label="소분류/지역" d={rgnDiag} />
+        </div>
+        <Btn onClick={() => setShowDiag(s => !s)} size="sm">
+          {showDiag ? <ChevronUp size={13} /> : <ChevronDown size={13} />} 정합성 검사 {diagWarnings.length > 0 ? `(${diagWarnings.length})` : ""}
+        </Btn>
+      </div>
+      {showDiag && (
+        diagWarnings.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#276749" }}>
+            <CheckCircle2 size={14} /> 정합성 경고 없음 — 고아 값·중복 표시명·비활성 사용 없음
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {diagWarnings.map((w, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12.5,
+                color: w.level === "error" ? "#822727" : "#744210",
+                background: w.level === "error" ? "#FFF5F5" : "#FFFBEB",
+                border: `1px solid ${w.level === "error" ? "#FEB2B2" : "#F6E05E"}`,
+                borderRadius: 6, padding: "6px 10px",
+              }}>
+                <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} /> {w.text}
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+
   // ⚠️ ClassList 도 본문 내부 정의 → JSX(<ClassList/>) 렌더 시 입력마다 리마운트(포커스 손실).
   // 함수 호출({ClassList<T>({...})})로 렌더해 부모 트리에 인라인한다.
   const ClassificationTab = (
+    <div>
+      {DiagPanel}
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
       {ClassList<CertDirection>({
         title: "대분류 관리", items: data?.directions ?? [],
@@ -879,6 +968,7 @@ export default function CertificationServicesPage() {
           </>
         ),
       })}
+    </div>
     </div>
   );
 

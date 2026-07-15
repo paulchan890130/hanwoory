@@ -976,6 +976,10 @@ def _build_business_insights(records: list, year: int, month: int, today) -> dic
         "categories": cats,
         "manual_issue": manual_issue,
         "actions": actions,
+        # 실제 비교기간(화면 표시용) — 진행 중인 월은 오늘까지, 종료된 월은 말일까지,
+        # 전년은 동일 일자까지(말일 초과 시 전년월 말일로 보정).
+        "ref_day": ref_day,
+        "prev_ref_day": prev_ref_day,
     }
 
 

@@ -272,7 +272,17 @@ function DailyOverlayChart({
         <polyline points={prevPts} fill="none" stroke="#A0AEC0" strokeWidth={2} strokeLinejoin="round" strokeDasharray="5,4" opacity={0.85} />
         {/* 올해 라인 */}
         <polyline points={curPts} fill="none" stroke={GOLD} strokeWidth={2.4} strokeLinejoin="round" />
-        {/* 호버 포인트 */}
+        {/* 데이터 포인트(날짜별) — 각 날짜 위치에 점 표시. 데이터 1건이어도 항상 렌더된다. */}
+        {data.map((d, i) => (
+          <circle key={`prevdot-${i}`} cx={toX(i)} cy={toY(d[prevField] as number)} r={2.6} fill="#A0AEC0" opacity={0.85} />
+        ))}
+        {data.map((d, i) => {
+          const cv = d[curField] as number | null;
+          return cv != null && (
+            <circle key={`curdot-${i}`} cx={toX(i)} cy={toY(cv)} r={3.2} fill={GOLD} stroke="#fff" strokeWidth={1} />
+          );
+        })}
+        {/* 호버 포인트(투명, 실제 점보다 큰 히트 영역) */}
         {data.map((d, i) => {
           const cv = d[curField] as number | null;
           return (
@@ -437,6 +447,10 @@ function OverlayLineChart({
           return (
             <g key={y}>
               <polyline points={pts} fill="none" stroke={color} strokeWidth={2.2} strokeLinejoin="round" opacity={0.9} />
+              {/* 월별 데이터 포인트 — 각 월 위치에 점 표시(데이터 1건이어도 항상 렌더) */}
+              {cells.map((c) => (
+                <circle key={`dot-${c.month}`} cx={toX(c.month)} cy={toY(Number(c[metric] ?? 0))} r={3} fill={color} stroke="#fff" strokeWidth={1} />
+              ))}
               {cells.map((c) => (
                 <circle key={c.month} cx={toX(c.month)} cy={toY(Number(c[metric] ?? 0))} r={8} fill="transparent"
                   onMouseMove={(e) => {
@@ -872,15 +886,20 @@ export default function MonthlyPage() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
-      {/* 헤더 */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      {/* 헤더 — 전역 상단바(56px) 아래에 고정(sticky). 스크롤해도 타이틀·연월 선택이 항상 보인다. */}
+      <div style={{
+        position: "sticky", top: 56, zIndex: 20,
+        background: "#fff", borderBottom: `1px solid ${BORDER}`,
+        marginBottom: 24, padding: "16px 0",
+        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+      }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1A202C", margin: 0 }}>📊 월간결산</h1>
           <p style={{ fontSize: 13, color: "#718096", marginTop: 4 }}>월별 수입·지출 분석 및 추세</p>
         </div>
 
         {/* 월 선택기 */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <label style={{ fontSize: 13, color: "#4A5568", fontWeight: 600 }}>🔎 분석할 월:</label>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}
             style={{ padding: "8px 12px", border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 14, background: "#fff", cursor: "pointer" }}>
@@ -1270,8 +1289,11 @@ export default function MonthlyPage() {
                 { label: "📉 전년 대비 가장 감소한 업무군", cat: bi.summary.worst_decline_category, sub: bi.summary.worst_decline_net != null ? `순이익 ${man(bi.summary.worst_decline_net)}` : "전년 데이터 없음", bg: "#FFF5F5", bd: "#FED7D7", fg: "#C53030" },
                 { label: "🎯 집중 개선 대상 업무군", cat: bi.summary.focus_category, sub: bi.summary.focus_margin != null ? `순이익률 ${bi.summary.focus_margin}%` : "데이터 부족", bg: "#FFFBEB", bd: "#FCE9B6", fg: "#B7791F" },
               ];
+              const pad2b = (n: number) => String(n).padStart(2, "0");
+              const biRangeLabel = `올해 ${year}-${pad2b(month)}-01~${pad2b(bi.ref_day)}일 vs 전년 ${year - 1}-${pad2b(month)}-01~${pad2b(bi.prev_ref_day)}일`;
               return (
                 <Card title="📑 업무군별 경영 진단 보고서 (전년 동월 동일기간 기준)">
+                  <div style={{ fontSize: 11.5, color: "#A0AEC0", marginTop: -8, marginBottom: 12 }}>※ 비교기간: {biRangeLabel}</div>
                   {/* 총평 */}
                   <div style={{ fontSize: 13.5, color: "#2D3748", lineHeight: 1.6, padding: "10px 14px", background: GRAY_BG, borderRadius: 8, marginBottom: 16 }}>
                     {bi.total_comment}
@@ -1396,9 +1418,9 @@ export default function MonthlyPage() {
               );
             })()}
 
-            {/* 고정지출 관리 + 신고/부가세 (PG 전용) */}
-            <FixedExpensePanel year={year} month={month} pgOn={!!overview.pg_daily} />
+            {/* 신고/부가세 + 고정지출 관리 (PG 전용) — 부가세 반기 누계를 먼저 표시 */}
             <TaxReportPanel year={year} month={month} pgOn={!!overview.pg_daily} autoCardSales={overview.tax?.auto_card_sales ?? 0} autoCardCount={overview.tax?.auto_card_count ?? 0} />
+            <FixedExpensePanel year={year} month={month} pgOn={!!overview.pg_daily} />
           </div>
         );
       })()}

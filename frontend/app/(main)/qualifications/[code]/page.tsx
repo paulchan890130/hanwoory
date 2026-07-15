@@ -3,7 +3,7 @@
 // 관리자 read-only 베타 (FEATURE_GUIDELINES_V3)
 // 좌측 = 체류 업무 격자(위) + 사증 경로 섹션(아래) 동시 표시, 우측 = 상세 패널.
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ChevronRight, FileText, Loader2, X } from "lucide-react";
 import {
   guidelinesV3Api, GuidelineRow, V3Block, V3DeleteImpact, V3DocRequirement,
@@ -416,6 +416,7 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
 export default function QualificationDetailPage() {
   const router = useRouter();
   const params = useParams<{ code: string }>();
+  const searchParams = useSearchParams();
   const code = decodeURIComponent(params.code ?? "");
   // 조회는 전 로그인 사용자 — 편집 UI 는 서버 detail.editable(관리자+플래그)로만 노출
 
@@ -423,6 +424,8 @@ export default function QualificationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sel, setSel] = useState<Selection>(null);
+  // 매뉴얼 분석결과 등에서 딥링크로 진입 시 해당 업무를 자동 선택(?work=CHANGE 등 block_type)
+  const [pendingWork, setPendingWork] = useState<string | null>(() => searchParams.get("work"));
 
   // ── 편집(CRUD) 상태 — detail.editable(FEATURE_GUIDELINES_V3_EDIT)일 때만 노출 ──
   const [editMode, setEditMode] = useState(false);
@@ -454,6 +457,17 @@ export default function QualificationDetailPage() {
   // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시 —
   // 분류별·업무별 찾기(/guidelines)와 동일한 노출 구조(숨김 토글 뒤에 두지 않음)
   useEffect(() => { if (detail?.editable) setEditMode(true); }, [detail?.editable]);
+
+  // ?work=CHANGE 등 딥링크 진입 시 해당 체류업무를 우측 상세 패널에 자동 선택.
+  // 존재하지 않는 work 값이면 조용히 무시(자격 상세는 이미 정상 표시된 상태 — 코드
+  // 자체가 없는 경우의 오류 표시는 위 loadDetail 의 404 처리가 담당).
+  useEffect(() => {
+    if (!pendingWork || !detail) return;
+    const block = detail.blocks.find(b => b.block_type === pendingWork && !b.variant);
+    if (block) setSel({ kind: "block", item: block });
+    setPendingWork(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingWork, detail]);
 
   // 편집 저장 후 전체 재조회 — 상세 fetch 캐시까지 비워 목록·상세·집계를 일치시킨다
   const reloadAll = useCallback(() => {

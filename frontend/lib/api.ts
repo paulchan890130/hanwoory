@@ -645,6 +645,8 @@ export interface BusinessInsights {
     related_changes: { version: string; detected_at: string; changed_page_count: number; candidate_count: number }[];
   };
   actions: string[];
+  ref_day: number;
+  prev_ref_day: number;
 }
 export interface YearlyOverview {
   years: number[];

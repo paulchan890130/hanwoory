@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { boardApi, type BoardPost } from "@/lib/api";
 import { getUser, canManageContent } from "@/lib/auth";
 import { Plus, Trash2, MessageSquare, ChevronLeft, Pin, RefreshCw, Pencil, Loader2 } from "lucide-react";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 
 export default function BoardPage() {
   const qc = useQueryClient();
@@ -19,6 +20,10 @@ export default function BoardPage() {
   const [comment, setComment] = useState("");
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  // 삭제 확인 모달 대상(확인 전에는 API 호출 없음)
+  const [confirmDeletePost, setConfirmDeletePost] = useState<BoardPost | null>(null);
+  const [confirmDeleteComment, setConfirmDeleteComment] =
+    useState<{ postId: string; commentId: string; content: string } | null>(null);
 
   const { data: posts = [] } = useQuery({
     queryKey: ["board"],
@@ -102,16 +107,23 @@ export default function BoardPage() {
     onError: () => toast.error("수정 실패"),
   });
 
+  const [postDeleteError, setPostDeleteError] = useState("");
   const deleteMut = useMutation({
     mutationFn: (id: string) => boardApi.delete(id),
-    onMutate: (id: string) => setDeletingPostId(id),
+    onMutate: (id: string) => { setDeletingPostId(id); setPostDeleteError(""); },
     onSuccess: () => {
       toast.success("삭제됨");
       qc.invalidateQueries({ queryKey: ["board"] });
       setView("list");
       setSelectedPost(null);
+      setConfirmDeletePost(null);
     },
-    onError: () => toast.error("삭제 실패"),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || "삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      setPostDeleteError(msg);
+      toast.error("삭제 실패");
+    },
     onSettled: () => setDeletingPostId(null),
   });
 
@@ -126,16 +138,23 @@ export default function BoardPage() {
     onError: () => toast.error("댓글 등록 실패"),
   });
 
+  const [commentDeleteError, setCommentDeleteError] = useState("");
   const deleteCommentMut = useMutation({
     mutationFn: ({ postId, commentId }: { postId: string; commentId: string }) =>
       boardApi.deleteComment(postId, commentId),
-    onMutate: ({ commentId }: { postId: string; commentId: string }) => setDeletingCommentId(commentId),
+    onMutate: ({ commentId }: { postId: string; commentId: string }) => { setDeletingCommentId(commentId); setCommentDeleteError(""); },
     onSuccess: () => {
       toast.success("댓글 삭제됨");
       qc.invalidateQueries({ queryKey: ["board", selectedPost?.id, "comments"] });
       qc.invalidateQueries({ queryKey: ["board"] });
+      setConfirmDeleteComment(null);
     },
-    onError: () => toast.error("댓글 삭제 실패"),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || "댓글 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      setCommentDeleteError(msg);
+      toast.error("댓글 삭제 실패");
+    },
     onSettled: () => setDeletingCommentId(null),
   });
 
@@ -209,7 +228,7 @@ export default function BoardPage() {
       <td style={{ textAlign: "center" }}>
         {canDelete(post) && (
           <button
-            onClick={(e) => { e.stopPropagation(); if (!deletingPostId) deleteMut.mutate(post.id); }}
+            onClick={(e) => { e.stopPropagation(); if (!deletingPostId) setConfirmDeletePost(post); }}
             disabled={deletingPostId === post.id}
             style={{ color: "#FC8181", background: "none", border: "none", cursor: deletingPostId === post.id ? "not-allowed" : "pointer", padding: 2, opacity: deletingPostId === post.id ? 0.4 : 1 }}
           >
@@ -525,7 +544,7 @@ export default function BoardPage() {
                 )}
                 {canDelete(selectedPost) && (
                   <button
-                    onClick={() => { if (!deletingPostId) deleteMut.mutate(selectedPost.id); }}
+                    onClick={() => { if (!deletingPostId) setConfirmDeletePost(selectedPost); }}
                     disabled={deletingPostId === selectedPost.id}
                     style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#FC8181", background: "none", border: "none", cursor: deletingPostId === selectedPost.id ? "not-allowed" : "pointer", opacity: deletingPostId === selectedPost.id ? 0.4 : 1 }}
                   >
@@ -569,7 +588,7 @@ export default function BoardPage() {
                 </div>
                 {canDeleteComment(c) && (
                   <button
-                    onClick={() => { if (!deletingCommentId) deleteCommentMut.mutate({ postId: selectedPost.id, commentId: c.id }); }}
+                    onClick={() => { if (!deletingCommentId) setConfirmDeleteComment({ postId: selectedPost.id, commentId: c.id, content: c.content }); }}
                     disabled={deletingCommentId === c.id}
                     style={{ color: "#FC8181", background: "none", border: "none", cursor: deletingCommentId === c.id ? "not-allowed" : "pointer", padding: 2, flexShrink: 0, opacity: deletingCommentId === c.id ? 0.4 : 1 }}
                   >
@@ -604,6 +623,35 @@ export default function BoardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmDeletePost && (
+        <ConfirmDeleteModal
+          title="게시글을 삭제하시겠습니까?"
+          subjectLabel="제목"
+          subjectValue={confirmDeletePost.title}
+          warning="삭제한 게시글은 복구할 수 없습니다."
+          isDeleting={deletingPostId === confirmDeletePost.id}
+          error={postDeleteError}
+          onConfirm={() => deleteMut.mutate(confirmDeletePost.id)}
+          onClose={() => { if (!deletingPostId) { setConfirmDeletePost(null); setPostDeleteError(""); } }}
+        />
+      )}
+      {confirmDeleteComment && (
+        <ConfirmDeleteModal
+          title="댓글을 삭제하시겠습니까?"
+          subjectLabel="내용"
+          subjectValue={
+            confirmDeleteComment.content.length > 40
+              ? confirmDeleteComment.content.slice(0, 40) + "…"
+              : confirmDeleteComment.content
+          }
+          warning="삭제한 댓글은 복구할 수 없습니다."
+          isDeleting={deletingCommentId === confirmDeleteComment.commentId}
+          error={commentDeleteError}
+          onConfirm={() => deleteCommentMut.mutate({ postId: confirmDeleteComment.postId, commentId: confirmDeleteComment.commentId })}
+          onClose={() => { if (!deletingCommentId) { setConfirmDeleteComment(null); setCommentDeleteError(""); } }}
+        />
       )}
     </div>
   );

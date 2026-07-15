@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { getUser, canManageContent } from "@/lib/auth";
 import { marketingApi, type MarketingPost } from "@/lib/api";
 import { isBoardPost } from "@/lib/docGroupTags";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 
 // 업무안내 관리: 공개 /board 와 **동일한 카테고리 기준**으로 필터(목록 일치 보장).
 // 준비서류 계열 카테고리 글은 "업무별 준비서류 관리"에서 다룬다 → 섞이지 않음.
@@ -16,6 +17,8 @@ export default function MarketingBoardPage() {
   const [loading, setLoading] = useState(true);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [confirmDeletePost, setConfirmDeletePost] = useState<MarketingPost | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     if (!canManageContent(user)) {
@@ -60,13 +63,17 @@ export default function MarketingBoardPage() {
 
   const handleDelete = async (id: string) => {
     if (deletingIds.has(id)) return;
-    if (!confirm("이 게시물을 삭제하시겠습니까?")) return;
     setDeletingIds((prev) => new Set(prev).add(id));
+    setDeleteError("");
     try {
       await marketingApi.delete(id);
       setPosts((prev) => prev.filter((p) => p.id !== id));
       toast.success("삭제되었습니다.");
-    } catch {
+      setConfirmDeletePost(null);
+    } catch (e) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || "삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      setDeleteError(msg);
       toast.error("삭제에 실패했습니다.");
     } finally {
       setDeletingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
@@ -177,7 +184,7 @@ export default function MarketingBoardPage() {
                         수정
                       </button>
                       <button
-                        onClick={() => handleDelete(post.id)}
+                        onClick={() => { setDeleteError(""); setConfirmDeletePost(post); }}
                         disabled={deletingIds.has(post.id)}
                         style={{
                           padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "1px solid #FED7D7", background: "#fff",
@@ -196,6 +203,19 @@ export default function MarketingBoardPage() {
             })}
           </tbody>
         </table>
+      )}
+
+      {confirmDeletePost && (
+        <ConfirmDeleteModal
+          title="게시글을 삭제하시겠습니까?"
+          subjectLabel="제목"
+          subjectValue={confirmDeletePost.title}
+          warning="삭제한 게시글은 복구할 수 없습니다."
+          isDeleting={deletingIds.has(confirmDeletePost.id)}
+          error={deleteError}
+          onConfirm={() => handleDelete(confirmDeletePost.id)}
+          onClose={() => { if (!deletingIds.has(confirmDeletePost.id)) { setConfirmDeletePost(null); setDeleteError(""); } }}
+        />
       )}
     </div>
   );

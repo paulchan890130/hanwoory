@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Shield, UserPlus, X, Save,
   FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw, Trash2,
-  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText,
+  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText, ExternalLink,
 } from "lucide-react";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -768,6 +768,7 @@ type RvStatusFilter = "actionable" | "all" | "approve" | "unresolved" | "reviewe
 type RvGroupBy = "found_page" | "code" | "action" | "none";
 
 function ManualReviewTab() {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<RvStatusFilter>("actionable");
   const [manualFilter, setManualFilter] = useState<string>("");
   const [codeFilter, setCodeFilter] = useState<string>("");
@@ -936,7 +937,16 @@ function ManualReviewTab() {
       <Fragment key={row.row_id}>
         <tr>
           <td><span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span></td>
-          <td className="font-mono">{row.detailed_code || "—"}</td>
+          <td className="font-mono">
+            {row.detailed_code || "—"}
+            {!!row.detailed_code && (
+              <button
+                onClick={() => router.push(`/qualifications/${encodeURIComponent(row.detailed_code)}?work=${encodeURIComponent(row.action_type || "")}`)}
+                title="해당 업무 화면 열기"
+                style={{ marginLeft: 5, background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}
+              ><ExternalLink size={12} /></button>
+            )}
+          </td>
           <td style={{ color: "#718096" }}>{row.action_type}</td>
           <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.title}>{row.title}</td>
           <td>{row.manual}</td>

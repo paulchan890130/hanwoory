@@ -1145,6 +1145,16 @@ export function CustomerDrawer({
   const [docPreset, setDocPreset] = useState<ExtensionWorktype | null>(null);
   const [quickPoaOverlayOpen, setQuickPoaOverlayOpen] = useState(false);
 
+  // ESC → 문서자동작성/원클릭 오버레이 닫기(열려 있을 때만 등록 — 리스너 누수 방지)
+  useEffect(() => {
+    if (!docOverlayOpen && !quickPoaOverlayOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [docOverlayOpen, quickPoaOverlayOpen]);
+
   // ── 서명 상태 ──
   const [hasSignature, setHasSignature] = useState<boolean | null>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -1280,16 +1290,21 @@ export function CustomerDrawer({
   const name = form["한글"] || `${form["성"] ?? ""} ${form["명"] ?? ""}`.trim() || "신규 고객";
 
   // ── Dual popup helper: 외부 사이트(왼쪽) + 복붙용 고객카드(오른쪽) ─────────
+  // 배치 기준 = 현재 창이 위치한 모니터의 사용 가능 영역(screen.avail*) — 고정 픽셀값 금지.
+  // 전체 사용 가능 영역을 가로 4칸으로 보고 좌측 3칸(75%) : 우측 1칸(25%)으로 분할한다.
+  // OS 배율·해상도·듀얼 모니터(현재 창이 있는 모니터의 availLeft/Top)에 자동 대응.
   const openDualPopup = (externalUrl: string, winName: string, mode: string) => {
-    const margin = 8, gap = 8;
+    const gap = 8;
+    // availLeft/availTop 은 DOM 표준은 아니지만 모든 주요 브라우저가 지원(TS lib.dom 미포함) — 캐스팅.
+    const screenExt = window.screen as Screen & { availLeft?: number; availTop?: number };
+    const availLeft = screenExt.availLeft ?? 0;
+    const availTop = screenExt.availTop ?? 0;
     const availW = window.screen.availWidth;
     const availH = window.screen.availHeight;
-    const totalW = availW - margin * 2;
-    const totalH = availH - margin * 2;
-    const rightW = Math.max(420, Math.min(520, Math.floor(totalW * 0.32)));
-    const leftW  = Math.max(760, totalW - rightW - gap);
-    const featLeft  = `width=${leftW},height=${totalH},left=${margin},top=${margin},resizable=yes,scrollbars=yes`;
-    const featRight = `width=${rightW},height=${totalH},left=${margin + leftW + gap},top=${margin},resizable=yes,scrollbars=yes`;
+    const leftW = Math.floor(availW * 0.75 - gap / 2);
+    const rightW = availW - leftW - gap;
+    const featLeft  = `width=${leftW},height=${availH},left=${availLeft},top=${availTop},resizable=yes,scrollbars=yes`;
+    const featRight = `width=${rightW},height=${availH},left=${availLeft + leftW + gap},top=${availTop},resizable=yes,scrollbars=yes`;
 
     // 팝업별 고유 nonce — 크로스-고객 데이터 오염 방지
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -2206,9 +2221,22 @@ export function CustomerDrawer({
         />
       )}
 
+      {/* 문서자동작성/원클릭 오버레이 바깥 클릭 시 닫기 — 오버레이 zIndex(45)보다 낮은
+          전체화면 click-catcher. 오버레이·드로어(zIndex 50)가 그 위를 덮는 영역에서는
+          클릭이 오버레이/드로어에서 먼저 히트되므로 내부 조작은 전파되지 않는다. */}
+      {(docOverlayOpen || quickPoaOverlayOpen) && (
+        <div
+          className="fixed inset-0"
+          style={{ zIndex:44 }}
+          onClick={() => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); }}
+        />
+      )}
+
       {/* 문서자동작성 오버레이 — position:fixed, 사이드바·상단바 미침범 (드로어가 자체 소유) */}
       {docOverlayOpen && customer && !isNew && (
-        <div style={{
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
           position:"fixed",
           top:120,                           // 상단바(56px) + 툴바(~64px) 아래
           bottom:0,
