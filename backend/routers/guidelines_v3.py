@@ -696,6 +696,18 @@ def _impact_for(ds: _Dataset, entity_type: str, entity_id: str) -> dict:
             "blocking": False, "cascade_allowed": True}
 
 
+@router.get("/edit/overlay-status/{entity_type}/{entity_id:path}")
+def edit_overlay_status(entity_type: str, entity_id: str, admin: dict = Depends(require_guideline_editor)):
+    """'적용 이력 보기' — 이 엔터티에 현재 오버레이 편집이 있는지 + 언제/누가.
+    guideline_v3_edits 는 엔터티당 최신 상태 1행만 보관하므로(과거 여러 버전은 audit_logs,
+    FEATURE_PG_AUDIT 미설정 시 비어 있을 수 있음) 이 응답은 '현재 적용 상태' 기준이다."""
+    _require_editable()
+    row = edit_store.get_edit_row(entity_type, entity_id)
+    if row is None:
+        return {"has_overlay": False}
+    return {"has_overlay": True, **row}
+
+
 def _audit(request: Request, admin: dict, op: str, entity_type: str, entity_id: str,
            before: Optional[dict], after: Optional[dict]) -> None:
     try:

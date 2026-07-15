@@ -44,6 +44,33 @@ def load_all_edits() -> dict[str, dict[str, dict]]:
         return {}
 
 
+def get_edit_row(entity_type: str, entity_id: str) -> Optional[dict]:
+    """단일 엔터티의 현재 오버레이 상태(있으면) — {op, payload, updated_by, updated_at}.
+    '적용 이력 보기'의 기반: 이 테이블은 엔터티당 최신 상태만 보관하므로(0030 설계),
+    과거 여러 버전이 아니라 '현재 오버레이가 있는지 + 언제/누가'를 보여준다."""
+    if not edit_enabled():
+        return None
+    try:
+        maker = get_sessionmaker()
+        with maker() as session:
+            row = (session.query(GuidelineV3Edit)
+                   .filter(GuidelineV3Edit.entity_type == entity_type,
+                           GuidelineV3Edit.entity_id == entity_id)
+                   .one_or_none())
+            if row is None:
+                return None
+            payload = json.loads(row.payload) if row.payload else None
+            return {
+                "op": row.op, "payload": payload,
+                "updated_by": row.updated_by,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("guideline_v3_edit: get_edit_row 실패 (%s)", exc)
+        return None
+
+
 def save_edit(entity_type: str, entity_id: str, op: str, payload: Optional[dict],
               updated_by: str) -> None:
     """오버레이 upsert(엔터티당 1행). op='upsert'|'delete'."""

@@ -2,8 +2,11 @@
 // v3 자격 트리 편집(CRUD) 공용 UI — FEATURE_GUIDELINES_V3_EDIT(관리자, PG 오버레이).
 // 스키마 기반 편집 모달 + 삭제 전 영향 확인 다이얼로그 + 준비서류(3구분) 편집기.
 import { CSSProperties, useEffect, useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
-import { guidelinesV3Api, V3DeleteImpact, V3DocRequirement, V3EntityType } from "@/lib/api";
+import { Pencil, Plus, Trash2, X, History, RotateCcw, Search, Loader2 } from "lucide-react";
+import {
+  guidelinesV3Api, V3DeleteImpact, V3DocRequirement, V3EntityType,
+  V3QualificationDetail, V3Block, V3Route,
+} from "@/lib/api";
 
 // ── 필드 스키마 ───────────────────────────────────────────────────────────────
 export type FieldKind = "text" | "textarea" | "select" | "number" | "bool" | "list";
@@ -25,9 +28,14 @@ const inputStyle: CSSProperties = {
 const labelStyle: CSSProperties = { fontSize: 11, fontWeight: 700, color: "#4A5568", marginBottom: 4 };
 
 function fieldToInput(value: unknown, kind: FieldKind): string {
+  // is_active(유일한 bool 필드) 는 정본 JSON 대다수 행에 키 자체가 없다 — 백엔드 전체가
+  // "없음/null = 활성"으로 취급하므로(예: `.get("is_active", True) is not False`), 여기서도
+  // 없음을 빈 문자열("")로 두면 select 가 실제로는 미선택 상태인데도 화면엔 "예(활성)"가
+  // 보여서(브라우저가 매칭 안 되는 값일 때 첫 옵션을 표시) 저장 시 inputToField 가 ""를
+  // false 로 취급해 무관한 필드만 고쳐도 항목이 조용히 비활성화되는 사고가 난다.
+  if (kind === "bool") return value === false ? "false" : "true";
   if (value === null || value === undefined) return "";
   if (kind === "list" && Array.isArray(value)) return value.join("\n");
-  if (kind === "bool") return value ? "true" : "false";
   return String(value);
 }
 
@@ -416,6 +424,245 @@ export function DrEditor({ targetId, drs, onChanged }: {
             onChanged();
           }}
           onClose={() => setImpactState(null)} />
+      )}
+    </div>
+  );
+}
+
+// ── 매뉴얼 검토 → v3 적용 모달 ─────────────────────────────────────────────────
+// 매뉴얼 검토 화면(관리자)에서 특정 후보를 v3 자격/체류업무/사증경로/준비서류에 반영할 때
+// 사용. 정본 JSON은 그대로 두고 기존 오버레이 편집 API(EntityEditModal·DrEditor·revert)를
+// 그대로 재사용한다 — 새 저장 계층·migration 없음. "적용 제외"/"기존값 유지"는 API 호출 없이
+// 닫기만 한다(오버레이에 아무것도 쓰지 않는 것 자체가 '기존값 유지' 상태).
+function OverlayBadge({ etype, id }: { etype: V3EntityType; id: string }) {
+  const [info, setInfo] = useState<{ has_overlay: boolean; updated_by?: string | null; updated_at?: string | null } | null>(null);
+  const [checked, setChecked] = useState(false);
+  const check = async () => {
+    try {
+      const r = await guidelinesV3Api.editOverlayStatus(etype, id);
+      setInfo(r.data);
+    } catch { setInfo(null); }
+    setChecked(true);
+  };
+  if (!checked) {
+    return (
+      <button onClick={check} title="적용 이력 보기"
+        style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #E2E8F0",
+          background: "#fff", color: "#718096", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
+        <History size={10} /> 적용 이력
+      </button>
+    );
+  }
+  if (!info?.has_overlay) {
+    return <span style={{ fontSize: 10.5, color: "#A0AEC0" }}>편집 없음(정본 값)</span>;
+  }
+  const when = info.updated_at ? new Date(info.updated_at).toLocaleString("ko-KR") : "";
+  return (
+    <span style={{ fontSize: 10.5, color: "#975A16", display: "inline-flex", alignItems: "center", gap: 5 }}>
+      편집됨 — {info.updated_by || "관리자"} · {when}
+    </span>
+  );
+}
+
+export function ApplyToV3Modal({
+  hintCode, hintActionType, hintTitle, onClose, onApplied,
+}: {
+  hintCode?: string; hintActionType?: string; hintTitle?: string;
+  onClose: () => void; onApplied: () => void;
+}) {
+  const [code, setCode] = useState(hintCode ?? "");
+  const [detail, setDetail] = useState<V3QualificationDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [modal, setModal] = useState<{
+    etype: V3EntityType; mode: "create" | "edit"; title: string;
+    fields: FieldSpec[]; initial: Record<string, unknown>; id?: string;
+  } | null>(null);
+  const [drTarget, setDrTarget] = useState<string | null>(null); // 준비서류 편집기 펼침 대상(block_id/route_id)
+
+  const lookup = async (c: string) => {
+    if (!c.trim()) return;
+    setLoading(true); setError(""); setDetail(null);
+    try {
+      const res = await guidelinesV3Api.getQualification(c.trim());
+      setDetail(res.data);
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      setError(status === 404
+        ? `자격 코드 "${c.trim()}"를 찾을 수 없습니다. 코드를 확인하거나 아래에서 대분류를 먼저 만들어야 할 수 있습니다.`
+        : "조회에 실패했습니다.");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (hintCode) lookup(hintCode); }, [hintCode]);
+
+  const refresh = async () => { if (code.trim()) await lookup(code.trim()); onApplied(); };
+
+  const saveModal = async (payload: Record<string, unknown>) => {
+    if (!modal) return;
+    if (modal.mode === "edit" && modal.id) {
+      await guidelinesV3Api.editUpdate(modal.etype, modal.id, payload);
+    } else {
+      await guidelinesV3Api.editCreate(modal.etype, { ...modal.initial, ...payload });
+    }
+    setModal(null);
+    await refresh();
+  };
+
+  const revertEntity = async (etype: V3EntityType, id: string, label: string) => {
+    if (!window.confirm(`${label}을(를) 정본(원본 JSON) 값으로 되돌릴까요?\n이 오버레이 편집으로 신설된 항목이면 사라집니다.`)) return;
+    try {
+      await guidelinesV3Api.editRevert(etype, id);
+      await refresh();
+    } catch { window.alert("복원에 실패했습니다."); }
+  };
+
+  const qid = detail?.master.qualification_id ?? "";
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 720,
+        maxHeight: "90vh", overflowY: "auto", padding: "20px 22px" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 6 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#2D3748" }}>매뉴얼 검토 → v3 적용</div>
+            {hintTitle && <div style={{ fontSize: 12, color: "#718096", marginTop: 2 }}>근거: {hintTitle}</div>}
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 11.5, color: "#975A16", background: "#FFFBEB", border: "1px solid #F6E05E",
+          borderRadius: 8, padding: "7px 10px", marginBottom: 14, lineHeight: 1.6 }}>
+          매뉴얼 업로드·분석만으로는 아무것도 바뀌지 않습니다. 아래에서 자격을 조회한 뒤 항목을
+          직접 수정·추가하고 저장해야만 운영 데이터(오버레이)에 반영됩니다. 저장하지 않고 닫으면
+          "적용 제외/기존값 유지"와 동일합니다.
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input value={code} onChange={e => setCode(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") lookup(code); }}
+            placeholder="자격 코드 (예: F-2-7S)"
+            style={{ flex: 1, fontSize: 13, padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0" }} />
+          <button onClick={() => lookup(code)} disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600,
+              padding: "7px 14px", borderRadius: 8, border: "none", background: "var(--hw-gold)", color: "#fff",
+              cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} 조회
+          </button>
+        </div>
+        {error && (
+          <div style={{ marginBottom: 14, padding: "9px 12px", borderRadius: 8, background: "#FFF5F5",
+            border: "1px solid #FEB2B2", fontSize: 12.5, color: "#C53030" }}>{error}</div>
+        )}
+
+        {detail && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* 자격 정보 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{detail.master.code} {detail.master.name_ko}</span>
+              <EditIconButton kind="edit" title="자격 정보 수정" onClick={() => setModal({
+                etype: "qualification", mode: "edit", id: qid, title: `자격 정보 수정 — ${detail.master.code}`,
+                fields: qualFields([{ value: detail.master.group, label: detail.master.group }], !!detail.parent)
+                  .map(f => f.key === "code" ? { ...f, readOnly: true } : f),
+                initial: detail.master as unknown as Record<string, unknown>,
+              })} />
+              <OverlayBadge etype="qualification" id={qid} />
+            </div>
+
+            {/* 체류업무 */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#4A5568" }}>체류업무</span>
+                <button onClick={() => setModal({
+                  etype: "stay_block", mode: "create", title: "체류업무 추가",
+                  fields: blockFields(true),
+                  initial: { qualification_id: qid, applicability: "applicable", is_active: true,
+                    ...(hintActionType ? { block_type: hintActionType } : {}) },
+                })} style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                  border: "1px solid rgba(212,168,67,0.55)", background: "rgba(212,168,67,0.08)",
+                  color: "var(--hw-gold-text)", cursor: "pointer" }}>+ 체류업무</button>
+              </div>
+              {detail.blocks.map((b: V3Block) => (
+                <div key={b.block_id} style={{ border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>{b.block_label}</span>
+                    <span style={{ fontSize: 10.5, color: "#718096" }}>{b.block_type} · {b.applicability}</span>
+                    <EditIconButton kind="edit" title="업무 수정" onClick={() => setModal({
+                      etype: "stay_block", mode: "edit", id: b.block_id, title: `체류업무 수정 — ${b.block_label}`,
+                      fields: blockFields(false), initial: b as unknown as Record<string, unknown>,
+                    })} />
+                    <button onClick={() => setDrTarget(t => t === b.block_id ? null : b.block_id)}
+                      style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #E2E8F0",
+                        background: "#fff", color: "#4A5568", cursor: "pointer" }}>준비서류</button>
+                    <OverlayBadge etype="stay_block" id={b.block_id} />
+                    <button onClick={() => revertEntity("stay_block", b.block_id, b.block_label)} title="정본 복원"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}>
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
+                  {drTarget === b.block_id && (
+                    <div style={{ marginTop: 8 }}>
+                      <DrEditor targetId={b.block_id} drs={detail.doc_requirements[b.block_id] ?? []} onChanged={refresh} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* 사증 경로 */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#4A5568" }}>사증 경로</span>
+                <button onClick={() => setModal({
+                  etype: "visa_route", mode: "create", title: "사증 경로 추가",
+                  fields: routeFields(),
+                  initial: { qualification_id: qid, route_type: "recognition", is_active: true },
+                })} style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                  border: "1px solid rgba(212,168,67,0.55)", background: "rgba(212,168,67,0.08)",
+                  color: "var(--hw-gold-text)", cursor: "pointer" }}>+ 사증 경로</button>
+              </div>
+              {detail.routes.map((r: V3Route) => (
+                <div key={r.route_id} style={{ border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>{r.route_label}</span>
+                    <span style={{ fontSize: 10.5, color: "#718096" }}>{r.route_type}</span>
+                    <EditIconButton kind="edit" title="경로 수정" onClick={() => setModal({
+                      etype: "visa_route", mode: "edit", id: r.route_id, title: `사증 경로 수정 — ${r.route_label}`,
+                      fields: routeFields(), initial: r as unknown as Record<string, unknown>,
+                    })} />
+                    <button onClick={() => setDrTarget(t => t === r.route_id ? null : r.route_id)}
+                      style={{ fontSize: 10.5, padding: "1px 7px", borderRadius: 10, border: "1px solid #E2E8F0",
+                        background: "#fff", color: "#4A5568", cursor: "pointer" }}>준비서류</button>
+                    <OverlayBadge etype="visa_route" id={r.route_id} />
+                    <button onClick={() => revertEntity("visa_route", r.route_id, r.route_label)} title="정본 복원"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#A0AEC0" }}>
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
+                  {drTarget === r.route_id && (
+                    <div style={{ marginTop: 8 }}>
+                      <DrEditor targetId={r.route_id} drs={detail.doc_requirements[r.route_id] ?? []} onChanged={refresh} />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {detail.routes.length === 0 && <div style={{ fontSize: 12, color: "#A0AEC0" }}>사증 경로 없음</div>}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+          <button onClick={onClose}
+            style={{ fontSize: 12.5, padding: "7px 16px", borderRadius: 8, border: "1px solid #E2E8F0",
+              background: "#fff", color: "#718096", cursor: "pointer" }}>
+            닫기(적용 제외 / 기존값 유지)
+          </button>
+        </div>
+      </div>
+
+      {modal && (
+        <EntityEditModal title={modal.title} fields={modal.fields} initial={modal.initial}
+          onSave={saveModal} onClose={() => setModal(null)} />
       )}
     </div>
   );

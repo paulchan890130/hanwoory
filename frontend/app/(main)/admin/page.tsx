@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Shield, UserPlus, X, Save,
   FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw, Trash2,
-  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText, ExternalLink,
+  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText, ExternalLink, GitMerge,
 } from "lucide-react";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -16,6 +16,7 @@ import DocConfigTab from "@/components/admin/DocConfigTab";
 import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
 import { ManualUpdatePgView, type PgStateResp } from "@/components/admin/ManualReviewView";
 import GuidelineUpdateInboxTab from "@/components/admin/GuidelineUpdateInboxTab";
+import { ApplyToV3Modal } from "@/components/qualifications/editV3";
 
 // ── PG 저장소 상태 helper ────────────────────────────────────────────────────
 // 운영 기준은 PostgreSQL. 계정 목록은 PG 업무 데이터 유무만 "PG 저장소" 칩으로
@@ -786,6 +787,7 @@ function ManualReviewTab() {
     page: number;
     label: string;
   } | null>(null);
+  const [applyV3Row, setApplyV3Row] = useState<RematchRow | null>(null);
 
   const loadReview = useCallback(async () => {
     try {
@@ -940,11 +942,18 @@ function ManualReviewTab() {
           <td className="font-mono">
             {row.detailed_code || "—"}
             {!!row.detailed_code && (
-              <button
-                onClick={() => router.push(`/qualifications/${encodeURIComponent(row.detailed_code)}?work=${encodeURIComponent(row.action_type || "")}`)}
-                title="해당 업무 화면 열기"
-                style={{ marginLeft: 5, background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}
-              ><ExternalLink size={12} /></button>
+              <>
+                <button
+                  onClick={() => router.push(`/qualifications/${encodeURIComponent(row.detailed_code)}?work=${encodeURIComponent(row.action_type || "")}`)}
+                  title="해당 업무 화면 열기"
+                  style={{ marginLeft: 5, background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}
+                ><ExternalLink size={12} /></button>
+                <button
+                  onClick={() => setApplyV3Row(row)}
+                  title="v3에 적용 — 자격/체류업무/사증경로/준비서류 오버레이 편집"
+                  style={{ marginLeft: 3, background: "none", border: "none", cursor: "pointer", color: "#6B46C1", verticalAlign: "middle" }}
+                ><GitMerge size={12} /></button>
+              </>
             )}
           </td>
           <td style={{ color: "#718096" }}>{row.action_type}</td>
@@ -1177,6 +1186,15 @@ function ManualReviewTab() {
             />
           </div>
         </div>
+      )}
+      {applyV3Row && (
+        <ApplyToV3Modal
+          hintCode={applyV3Row.detailed_code}
+          hintActionType={applyV3Row.action_type}
+          hintTitle={`${applyV3Row.detailed_code || applyV3Row.row_id} — ${applyV3Row.title}`}
+          onClose={() => setApplyV3Row(null)}
+          onApplied={() => toast.success("v3 오버레이에 반영되었습니다.")}
+        />
       )}
     </div>
   );

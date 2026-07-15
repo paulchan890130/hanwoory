@@ -4,7 +4,7 @@ import {
   certApi,
   CertBootstrap, CertVendor, CertDirection, CertGroup, CertRegion, CertPrice,
 } from "@/lib/api";
-import { RefreshCw, Plus, Trash2, Edit2, Save, X, Copy, Search, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCw, Plus, Trash2, Edit2, Save, X, Copy, Search, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, EyeOff } from "lucide-react";
 
 type Tab = "comparison" | "db" | "vendors" | "classification";
 
@@ -805,75 +805,31 @@ export default function CertificationServicesPage() {
     } catch (e: any) { showToast(e.response?.data?.detail || "삭제 실패", "error"); }
   };
 
-  function ClassList<T extends { id: string; active: string }>({
-    title, items, editId, draft, setDraft, onEdit, onSave, onCancel,
-    onAdd, addingItem, newItem, setNewItem, onSaveNew, onDelete,
-    renderRow, renderForm,
-  }: {
-    title: string; items: T[];
-    editId: string | null; draft: Partial<T>; setDraft: (d: Partial<T>) => void;
-    onEdit: (id: string, item: T) => void; onSave: () => void; onCancel: () => void;
-    onAdd: () => void; addingItem: boolean; newItem: Partial<T>; setNewItem: (d: Partial<T>) => void;
-    onSaveNew: () => void; onDelete: (id: string) => void;
-    renderRow: (item: T) => React.ReactNode; renderForm: (d: Partial<T>, setD: (v: Partial<T>) => void) => React.ReactNode;
-  }) {
+  // ── 정합성 요약 + 경고(6-3) ──────────────────────────────────────────────
+  const DiagSummaryCard = ({ label, d }: { label: string; d: ClassDiag | null }) => {
+    const errCount = (d?.orphanUsed.length ?? 0) + (d?.duplicateNames.length ?? 0) + (d?.inactiveButUsed.length ?? 0);
     return (
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "#1A202C" }}>{title}</div>
-          <Btn onClick={onAdd} color="green" size="xs"><Plus size={12} /> 추가</Btn>
+      <div style={{ flex: 1, minWidth: 160, border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px 12px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: 11.5, color: "#718096", lineHeight: 1.7 }}>
+          전체 {d?.total ?? 0} · 활성 {d?.active ?? 0} · 비활성 {d?.inactive ?? 0}<br />
+          사용중 {d?.usedCount ?? 0} · 미사용 {(d?.total ?? 0) - (d?.usedCount ?? 0)}<br />
+          <span style={{ color: errCount > 0 ? "#C53030" : "#718096" }}>오류 {errCount}</span>
+          {" · "}고아값 {d?.orphanUsed.length ?? 0} · 표기중복 {d?.duplicateNames.length ?? 0}
         </div>
-        {addingItem && (
-          <div style={{ border: "2px dashed #3B82F6", borderRadius: 8, padding: 12, marginBottom: 10, background: "#EFF6FF" }}>
-            {renderForm(newItem, setNewItem as any)}
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <Btn onClick={onSaveNew} color="green" size="xs"><Save size={11} /> 저장</Btn>
-              <Btn onClick={onCancel} size="xs"><X size={11} /> 취소</Btn>
-            </div>
-          </div>
-        )}
-        {items.map(item => (
-          <div key={item.id} style={{ border: editId === item.id ? "2px solid #3B82F6" : "1px solid #E2E8F0", borderRadius: 8, padding: 10, marginBottom: 6, background: "#fff" }}>
-            {editId === item.id ? (
-              <>
-                {renderForm(draft as Partial<T>, setDraft as any)}
-                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                  <Btn onClick={onSave} color="green" size="xs"><Save size={11} /> 저장</Btn>
-                  <Btn onClick={onCancel} size="xs"><X size={11} /> 취소</Btn>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ flex: 1 }}>{renderRow(item)}</div>
-                <Btn onClick={() => onEdit(item.id, item)} size="xs"><Edit2 size={11} /> 수정</Btn>
-                <Btn onClick={() => onDelete(item.id)} color="red" size="xs"><Trash2 size={11} /></Btn>
-              </div>
-            )}
-          </div>
-        ))}
       </div>
     );
-  }
-
-  // ── 정합성 요약 + 경고(6-3) ──────────────────────────────────────────────
-  const DiagSummaryCard = ({ label, d }: { label: string; d: ClassDiag | null }) => (
-    <div style={{ flex: 1, minWidth: 140, border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px 12px" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#4A5568", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 12, color: "#718096", lineHeight: 1.6 }}>
-        전체 {d?.total ?? 0} · 활성 {d?.active ?? 0} · 비활성 {d?.inactive ?? 0} · 사용중 {d?.usedCount ?? 0}
-      </div>
-    </div>
-  );
-  const diagWarnings: { level: "error" | "warn"; text: string }[] = [
-    ...(dirDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `대분류 "${v}" — 가격조건에서 사용되지만 대분류 목록에 없음(고아 값)` })) ?? []),
+  };
+  const diagWarnings: { level: "error" | "warn"; text: string; jumpTo?: string }[] = [
+    ...(dirDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `대분류 "${v}" — 가격조건에서 사용되지만 대분류 목록에 없음(고아 값)`, jumpTo: v })) ?? []),
     ...(grpDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `중분류 ID "${v}" — 가격조건에서 사용되지만 중분류 목록에 없음(고아 값)` })) ?? []),
-    ...(rgnDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `소분류/지역 "${v}" — 가격조건에서 사용되지만 목록에 없음(고아 값)` })) ?? []),
-    ...(dirDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `대분류 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음` })) ?? []),
-    ...(grpDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `중분류 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음` })) ?? []),
-    ...(rgnDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `소분류/지역 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음` })) ?? []),
-    ...(dirDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `대분류 "${v}" — 동일한 표시명이 중복 등록됨` })) ?? []),
-    ...(grpDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `중분류 "${v}" — 동일한 표시명이 중복 등록됨` })) ?? []),
-    ...(rgnDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `소분류/지역 "${v}" — 동일한 표시명이 중복 등록됨` })) ?? []),
+    ...(rgnDiag?.orphanUsed.map(v => ({ level: "error" as const, text: `소분류/지역 "${v}" — 가격조건에서 사용되지만 목록에 없음(고아 값)`, jumpTo: v })) ?? []),
+    ...(dirDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `대분류 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음`, jumpTo: v })) ?? []),
+    ...(grpDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `중분류 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음`, jumpTo: v })) ?? []),
+    ...(rgnDiag?.inactiveButUsed.map(v => ({ level: "warn" as const, text: `소분류/지역 "${v}" — 비활성 상태인데 사용 중인 가격조건이 있음`, jumpTo: v })) ?? []),
+    ...(dirDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `대분류 "${v}" — 동일한 표시명이 중복 등록됨`, jumpTo: v })) ?? []),
+    ...(grpDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `중분류 "${v}" — 동일한 표시명이 중복 등록됨`, jumpTo: v })) ?? []),
+    ...(rgnDiag?.duplicateNames.map(v => ({ level: "warn" as const, text: `소분류/지역 "${v}" — 동일한 표시명이 중복 등록됨`, jumpTo: v })) ?? []),
   ];
   const DiagPanel = (
     <div style={{ marginBottom: 20, border: "1px solid #E2E8F0", borderRadius: 10, padding: 16, background: "#F9FAFB" }}>
@@ -895,14 +851,20 @@ export default function CertificationServicesPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {diagWarnings.map((w, i) => (
-              <div key={i} style={{
+              <div key={i}
+                onClick={w.jumpTo ? () => {
+                  setTreeSearch(w.jumpTo!); setTreeErrorsOnly(false); setTreeActive("all"); setTreeUsed("all");
+                  setExpandedDirs(new Set((data?.directions ?? []).map(d => d.id)));
+                } : undefined}
+                style={{
                 display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12.5,
                 color: w.level === "error" ? "#822727" : "#744210",
                 background: w.level === "error" ? "#FFF5F5" : "#FFFBEB",
                 border: `1px solid ${w.level === "error" ? "#FEB2B2" : "#F6E05E"}`,
-                borderRadius: 6, padding: "6px 10px",
+                borderRadius: 6, padding: "6px 10px", cursor: w.jumpTo ? "pointer" : "default",
               }}>
                 <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} /> {w.text}
+                {w.jumpTo && <span style={{ marginLeft: "auto", fontSize: 11, textDecoration: "underline", flexShrink: 0 }}>해당 분류로 이동</span>}
               </div>
             ))}
           </div>
@@ -911,64 +873,365 @@ export default function CertificationServicesPage() {
     </div>
   );
 
-  // ⚠️ ClassList 도 본문 내부 정의 → JSX(<ClassList/>) 렌더 시 입력마다 리마운트(포커스 손실).
-  // 함수 호출({ClassList<T>({...})})로 렌더해 부모 트리에 인라인한다.
+  // ── 계층형 분류관리 트리(6-3) ────────────────────────────────────────────────
+  const dirUsage = useMemo(() => {
+    const m = new Map<string, number>();
+    (data?.prices ?? []).forEach(p => { if (p.direction) m.set(p.direction, (m.get(p.direction) ?? 0) + 1); });
+    return m;
+  }, [data]);
+  const grpUsage = useMemo(() => {
+    const m = new Map<string, number>();
+    (data?.prices ?? []).forEach(p => { if (p.group_id) m.set(p.group_id, (m.get(p.group_id) ?? 0) + 1); });
+    return m;
+  }, [data]);
+  const rgnUsage = useMemo(() => {
+    const m = new Map<string, number>();
+    (data?.prices ?? []).forEach(p => { if (p.region) m.set(p.region, (m.get(p.region) ?? 0) + 1); });
+    return m;
+  }, [data]);
+  const isActiveVal = (a: string) => a === "true" || a === "TRUE";
+
+  const [treeSearch, setTreeSearch] = useState("");
+  const [treeActive, setTreeActive] = useState<"all" | "active" | "inactive">("all");
+  const [treeUsed, setTreeUsed] = useState<"all" | "used" | "unused">("all");
+  const [treeErrorsOnly, setTreeErrorsOnly] = useState(false);
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
+  const [expandedGrps, setExpandedGrps] = useState<Set<string>>(new Set());
+  const [connectedView, setConnectedView] = useState<{ label: string; rows: CertPrice[] } | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<{
+    kind: "dir" | "grp" | "rgn"; id: string; name: string; usage: number;
+  } | null>(null);
+
+  const dirHasErr = useMemo(() => new Set(dirDiag?.duplicateNames.length ? (data?.directions ?? []).filter(d => (dirDiag.duplicateNames.includes(d.name))).map(d => d.id) : []), [dirDiag, data]);
+  const grpHasErr = useMemo(() => new Set((data?.groups ?? []).filter(g => grpDiag?.duplicateNames.includes(g.group_name)).map(g => g.id)), [grpDiag, data]);
+  const rgnHasErr = useMemo(() => new Set((data?.regions ?? []).filter(r => rgnDiag?.duplicateNames.includes(r.name) || rgnDiag?.inactiveButUsed.includes(r.name)).map(r => r.id)), [rgnDiag, data]);
+
+  const matchesCommon = (name: string, active: string, usage: number, hasErr: boolean) => {
+    if (treeSearch.trim() && !name.toLowerCase().includes(treeSearch.trim().toLowerCase())) return false;
+    if (treeActive === "active" && !isActiveVal(active)) return false;
+    if (treeActive === "inactive" && isActiveVal(active)) return false;
+    if (treeUsed === "used" && usage === 0) return false;
+    if (treeUsed === "unused" && usage > 0) return false;
+    if (treeErrorsOnly && !hasErr) return false;
+    return true;
+  };
+
+  const showConnected = (label: string, matchFn: (p: CertPrice) => boolean) => {
+    setConnectedView({ label, rows: (data?.prices ?? []).filter(matchFn) });
+  };
+
+  const requestDeactivate = (kind: "dir" | "grp" | "rgn", id: string, name: string, usage: number) => {
+    setDeactivateTarget({ kind, id, name, usage });
+  };
+  const runDeactivate = async () => {
+    if (!deactivateTarget) return;
+    const { kind, id } = deactivateTarget;
+    try {
+      if (kind === "dir") await certApi.updateDirection(id, { active: "false" });
+      else if (kind === "grp") await certApi.updateGroup(id, { active: "false" });
+      else await certApi.updateRegion(id, { active: "false" });
+      setData(prev => {
+        if (!prev) return prev;
+        if (kind === "dir") return { ...prev, directions: prev.directions.map(d => d.id === id ? { ...d, active: "false" } : d) };
+        if (kind === "grp") return { ...prev, groups: prev.groups.map(g => g.id === id ? { ...g, active: "false" } : g) };
+        return { ...prev, regions: prev.regions.map(r => r.id === id ? { ...r, active: "false" } : r) };
+      });
+      showToast("비활성화됨", "success");
+    } catch { showToast("비활성화 실패", "error"); }
+    setDeactivateTarget(null);
+  };
+  const runDeleteWithGuard = async (
+    kind: "dir" | "grp" | "rgn", id: string, name: string, usage: number, del: (id: string) => Promise<void>,
+  ) => {
+    if (usage > 0) { requestDeactivate(kind, id, name, usage); return; }
+    if (!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) return;
+    await del(id);
+  };
+
+  // 대분류에 속한 중분류/지역 판정 — 검색 드롭다운(visibleGroups/visibleRegions)과 동일 로직 재사용.
+  const groupsOfDir = (dirName: string) => (data?.groups ?? []).filter(g => {
+    const extra = (g.applicable_directions ?? "").split(",").map(s => s.trim()).filter(Boolean);
+    return g.default_direction === dirName || extra.includes(dirName);
+  });
+  const regionsOfGroup = (grpId: string) => (data?.regions ?? []).filter(r => {
+    const grps = (r.applicable_group_ids ?? "").split(",").map(s => s.trim()).filter(Boolean);
+    return grps.includes(grpId);
+  });
+  const regionsUnrestricted = () => (data?.regions ?? []).filter(r =>
+    !(r.applicable_directions ?? "").trim() && !(r.applicable_group_ids ?? "").trim());
+
+  const RowActions = ({ onEdit, onView, onDeactivate, onDelete, active }: {
+    onEdit: () => void; onView: () => void; onDeactivate?: () => void; onDelete: () => void; active: boolean;
+  }) => (
+    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+      <button onClick={onView} title="연결 업무 보기" style={{ background: "none", border: "none", cursor: "pointer", color: "#718096" }}><Search size={12} /></button>
+      <button onClick={onEdit} title="수정" style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6" }}><Edit2 size={12} /></button>
+      {active && onDeactivate && (
+        <button onClick={onDeactivate} title="비활성화" style={{ background: "none", border: "none", cursor: "pointer", color: "#D97706" }}><EyeOff size={12} /></button>
+      )}
+      <button onClick={onDelete} title="삭제" style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444" }}><Trash2 size={12} /></button>
+    </div>
+  );
+
+  // 함수 호출 방식으로 렌더(ClassList 와 동일 이유 — JSX 컴포넌트로 쓰면 매 렌더 리마운트로 입력 포커스 손실).
+  function RgnRow({ r, usage }: { r: CertRegion; usage: number }) {
+    if (editRgnId === r.id) {
+      return (
+        <div style={{ border: "1px solid #3B82F6", borderRadius: 6, padding: 8 }}>
+          <Input label="이름" value={rgnDraft.name ?? ""} onChange={v => setRgnDraft({ ...rgnDraft, name: v })} />
+          <Input label="정렬순서" value={rgnDraft.sort_order ?? "0"} onChange={v => setRgnDraft({ ...rgnDraft, sort_order: v })} />
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <Btn onClick={saveRgnEdit} color="green" size="xs"><Save size={11} /> 저장</Btn>
+            <Btn onClick={() => setEditRgnId(null)} size="xs"><X size={11} /> 취소</Btn>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+        <span style={{ flex: 1 }}>📍 {r.name} <span style={{ fontSize: 10, color: "#A0AEC0" }}>({r.id})</span></span>
+        <span style={{ fontSize: 10.5, color: isActiveVal(r.active) ? "#276749" : "#A0AEC0" }}>{isActiveVal(r.active) ? "활성" : "비활성"}</span>
+        <span style={{ fontSize: 10.5, color: "#718096" }}>사용 {usage}건</span>
+        <RowActions active={isActiveVal(r.active)}
+          onEdit={() => { setEditRgnId(r.id); setRgnDraft({ ...r }); }}
+          onView={() => showConnected(`소분류/지역: ${r.name}`, p => p.region === r.name)}
+          onDeactivate={() => requestDeactivate("rgn", r.id, r.name, usage)}
+          onDelete={() => runDeleteWithGuard("rgn", r.id, r.name, usage, deleteRgn)} />
+      </div>
+    );
+  }
+
   const ClassificationTab = (
     <div>
       {DiagPanel}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-      {ClassList<CertDirection>({
-        title: "대분류 관리", items: data?.directions ?? [],
-        editId: editDirId, draft: dirDraft, setDraft: setDirDraft as any,
-        onEdit: (id, item) => { setEditDirId(id); setDirDraft({ ...item }); }, onSave: saveDirEdit,
-        onCancel: () => { setEditDirId(null); setAddingDir(false); },
-        onAdd: () => { setAddingDir(true); setNewDir({ ...EMPTY_DIR }); },
-        addingItem: addingDir, newItem: newDir, setNewItem: setNewDir as any, onSaveNew: saveNewDir,
-        onDelete: deleteDir,
-        renderRow: d => <span style={{ fontSize: 13 }}>{d.name} <span style={{ fontSize: 11, color: "#A0AEC0" }}>({d.sort_order})</span></span>,
-        renderForm: (d, set) => (
-          <>
-            <Input label="이름" value={(d as Partial<CertDirection>).name ?? ""} onChange={v => set({ ...d, name: v } as any)} />
-            <Input label="정렬순서" value={(d as Partial<CertDirection>).sort_order ?? "0"} onChange={v => set({ ...d, sort_order: v } as any)} />
-          </>
-        ),
-      })}
-      {ClassList<CertGroup>({
-        title: "중분류 관리", items: data?.groups ?? [],
-        editId: editGrpId, draft: grpDraft, setDraft: setGrpDraft as any,
-        onEdit: (id, item) => { setEditGrpId(id); setGrpDraft({ ...item }); }, onSave: saveGrpEdit,
-        onCancel: () => { setEditGrpId(null); setAddingGrp(false); },
-        onAdd: () => { setAddingGrp(true); setNewGrp({ ...EMPTY_GRP }); },
-        addingItem: addingGrp, newItem: newGrp, setNewItem: setNewGrp as any, onSaveNew: saveNewGrp,
-        onDelete: deleteGrp,
-        renderRow: g => <div><span style={{ fontSize: 13, fontWeight: 600 }}>{(g as CertGroup).group_name}</span>
-          {(g as CertGroup).aliases && <div style={{ fontSize: 11, color: "#718096", marginTop: 1 }}>{(g as CertGroup).aliases}</div>}</div>,
-        renderForm: (d, set) => (
-          <>
-            <Input label="그룹명" value={(d as Partial<CertGroup>).group_name ?? ""} onChange={v => set({ ...d, group_name: v } as any)} />
-            <Input label="별칭/키워드 (쉼표구분)" value={(d as Partial<CertGroup>).aliases ?? ""} onChange={v => set({ ...d, aliases: v } as any)} multiline />
-            <Select label="기본 대분류" value={(d as Partial<CertGroup>).default_direction ?? ""} onChange={v => set({ ...d, default_direction: v } as any)} options={dirOpts} />
-            <Input label="정렬순서" value={(d as Partial<CertGroup>).sort_order ?? "0"} onChange={v => set({ ...d, sort_order: v } as any)} />
-          </>
-        ),
-      })}
-      {ClassList<CertRegion>({
-        title: "소분류/지역 관리", items: data?.regions ?? [],
-        editId: editRgnId, draft: rgnDraft, setDraft: setRgnDraft as any,
-        onEdit: (id, item) => { setEditRgnId(id); setRgnDraft({ ...item }); }, onSave: saveRgnEdit,
-        onCancel: () => { setEditRgnId(null); setAddingRgn(false); },
-        onAdd: () => { setAddingRgn(true); setNewRgn({ ...EMPTY_RGN }); },
-        addingItem: addingRgn, newItem: newRgn, setNewItem: setNewRgn as any, onSaveNew: saveNewRgn,
-        onDelete: deleteRgn,
-        renderRow: r => <span style={{ fontSize: 13 }}>{(r as CertRegion).name}</span>,
-        renderForm: (d, set) => (
-          <>
-            <Input label="이름" value={(d as Partial<CertRegion>).name ?? ""} onChange={v => set({ ...d, name: v } as any)} />
-            <Input label="정렬순서" value={(d as Partial<CertRegion>).sort_order ?? "0"} onChange={v => set({ ...d, sort_order: v } as any)} />
-          </>
-        ),
-      })}
-    </div>
+
+      {/* 필터 */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        <input value={treeSearch} onChange={e => setTreeSearch(e.target.value)} placeholder="분류명 검색"
+          style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #CBD5E0", fontSize: 13, minWidth: 160 }} />
+        <select value={treeActive} onChange={e => setTreeActive(e.target.value as any)}
+          style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #CBD5E0", fontSize: 13 }}>
+          <option value="all">활성/비활성 전체</option>
+          <option value="active">활성만</option>
+          <option value="inactive">비활성만</option>
+        </select>
+        <select value={treeUsed} onChange={e => setTreeUsed(e.target.value as any)}
+          style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #CBD5E0", fontSize: 13 }}>
+          <option value="all">사용여부 전체</option>
+          <option value="used">사용 중만</option>
+          <option value="unused">미사용만</option>
+        </select>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#4A5568", cursor: "pointer" }}>
+          <input type="checkbox" checked={treeErrorsOnly} onChange={e => setTreeErrorsOnly(e.target.checked)} /> 오류만 보기
+        </label>
+        <button onClick={() => setExpandedDirs(new Set((data?.directions ?? []).map(d => d.id)))}
+          style={{ marginLeft: "auto", fontSize: 12, padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer" }}>전체 펼치기</button>
+        <button onClick={() => { setExpandedDirs(new Set()); setExpandedGrps(new Set()); }}
+          style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer" }}>전체 접기</button>
+      </div>
+
+      {/* 대분류 추가 */}
+      <div style={{ marginBottom: 12 }}>
+        {addingDir ? (
+          <div style={{ border: "2px dashed #3B82F6", borderRadius: 8, padding: 12, background: "#EFF6FF" }}>
+            <Input label="이름" value={newDir.name ?? ""} onChange={v => setNewDir({ ...newDir, name: v })} />
+            <Input label="정렬순서" value={newDir.sort_order ?? "0"} onChange={v => setNewDir({ ...newDir, sort_order: v })} />
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <Btn onClick={saveNewDir} color="green" size="xs"><Save size={11} /> 저장</Btn>
+              <Btn onClick={() => setAddingDir(false)} size="xs"><X size={11} /> 취소</Btn>
+            </div>
+          </div>
+        ) : (
+          <Btn onClick={() => { setAddingDir(true); setNewDir({ ...EMPTY_DIR }); }} color="green" size="xs"><Plus size={12} /> 대분류 추가</Btn>
+        )}
+      </div>
+
+      {/* 트리 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {(data?.directions ?? [])
+          .filter(d => matchesCommon(d.name, d.active, dirUsage.get(d.name) ?? 0, dirHasErr.has(d.id)))
+          .map(d => {
+            const dUsage = dirUsage.get(d.name) ?? 0;
+            const isOpen = expandedDirs.has(d.id);
+            const groups = groupsOfDir(d.name).filter(g => matchesCommon(g.group_name, g.active, grpUsage.get(g.id) ?? 0, grpHasErr.has(g.id)));
+            const commonRegions = regionsUnrestricted().filter(r => matchesCommon(r.name, r.active, rgnUsage.get(r.name) ?? 0, rgnHasErr.has(r.id)));
+            return (
+              <div key={d.id} style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#fff", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "#F9FAFB" }}>
+                  <button onClick={() => setExpandedDirs(s => { const n = new Set(s); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#4A5568" }}>
+                    {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  {editDirId === d.id ? (
+                    <div style={{ flex: 1 }}>
+                      <Input label="이름" value={dirDraft.name ?? ""} onChange={v => setDirDraft({ ...dirDraft, name: v })} />
+                      <Input label="정렬순서" value={dirDraft.sort_order ?? "0"} onChange={v => setDirDraft({ ...dirDraft, sort_order: v })} />
+                      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                        <Btn onClick={saveDirEdit} color="green" size="xs"><Save size={11} /> 저장</Btn>
+                        <Btn onClick={() => setEditDirId(null)} size="xs"><X size={11} /> 취소</Btn>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#1A202C", flex: 1 }}>
+                        📁 {d.name} <span style={{ fontSize: 11, fontWeight: 400, color: "#A0AEC0" }}>({d.id})</span>
+                      </span>
+                      <span style={{ fontSize: 11, color: isActiveVal(d.active) ? "#276749" : "#A0AEC0" }}>{isActiveVal(d.active) ? "활성" : "비활성"}</span>
+                      <span style={{ fontSize: 11, color: "#718096" }}>사용 {dUsage}건</span>
+                      <RowActions active={isActiveVal(d.active)}
+                        onEdit={() => { setEditDirId(d.id); setDirDraft({ ...d }); }}
+                        onView={() => showConnected(`대분류: ${d.name}`, p => p.direction === d.name)}
+                        onDeactivate={() => requestDeactivate("dir", d.id, d.name, dUsage)}
+                        onDelete={() => runDeleteWithGuard("dir", d.id, d.name, dUsage, deleteDir)} />
+                    </>
+                  )}
+                </div>
+
+                {isOpen && (
+                  <div style={{ padding: "8px 12px 12px 28px", display: "flex", flexDirection: "column", gap: 6 }}>
+                    {addingGrp ? (
+                      <div style={{ border: "2px dashed #3B82F6", borderRadius: 8, padding: 10, background: "#EFF6FF" }}>
+                        <Input label="그룹명" value={newGrp.group_name ?? ""} onChange={v => setNewGrp({ ...newGrp, group_name: v })} />
+                        <Input label="별칭/키워드" value={newGrp.aliases ?? ""} onChange={v => setNewGrp({ ...newGrp, aliases: v })} multiline />
+                        <Select label="기본 대분류" value={newGrp.default_direction ?? d.name} onChange={v => setNewGrp({ ...newGrp, default_direction: v })} options={dirOpts} />
+                        <Input label="정렬순서" value={newGrp.sort_order ?? "0"} onChange={v => setNewGrp({ ...newGrp, sort_order: v })} />
+                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                          <Btn onClick={saveNewGrp} color="green" size="xs"><Save size={11} /> 저장</Btn>
+                          <Btn onClick={() => setAddingGrp(false)} size="xs"><X size={11} /> 취소</Btn>
+                        </div>
+                      </div>
+                    ) : (
+                      <Btn onClick={() => { setAddingGrp(true); setNewGrp({ ...EMPTY_GRP, default_direction: d.name }); }} color="green" size="xs"><Plus size={11} /> 중분류 추가</Btn>
+                    )}
+
+                    {groups.map(g => {
+                      const gUsage = grpUsage.get(g.id) ?? 0;
+                      const gOpen = expandedGrps.has(g.id);
+                      const rgns = regionsOfGroup(g.id).filter(r => matchesCommon(r.name, r.active, rgnUsage.get(r.name) ?? 0, rgnHasErr.has(r.id)));
+                      return (
+                        <div key={g.id} style={{ border: "1px solid #EDF2F7", borderRadius: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px" }}>
+                            <button onClick={() => setExpandedGrps(s => { const n = new Set(s); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n; })}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#4A5568" }}>
+                              {gOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                            </button>
+                            {editGrpId === g.id ? (
+                              <div style={{ flex: 1 }}>
+                                <Input label="그룹명" value={grpDraft.group_name ?? ""} onChange={v => setGrpDraft({ ...grpDraft, group_name: v })} />
+                                <Input label="별칭/키워드" value={grpDraft.aliases ?? ""} onChange={v => setGrpDraft({ ...grpDraft, aliases: v })} multiline />
+                                <Select label="기본 대분류" value={grpDraft.default_direction ?? ""} onChange={v => setGrpDraft({ ...grpDraft, default_direction: v })} options={dirOpts} />
+                                <Input label="정렬순서" value={grpDraft.sort_order ?? "0"} onChange={v => setGrpDraft({ ...grpDraft, sort_order: v })} />
+                                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                                  <Btn onClick={saveGrpEdit} color="green" size="xs"><Save size={11} /> 저장</Btn>
+                                  <Btn onClick={() => setEditGrpId(null)} size="xs"><X size={11} /> 취소</Btn>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
+                                  📂 {g.group_name} <span style={{ fontSize: 10.5, fontWeight: 400, color: "#A0AEC0" }}>({g.id})</span>
+                                </span>
+                                <span style={{ fontSize: 10.5, color: isActiveVal(g.active) ? "#276749" : "#A0AEC0" }}>{isActiveVal(g.active) ? "활성" : "비활성"}</span>
+                                <span style={{ fontSize: 10.5, color: "#718096" }}>사용 {gUsage}건</span>
+                                <RowActions active={isActiveVal(g.active)}
+                                  onEdit={() => { setEditGrpId(g.id); setGrpDraft({ ...g }); }}
+                                  onView={() => showConnected(`중분류: ${g.group_name}`, p => p.group_id === g.id)}
+                                  onDeactivate={() => requestDeactivate("grp", g.id, g.group_name, gUsage)}
+                                  onDelete={() => runDeleteWithGuard("grp", g.id, g.group_name, gUsage, deleteGrp)} />
+                              </>
+                            )}
+                          </div>
+                          {gOpen && (
+                            <div style={{ padding: "4px 10px 8px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
+                              {rgns.length === 0 && <div style={{ fontSize: 11, color: "#A0AEC0" }}>이 중분류에만 한정된 소분류/지역 없음(공통 지역은 대분류 하단 "공통" 참조)</div>}
+                              {rgns.map(r => (
+                                <div key={r.id}>{RgnRow({ r, usage: rgnUsage.get(r.name) ?? 0 })}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* 공통(전체 지역 무관) 소분류/지역 */}
+                    {commonRegions.length > 0 && (
+                      <div style={{ border: "1px solid #EDF2F7", borderRadius: 8, padding: "7px 10px" }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: "#718096", marginBottom: 4 }}>🌐 공통(대분류·중분류 무관 전체 적용)</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {commonRegions.map(r => <div key={r.id}>{RgnRow({ r, usage: rgnUsage.get(r.name) ?? 0 })}</div>)}
+                        </div>
+                      </div>
+                    )}
+                    {addingRgn ? (
+                      <div style={{ border: "2px dashed #3B82F6", borderRadius: 8, padding: 10, background: "#EFF6FF" }}>
+                        <Input label="이름" value={newRgn.name ?? ""} onChange={v => setNewRgn({ ...newRgn, name: v })} />
+                        <Input label="정렬순서" value={newRgn.sort_order ?? "0"} onChange={v => setNewRgn({ ...newRgn, sort_order: v })} />
+                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                          <Btn onClick={saveNewRgn} color="green" size="xs"><Save size={11} /> 저장</Btn>
+                          <Btn onClick={() => setAddingRgn(false)} size="xs"><X size={11} /> 취소</Btn>
+                        </div>
+                      </div>
+                    ) : (
+                      <Btn onClick={() => { setAddingRgn(true); setNewRgn({ ...EMPTY_RGN }); }} color="green" size="xs"><Plus size={11} /> 소분류/지역 추가</Btn>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
+
+      {/* 연결 업무 보기 */}
+      {connectedView && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={() => setConnectedView(null)}>
+          <div style={{ background: "#fff", borderRadius: 12, width: "min(700px, 100%)", maxHeight: "80vh", overflowY: "auto", padding: 18 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{connectedView.label} — 연결된 가격조건 {connectedView.rows.length}건</div>
+              <button onClick={() => setConnectedView(null)} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={16} /></button>
+            </div>
+            {connectedView.rows.length === 0 ? (
+              <div style={{ color: "#A0AEC0", fontSize: 13 }}>연결된 가격조건이 없습니다(미사용).</div>
+            ) : (
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                <thead><tr style={{ borderBottom: "1px solid #E2E8F0" }}>
+                  <th style={{ textAlign: "left", padding: 4 }}>방향</th><th style={{ textAlign: "left", padding: 4 }}>지역</th>
+                  <th style={{ textAlign: "left", padding: 4 }}>조건</th><th style={{ textAlign: "left", padding: 4 }}>가격</th>
+                </tr></thead>
+                <tbody>
+                  {connectedView.rows.map(p => (
+                    <tr key={p.id} style={{ borderBottom: "1px solid #F0F0F0" }}>
+                      <td style={{ padding: 4 }}>{p.direction}</td><td style={{ padding: 4 }}>{p.region}</td>
+                      <td style={{ padding: 4 }}>{p.condition}</td><td style={{ padding: 4 }}>{fmt(p.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 비활성화 확인(사용 중인 분류 삭제 시도 시) */}
+      {deactivateTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={() => setDeactivateTarget(null)}>
+          <div style={{ background: "#fff", borderRadius: 12, width: "min(420px, 100%)", padding: 18 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+              <AlertTriangle size={16} style={{ color: "#D97706" }} />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>사용 중인 분류입니다</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#4A5568", marginBottom: 14, lineHeight: 1.6 }}>
+              <strong>{deactivateTarget.name}</strong>을(를) 사용하는 가격조건이 <strong>{deactivateTarget.usage}건</strong> 있어
+              즉시 삭제할 수 없습니다. 먼저 비활성화하시겠습니까? (기존 가격조건은 그대로 유지되고, 새 검색·등록에서만 숨겨집니다.)
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Btn onClick={() => setDeactivateTarget(null)}>취소</Btn>
+              <Btn onClick={runDeactivate} color="blue">비활성화</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

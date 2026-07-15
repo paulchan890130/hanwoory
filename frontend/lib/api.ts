@@ -1566,6 +1566,10 @@ export const guidelinesV3Api = {
   editRevert: (etype: V3EntityType, id: string) =>
     api.post<{ status: string; reverted: string }>(
       `/api/guidelines/v3/edit/${etype}/${encodeURIComponent(id)}/revert`),
+  editOverlayStatus: (etype: V3EntityType, id: string) =>
+    api.get<{ has_overlay: boolean; op?: string; payload?: Record<string, unknown> | null;
+      updated_by?: string | null; updated_at?: string | null; created_at?: string | null }>(
+      `/api/guidelines/v3/edit/overlay-status/${etype}/${encodeURIComponent(id)}`),
 };
 
 // ── 실무지침 분류 오버레이 (A+ 방식, PG 전용) ───────────────────────────────

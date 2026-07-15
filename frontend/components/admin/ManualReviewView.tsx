@@ -5,11 +5,12 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "rea
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api, manualApi, manualUpdateApi, type ManualUploadResult } from "@/lib/api";
-import { Loader2, RotateCcw, ExternalLink } from "lucide-react";
+import { Loader2, RotateCcw, ExternalLink, GitMerge } from "lucide-react";
 import {
   recommendGroup, summarizeGroup, judgmentPoints, affectedTargets,
   REC_KR, REC_CONF_KR, type RecResult, type RecKind,
 } from "./manualReviewRecommend";
+import { ApplyToV3Modal } from "@/components/qualifications/editV3";
 
 // 자동 추천(규칙 기반) 배지 색상 (검토완료=green / 보류=yellow / 무시=red)
 const REC_STYLE: Record<RecKind, { bg: string; color: string; bd: string }> = {
@@ -566,6 +567,7 @@ function ManualPdfUploadCard({ token, onReload }: { token: string; onReload?: ()
 
 export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
   const router = useRouter();
+  const [applyV3Cand, setApplyV3Cand] = useState<{ code?: string | null; title: string } | null>(null);
   const [versions, setVersions] = useState<PgVersion[]>([]);
   const [version, setVersion] = useState<string>("");
   const [changed, setChanged] = useState<PgChangedPage[]>([]);
@@ -1569,6 +1571,13 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                     <button disabled={groupBusy} title="이 페이지 변경을 검토 완료(승인)로 표시 → 운영 반영 대상" onClick={() => bulkDecision("approve", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#9AE6B4", color: "#22543D", background: "#fff" }}>검토 완료</button>
                     <button disabled={groupBusy} title="이번 반영에서 제외하고 나중에 다시 검토" onClick={() => bulkDecision("hold", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FAF089", color: "#744210", background: "#fff" }}>보류</button>
                     <button disabled={groupBusy} title="오탐/무관으로 이번 변경에서 종결(무시)" onClick={() => bulkDecision("reject", g.rowIds)} className="text-[11px] px-2 py-1 rounded border" style={{ borderColor: "#FED7D7", color: "#822727", background: "#fff" }}>무시</button>
+                    <button onClick={() => setApplyV3Cand({
+                      code: codes[0], title: `${codes.length ? codes.join(", ") : g.key} — p.${g.new_from}${g.new_to && g.new_to !== g.new_from ? `-${g.new_to}` : ""}`,
+                    })}
+                      title="v3에 적용 — 자격/체류업무/사증경로/준비서류 오버레이 편집"
+                      className="text-[11px] px-2 py-1 rounded border flex items-center gap-1" style={{ borderColor: "#D6BCFA", color: "#6B46C1", background: "#fff" }}>
+                      <GitMerge size={11} /> v3에 적용
+                    </button>
                     {groupBusy && <Loader2 size={12} className="animate-spin" style={{ color: "#A0AEC0" }} />}
                   </div>
                   {open && (
@@ -1648,11 +1657,18 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                           <div style={{ fontWeight: 600 }}>
                             {c.detailed_code || "(코드없음)"}
                             {!!c.detailed_code && (
-                              <button onClick={() => router.push(`/qualifications/${encodeURIComponent(c.detailed_code!)}`)}
-                                title="해당 업무 화면 열기" className="ml-1"
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}>
-                                <ExternalLink size={11} />
-                              </button>
+                              <>
+                                <button onClick={() => router.push(`/qualifications/${encodeURIComponent(c.detailed_code!)}`)}
+                                  title="해당 업무 화면 열기" className="ml-1"
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "#3182CE", verticalAlign: "middle" }}>
+                                  <ExternalLink size={11} />
+                                </button>
+                                <button onClick={() => setApplyV3Cand({ code: c.detailed_code, title: `${c.detailed_code || c.row_id} — ${c.business_name || ""}` })}
+                                  title="v3에 적용 — 자격/체류업무/사증경로/준비서류 오버레이 편집" className="ml-1"
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "#6B46C1", verticalAlign: "middle" }}>
+                                  <GitMerge size={11} />
+                                </button>
+                              </>
                             )}
                             {artifactByRow[c.row_id] && (
                               <button onClick={() => setPdfView({ artifactId: artifactByRow[c.row_id], page: 1, label: `변경 페이지 PDF — ${c.detailed_code || c.row_id} (#${artifactByRow[c.row_id]})` })}
@@ -1930,6 +1946,14 @@ export function ManualUpdatePgView({ state }: { state: PgStateResp | null }) {
                 : `/api/guidelines/manual-update/pdf?manual=${encodeURIComponent(pdfView.manual || "")}&version=${encodeURIComponent(version)}&token=${encodeURIComponent(token)}#page=${pdfView.page}&toolbar=1&view=Fit`} />
           </div>
         </div>
+      )}
+      {applyV3Cand && (
+        <ApplyToV3Modal
+          hintCode={applyV3Cand.code ?? undefined}
+          hintTitle={applyV3Cand.title}
+          onClose={() => setApplyV3Cand(null)}
+          onApplied={() => toast.success("v3 오버레이에 반영되었습니다.")}
+        />
       )}
     </div>
   );
