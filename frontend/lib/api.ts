@@ -1540,7 +1540,8 @@ export const guidelinesV3Api = {
     api.get<{ total: number; data: V3Aux[] }>("/api/guidelines/v3/aux"),
   // ── 편집(CRUD) ──
   editStatus: () =>
-    api.get<{ enabled: boolean; flag: boolean }>("/api/guidelines/v3/edit/status"),
+    api.get<{ enabled: boolean; flag: boolean; editable: boolean; role: string;
+      is_admin: boolean; is_master: boolean; is_sub_admin: boolean }>("/api/guidelines/v3/edit/status"),
   editImpact: (etype: V3EntityType, id: string) =>
     api.get<{ entity_id: string; entity: Record<string, unknown>; impact: V3DeleteImpact }>(
       `/api/guidelines/v3/edit/impact/${etype}/${encodeURIComponent(id)}`),
