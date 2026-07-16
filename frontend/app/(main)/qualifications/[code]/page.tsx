@@ -4,7 +4,7 @@
 // 좌측 = 체류 업무 격자(위) + 사증 경로 섹션(아래) 동시 표시, 우측 = 상세 패널.
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, ChevronRight, Loader2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, FileText, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   guidelinesV3Api, GuidelineRow, V3Block, V3DeleteImpact, V3DocRequirement,
@@ -22,7 +22,7 @@ import {
   sanitizeNaReasonDisplay, sanitizeV2RowForDisplay,
   v2RowsToFallbackDocs, isV2FallbackDoc,
 } from "@/components/qualifications/v2docSanitize";
-import { ExpandableText } from "@/components/guidelines/shared";
+import { ExpandableText, buildQuickDocUrl } from "@/components/guidelines/shared";
 
 // route 선택 시 child = 하위 세부약호 유래 경로(상위 화면에 집계 표시) — 상세는 하위 자격 detail에서 로드.
 type Selection =
@@ -253,9 +253,11 @@ function keyGuidance(applicability: string): string | null {
   return null; // unknown 은 기존 관서 확인 박스가 담당
 }
 
-function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode, onEdited }: {
+function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, masterCode, masterName, onClose, onQuickDoc, editMode, onEdited }: {
   sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; drs: V3DocRequirement[];
-  subCodes: string[]; subNames: Record<string, string>; onClose: () => void;
+  subCodes: string[]; subNames: Record<string, string>;
+  masterCode: string; masterName: string;
+  onClose: () => void; onQuickDoc: (url: string) => void;
   editMode?: boolean;
   // 준비서류(DR) CRUD 성공 시의 "조용한" 상위 자격 detail 새로고침(sel 유지) — handleDrsChanged가
   // subCode/routeChild 가 아닌 기본(top-level) 케이스에서만 이걸 호출한다.
@@ -371,6 +373,26 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
     .map(row => (row.overview_short ?? "").trim())
     .find(s => s.length > 0) ?? "";
 
+  // 문서자동작성 버튼 — 연결된 V2 행에서 quickdoc 딥링크 생성(첫 유효 URL). 기존 기능 재사용.
+  const quickDocUrl = linked.map(row => buildQuickDocUrl(row)).find(Boolean) ?? null;
+
+  // 메뉴얼 위치 — 페이지 번호 없이 경로만. 연결 V2 행의 domain→코드→업무→세부명 우선,
+  // 없으면 현재 선택 컨텍스트(도메인/코드/업무명)로 구성. 관리자·tenant 동일.
+  const manualPathSegs: string[] = (() => {
+    const v2 = linked.find(row => row.domain || row.detailed_code || row.major_action_std || row.business_name);
+    if (v2) {
+      return [v2.domain, v2.detailed_code, v2.major_action_std, stripInternalIds(v2.business_name ?? "")]
+        .map(s => (s ?? "").trim()).filter(Boolean);
+    }
+    const domain = isBlock ? "체류민원"
+      : REAL_RECOG_TYPES.includes(r!.route_type) ? "사증발급인정서"
+      : REAL_VISA_TYPES.includes(r!.route_type) ? "사증" : "사증 경로";
+    const code = subCode ?? routeChild?.code ?? masterCode;
+    const work = isBlock ? (effB?.block_label ?? b!.block_label)
+      : (r!.route_label || ROUTE_TYPE_LABEL[r!.route_type] || r!.route_type);
+    return [domain, code, work].map(s => (s ?? "").trim()).filter(Boolean);
+  })();
+
   const subChipStyle = (active: boolean): CSSProperties => ({
     fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:8, cursor:"pointer",
     color: active ? "var(--hw-gold-text)" : "#4A5568",
@@ -461,13 +483,18 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
         <div style={{ display:"flex", justifyContent:"center", padding:"24px 0" }}>
           <Loader2 size={18} className="animate-spin" style={{ color:"var(--hw-gold)" }} />
         </div>
-      ) : subMissing ? (
-        <div style={{ padding:"12px 14px", borderRadius:10, background:"#F7FAFC",
-          border:"1px solid #E2E8F0", fontSize:12, color:"#718096", lineHeight:1.6 }}>
-          이 세부약호에는 해당 업무 정보가 없습니다.
-        </div>
       ) : (
         <>
+          {/* 세부약호 fallback — 선택한 세부약호에 별도 업무 정보가 없으면(subMissing) 공통(기초)
+              내용을 그대로 표시한다(effB=b, effDrs=공통). 사용자가 공통 버튼을 다시 누를 필요 없이
+              안내만 표시. */}
+          {subMissing && (
+            <div style={{ marginBottom:12, padding:"9px 12px", borderRadius:10, background:"#FFFBEB",
+              border:"1px solid #F6E05E", fontSize:11.5, color:"#975A16", lineHeight:1.6 }}>
+              이 세부약호에는 별도 안내가 없어 공통(기초) 안내를 표시합니다.
+            </div>
+          )}
+
           {/* 업무 설명 — 업무명 바로 아래, 안내문·준비서류보다 위. 항상 보이되 길면 "전체 보기". */}
           {effDesc && (
             <div style={{ marginBottom:12 }}>
@@ -505,6 +532,17 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
                   border:"1px solid #FEB2B2", color:"#822727" }}>제도 폐지 — 신규 신청 불가. 대안 안내는 아래 노트 참조.</div>
               )}
             </div>
+          )}
+
+          {/* 문서자동작성 버튼 — 업무 설명/안내문 아래, 준비서류 바로 위. 연결 V2 딥링크 재사용.
+              신청 대상이 아닌 블록(불가)에는 노출하지 않는다(서류 영역과 동일 조건). */}
+          {quickDocUrl && (!isBlock || effB!.applicability === "applicable" || effB!.applicability === "conditional") && (
+            <button onClick={() => onQuickDoc(quickDocUrl)}
+              style={{ marginBottom:12, display:"inline-flex", alignItems:"center", gap:5, fontSize:12,
+                padding:"6px 14px", borderRadius:20, border:"1px solid rgba(212,168,67,0.5)",
+                background:"rgba(212,168,67,0.10)", color:"var(--hw-gold-text)", cursor:"pointer", fontWeight:600 }}>
+              <FileText size={13} /> 문서자동작성으로
+            </button>
           )}
 
           {/* ⑤ 준비서류 — 단일 통합 영역(신청인/사무소/해당 시). V3 우선, 없으면 V2 자동 변환
@@ -546,8 +584,30 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
               서류 준용: <span style={{ fontWeight:600 }}>{effB!.visa_docs_reference}</span> (사증 인정신청 기준)
             </div>
           )}
+
+          {/* 메뉴얼 위치 — 페이지 번호 없이 경로만. 관리자·tenant 동일. */}
+          {manualPathSegs.length > 0 && (
+            <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #EDF2F7" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"#A0AEC0", marginBottom:6 }}>메뉴얼 위치</div>
+              <div style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:4, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
+                {manualPathSegs.map((seg, i) => (
+                  <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+                    {i > 0 && <ChevronRight size={12} style={{ color:"#CBD5E0", flexShrink:0 }} />}
+                    <span style={{ overflowWrap:"anywhere" }}>{seg}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
+
+      {/* 주의사항 — 상세화면 마지막에 항상 표시(선택 전/후 무관). */}
+      <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #EDF2F7",
+        fontSize:11, color:"#A0AEC0", lineHeight:1.7 }}>
+        ※ 출입국 업무지침은 수시로 개정될 수 있습니다. 본 실무지침은 참고자료이며, 실제 업무는
+        최신 출입국 업무매뉴얼 및 관련 법령을 기준으로 진행하시기 바랍니다.
+      </div>
     </div>
   );
 }
@@ -724,6 +784,7 @@ export default function QualificationDetailPage() {
   const m = detail.master;
   const isEditable = !!detail.editable;
   const qid = m.qualification_id;
+  const goQuickDoc = (url: string) => router.push(url);
 
   const openRouteModal = (mode: "create" | "edit", r?: V3Route, presetType?: string) => {
     setModal({
@@ -1076,7 +1137,8 @@ export default function QualificationDetailPage() {
             <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows}
               drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
               subCodes={m.sub_codes ?? []} subNames={subNames}
-              onClose={() => setSel(null)}
+              masterCode={m.code} masterName={m.name_ko}
+              onClose={() => setSel(null)} onQuickDoc={goQuickDoc}
               editMode={editMode} onEdited={refreshDetailQuiet} />
           ) : (
             <div style={{ background:"#fff", borderRadius:12, border:"1px dashed #CBD5E0",
