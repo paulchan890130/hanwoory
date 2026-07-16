@@ -638,6 +638,15 @@ export default function QualificationDetailPage() {
   } | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
+  // ── STEP1 세부자격 선택(페이지 레벨) ─────────────────────────────────────────
+  // subSel: null = 공통(기초, 현재 자격 자체), 문자열 = 세부약호 코드.
+  // subPicked: 사용자가 세부자격을 선택했는지(세부약호가 있으면 선택 전 STEP2/3 을 감춘다).
+  // 세부약호별 상세는 fetchQualDetail 캐시로 로드하고 activeDetail 이 화면 소스가 된다.
+  const [subSel, setSubSel] = useState<string | null>(null);
+  const [subPicked, setSubPicked] = useState(false);
+  const [subFetchDetail, setSubFetchDetail] = useState<V3QualificationDetail | null>(null);
+  const [subFetchLoading, setSubFetchLoading] = useState(false);
+
   const loadDetail = useCallback(() => {
     if (!code) { setLoading(false); return; }
     setLoading(true); setSel(null);
@@ -653,56 +662,85 @@ export default function QualificationDetailPage() {
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
-  // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시 —
-  // 분류별·업무별 찾기(/guidelines)와 동일한 노출 구조(숨김 토글 뒤에 두지 않음)
+  // 편집 가능 역할(마스터/관리자/준 관리자)은 편집 버튼 기본 표시
   useEffect(() => { if (detail?.editable) setEditMode(true); }, [detail?.editable]);
 
-  // ?work=CHANGE 등 딥링크 진입 시 해당 체류업무를 우측 상세 패널에 자동 선택.
-  // 존재하지 않는 work 값이면 조용히 무시(자격 상세는 이미 정상 표시된 상태 — 코드
-  // 자체가 없는 경우의 오류 표시는 위 loadDetail 의 404 처리가 담당).
+  // 페이지 자격이 바뀌면 세부자격 선택 초기화. 세부약호가 없으면 공통 자동 확정,
+  // 있으면 STEP1 에서 사용자가 고르기 전까지 대기(STEP2/3 숨김).
+  const masterKey = detail?.master.qualification_id ?? "";
+  useEffect(() => {
+    if (!detail) return;
+    setSel(null);
+    setSubSel(null);
+    setSubPicked((detail.master.sub_codes ?? []).length === 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [masterKey]);
+
+  // 선택한 세부약호의 상세 로드(공통이면 페이지 detail 을 그대로 사용).
+  useEffect(() => {
+    if (!subSel) { setSubFetchDetail(null); setSubFetchLoading(false); return; }
+    let alive = true;
+    setSubFetchLoading(true); setSubFetchDetail(null);
+    fetchQualDetail(subSel)
+      .then(d => { if (alive) setSubFetchDetail(d); })
+      .catch(() => { if (alive) toast.error("세부자격 정보를 불러오지 못했습니다."); })
+      .finally(() => { if (alive) setSubFetchLoading(false); });
+    return () => { alive = false; };
+  }, [subSel, reloadTick]);
+
+  // 현재 화면 소스 — 공통이면 페이지 detail, 세부약호면 그 detail.
+  const activeDetail = subSel ? subFetchDetail : detail;
+  const activeReady = subSel ? !!subFetchDetail : !!detail;
+
+  const pickSub = useCallback((c: string | null) => {
+    setSubSel(c); setSubPicked(true); setSel(null);
+  }, []);
+
+  // ?work=CHANGE 등 딥링크 — 공통(기초)으로 확정하고 해당 업무 자동 선택.
   useEffect(() => {
     if (!pendingWork || !detail) return;
+    setSubSel(null); setSubPicked(true);
     const block = detail.blocks.find(b => b.block_type === pendingWork && !b.variant);
     if (block) setSel({ kind: "block", item: block });
     setPendingWork(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingWork, detail]);
 
-  // 편집 저장 후 전체 재조회 — 상세 fetch 캐시까지 비워 목록·상세·집계를 일치시킨다.
-  // loadDetail() 이 매번 setSel(null) 을 호출하므로, 이 함수를 타면 우측 상세 패널이 닫히고
-  // "좌측에서 선택하세요" 초기 화면으로 돌아간다 — 자격/체류업무/사증경로 CRUD(별도 모달)는
-  // 기존과 동일하게 이 동작을 유지한다(항목 자체가 바뀌므로 재조회+선택 해제가 안전).
-  const reloadAll = useCallback(() => {
+  // 자격/업무/경로 CRUD 후 전체 재조회 — 상세 캐시까지 비운다. 선택(sel)은 해제(항목 자체 변경).
+  // subSel 이면 reloadTick 증가로 세부약호 상세 effect 가 재조회한다.
+  const reloadActive = useCallback(() => {
     _subDetailCache.clear();
     setReloadTick(t => t + 1);
-    loadDetail();
-  }, [loadDetail]);
+    setSel(null);
+    if (!subSel) loadDetail();
+  }, [subSel, loadDetail]);
 
-  // 준비서류(DR) CRUD 전용 — sel/스크롤/펼침 상태를 건드리지 않고 현재 자격 detail만
-  // 조용히 다시 조회한다(연속 편집 가능하게 하기 위함). 자격 코드 자체의 캐시 항목만
-  // 무효화해 다른 화면에서 재방문 시 최신값을 받도록 한다.
-  const refreshDetailQuiet = useCallback(() => {
-    if (!code) return;
-    _subDetailCache.delete(code);
-    guidelinesV3Api.getQualification(code)
-      .then(res => setDetail(res.data))
-      .catch(() => toast.error("준비서류 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요."));
-  }, [code]);
+  // 준비서류(DR) CRUD 전용 — sel/스크롤/펼침 유지, 현재 활성 자격 detail 만 조용히 재조회.
+  const refreshActiveQuiet = useCallback(() => {
+    if (subSel) {
+      _subDetailCache.delete(subSel);
+      fetchQualDetail(subSel).then(setSubFetchDetail)
+        .catch(() => toast.error("준비서류 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요."));
+    } else {
+      if (!code) return;
+      _subDetailCache.delete(code);
+      guidelinesV3Api.getQualification(code).then(res => setDetail(res.data))
+        .catch(() => toast.error("준비서류 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요."));
+    }
+  }, [subSel, code]);
 
   const saveModal = useCallback(async (payload: Record<string, unknown>) => {
     if (!modal) return;
     if (modal.mode === "edit" && modal.id) {
       await guidelinesV3Api.editUpdate(modal.etype, modal.id, payload);
     } else {
-      // 추가 모달의 initial 은 숨은 필수 키 프리셋(세부약호 parent_qualification_id,
-      // 체류업무·사증경로 qualification_id 등) — 이것이 빠지면 서버 400. 편집 필드값이 우선.
+      // 추가 모달 initial 은 숨은 필수 키(qualification_id 등) 프리셋 — 편집 필드값이 우선.
       await guidelinesV3Api.editCreate(modal.etype, { ...modal.initial, ...payload });
     }
-    reloadAll();
-  }, [modal, reloadAll]);
+    reloadActive();
+  }, [modal, reloadActive]);
 
-  // 세부약호 페이지: 상위 자격의 공통 판정 route(예: F-5 '사증발급인정서 대상 아님',
-  // E-9 고용허가 인정서, D-2 유학 공통 경로) 상속 표시용 — 캐시 fetch(원본 데이터 무수정)
+  // 세부약호 상세의 공통 판정 route 상속용 상위 detail(페이지가 세부약호일 때).
   const parentCode = detail?.parent?.code ?? null;
   const [parentDetail, setParentDetail] = useState<V3QualificationDetail | null>(null);
   useEffect(() => {
@@ -716,39 +754,36 @@ export default function QualificationDetailPage() {
   }, [parentCode, reloadTick]);
 
   const baseBlocks = useMemo(
-    () => (detail?.blocks ?? []).filter(b => b.variant === null),
-    [detail]);
+    () => (activeDetail?.blocks ?? []).filter(b => b.variant === null),
+    [activeDetail]);
   const variantBlocks = useMemo(
-    () => (detail?.blocks ?? []).filter(b => b.variant !== null),
-    [detail]);
-  // 세부약호 코드 → 한글명 (children에 name_ko 포함 — 추가 fetch 불필요)
+    () => (activeDetail?.blocks ?? []).filter(b => b.variant !== null),
+    [activeDetail]);
+  // 세부약호 코드 → 한글명 (페이지 master 의 children 기준 — STEP1 라벨용)
   const subNames = useMemo<Record<string, string>>(
     () => Object.fromEntries((detail?.children ?? []).map(c => [c.code, c.name_ko])),
     [detail]);
-  // 상위 직접 route + 하위 세부약호 route 통합 집계(route_id dedup) 후 2분류:
-  // 사증발급인정서(recognition/대상아님/제외 — '대상 아님'도 검수 결과 행) vs 사증(공관·전자·확인필요)
+  // 공통 판정 route 상속 소스: 세부약호를 STEP1 로 골랐으면 페이지 master(detail),
+  // 페이지 자체가 세부약호면 그 상위(parentDetail).
+  const inheritDetail = subSel ? detail : parentDetail;
+  // activeDetail 의 직접 route + 상속 공통 route(route_id dedup). 세부약호 우선 흐름이므로
+  // 하위(children) route 집계는 하지 않는다.
   const allRouteEntries = useMemo<RouteEntry[]>(() => {
     const seen = new Set<string>();
     const out: RouteEntry[] = [];
-    for (const r of detail?.routes ?? []) {
+    for (const r of activeDetail?.routes ?? []) {
       if (!seen.has(r.route_id)) { seen.add(r.route_id); out.push({ route: r }); }
     }
-    for (const c of detail?.children ?? []) {
-      for (const r of c.routes) {
-        if (!seen.has(r.route_id)) { seen.add(r.route_id); out.push({ route: r, child: { code: c.code, name_ko: c.name_ko } }); }
-      }
-    }
-    // 세부약호 페이지: 상위의 '직접' route만 공통 판정으로 상속(형제 세부약호 전용 route는 제외)
-    if (parentDetail) {
-      for (const r of parentDetail.routes ?? []) {
+    if (inheritDetail && inheritDetail.master.qualification_id !== activeDetail?.master.qualification_id) {
+      for (const r of inheritDetail.routes ?? []) {
         if (!seen.has(r.route_id)) {
           seen.add(r.route_id);
-          out.push({ route: r, child: { code: parentDetail.master.code, name_ko: parentDetail.master.name_ko }, common: true });
+          out.push({ route: r, child: { code: inheritDetail.master.code, name_ko: inheritDetail.master.name_ko }, common: true });
         }
       }
     }
     return out;
-  }, [detail, parentDetail]);
+  }, [activeDetail, inheritDetail]);
   const recogEntries = useMemo(
     () => allRouteEntries.filter(e => REAL_RECOG_TYPES.includes(e.route.route_type)),
     [allRouteEntries]);
@@ -785,6 +820,10 @@ export default function QualificationDetailPage() {
   const isEditable = !!detail.editable;
   const qid = m.qualification_id;
   const goQuickDoc = (url: string) => router.push(url);
+  // 현재 활성 자격(세부자격 선택 시 그 세부자격, 아니면 페이지 master) — 업무 추가는 여기 귀속.
+  const activeM = activeDetail?.master ?? m;
+  const activeQid = activeM.qualification_id;
+  const subCodesSorted = [...(m.sub_codes ?? [])].sort(compareQualCode);
 
   const openRouteModal = (mode: "create" | "edit", r?: V3Route, presetType?: string) => {
     setModal({
@@ -792,28 +831,37 @@ export default function QualificationDetailPage() {
       title: mode === "edit" ? `사증 경로 수정 — ${r?.route_label}` : "사증 경로 추가",
       fields: routeFields(),
       initial: (r as unknown as Record<string, unknown>)
-        ?? { qualification_id: qid, route_type: presetType ?? "recognition", is_active: true },
+        ?? { qualification_id: activeQid, route_type: presetType ?? "recognition", is_active: true },
     });
   };
   const deleteRoute = (r: V3Route) =>
     runDelete("visa_route", r.route_id, r.route_label || r.route_id,
       (impact, cascadeAllowed) => setImpactState({ etype: "visa_route", id: r.route_id,
         label: r.route_label || r.route_id, impact, cascadeAllowed }),
-      reloadAll);
+      reloadActive);
   const openBlockModal = (mode: "create" | "edit", b?: V3Block) => {
     setModal({
       etype: "stay_block", mode, id: b?.block_id,
       title: mode === "edit" ? `체류업무 수정 — ${b?.block_label}` : "체류업무 추가",
       fields: blockFields(mode === "create"),
       initial: (b as unknown as Record<string, unknown>)
-        ?? { qualification_id: qid, applicability: "applicable", is_active: true },
+        ?? { qualification_id: activeQid, applicability: "applicable", is_active: true },
     });
   };
   const deleteBlock = (b: V3Block) =>
     runDelete("stay_block", b.block_id, b.block_label,
       (impact, cascadeAllowed) => setImpactState({ etype: "stay_block", id: b.block_id,
         label: b.block_label, impact, cascadeAllowed }),
-      reloadAll);
+      reloadActive);
+
+  // STEP2 세부자격 정보 파생값(국내취득/사증 가능 여부).
+  const hasDomesticAcquire = baseBlocks.some(
+    b => (b.block_type === "CHANGE" || b.block_type === "GRANT") && b.applicability === "applicable");
+  const hasVisaRoute = allRouteEntries.some(
+    e => (REAL_RECOG_TYPES.includes(e.route.route_type) || REAL_VISA_TYPES.includes(e.route.route_type)));
+
+  // 단계 상태: 1 세부자격 → 2 업무 → 3 준비서류.
+  const stepNow = !subPicked ? 1 : (sel ? 3 : 2);
 
   // 사증 영역 공통 행 렌더 — 하위 유래 route는 "코드 한글명" 줄을 함께 표시
   const renderRouteRow = (e: RouteEntry, i: number) => {
@@ -986,26 +1034,123 @@ export default function QualificationDetailPage() {
           {m.eligible_persons && <div>해당자: {m.eligible_persons}</div>}
           {m.stay_limit && <div>1회 체류기간 상한: {m.stay_limit}</div>}
         </div>
-        {m.sub_codes.length > 0 && (
-          <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-            <span style={{ fontSize:11, color:"#A0AEC0" }}>세부약호:</span>
-            {[...m.sub_codes].sort(compareQualCode).map(c => (
-              <button key={c} onClick={() => router.push(`/qualifications/${encodeURIComponent(c)}`)}
-                style={{ fontSize:11, fontWeight:600, color:"#4A5568", background:"#F7FAFC",
-                  border:"1px solid #E2E8F0", borderRadius:8, padding:"2px 8px", cursor:"pointer",
-                  textAlign:"left", maxWidth:"100%", whiteSpace:"normal", lineHeight:1.45 }}>
-                <span style={{ whiteSpace:"nowrap" }}>{c}</span>
-                {subNames[c] && <span style={{ fontWeight:400, marginLeft:5, color:"#718096" }}>{subNames[c]}</span>}
+      </div>
+
+      {/* ── 단계 안내 스테퍼 (현재 단계 강조) ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+        {[{ n:1, label:"세부자격 선택" }, { n:2, label:"업무 선택" }, { n:3, label:"준비서류 확인" }].map((s, i) => {
+          const active = stepNow === s.n;
+          const done = stepNow > s.n;
+          return (
+            <span key={s.n} style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+              {i > 0 && <ChevronRight size={13} style={{ color:"#CBD5E0" }} />}
+              <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, fontWeight:700,
+                padding:"4px 12px", borderRadius:99,
+                color: active ? "#fff" : done ? "#276749" : "#A0AEC0",
+                background: active ? "var(--hw-gold)" : done ? "#F0FFF4" : "#F7FAFC",
+                border: `1px solid ${active ? "var(--hw-gold)" : done ? "#C6F6D5" : "#E2E8F0"}` }}>
+                {done ? <Check size={12} /> : <span>STEP{s.n}</span>}
+                {s.label}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+
+      {/* ── STEP1 세부자격 선택 (세부약호가 있을 때만; 없으면 공통 자동 확정) ── */}
+      {m.sub_codes.length > 0 && (
+        <div style={{ marginBottom:16, padding:"16px 18px", borderRadius:12,
+          background: subPicked ? "#fff" : "#FFFDF5",
+          border: `1px solid ${subPicked ? "#E2E8F0" : "rgba(212,168,67,0.45)"}` }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
+            <span style={{ fontSize:10.5, fontWeight:800, color:"#fff", background:"var(--hw-gold)",
+              borderRadius:6, padding:"2px 8px" }}>STEP 1</span>
+            <span style={{ fontSize:15, fontWeight:800, color:"#2D3748" }}>세부자격을 선택하세요</span>
+          </div>
+          <div style={{ fontSize:12, color:"#718096", marginBottom:12, lineHeight:1.55 }}>
+            먼저 해당하는 세부자격을 선택하면 그 자격의 정보와 가능한 업무가 표시됩니다.
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            <button onClick={() => pickSub(null)}
+              style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:13, fontWeight:600,
+                padding:"8px 16px", borderRadius:10, cursor:"pointer",
+                color: subPicked && subSel === null ? "var(--hw-gold-text)" : "#4A5568",
+                background: subPicked && subSel === null ? "rgba(212,168,67,0.12)" : "#F7FAFC",
+                border: `1.5px solid ${subPicked && subSel === null ? "rgba(212,168,67,0.6)" : "#E2E8F0"}` }}>
+              {subPicked && subSel === null && <Check size={13} />} 공통(기초)
+            </button>
+            {subCodesSorted.map(c => (
+              <button key={c} onClick={() => pickSub(c)}
+                style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:13, fontWeight:600,
+                  padding:"8px 16px", borderRadius:10, cursor:"pointer", textAlign:"left",
+                  maxWidth:"100%", whiteSpace:"normal", lineHeight:1.45,
+                  color: subSel === c ? "var(--hw-gold-text)" : "#4A5568",
+                  background: subSel === c ? "rgba(212,168,67,0.12)" : "#F7FAFC",
+                  border: `1.5px solid ${subSel === c ? "rgba(212,168,67,0.6)" : "#E2E8F0"}` }}>
+                {subSel === c && <Check size={13} />}
+                <span style={{ whiteSpace:"nowrap", fontWeight:700 }}>{c}</span>
+                {subNames[c] && <span style={{ fontWeight:400, color: subSel === c ? "var(--hw-gold-text)" : "#718096" }}>{subNames[c]}</span>}
               </button>
             ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* 세부자격 미선택 안내 — STEP1 전에는 이후 단계를 감춘다 */}
+      {!subPicked && (
+        <div style={{ padding:"40px 24px", textAlign:"center", borderRadius:12, background:"#F7FAFC",
+          border:"1px dashed #CBD5E0", color:"#718096", lineHeight:1.8 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#4A5568", marginBottom:4 }}>위에서 세부자격을 먼저 선택하세요.</div>
+          <div style={{ fontSize:12.5 }}>세부자격을 선택하면 자격 정보와 가능한 업무·준비서류가 순서대로 표시됩니다.</div>
+        </div>
+      )}
+
+      {/* 세부약호 상세 로딩 */}
+      {subPicked && !activeReady && (
+        <div style={{ display:"flex", justifyContent:"center", padding:"48px 0" }}>
+          <Loader2 size={22} className="animate-spin" style={{ color:"var(--hw-gold)" }} />
+        </div>
+      )}
+
+      {/* ── STEP2 선택된 세부자격 정보 + STEP3 가능한 업무/상세 ── */}
+      {subPicked && activeReady && activeDetail && (<>
+      {/* STEP2 세부자격 정보 */}
+      <div style={{ marginBottom:16, padding:"16px 18px", borderRadius:12, background:"#fff", border:"1px solid #E2E8F0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:10.5, fontWeight:800, color:"#fff", background:"#4299E1",
+            borderRadius:6, padding:"2px 8px" }}>STEP 2</span>
+          <span style={{ fontSize:15, fontWeight:800, color:"#2D3748" }}>{activeM.code} {activeM.name_ko}</span>
+          {subFetchLoading && <Loader2 size={13} className="animate-spin" style={{ color:"var(--hw-gold)" }} />}
+        </div>
+        <div style={{ fontSize:12.5, color:"#4A5568", lineHeight:1.75 }}>
+          {activeM.activity_scope && <div>업무 설명(활동범위): {activeM.activity_scope}</div>}
+          {activeM.eligible_persons && <div>해당자: {activeM.eligible_persons}</div>}
+          {activeM.stay_limit && <div>1회 체류기간 상한: {activeM.stay_limit}</div>}
+        </div>
+        <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11.5, fontWeight:600, padding:"4px 12px", borderRadius:99,
+            color: hasDomesticAcquire ? "#276749" : "#718096",
+            background: hasDomesticAcquire ? "#F0FFF4" : "#F7FAFC",
+            border: `1px solid ${hasDomesticAcquire ? "#C6F6D5" : "#E2E8F0"}` }}>
+            국내 취득(변경·부여): {hasDomesticAcquire ? "가능" : "해당 경로 없음"}
+          </span>
+          <span style={{ fontSize:11.5, fontWeight:600, padding:"4px 12px", borderRadius:99,
+            color: hasVisaRoute ? "#276749" : "#718096",
+            background: hasVisaRoute ? "#F0FFF4" : "#F7FAFC",
+            border: `1px solid ${hasVisaRoute ? "#C6F6D5" : "#E2E8F0"}` }}>
+            사증 발급: {hasVisaRoute ? "가능" : "해당 경로 없음"}
+          </span>
+        </div>
       </div>
 
-      {/* 레이아웃: 좌측 좁은 선택 패널(체류 민원 → 사증발급인정서 → 사증, 세로 3섹션)
-          + 우측 넓은 상세 패널(세부서류 가독성 우선). 좁은 화면에서는 자연 스택. */}
+      {/* STEP3(좌) 가능한 업무 + 상세(우). 업무 선택 시 우측 Detail 만 변경(레이아웃 유지). */}
       <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
         <div style={{ flex:"1 1 300px", maxWidth:400, minWidth:280, display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:10.5, fontWeight:800, color:"#fff", background:"#48BB78",
+              borderRadius:6, padding:"2px 8px" }}>STEP 3</span>
+            <span style={{ fontSize:14, fontWeight:800, color:"#2D3748" }}>가능한 업무</span>
+          </div>
           {/* ① 체류 민원 */}
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
@@ -1131,24 +1276,27 @@ export default function QualificationDetailPage() {
           )}
         </div>
 
-        {/* 우측: 상세 패널 (넓게 — 세부서류 가독성 우선) */}
+        {/* 우측: 상세 패널 (STEP3 — 업무 선택 시 이 영역만 변경, 레이아웃/좌측 유지).
+            세부자격은 페이지 STEP1 에서 이미 정해졌으므로 subCodes=[] (내부 세부약호 칩 없음).
+            항상 V3 Detail 컴포넌트로 렌더 — V3 없으면 컴포넌트 내부에서 V2 fallback 표시. */}
         <div style={{ flex:"2 1 480px", minWidth:0 }}>
           {sel ? (
-            <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows}
-              drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
-              subCodes={m.sub_codes ?? []} subNames={subNames}
-              masterCode={m.code} masterName={m.name_ko}
+            <DetailPanelV3 sel={sel} v2Rows={activeDetail.v2_rows}
+              drs={activeDetail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
+              subCodes={[]} subNames={subNames}
+              masterCode={activeM.code} masterName={activeM.name_ko}
               onClose={() => setSel(null)} onQuickDoc={goQuickDoc}
-              editMode={editMode} onEdited={refreshDetailQuiet} />
+              editMode={editMode} onEdited={refreshActiveQuiet} />
           ) : (
             <div style={{ background:"#fff", borderRadius:12, border:"1px dashed #CBD5E0",
               padding:"56px 24px", textAlign:"center", color:"#A0AEC0", fontSize:13, lineHeight:1.8 }}>
-              좌측에서 체류 민원 또는 사증 경로를 선택하세요.<br />
+              왼쪽 <strong style={{ color:"#4A5568" }}>가능한 업무</strong>에서 업무를 선택하세요.<br />
               수수료·신청인 준비서류·행정사 사무소 준비서류·해당 시 추가서류가 여기에 표시됩니다.
             </div>
           )}
         </div>
       </div>
+      </>)}
 
       {/* 편집 모달 + 삭제 영향 확인 */}
       {modal && (
@@ -1164,7 +1312,7 @@ export default function QualificationDetailPage() {
                   router.push(detail.parent
                     ? `/qualifications/${encodeURIComponent(detail.parent.code)}` : "/qualifications");
                 } else {
-                  reloadAll();
+                  reloadActive();
                 }
               }
             : null}
