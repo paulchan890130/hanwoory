@@ -3,7 +3,7 @@
 // 서류·개요 정제(sanitizeV2RowForDisplay)는 qualifications [code] 페이지 전용(/guidelines 무영향).
 // 단 sanitizeFeeRuleDisplay 는 /guidelines·/qualifications 양쪽 인지세 표시에 공용 — 두 화면의
 // 수수료 표시값이 항상 동일해야 한다(오안내 방지).
-import { GuidelineRow } from "@/lib/api";
+import { GuidelineRow, V3DocRequirement } from "@/lib/api";
 
 // 확정된 오탈자 치환표 — 배열 순서대로 적용한다(순서 의존: "결핵진 단서］" → "결핵진 단서" 등).
 // ("즘함기관"은 정답 불명 — 치환하지 않음.)
@@ -157,4 +157,75 @@ export function sanitizeV2RowForDisplay(row: GuidelineRow): GuidelineRow {
     overview_short: sanitizeV2DocText(row.overview_short ?? ""),
     fee_rule: sanitizeFeeRuleDisplay(row),
   };
+}
+
+// ── V2 → V3 준비서류 변환(지연 복제/표시용) ─────────────────────────────────────
+// V3 document_requirements 가 아직 없는 업무에서, 연결된 V2 지침의 서류를 V3 준비서류
+// UI(신청인/사무소/해당 시) 형식으로 "표시 직전" 변환한다. 저장(복제)은 관리자가 처음
+// 편집할 때만 별도로 일어난다(page.tsx). 원문 문구는 그대로 보존한다.
+//
+// 분류 규칙:
+//   - form_docs(사무소 준비서류)  → office
+//   - supporting_docs(필요서류/신청인) → client
+//   - 단, 항목 문구에 조건 표현("해당 시/해당자/필요한 경우/…인 경우/조건")이 있으면
+//     출처와 무관하게 conditional("해당 시 추가서류")로 분류(안전한 기본값).
+
+// 조건부 판정 마커. "경우"는 "…인 경우/…한 경우/…할 경우" 처럼 조건 문맥에서만 잡히도록
+// 별도 정규식으로 처리하고, 그 밖엔 명시적 조건 문구만 매칭한다.
+const _CONDITIONAL_MARKERS = ["해당 시", "해당시", "해당자", "해당하는", "해당되는", "필요한 경우", "필요시", "조건부"];
+const _CASE_RE = /(?:인|한|할|된|되는|하는|일)\s*경우|경우에|경우 /;
+
+export function isConditionalDocName(name: string): boolean {
+  const s = name ?? "";
+  if (_CONDITIONAL_MARKERS.some(m => s.includes(m))) return true;
+  return _CASE_RE.test(s);
+}
+
+// 표시용 합성 V3DocRequirement 를 만든다(requirement_id 접두 "V2FB:" = 실제 V3 아님).
+function _mkFallbackDoc(rowId: string, idx: number, name: string, role: "client" | "office" | "conditional"): V3DocRequirement {
+  const conditional = role === "conditional";
+  return {
+    requirement_id: `V2FB:${rowId}:${idx}`,
+    target_type: "",
+    target_id: "",
+    doc_name: name,
+    doc_kind: "evidence",
+    doc_role: role,
+    condition: conditional ? name : null,
+    is_required: !conditional,
+    reuse_of: null,
+    form_ref: null,
+    confidence: "",
+    notes: "",
+    // 조건부는 원문을 그대로 조건 안내로도 노출(문구 손실 방지). 화면 DrRow 가 display_condition 사용.
+    display_condition: conditional ? "해당하는 경우에만 준비합니다." : undefined,
+  };
+}
+
+/**
+ * 연결된 V2 행들(이미 sanitizeV2RowForDisplay 적용된 것을 넣을 것)을 V3 준비서류 형식으로 변환.
+ * (doc_name, doc_role) 기준 중복 제거. V3 DR 이 하나도 없을 때만 fallback 으로 사용한다.
+ */
+export function v2RowsToFallbackDocs(rows: GuidelineRow[]): V3DocRequirement[] {
+  const out: V3DocRequirement[] = [];
+  const seen = new Set<string>();
+  const push = (rowId: string, raw: string, srcRole: "office" | "client") => {
+    for (const item of (raw ?? "").split("|").map(t => t.trim()).filter(Boolean)) {
+      const role = isConditionalDocName(item) ? "conditional" : srcRole;
+      const key = `${role}||${item}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(_mkFallbackDoc(rowId, out.length, item, role));
+    }
+  };
+  for (const row of rows) {
+    push(row.row_id, row.form_docs, "office");        // 사무소 준비서류
+    push(row.row_id, row.supporting_docs, "client");  // 필요서류/신청인
+  }
+  return out;
+}
+
+/** 합성(V2 fallback) 준비서류인지 판정 — requirement_id 접두로 구분. */
+export function isV2FallbackDoc(d: V3DocRequirement): boolean {
+  return (d.requirement_id ?? "").startsWith("V2FB:");
 }

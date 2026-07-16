@@ -4,7 +4,7 @@
 // 좌측 = 체류 업무 격자(위) + 사증 경로 섹션(아래) 동시 표시, 우측 = 상세 패널.
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ChevronRight, FileText, Loader2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   guidelinesV3Api, GuidelineRow, V3Block, V3DeleteImpact, V3DocRequirement,
@@ -18,8 +18,10 @@ import {
   EditIconButton, EntityEditModal, FieldSpec, ImpactDialog,
   blockFields, drFields, qualFields, routeFields, runDelete,
 } from "@/components/qualifications/editV3";
-import { isDocBlockedV2Row, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
-import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
+import {
+  sanitizeNaReasonDisplay, sanitizeV2RowForDisplay,
+  v2RowsToFallbackDocs, isV2FallbackDoc,
+} from "@/components/qualifications/v2docSanitize";
 
 // route 선택 시 child = 하위 세부약호 유래 경로(상위 화면에 집계 표시) — 상세는 하위 자격 detail에서 로드.
 type Selection =
@@ -100,6 +102,10 @@ function DrRow({ d, editMode, onEdit, onDelete }: {
 // 시각 구분 강화: 그룹별 색 박스(좌측 색 테두리 + 옅은 배경) + 건수 배지 + 성격 설명 한 줄.
 // editMode 일 때 각 그룹 제목 옆 [+] 로 해당 구분(doc_role)의 서류를 바로 추가하고,
 // 각 행의 [편집]/[삭제] 로 즉시 수정·삭제한다 — 실제 표시 영역이 곧 편집 영역(단일 진실).
+//
+// V2 fallback(지연 복제): drs 가 합성 V2 항목(requirement_id "V2FB:")이면, 관리자가 처음
+// 편집(추가/수정/삭제)할 때 현재 표시 중인 V2 항목 전체를 실제 V3 overlay 로 복제한 뒤
+// 요청한 편집을 이어서 적용한다. 서버가 새 requirement_id 를 부여하므로 id 추적이 불필요하다.
 function DrGroups({ drs, editMode, targetId, onChanged }: {
   drs: V3DocRequirement[]; editMode?: boolean; targetId?: string; onChanged?: () => void;
 }) {
@@ -110,20 +116,77 @@ function DrGroups({ drs, editMode, targetId, onChanged }: {
   ];
   const [modal, setModal] = useState<{ mode: "create" | "edit"; dr?: V3DocRequirement; presetRole?: string } | null>(null);
   const [impactState, setImpactState] = useState<{ impact: V3DeleteImpact; id: string; label: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const isFallback = drs.some(isV2FallbackDoc);
+
+  // V2 fallback 항목 하나를 실제 V3 overlay 로 생성(원문 문구 그대로). 조건부는 condition 필수.
+  const createFromFallback = async (d: V3DocRequirement) => {
+    const payload: Record<string, unknown> = { target_id: targetId, doc_name: d.doc_name, doc_role: d.doc_role };
+    if (d.doc_role === "conditional") payload.condition = d.condition || d.doc_name;
+    await guidelinesV3Api.editCreate("doc_requirement", payload);
+  };
+
+  // 현재 표시 중인 V2 fallback 전체를 실제 V3 로 복제(excludeId 는 제외 — 그 항목은 호출자가
+  // 편집/삭제로 별도 처리). 부분 실패해도 나머지는 진행하고 실패 건수만 알린다.
+  const materializeFallback = async (excludeId?: string) => {
+    const targets = drs.filter(isV2FallbackDoc).filter(d => d.requirement_id !== excludeId);
+    let failed = 0;
+    for (const d of targets) {
+      try { await createFromFallback(d); } catch { failed++; }
+    }
+    if (failed > 0) toast.error(`${failed}건은 자동 전환에 실패했습니다. 화면을 새로고침 후 확인해 주세요.`);
+  };
 
   const save = async (payload: Record<string, unknown>) => {
-    if (modal?.mode === "edit" && modal.dr) {
-      await guidelinesV3Api.editUpdate("doc_requirement", modal.dr.requirement_id, payload);
-      toast.success("준비서류가 수정되었습니다.");
-    } else {
-      await guidelinesV3Api.editCreate("doc_requirement", { ...payload, target_id: targetId });
-      toast.success("준비서류가 추가되었습니다.");
+    setBusy(true);
+    try {
+      const editingFallback = !!(modal?.mode === "edit" && modal.dr && isV2FallbackDoc(modal.dr));
+      if (modal?.mode === "edit" && modal.dr && !editingFallback) {
+        // 실제 V3 항목 수정
+        await guidelinesV3Api.editUpdate("doc_requirement", modal.dr.requirement_id, payload);
+        toast.success("준비서류가 수정되었습니다.");
+      } else {
+        // 추가, 또는 V2 fallback 항목 수정(= 편집 내용으로 새로 생성). fallback 상태면 먼저
+        // 나머지 V2 항목을 전부 실제 V3 로 복제한 뒤 이 항목을 생성한다.
+        if (isFallback) await materializeFallback(editingFallback ? modal!.dr!.requirement_id : undefined);
+        await guidelinesV3Api.editCreate("doc_requirement", { ...payload, target_id: targetId });
+        toast.success(editingFallback ? "준비서류가 수정되었습니다." : "준비서류가 추가되었습니다.");
+      }
+      onChanged?.();
+    } finally {
+      setBusy(false);
     }
-    onChanged?.();
+  };
+
+  const handleDelete = async (d: V3DocRequirement) => {
+    if (isV2FallbackDoc(d)) {
+      // 아직 실제 V3 가 아니므로 "삭제"는 = 나머지만 복제하고 이 항목은 복제하지 않음.
+      if (!window.confirm(`${d.doc_name} 을(를) 목록에서 제외할까요?\n(처음 편집 시 나머지 서류가 편집자료로 전환됩니다.)`)) return;
+      setBusy(true);
+      try {
+        await materializeFallback(d.requirement_id);
+        toast.success("준비서류가 삭제되었습니다.");
+        onChanged?.();
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    await runDelete("doc_requirement", d.requirement_id, d.doc_name,
+      (impact) => setImpactState({ impact, id: d.requirement_id, label: d.doc_name }),
+      () => onChanged?.());
   };
 
   return (
     <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:10 }}>
+      {/* 관리자 전용 안내(일반 tenant 미노출 — editMode 는 관리자에서만 true) */}
+      {editMode && isFallback && (
+        <div style={{ fontSize:11, color:"#975A16", background:"#FFFBEB", border:"1px solid #F6E05E",
+          borderRadius:8, padding:"7px 10px", lineHeight:1.6 }}>
+          기존 지침 자료가 표시되고 있습니다. 처음 수정하면 편집자료로 자동 전환됩니다.
+        </div>
+      )}
       {groups.map(g => {
         const items = drs.filter(d => d.doc_role === g.key);
         if (items.length === 0 && !editMode) return null;
@@ -147,9 +210,7 @@ function DrGroups({ drs, editMode, targetId, onChanged }: {
             {items.map(d => (
               <DrRow key={d.requirement_id} d={d} editMode={editMode}
                 onEdit={() => setModal({ mode:"edit", dr:d })}
-                onDelete={() => runDelete("doc_requirement", d.requirement_id, d.doc_name,
-                  (impact) => setImpactState({ impact, id:d.requirement_id, label:d.doc_name }),
-                  () => onChanged?.())} />
+                onDelete={() => handleDelete(d)} />
             ))}
           </div>
         );
@@ -168,6 +229,9 @@ function DrGroups({ drs, editMode, targetId, onChanged }: {
             onChanged?.();
           }}
           onClose={() => setImpactState(null)} />
+      )}
+      {busy && (
+        <div style={{ fontSize:11, color:"#718096" }}>처리 중…</div>
       )}
     </div>
   );
@@ -188,59 +252,9 @@ function keyGuidance(applicability: string): string | null {
   return null; // unknown 은 기존 관서 확인 박스가 담당
 }
 
-function DocGroup({ title, color, docs }: { title: string; color: string; docs: string[] }) {
-  if (!docs || docs.length === 0) return null;
-  return (
-    <div style={{ marginBottom:10 }}>
-      <div style={{ fontSize:10, fontWeight:700, color, marginBottom:6 }}>{title} ({docs.length})</div>
-      <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-        {docs.map((d, i) => (
-          <span key={i} style={{ fontSize:11, padding:"3px 9px", borderRadius:8,
-            background:`${color}14`, color, border:`1px solid ${color}40`,
-            whiteSpace:"normal", overflowWrap:"anywhere", maxWidth:"100%", lineHeight:1.5 }}>{d}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDoc: (url: string) => void }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  if (rows.length === 0) {
-    return <div style={{ fontSize:12, color:"#A0AEC0" }}>연결된 기존(v2) 지침 없음 — v3 신규 항목입니다.</div>;
-  }
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-      {rows.map(row => {
-        // OCR 오염 표시 정제 — 복사본에만 적용(원본 row 불변, /guidelines 무영향)
-        const sanitized = sanitizeV2RowForDisplay(row);
-        // 서류 목록 신뢰 불가로 차단된 v2 행 — 서류는 위 v3 준비서류 구분이 정본이므로 목록만 비표시
-        const displayRow = isDocBlockedV2Row(row.row_id)
-          ? { ...sanitized, form_docs: "", supporting_docs: "" }
-          : sanitized;
-        const url = buildQuickDocUrl(row);
-        return (
-          <div key={row.row_id}>
-            <GuidelineCard row={displayRow} isSelected={selectedId === row.row_id} defaultExpanded
-              onClick={() => setSelectedId(selectedId === row.row_id ? null : row.row_id)} />
-            {url && (
-              <button onClick={() => onQuickDoc(url)}
-                style={{ marginTop:4, display:"inline-flex", alignItems:"center", gap:5, fontSize:11,
-                  padding:"4px 12px", borderRadius:20, border:"1px solid rgba(212,168,67,0.45)",
-                  background:"rgba(212,168,67,0.08)", color:"var(--hw-gold-text)", cursor:"pointer", fontWeight:600 }}>
-                <FileText size={12} /> 문서자동작성으로
-              </button>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickDoc, editMode, onEdited }: {
+function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode, onEdited }: {
   sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; drs: V3DocRequirement[];
-  subCodes: string[]; subNames: Record<string, string>; onClose: () => void; onQuickDoc: (url: string) => void;
+  subCodes: string[]; subNames: Record<string, string>; onClose: () => void;
   editMode?: boolean;
   // 준비서류(DR) CRUD 성공 시의 "조용한" 상위 자격 detail 새로고침(sel 유지) — handleDrsChanged가
   // subCode/routeChild 가 아닌 기본(top-level) 케이스에서만 이걸 호출한다.
@@ -253,16 +267,26 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
   const routeChild = !isBlock && "child" in sel ? sel.child : undefined;
   const [childDetail, setChildDetail] = useState<V3QualificationDetail | null>(null);
 
-  // ③ 세부약호 선택 — 페이지 이동 없이 같은 block_type 블록으로 패널 내용 전환
+  // ③ 세부약호 선택 — 페이지 이동 없이 같은 block_type 블록으로 패널 내용 전환.
+  // subCode: null = 공통(기초), 문자열 = 세부약호. subPicked: 사용자가 실제로 하나를
+  // 선택했는지(세부약호 2개 이상일 때 선택 전 상세를 감추기 위한 게이트).
   const [subCode, setSubCode] = useState<string | null>(null);
+  const [subPicked, setSubPicked] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState("");
   const [subDetail, setSubDetail] = useState<V3QualificationDetail | null>(null);
 
   const selKey = isBlock ? b!.block_id : r!.route_id;
   useEffect(() => {
-    // 다른 업무(블록/경로) 클릭 시 세부약호 선택 초기화
-    setSubCode(null); setSubDetail(null); setSubError(""); setSubLoading(false);
+    // 다른 업무(블록/경로) 클릭 시 세부약호 선택 초기화.
+    // 세부약호가 정확히 1개면 자동 선택(클릭 없이 상세 즉시 표시), 2개 이상이면 선택 대기.
+    setSubDetail(null); setSubError(""); setSubLoading(false);
+    if (isBlock && subCodes.length === 1) {
+      setSubCode(subCodes[0]); setSubPicked(true);
+    } else {
+      setSubCode(null); setSubPicked(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selKey]);
 
   // 하위 유래 route 선택 시 해당 하위 자격 detail 로드(DR·v2 연결용 — fetch 캐시 재사용)
@@ -304,6 +328,9 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
   }, [isBlock, subCode, routeChildCode, onEdited]);
 
   const showSubChips = isBlock && subCodes.length > 0;
+  // 세부약호가 2개 이상이면 사용자가 하나를 고르기 전에는 상세를 감춘다(1개는 자동 선택됨).
+  const needsSubPick = showSubChips && subCodes.length >= 2;
+  const contentReady = !needsSubPick || subPicked;
   const subBlock = (isBlock && subCode && subDetail)
     ? (subDetail.blocks.find(x => x.block_type === b!.block_type && x.variant === null) ?? null)
     : null;
@@ -324,9 +351,17 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
       : v2Rows;
   const linkedIds = isBlock ? (effB!.v2_row_ids ?? []) : (r!.v2_row_id ? [r!.v2_row_id] : []);
   const linked = effV2Pool.filter(row => linkedIds.includes(row.row_id));
-  const legacyDocCount = effItem
-    ? effItem.office_docs.length + effItem.client_docs.length + effItem.conditional_docs.length
-    : 0;
+
+  // 준비서류 표시 우선순위(지연 복제):
+  //  1) V3 DR 이 있으면 V3
+  //  2) V3 가 비었고 연결된 V2 지침이 있으면 V2 → V3 형식으로 변환해 표시(원문 보존)
+  //  3) 둘 다 없으면 빈 상태
+  // 관리자가 fallback 상태에서 처음 편집하면 DrGroups 가 이 목록을 실제 V3 overlay 로 복제한다.
+  const fallbackDocs = effDrs.length === 0
+    ? v2RowsToFallbackDocs(linked.map(sanitizeV2RowForDisplay))
+    : [];
+  const displayDrs = effDrs.length > 0 ? effDrs : fallbackDocs;
+
   const subChipStyle = (active: boolean): CSSProperties => ({
     fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:8, cursor:"pointer",
     color: active ? "var(--hw-gold-text)" : "#4A5568",
@@ -367,19 +402,39 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
         </button>
       </div>
 
-      {/* ③ 세부약호 선택 — 상위 자격 페이지에서만 표시 */}
+      {/* ③ 세부약호 선택 — 상위 자격 페이지에서만 표시. 단계형 안내 + 시각 강조.
+          세부약호 1개는 자동 선택되어 있고, 2개 이상은 선택 전 하단에 안내를 표시한다. */}
       {showSubChips && (
-        <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#A0AEC0", marginBottom:6 }}>세부약호 선택</div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-            <button style={subChipStyle(subCode === null)} onClick={() => setSubCode(null)}>공통(기초)</button>
+        <div style={{ marginBottom:14, padding:"12px 14px", borderRadius:10,
+          background:"#FFFDF5", border:"1px solid rgba(212,168,67,0.4)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:3, flexWrap:"wrap" }}>
+            <span style={{ fontSize:10.5, fontWeight:800, color:"#fff", background:"var(--hw-gold)",
+              borderRadius:6, padding:"2px 8px", flexShrink:0 }}>1단계</span>
+            <span style={{ fontSize:13.5, fontWeight:800, color:"#2D3748" }}>세부약호를 선택하세요</span>
+          </div>
+          <div style={{ fontSize:11.5, color:"#718096", marginBottom:10, lineHeight:1.55 }}>
+            해당 업무를 선택하면 준비서류·수수료·주의사항이 표시됩니다.
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+            <button style={subChipStyle(subPicked && subCode === null)}
+              onClick={() => { setSubCode(null); setSubPicked(true); }}>
+              {subPicked && subCode === null && <Check size={12} style={{ marginRight:4, verticalAlign:"-2px" }} />}
+              공통(기초)
+            </button>
             {[...subCodes].sort(compareQualCode).map(c => (
-              <button key={c} style={subChipStyle(subCode === c)} onClick={() => setSubCode(c)}>
+              <button key={c} style={subChipStyle(subCode === c)}
+                onClick={() => { setSubCode(c); setSubPicked(true); }}>
+                {subCode === c && <Check size={12} style={{ marginRight:4, verticalAlign:"-2px" }} />}
                 <span style={{ whiteSpace:"nowrap" }}>{c}</span>
                 {subNames[c] && <span style={{ fontWeight:400, marginLeft:5, color: subCode === c ? "var(--hw-gold-text)" : "#718096" }}>{subNames[c]}</span>}
               </button>
             ))}
           </div>
+          {subPicked && (
+            <div style={{ marginTop:9, fontSize:11.5, fontWeight:600, color:"var(--hw-gold-text)" }}>
+              선택됨: {subCode === null ? "공통(기초)" : `${subCode}${subNames[subCode] ? ` ${subNames[subCode]}` : ""}`}
+            </div>
+          )}
         </div>
       )}
 
@@ -387,7 +442,13 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
         <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#FFF5F5",
           border:"1px solid #FEB2B2", fontSize:12, color:"#C53030" }}>{subError}</div>
       )}
-      {subLoading ? (
+      {!contentReady ? (
+        <div style={{ padding:"28px 22px", textAlign:"center", borderRadius:10, background:"#F7FAFC",
+          border:"1px dashed #CBD5E0", color:"#718096", lineHeight:1.7 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:"#4A5568", marginBottom:4 }}>위 세부약호를 먼저 선택하세요.</div>
+          <div style={{ fontSize:12 }}>세부약호를 선택하면 준비서류·수수료·주의사항이 표시됩니다.</div>
+        </div>
+      ) : subLoading ? (
         <div style={{ display:"flex", justifyContent:"center", padding:"24px 0" }}>
           <Loader2 size={18} className="animate-spin" style={{ color:"var(--hw-gold)" }} />
         </div>
@@ -435,25 +496,15 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
             </div>
           )}
 
-          {/* ⑤ 준비서류/필요서류 — A) v3 DR(실제 표시 영역에서 직접 편집) B) 인라인 목록
-              C) v2 참고 D) 특수경로 안내. 신청 대상이 아닌 블록(불가)에는 서류 영역을 표시하지 않는다.
-              editMode 에서는 v3 DR이 아직 0건이어도 DrGroups를 그대로 표시해 첫 서류를 추가할 수
-              있게 한다(과거 별도 "준비서류 편집" 박스가 담당하던 역할 — 이중 표시 없이 통합). */}
+          {/* ⑤ 준비서류 — 단일 통합 영역(신청인/사무소/해당 시). V3 우선, 없으면 V2 자동 변환
+              fallback 을 같은 형식으로 표시한다. 사용자에게 V2/V3 구분은 노출하지 않는다.
+              신청 대상이 아닌 블록(불가)에는 서류 영역을 표시하지 않는다. editMode 에서는
+              항목이 0건이어도 그룹을 표시해 바로 추가할 수 있게 한다. */}
           {(!isBlock || effB!.applicability === "applicable" || effB!.applicability === "conditional") && (
-            effDrs.length > 0 || editMode ? (
-              <DrGroups drs={effDrs} editMode={editMode}
+            displayDrs.length > 0 || editMode ? (
+              <DrGroups drs={displayDrs} editMode={editMode}
                 targetId={isBlock ? (effB!.block_id) : (r!.route_id)}
                 onChanged={handleDrsChanged} />
-            ) : legacyDocCount > 0 ? (
-              <>
-                <DocGroup title="사무소 준비 (office)" color="#4299E1" docs={effItem.office_docs} />
-                <DocGroup title="손님 지참 (client)" color="#48BB78" docs={effItem.client_docs} />
-                <DocGroup title="조건부 (conditional)" color="#975A16" docs={effItem.conditional_docs} />
-              </>
-            ) : linked.length > 0 ? (
-              <div style={{ fontSize:11, color:"#718096", marginBottom:10 }}>
-                연결된 기존 지침의 서류를 참고하세요.
-              </div>
             ) : !isBlock && r!.docs_notice ? (
               <div style={{ marginBottom:10, padding:"10px 12px", borderRadius:10, background:"#F7FAFC",
                 border:"1px solid #E2E8F0", fontSize:12, color:"#4A5568", lineHeight:1.6 }}>
@@ -475,12 +526,6 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
               서류 준용: <span style={{ fontWeight:600 }}>{effB!.visa_docs_reference}</span> (사증 인정신청 기준)
             </div>
           )}
-
-          {/* ⑥ 연결된 기존 지침 (v2) — 서류 기본 펼침 */}
-          <div style={{ borderTop:"1px solid #EDF2F7", paddingTop:12 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:"#4A5568", marginBottom:8 }}>연결된 기존 지침 (v2)</div>
-            <LinkedV2Section rows={linked} onQuickDoc={onQuickDoc} />
-          </div>
         </>
       )}
     </div>
@@ -657,7 +702,6 @@ export default function QualificationDetailPage() {
   }
 
   const m = detail.master;
-  const goQuickDoc = (url: string) => router.push(url);
   const isEditable = !!detail.editable;
   const qid = m.qualification_id;
 
@@ -1012,7 +1056,7 @@ export default function QualificationDetailPage() {
             <DetailPanelV3 sel={sel} v2Rows={detail.v2_rows}
               drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
               subCodes={m.sub_codes ?? []} subNames={subNames}
-              onClose={() => setSel(null)} onQuickDoc={goQuickDoc}
+              onClose={() => setSel(null)}
               editMode={editMode} onEdited={refreshDetailQuiet} />
           ) : (
             <div style={{ background:"#fff", borderRadius:12, border:"1px dashed #CBD5E0",
