@@ -5,6 +5,7 @@
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ChevronRight, FileText, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import {
   guidelinesV3Api, GuidelineRow, V3Block, V3DeleteImpact, V3DocRequirement,
   V3EntityType, V3QualificationDetail, V3Route,
@@ -14,8 +15,8 @@ import {
   compareQualCode, stripInternalIds,
 } from "@/components/qualifications/common";
 import {
-  DrEditor, EditIconButton, EntityEditModal, FieldSpec, ImpactDialog,
-  blockFields, qualFields, routeFields, runDelete,
+  EditIconButton, EntityEditModal, FieldSpec, ImpactDialog,
+  blockFields, drFields, qualFields, routeFields, runDelete,
 } from "@/components/qualifications/editV3";
 import { isDocBlockedV2Row, sanitizeNaReasonDisplay, sanitizeV2RowForDisplay } from "@/components/qualifications/v2docSanitize";
 import { GuidelineCard, buildQuickDocUrl } from "@/components/guidelines/shared";
@@ -61,21 +62,34 @@ function DrBadge({ text, color, bg, border }: { text: string; color: string; bg:
 
 // 기본 화면 배지 정책: 별지 서식 / 해당 시 / S1·S2 전용 / 폐지된 제도만.
 // confidence 등 내부 검토 정보는 하단 접힘 영역 전용.
-function DrRow({ d }: { d: V3DocRequirement }) {
+// editMode 일 때만 우측에 편집·삭제 버튼(기존 EditIconButton 재사용) — 실제 표시 영역 자체가
+// 편집 UI를 겸한다(상단 별도 "준비서류 편집" 박스 제거, 이중 표시 방지).
+function DrRow({ d, editMode, onEdit, onDelete }: {
+  d: V3DocRequirement; editMode?: boolean; onEdit?: () => void; onDelete?: () => void;
+}) {
   return (
-    <div style={{ padding:"5px 0", borderBottom:"1px solid #F7FAFC" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
-        <span style={{ fontSize:12, color:"#2D3748", fontWeight: d.is_required ? 600 : 400,
-          maxWidth:"100%", overflowWrap:"anywhere" }}>{d.doc_name}</span>
-        {d.form_ref && <DrBadge text={d.form_ref} color="#4A5568" bg="#F7FAFC" border="#E2E8F0" />}
-        {d.doc_role === "conditional" && <DrBadge text="해당 시" color="#975A16" bg="#FFFFF0" border="#F6E05E" />}
-        {d.s_scope === "s1_only" && <DrBadge text="S1 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
-        {d.s_scope === "s2_only" && <DrBadge text="S2 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
-        {d.display_hint === "abolished_reference" && <DrBadge text="폐지된 제도" color="#822727" bg="#FFF5F5" border="#FEB2B2" />}
+    <div style={{ padding:"5px 0", borderBottom:"1px solid #F7FAFC",
+      display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
+          <span style={{ fontSize:12, color:"#2D3748", fontWeight: d.is_required ? 600 : 400,
+            maxWidth:"100%", overflowWrap:"anywhere" }}>{d.doc_name}</span>
+          {d.form_ref && <DrBadge text={d.form_ref} color="#4A5568" bg="#F7FAFC" border="#E2E8F0" />}
+          {d.doc_role === "conditional" && <DrBadge text="해당 시" color="#975A16" bg="#FFFFF0" border="#F6E05E" />}
+          {d.s_scope === "s1_only" && <DrBadge text="S1 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
+          {d.s_scope === "s2_only" && <DrBadge text="S2 전용" color="#2C7A7B" bg="#E6FFFA" border="#81E6D9" />}
+          {d.display_hint === "abolished_reference" && <DrBadge text="폐지된 제도" color="#822727" bg="#FFF5F5" border="#FEB2B2" />}
+        </div>
+        {d.doc_role === "conditional" && (
+          <div style={{ marginTop:2, fontSize:11, color:"#718096", lineHeight:1.5 }}>
+            — {d.display_condition || "해당하는 경우에만 준비합니다."}
+          </div>
+        )}
       </div>
-      {d.doc_role === "conditional" && (
-        <div style={{ marginTop:2, fontSize:11, color:"#718096", lineHeight:1.5 }}>
-          — {d.display_condition || "해당하는 경우에만 준비합니다."}
+      {editMode && (
+        <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+          <EditIconButton kind="edit" title="서류 수정" onClick={onEdit!} />
+          <EditIconButton kind="delete" title="서류 삭제" onClick={onDelete!} />
         </div>
       )}
     </div>
@@ -84,17 +98,35 @@ function DrRow({ d }: { d: V3DocRequirement }) {
 
 // 그룹 순서·명칭: 신청인 준비서류 → 행정사 사무소 준비서류 → 해당 시 추가서류 (기본 펼침)
 // 시각 구분 강화: 그룹별 색 박스(좌측 색 테두리 + 옅은 배경) + 건수 배지 + 성격 설명 한 줄.
-function DrGroups({ drs }: { drs: V3DocRequirement[] }) {
+// editMode 일 때 각 그룹 제목 옆 [+] 로 해당 구분(doc_role)의 서류를 바로 추가하고,
+// 각 행의 [편집]/[삭제] 로 즉시 수정·삭제한다 — 실제 표시 영역이 곧 편집 영역(단일 진실).
+function DrGroups({ drs, editMode, targetId, onChanged }: {
+  drs: V3DocRequirement[]; editMode?: boolean; targetId?: string; onChanged?: () => void;
+}) {
   const groups: { key: string; title: string; color: string; caption: string }[] = [
     { key: "client", title: "신청인 준비서류", color: "#48BB78", caption: "손님(신청인)이 지참해야 하는 서류입니다." },
     { key: "office", title: "행정사 사무소 준비서류", color: "#4299E1", caption: "위임장·대행업무수행확인서 등 사무소에서 준비하는 서류입니다." },
     { key: "conditional", title: "해당 시 추가서류", color: "#975A16", caption: "조건에 해당하는 경우에만 준비하는 서류입니다." },
   ];
+  const [modal, setModal] = useState<{ mode: "create" | "edit"; dr?: V3DocRequirement; presetRole?: string } | null>(null);
+  const [impactState, setImpactState] = useState<{ impact: V3DeleteImpact; id: string; label: string } | null>(null);
+
+  const save = async (payload: Record<string, unknown>) => {
+    if (modal?.mode === "edit" && modal.dr) {
+      await guidelinesV3Api.editUpdate("doc_requirement", modal.dr.requirement_id, payload);
+      toast.success("준비서류가 수정되었습니다.");
+    } else {
+      await guidelinesV3Api.editCreate("doc_requirement", { ...payload, target_id: targetId });
+      toast.success("준비서류가 추가되었습니다.");
+    }
+    onChanged?.();
+  };
+
   return (
     <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:10 }}>
       {groups.map(g => {
         const items = drs.filter(d => d.doc_role === g.key);
-        if (items.length === 0) return null;
+        if (items.length === 0 && !editMode) return null;
         return (
           <div key={g.key} style={{ borderLeft:`3px solid ${g.color}`, background:`${g.color}0A`,
             border:`1px solid ${g.color}30`, borderLeftWidth:3, borderLeftColor:g.color,
@@ -103,12 +135,40 @@ function DrGroups({ drs }: { drs: V3DocRequirement[] }) {
               <span style={{ fontSize:12, fontWeight:700, color:g.color }}>{g.title}</span>
               <span style={{ fontSize:10, fontWeight:700, color:g.color, background:"#fff",
                 border:`1px solid ${g.color}50`, borderRadius:99, padding:"1px 8px" }}>{items.length}</span>
+              {editMode && (
+                <EditIconButton kind="add" title={`${g.title} 추가`}
+                  onClick={() => setModal({ mode:"create", presetRole:g.key })} />
+              )}
             </div>
             <div style={{ fontSize:10.5, color:"#A0AEC0", marginBottom:6 }}>{g.caption}</div>
-            {items.map(d => <DrRow key={d.requirement_id} d={d} />)}
+            {items.length === 0 && (
+              <div style={{ fontSize:11, color:"#A0AEC0" }}>등록된 서류가 없습니다.</div>
+            )}
+            {items.map(d => (
+              <DrRow key={d.requirement_id} d={d} editMode={editMode}
+                onEdit={() => setModal({ mode:"edit", dr:d })}
+                onDelete={() => runDelete("doc_requirement", d.requirement_id, d.doc_name,
+                  (impact) => setImpactState({ impact, id:d.requirement_id, label:d.doc_name }),
+                  () => onChanged?.())} />
+            ))}
           </div>
         );
       })}
+      {modal && (
+        <EntityEditModal
+          title={modal.mode === "edit" ? `서류 수정 — ${modal.dr?.doc_name}` : "서류 추가"}
+          fields={drFields()}
+          initial={(modal.dr as unknown as Record<string, unknown>) ?? { doc_role: modal.presetRole ?? "client", doc_kind: "evidence" }}
+          onSave={save} onClose={() => setModal(null)} />
+      )}
+      {impactState && (
+        <ImpactDialog entityLabel={impactState.label} impact={impactState.impact}
+          onCascade={async () => {
+            await guidelinesV3Api.editDelete("doc_requirement", impactState.id, true);
+            onChanged?.();
+          }}
+          onClose={() => setImpactState(null)} />
+      )}
     </div>
   );
 }
@@ -181,7 +241,10 @@ function LinkedV2Section({ rows, onQuickDoc }: { rows: GuidelineRow[]; onQuickDo
 function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickDoc, editMode, onEdited }: {
   sel: NonNullable<Selection>; v2Rows: GuidelineRow[]; drs: V3DocRequirement[];
   subCodes: string[]; subNames: Record<string, string>; onClose: () => void; onQuickDoc: (url: string) => void;
-  editMode?: boolean; onEdited?: () => void;
+  editMode?: boolean;
+  // 준비서류(DR) CRUD 성공 시의 "조용한" 상위 자격 detail 새로고침(sel 유지) — handleDrsChanged가
+  // subCode/routeChild 가 아닌 기본(top-level) 케이스에서만 이걸 호출한다.
+  onEdited?: () => void;
 }) {
   const isBlock = sel.kind === "block";
   const b = isBlock ? (sel.item as V3Block) : null;
@@ -224,6 +287,21 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
       .finally(() => { if (alive) setSubLoading(false); });
     return () => { alive = false; };
   }, [subCode]);
+
+  // 준비서류 CRUD 후 새로고침 — 실제로 표시 중인 데이터 소스만 조용히 재조회한다.
+  // 상위 reloadAll(=onEdited가 아님)처럼 loadDetail() 을 타지 않으므로 sel/스크롤/펼침
+  // 상태가 그대로 유지된다(저장 후 "좌측에서 선택하세요" 화면으로 돌아가는 문제의 원인 제거).
+  const handleDrsChanged = useCallback(() => {
+    if (isBlock && subCode) {
+      _subDetailCache.delete(subCode);
+      fetchQualDetail(subCode).then(setSubDetail).catch(() => { /* 실패 시 기존 화면 유지 */ });
+    } else if (!isBlock && routeChildCode) {
+      _subDetailCache.delete(routeChildCode);
+      fetchQualDetail(routeChildCode).then(setChildDetail).catch(() => { /* 실패 시 기존 화면 유지 */ });
+    } else {
+      onEdited?.();
+    }
+  }, [isBlock, subCode, routeChildCode, onEdited]);
 
   const showSubChips = isBlock && subCodes.length > 0;
   const subBlock = (isBlock && subCode && subDetail)
@@ -357,19 +435,15 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, onQuickD
             </div>
           )}
 
-          {/* 준비서류 편집기 — 편집 모드에서만(각 구분 추가·수정·삭제) */}
-          {editMode && onEdited && (
-            <DrEditor
-              targetId={isBlock ? (effB!.block_id) : (r!.route_id)}
-              drs={effDrs}
-              onChanged={onEdited} />
-          )}
-
-          {/* ⑤ 준비서류/필요서류 — A) v3 DR B) 인라인 목록 C) v2 참고 D) 특수경로 안내.
-              신청 대상이 아닌 블록(불가)에는 서류 영역을 표시하지 않는다. */}
+          {/* ⑤ 준비서류/필요서류 — A) v3 DR(실제 표시 영역에서 직접 편집) B) 인라인 목록
+              C) v2 참고 D) 특수경로 안내. 신청 대상이 아닌 블록(불가)에는 서류 영역을 표시하지 않는다.
+              editMode 에서는 v3 DR이 아직 0건이어도 DrGroups를 그대로 표시해 첫 서류를 추가할 수
+              있게 한다(과거 별도 "준비서류 편집" 박스가 담당하던 역할 — 이중 표시 없이 통합). */}
           {(!isBlock || effB!.applicability === "applicable" || effB!.applicability === "conditional") && (
-            effDrs.length > 0 ? (
-              <DrGroups drs={effDrs} />
+            effDrs.length > 0 || editMode ? (
+              <DrGroups drs={effDrs} editMode={editMode}
+                targetId={isBlock ? (effB!.block_id) : (r!.route_id)}
+                onChanged={handleDrsChanged} />
             ) : legacyDocCount > 0 ? (
               <>
                 <DocGroup title="사무소 준비 (office)" color="#4299E1" docs={effItem.office_docs} />
@@ -469,12 +543,26 @@ export default function QualificationDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingWork, detail]);
 
-  // 편집 저장 후 전체 재조회 — 상세 fetch 캐시까지 비워 목록·상세·집계를 일치시킨다
+  // 편집 저장 후 전체 재조회 — 상세 fetch 캐시까지 비워 목록·상세·집계를 일치시킨다.
+  // loadDetail() 이 매번 setSel(null) 을 호출하므로, 이 함수를 타면 우측 상세 패널이 닫히고
+  // "좌측에서 선택하세요" 초기 화면으로 돌아간다 — 자격/체류업무/사증경로 CRUD(별도 모달)는
+  // 기존과 동일하게 이 동작을 유지한다(항목 자체가 바뀌므로 재조회+선택 해제가 안전).
   const reloadAll = useCallback(() => {
     _subDetailCache.clear();
     setReloadTick(t => t + 1);
     loadDetail();
   }, [loadDetail]);
+
+  // 준비서류(DR) CRUD 전용 — sel/스크롤/펼침 상태를 건드리지 않고 현재 자격 detail만
+  // 조용히 다시 조회한다(연속 편집 가능하게 하기 위함). 자격 코드 자체의 캐시 항목만
+  // 무효화해 다른 화면에서 재방문 시 최신값을 받도록 한다.
+  const refreshDetailQuiet = useCallback(() => {
+    if (!code) return;
+    _subDetailCache.delete(code);
+    guidelinesV3Api.getQualification(code)
+      .then(res => setDetail(res.data))
+      .catch(() => toast.error("준비서류 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요."));
+  }, [code]);
 
   const saveModal = useCallback(async (payload: Record<string, unknown>) => {
     if (!modal) return;
@@ -925,7 +1013,7 @@ export default function QualificationDetailPage() {
               drs={detail.doc_requirements?.[sel.kind === "block" ? (sel.item as V3Block).block_id : (sel.item as V3Route).route_id] ?? []}
               subCodes={m.sub_codes ?? []} subNames={subNames}
               onClose={() => setSel(null)} onQuickDoc={goQuickDoc}
-              editMode={editMode} onEdited={reloadAll} />
+              editMode={editMode} onEdited={refreshDetailQuiet} />
           ) : (
             <div style={{ background:"#fff", borderRadius:12, border:"1px dashed #CBD5E0",
               padding:"56px 24px", textAlign:"center", color:"#A0AEC0", fontSize:13, lineHeight:1.8 }}>
