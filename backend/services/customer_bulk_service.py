@@ -244,11 +244,13 @@ def build_template_bytes() -> bytes:
         for col in range(1, n + 1):
             ws.cell(row=r, column=col).protection = Protection(locked=False)
 
-    # 전화번호 열은 Excel "일반" 서식이 앞자리 0을 지우므로(01099240490 → 1099240490),
-    # 예시행 + 입력 가능한 모든 행을 Text(@) 서식으로 고정한다.
-    phone_col = STD_KEYS.index("_phone") + 1
+    # Excel "일반" 서식은 앞자리 0을 지운다(전화번호 01099240490 → 1099240490,
+    # 등록증 앞자리 000101 → 101 등 2000년 이후 출생자 케이스도 동일하게 깨짐).
+    # 예시행 + 입력 가능한 모든 행의 **모든 열**을 Text(@) 서식으로 고정해 입력값이
+    # 그대로(있는 그대로) 문자열로 저장되게 한다.
     for r in range(EXAMPLE_ROW, DATA_START_ROW + 1000):
-        ws.cell(row=r, column=phone_col).number_format = "@"
+        for col in range(1, n + 1):
+            ws.cell(row=r, column=col).number_format = "@"
 
     ws.freeze_panes = "A4"
     ws.protection.sheet = True
