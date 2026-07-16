@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { customersApi } from "@/lib/api";
-import { Search, UserPlus, Loader2, Upload } from "lucide-react";
+import { Search, UserPlus, Loader2, Upload, Download } from "lucide-react";
 import { normalizeDate } from "@/lib/utils";
 import SignatureModal from "@/components/SignatureModal";
 import { BulkAddModal } from "@/components/customers/BulkAddModal";
@@ -31,6 +31,28 @@ export default function CustomersPage() {
   const [showSignModal, setShowSignModal] = useState(false);
   const [awaitingRefresh, setAwaitingRefresh] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleBulkExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await customersApi.bulkExport();
+      const url = window.URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ymd = new Date().toISOString().slice(0, 10);
+      a.download = `고객_일괄추출_${ymd}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error("고객 일괄추출에 실패했습니다.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // 400ms 디바운스 + 2자 미만 입력은 전체 목록 표시 (빈 쿼리와 동일)
   useEffect(() => {
@@ -136,9 +158,25 @@ export default function CustomersPage() {
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14, position:"relative", minHeight:"100%", marginTop:-10 }}>
-      {/* 툴바 — flex row, 각 아이템에 명시적 shrink/grow 지정 */}
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+    <div
+      onClick={(e) => {
+        // 문서자동작성/원클릭 오버레이가 고객목록 위를 덮고 있을 때, 그 오버레이가 덮지 않는
+        // 페이지 빈 공간(툴바 여백 등)을 클릭해도 오버레이를 닫을 수 있도록 신호만 보낸다.
+        // 오버레이 상태 자체는 CustomerDrawer 내부 소유 — 이 페이지는 상태를 모른다.
+        if (e.target === e.currentTarget) window.dispatchEvent(new Event("kid:close-doc-overlays"));
+      }}
+      style={{ display:"flex", flexDirection:"column", gap:14, position:"relative", minHeight:"100%", marginTop:-10 }}
+    >
+      {/* 툴바 — flex row, 각 아이템에 명시적 shrink/grow 지정. 오버레이가 열려 있을 때
+          top:120 아래는 오버레이 자신의 배경이 덮으므로(그 배경 클릭은 오버레이 쪽에서
+          처리), 실제로 클릭 가능한 "페이지 빈 공간"은 이 툴바 행 자체의 여백(버튼 사이
+          marginLeft:auto 여백 등)이다 — 여기서도 동일하게 자기 자신 클릭만 신호를 보낸다. */}
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) window.dispatchEvent(new Event("kid:close-doc-overlays"));
+        }}
+        style={{ display:"flex", alignItems:"center", gap:10 }}
+      >
         <h1 className="hw-page-title" style={{ flexShrink:0 }}>고객관리</h1>
         {/* hw-search-bar CSS 클래스 사용 안 함: flex:1 / max-width:520px 가 버튼 overlap 유발 */}
         <div style={{ position:"relative", width:260, flexShrink:0 }}>
@@ -168,6 +206,15 @@ export default function CustomersPage() {
             padding:"7px 14px", borderRadius:8, border:"1px solid #E2E8F0", background:"#fff", color:"#4A5568", cursor:"pointer", fontWeight:600 }}
         >
           <Upload size={14} /> 일괄추가
+        </button>
+        <button
+          onClick={handleBulkExport}
+          disabled={exporting}
+          style={{ flexShrink:0, display:"flex", alignItems:"center", gap:6, fontSize:12,
+            padding:"7px 14px", borderRadius:8, border:"1px solid #E2E8F0", background:"#fff", color:"#4A5568",
+            cursor:exporting ? "default" : "pointer", fontWeight:600, opacity:exporting ? 0.6 : 1 }}
+        >
+          {exporting ? <Loader2 size={14} style={{ animation:"spin 1s linear infinite" }} /> : <Download size={14} />} 일괄추출
         </button>
         {total > 0 && (
           <span style={{ fontSize:12, color:"#718096", flexShrink:0 }}>

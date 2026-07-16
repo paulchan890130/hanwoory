@@ -322,6 +322,24 @@ def bulk_commit(
     return result
 
 
+@router.get("/bulk-export")
+def bulk_export(user: dict = Depends(get_current_user), request: Request = None):
+    """현재 tenant 고객 전체를 고객카드 기준 컬럼으로 Excel 추출(하이코리아/소시넷 계정 제외)."""
+    tenant_id = user["tenant_id"]
+    from backend.services import customer_excel_service as excel
+
+    data, count = excel.build_tenant_export_bytes(tenant_id)
+    _ip, _ua = _req_ip_ua(request)
+    _audit.log_event(action="CUSTOMER_BULK_EXPORT", actor_login_id=user.get("sub"), tenant_id=tenant_id,
+                     target_type="customer", target_id="bulk", ip_address=_ip, user_agent=_ua,
+                     payload={"count": count, "success": True, "pii_accessed": True})
+    return Response(
+        content=data,
+        media_type=excel.EXCEL_MIME,
+        headers={"Content-Disposition": 'attachment; filename="customer_export.xlsx"'},
+    )
+
+
 @router.get("/{customer_id}")
 def get_customer(customer_id: str, user: dict = Depends(get_current_user), request: Request = None):
     """단일 고객 전체 레코드 조회 — 고객카드(CustomerDrawer)를 고유키로 열기 위함.

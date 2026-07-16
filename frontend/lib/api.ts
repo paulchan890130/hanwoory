@@ -310,6 +310,9 @@ export const customersApi = {
     form.append("include_duplicates", includeDuplicates ? "true" : "false");
     return api.post<BulkCommitResult>("/api/customers/bulk-commit", form);
   },
+  // 고객 일괄추출
+  bulkExport: () =>
+    api.get("/api/customers/bulk-export", { responseType: "blob" }),
 };
 
 export interface BulkPreviewRow {

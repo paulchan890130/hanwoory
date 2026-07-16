@@ -175,10 +175,12 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
     return out
 
 
-def list_customers(tenant_id: str) -> list[dict]:
+def list_customers(tenant_id: str, *, reveal: bool = False) -> list[dict]:
     """Return all non-deleted customers for this tenant as 표준(한글 키) dicts.
 
     Sorted by ``customer_id`` descending (matching the existing router behavior).
+    ``reveal=True`` decrypts 번호(reg_back) to plaintext (일괄추출 등 상세/문서용) —
+    기본은 목록과 동일한 마스킹.
     """
     from backend.db.models.customer import Customer
     from backend.db.session import get_sessionmaker
@@ -190,7 +192,7 @@ def list_customers(tenant_id: str) -> list[dict]:
             .where(Customer.tenant_id == tenant_id, Customer.deleted_at.is_(None))
             .order_by(Customer.customer_id.desc())
         ).all()
-    return [_row_to_dict(r) for r in rows]
+    return [_row_to_dict(r, reveal=reveal) for r in rows]
 
 
 def find_customer(tenant_id: str, customer_id: str, *, reveal: bool = False) -> Optional[dict]:

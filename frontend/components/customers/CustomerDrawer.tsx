@@ -1228,6 +1228,16 @@ export function CustomerDrawer({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [docOverlayOpen, quickPoaOverlayOpen]);
 
+  // 고객관리 페이지의 빈 공간(오버레이가 덮지 않는 영역, 예: 툴바 여백) 클릭 신호 →
+  // 오버레이만 닫기. 고객카드/선택된 고객에는 영향 없음(page.tsx는 오버레이 상태를 모르므로
+  // CustomEvent로만 통지한다).
+  useEffect(() => {
+    if (!docOverlayOpen && !quickPoaOverlayOpen) return;
+    const onClosePageSignal = () => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); };
+    window.addEventListener("kid:close-doc-overlays", onClosePageSignal);
+    return () => window.removeEventListener("kid:close-doc-overlays", onClosePageSignal);
+  }, [docOverlayOpen, quickPoaOverlayOpen]);
+
   // ── 서명 상태 ──
   const [hasSignature, setHasSignature] = useState<boolean | null>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -1485,8 +1495,15 @@ export function CustomerDrawer({
           </div>
         )}
 
-        {/* 필드 그룹 */}
-        <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px", minHeight:0, boxSizing:"border-box" }}>
+        {/* 필드 그룹 — 빈 공간(자기 자신) 클릭 시 문서자동작성/원클릭 오버레이만 닫기 */}
+        <div
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (docOverlayOpen) setDocOverlayOpen(false);
+            if (quickPoaOverlayOpen) setQuickPoaOverlayOpen(false);
+          }}
+          style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:"16px 20px", minHeight:0, boxSizing:"border-box" }}
+        >
           {/* 업무 현황 섹션 — 기본정보 다음에 삽입 */}
           {!isNew && workSummary !== null && (() => {
             const CAT_GROUPS = [
@@ -2336,21 +2353,14 @@ export function CustomerDrawer({
         />
       )}
 
-      {/* 문서자동작성/원클릭 오버레이 바깥 클릭 시 닫기 — 오버레이 zIndex(45)보다 낮은
-          전체화면 click-catcher. 오버레이·드로어(zIndex 50)가 그 위를 덮는 영역에서는
-          클릭이 오버레이/드로어에서 먼저 히트되므로 내부 조작은 전파되지 않는다. */}
-      {(docOverlayOpen || quickPoaOverlayOpen) && (
-        <div
-          className="fixed inset-0"
-          style={{ zIndex:44 }}
-          onClick={() => { setDocOverlayOpen(false); setQuickPoaOverlayOpen(false); }}
-        />
-      )}
-
-      {/* 문서자동작성 오버레이 — position:fixed, 사이드바·상단바 미침범 (드로어가 자체 소유) */}
+      {/* 문서자동작성/원클릭 오버레이 바깥 클릭 시 닫기 — 실제 클릭 이벤트 기반(가짜 전체화면
+          catcher 없음). 오버레이 자체의 빈 배경(e.target === e.currentTarget)을 클릭하면 오버레이만
+          닫는다. 오버레이가 고객목록/페이지 배경을 시각적으로 덮고 있으므로 이 배경 클릭이
+          "고객목록/빈 공간 클릭"에 대응한다. 고객카드 내부 빈 공간은 카드 쪽 필드 컨테이너에서
+          동일 패턴으로 처리한다(아래 참조). 어느 쪽도 onClose/선택 해제는 호출하지 않는다. */}
       {docOverlayOpen && customer && !isNew && (
         <div
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => { if (e.target === e.currentTarget) setDocOverlayOpen(false); }}
           style={{
           position:"fixed",
           top:120,                           // 상단바(56px) + 툴바(~64px) 아래
@@ -2382,7 +2392,10 @@ export function CustomerDrawer({
               <X size={18} />
             </button>
           </div>
-          <div style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"20px" }}>
+          <div
+            onClick={(e) => { if (e.target === e.currentTarget) setDocOverlayOpen(false); }}
+            style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"20px" }}
+          >
             <Suspense>
               <QuickDocPanel
                 initialCustomer={{
@@ -2401,9 +2414,12 @@ export function CustomerDrawer({
         </div>
       )}
 
-      {/* 원클릭 작성 오버레이 — position:fixed, 사이드바·상단바 미침범 (드로어가 자체 소유) */}
+      {/* 원클릭 작성 오버레이 — position:fixed, 사이드바·상단바 미침범 (드로어가 자체 소유).
+          문서자동작성 오버레이와 동일한 "빈 배경 클릭 시 자기 자신만 닫기" 패턴. */}
       {quickPoaOverlayOpen && customer && !isNew && (
-        <div style={{
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setQuickPoaOverlayOpen(false); }}
+          style={{
           position:"fixed",
           top:120,
           bottom:0,
@@ -2434,7 +2450,10 @@ export function CustomerDrawer({
               <X size={18} />
             </button>
           </div>
-          <div style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"16px 20px" }}>
+          <div
+            onClick={(e) => { if (e.target === e.currentTarget) setQuickPoaOverlayOpen(false); }}
+            style={{ flex:"1 1 0", minHeight:0, overflowY:"auto", padding:"16px 20px" }}
+          >
             <QuickPoaPanel
               initialCustomer={{
                 customer_id: customer["고객ID"]  || undefined,
