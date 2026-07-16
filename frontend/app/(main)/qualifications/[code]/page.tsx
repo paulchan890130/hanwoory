@@ -22,6 +22,7 @@ import {
   sanitizeNaReasonDisplay, sanitizeV2RowForDisplay,
   v2RowsToFallbackDocs, isV2FallbackDoc,
 } from "@/components/qualifications/v2docSanitize";
+import { ExpandableText } from "@/components/guidelines/shared";
 
 // route 선택 시 child = 하위 세부약호 유래 경로(상위 화면에 집계 표시) — 상세는 하위 자격 detail에서 로드.
 type Selection =
@@ -362,6 +363,14 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
     : [];
   const displayDrs = effDrs.length > 0 ? effDrs : fallbackDocs;
 
+  // 업무 설명(회귀 복구) — V3 우선, 없으면 V2 개요(overview_short) fallback. 현재 V3 블록/경로에는
+  // 설명 필드가 없으므로 실질적으로 연결된 V2 개요를 사용한다(V3 설명 필드가 생기면 그쪽이 우선).
+  // 준비서류 유무와 무관하게 표시하며, 관리자·tenant 동일하게 노출한다.
+  const effDesc = linked
+    .map(sanitizeV2RowForDisplay)
+    .map(row => (row.overview_short ?? "").trim())
+    .find(s => s.length > 0) ?? "";
+
   const subChipStyle = (active: boolean): CSSProperties => ({
     fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:8, cursor:"pointer",
     color: active ? "var(--hw-gold-text)" : "#4A5568",
@@ -459,6 +468,14 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
         </div>
       ) : (
         <>
+          {/* 업무 설명 — 업무명 바로 아래, 안내문·준비서류보다 위. 항상 보이되 길면 "전체 보기". */}
+          {effDesc && (
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"#A0AEC0", marginBottom:4 }}>업무 설명</div>
+              <ExpandableText text={effDesc} limit={90} style={{ color:"#4A5568" }} />
+            </div>
+          )}
+
           {/* ④ 업무 안내문 */}
           {isBlock && keyGuidance(effB!.applicability) && (
             <div style={{ marginBottom:12, padding:"10px 12px", borderRadius:10, background:"#F0FFF4",
@@ -472,12 +489,6 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
               border:"1px solid #CBD5E0", fontSize:12, color:"#4A5568", lineHeight:1.6 }}>
               <div><strong>사유:</strong> {sanitizeNaReasonDisplay(stripInternalIds(effB!.na_reason))}</div>
               {effB!.redirect_to && <div style={{ marginTop:4 }}><strong>대안:</strong> {stripInternalIds(effB!.redirect_to)}</div>}
-            </div>
-          )}
-          {isBlock && effB!.fee && (
-            <div style={{ marginBottom:12, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
-              <div>수수료: <strong>{effB!.fee}</strong></div>
-              <div style={{ fontSize:11, color:"#A0AEC0" }}>면제·감면 대상 여부는 관할 출입국·외국인관서 기준에 따릅니다.</div>
             </div>
           )}
           {!isBlock && (
@@ -511,6 +522,15 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, onClose, editMode
                 {r!.docs_notice}
               </div>
             ) : null
+          )}
+
+          {/* 수수료 — 준비서류 아래(요청 순서: … → 준비서류 → 수수료 → 기타 정보). 블록 전용;
+              경로(route)는 신청처·서식과 함께 위 정보 블록에서 이미 표시한다. */}
+          {isBlock && effB!.fee && (
+            <div style={{ marginBottom:12, fontSize:12, color:"#4A5568", lineHeight:1.7 }}>
+              <div>수수료: <strong>{effB!.fee}</strong></div>
+              <div style={{ fontSize:11, color:"#A0AEC0" }}>면제·감면 대상 여부는 관할 출입국·외국인관서 기준에 따릅니다.</div>
+            </div>
           )}
 
           {effItem.exceptions.length > 0 && (
