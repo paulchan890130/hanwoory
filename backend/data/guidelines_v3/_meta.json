@@ -5,12 +5,12 @@
  "v2_source_sha256": "007dabf73b7e27769ff4ce7f9f93af49c7fa3767ccc55f0a66c6860b6b8da94e",
  "counts": {
   "qualification_master": 130,
-  "stay_blocks": 454,
-  "visa_routes": 106,
+  "stay_blocks": 476,
+  "visa_routes": 112,
   "program_tags": 6,
   "v2_mapping": 378,
   "aux_civil": 11,
-  "document_requirements": 1518
+  "document_requirements": 1648
  },
  "update_260709": {
   "applied_at": "2026-07-18",
@@ -26,5 +26,10 @@
   "applied_at": "2026-07-18",
   "delta": "analysis/reanalysis_260709/approved_delta_260709_round3.jsonl",
   "summary": "11개 엔터티 완성: 신규누락 4(F-5-6R·D-8-4·D-8-4S·D-4-2K) + master-only 7(F-2-T1·F-5-T1·F-3-17·F-3-10·F-1-12·F-1-13·F-1-28). 매뉴얼 명시 서류 있는 5개는 직접 block+DR, 준용/동반은 부모 block 상속(추정 서류·경로 미생성)."
+ },
+ "update_260709_round4": {
+  "applied_at": "2026-07-18",
+  "delta": "analysis/reanalysis_260709/approved_delta_260709_round4.jsonl",
+  "summary": "내용 충실도 보완: 10개 코드 master 대상·활동범위·요건 + 업무별 block(요건/제한/예외 notes)·제출서류 DR + 사증경로 route 완성(F-5-6R·D-8-4·D-8-4S·D-4-2K·F-2-T1·F-5-T1·F-3-17·F-3-10·F-1-12·F-1-13·F-1-28). 원문 verbatim, 추정 없음."
  }
 }
