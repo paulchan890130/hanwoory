@@ -102,7 +102,8 @@ class _Dataset:
         self.program_by_id = {p["program_id"]: p for p in programs}
         self.children_by_qid: dict = {}
         for m in masters:
-            if m.get("parent_qualification_id"):
+            # deprecated 하위코드는 신규 선택 목록에서 제외(코드 직접 조회 이력 접근은 유지)
+            if m.get("parent_qualification_id") and m.get("status") != "deprecated":
                 self.children_by_qid.setdefault(m["parent_qualification_id"], []).append(m)
 
     def summary_for(self, qid: str, with_child_routes: bool = False) -> dict:
@@ -130,7 +131,7 @@ def _normalize_masters(masters: list, all_masters_by_id: Optional[dict] = None) 
     children: dict = {}
     for m in masters:
         pid = m.get("parent_qualification_id")
-        if pid:
+        if pid and m.get("status") != "deprecated":
             children.setdefault(pid, set()).add(m["code"])
     for m in masters:
         m["sub_codes"] = sorted(children.get(m["qualification_id"], set()), key=qual_code_sort_key)

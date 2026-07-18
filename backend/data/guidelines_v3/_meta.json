@@ -4,12 +4,17 @@
  "note": "1~2단계 산출물(자격 마스터 + 격자 applicability + 경로 + 매핑). 서류 필드는 후속 단계. 운영 미연결(로더 없음) — FEATURE_GUIDELINES_V3 설계 참조.",
  "v2_source_sha256": "007dabf73b7e27769ff4ce7f9f93af49c7fa3767ccc55f0a66c6860b6b8da94e",
  "counts": {
-  "qualification_master": 116,
-  "stay_blocks": 445,
-  "visa_routes": 103,
+  "qualification_master": 122,
+  "stay_blocks": 449,
+  "visa_routes": 106,
   "program_tags": 6,
   "v2_mapping": 378,
   "aux_civil": 11,
-  "document_requirements": 1385
+  "document_requirements": 1484
+ },
+ "update_260709": {
+  "applied_at": "2026-07-18",
+  "delta": "analysis/reanalysis_260709/approved_delta_260709.jsonl",
+  "summary": "F-2 보완 14 + F-1/F-3 신규 6·deprecate 2·블록 4·경로 3 + F-3-18 보완"
  }
 }
