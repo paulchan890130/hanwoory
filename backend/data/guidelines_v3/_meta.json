@@ -4,13 +4,13 @@
  "note": "1~2단계 산출물(자격 마스터 + 격자 applicability + 경로 + 매핑). 서류 필드는 후속 단계. 운영 미연결(로더 없음) — FEATURE_GUIDELINES_V3 설계 참조.",
  "v2_source_sha256": "007dabf73b7e27769ff4ce7f9f93af49c7fa3767ccc55f0a66c6860b6b8da94e",
  "counts": {
-  "qualification_master": 126,
-  "stay_blocks": 449,
+  "qualification_master": 130,
+  "stay_blocks": 454,
   "visa_routes": 106,
   "program_tags": 6,
   "v2_mapping": 378,
   "aux_civil": 11,
-  "document_requirements": 1484
+  "document_requirements": 1518
  },
  "update_260709": {
   "applied_at": "2026-07-18",
@@ -21,5 +21,10 @@
   "applied_at": "2026-07-18",
   "delta": "analysis/reanalysis_260709/approved_delta_260709_round2.jsonl",
   "summary": "전체 기계 전수대조(audit_v3_against_260709). 신규 확정 4건: 탑티어 동반가족 세부약호 F-2-T1·F-5-T1·F-3-17·F-3-10 등재(체류 p687~690, 시행 '26.6.25). 나머지 차이 512건은 human_review_round2.csv로 격리(운영값 유지)."
+ },
+ "update_260709_round3": {
+  "applied_at": "2026-07-18",
+  "delta": "analysis/reanalysis_260709/approved_delta_260709_round3.jsonl",
+  "summary": "11개 엔터티 완성: 신규누락 4(F-5-6R·D-8-4·D-8-4S·D-4-2K) + master-only 7(F-2-T1·F-5-T1·F-3-17·F-3-10·F-1-12·F-1-13·F-1-28). 매뉴얼 명시 서류 있는 5개는 직접 block+DR, 준용/동반은 부모 block 상속(추정 서류·경로 미생성)."
  }
 }

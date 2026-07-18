@@ -213,7 +213,8 @@
    "D-4-1",
    "D-4-2",
    "D-4-5",
-   "D-4-7"
+   "D-4-7",
+   "D-4-2K"
   ],
   "confidence": "high",
   "notes": "",
@@ -285,7 +286,9 @@
   "sub_codes": [
    "D-8-1",
    "D-8-2",
-   "D-8-3"
+   "D-8-3",
+   "D-8-4",
+   "D-8-4S"
   ],
   "confidence": "high",
   "notes": "",
@@ -655,7 +658,8 @@
    "F-5-S1",
    "F-5-S2",
    "F-5-T",
-   "F-5-T1"
+   "F-5-T1",
+   "F-5-6R"
   ],
   "confidence": "high",
   "notes": "",
@@ -2281,6 +2285,80 @@
   "sub_codes": [],
   "confidence": "medium",
   "notes": "[260709 신규 등재] 예비탑티어 구직(D-10-T)의 동반가족(배우자·미성년자녀). 대상별 세부약호표 근거(체류 p687). 시행 '26.6.25.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:F-5-6R",
+  "parent_qualification_id": "Q:F-5",
+  "manual_type": "both",
+  "group": "F",
+  "code": "F-5-6R",
+  "name_ko": "지역특화형 재외동포영주",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "상한 없음",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:REGIONAL"
+  ],
+  "sub_codes": [],
+  "confidence": "high",
+  "notes": "[260709 신규 등재] 지역특화형 재외동포영주(지역동포영주). 대상별 세부약호표 근거. 국내 자격변경 업무는 부모 거주/영주(F-5) 및 지역특화형 형제(F-4-R 등) 상속.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:D-8-4",
+  "parent_qualification_id": "Q:D-8",
+  "manual_type": "both",
+  "group": "D",
+  "code": "D-8-4",
+  "name_ko": "기술창업",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "2년",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:K_STAR"
+  ],
+  "sub_codes": [],
+  "confidence": "high",
+  "notes": "[260709 신규 등재] 기술창업(D-8-4). 점수제 적용/면제 대상 구분. 제출서류 및 업무는 법인투자(D-8-1) 준용(체류 p115) — 부모 D-8 block 상속.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:D-8-4S",
+  "parent_qualification_id": "Q:D-8",
+  "manual_type": "both",
+  "group": "D",
+  "code": "D-8-4S",
+  "name_ko": "기술창업-스타트업코리아 특별비자",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "2년",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:K_STAR"
+  ],
+  "sub_codes": [],
+  "confidence": "medium",
+  "notes": "[260709 신규 등재] 기술창업 스타트업코리아 특별비자(D-8-4S). 제출서류 및 업무는 기술창업(D-8-4)/법인투자(D-8-1) 준용(체류 p115) — 부모 D-8 block 상속.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:D-4-2K",
+  "parent_qualification_id": "Q:D-4",
+  "manual_type": "both",
+  "group": "D",
+  "code": "D-4-2K",
+  "name_ko": "기업 맞춤형 인턴십(K-Trainee)",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "2년",
+  "delegated_to": null,
+  "program_ids": [],
+  "sub_codes": [],
+  "confidence": "medium",
+  "notes": "[260709 신규 등재] 기업 맞춤형 인턴십 K-Trainee(D-4-2K). 전용 연장 제출서류(체류 p90·p91). 그 외 업무는 부모 일반연수(D-4) 상속.",
   "status": "active"
  }
 ]
