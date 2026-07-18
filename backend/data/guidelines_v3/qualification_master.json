@@ -578,7 +578,8 @@
    "F-2-71",
    "F-2-99",
    "F-2-R",
-   "F-2-T"
+   "F-2-T",
+   "F-2-T1"
   ],
   "confidence": "high",
   "notes": "섹션 경계 매뉴얼 기준 확인.",
@@ -602,7 +603,9 @@
    "F-3-1R",
    "F-3-20",
    "F-3-2R",
-   "F-3-3R"
+   "F-3-3R",
+   "F-3-17",
+   "F-3-10"
   ],
   "confidence": "high",
   "notes": "",
@@ -651,7 +654,8 @@
    "F-5-14",
    "F-5-S1",
    "F-5-S2",
-   "F-5-T"
+   "F-5-T",
+   "F-5-T1"
   ],
   "confidence": "high",
   "notes": "",
@@ -2201,6 +2205,82 @@
   "sub_codes": [],
   "confidence": "high",
   "notes": "[260709 신규 등재] 체류허가 기준: 「자녀양육 지원 등 목적으로 입국한 결혼이민자의 부모 등 가족(F-1-5)」 준용(체류 p347·p353). 사증 경로는 260709 사증매뉴얼에 미기재 — 후속 배치에서 보강.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:F-2-T1",
+  "parent_qualification_id": "Q:F-2",
+  "manual_type": "both",
+  "group": "F",
+  "code": "F-2-T1",
+  "name_ko": "탑티어 동반 거주",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "주 자격자와 동일",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:TOP_TIER"
+  ],
+  "sub_codes": [],
+  "confidence": "high",
+  "notes": "[260709 신규 등재] 탑티어 거주(F-2-T) 동반가족(배우자·미성년자녀). 대상별 세부약호표·자격부여 조항 근거(체류 p687·p688). 시행 '26.6.25.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:F-5-T1",
+  "parent_qualification_id": "Q:F-5",
+  "manual_type": "both",
+  "group": "F",
+  "code": "F-5-T1",
+  "name_ko": "탑티어 동반 영주",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "상한 없음",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:TOP_TIER"
+  ],
+  "sub_codes": [],
+  "confidence": "high",
+  "notes": "[260709 신규 등재] 탑티어 영주(F-5-T) 동반가족(배우자·미성년자녀). 대상별 세부약호표·자격부여 조항 근거(체류 p687·p689·p690). 시행 '26.6.25.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:F-3-17",
+  "parent_qualification_id": "Q:F-3",
+  "manual_type": "both",
+  "group": "F",
+  "code": "F-3-17",
+  "name_ko": "유망탑티어(E-7) 동반가족",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "주 자격자와 동일",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:TOP_TIER"
+  ],
+  "sub_codes": [],
+  "confidence": "medium",
+  "notes": "[260709 신규 등재] 유망탑티어 특정활동(E-7-T)의 동반가족(배우자·미성년자녀). 대상별 세부약호표 근거(체류 p687). 시행 '26.6.25.",
+  "status": "active"
+ },
+ {
+  "qualification_id": "Q:F-3-10",
+  "parent_qualification_id": "Q:F-3",
+  "manual_type": "both",
+  "group": "F",
+  "code": "F-3-10",
+  "name_ko": "예비탑티어(D-10) 동반가족",
+  "activity_scope": "",
+  "eligible_persons": "",
+  "stay_limit": "주 자격자와 동일",
+  "delegated_to": null,
+  "program_ids": [
+   "PG:TOP_TIER"
+  ],
+  "sub_codes": [],
+  "confidence": "medium",
+  "notes": "[260709 신규 등재] 예비탑티어 구직(D-10-T)의 동반가족(배우자·미성년자녀). 대상별 세부약호표 근거(체류 p687). 시행 '26.6.25.",
   "status": "active"
  }
 ]
