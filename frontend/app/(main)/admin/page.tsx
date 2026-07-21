@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { adminApi, api } from "@/lib/api";
-import { getUser } from "@/lib/auth";
+import { adminApi, api, officeApplicationApi } from "@/lib/api";
+import { getUser, isSystemAdmin } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Shield, UserPlus, X, Save,
@@ -1567,9 +1567,26 @@ export default function AdminPage() {
   const [hardDeleteTarget, setHardDeleteTarget] = useState<Record<string, string> | null>(null);
 
 
+  // 레거시 /admin(시스템 전체 관리) 접근 가드.
+  //  - SaaS OFF(레거시): 기존처럼 full admin 허용.
+  //  - SaaS ON: 시스템 운영 관리자만 허용 → office_admin 은 서버 API 가 403 이며 화면에서도 차단.
+  // (서버가 최종 권위 — API 는 require_admin_or_system 으로 강제. 이 가드는 화면 진입 UX.)
+  const [saasEnabled, setSaasEnabled] = useState<boolean | null>(null);
   useEffect(() => {
-    if (!user?.is_admin) router.replace("/dashboard");
-  }, [user, router]);
+    let alive = true;
+    officeApplicationApi.availability()
+      .then((r) => { if (alive) setSaasEnabled(!!(r.data as { enabled?: boolean })?.enabled); })
+      .catch(() => { if (alive) setSaasEnabled(false); });
+    return () => { alive = false; };
+  }, []);
+  useEffect(() => {
+    if (saasEnabled === null) return;  // 판정 전 리다이렉트 보류
+    if (saasEnabled) {
+      if (!isSystemAdmin(user)) router.replace("/dashboard");
+    } else if (!user?.is_admin) {
+      router.replace("/dashboard");
+    }
+  }, [user, router, saasEnabled]);
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["admin", "accounts"],
@@ -1954,17 +1971,18 @@ export default function AdminPage() {
                           const partial = hasFolder && (!hasCustomer || !hasWork);
                           const isLoading = wsLoadingId === acc.login_id;
 
-                          // PG 모드: 워크스페이스 = PostgreSQL 활성화(가짜 Drive/Sheets 키 미생성).
-                          // is_active 기준으로 표시하고, 비활성 계정만 활성화 버튼을 보인다.
+                          // PG 모드: 워크스페이스 = "PG 업무공간 준비"(가짜 Drive/Sheets 키 미생성).
+                          // 승인형 SaaS 의 "계정 활성화 링크"와는 다른 개념 — 혼동을 막기 위해 문구 분리.
+                          // is_active 기준으로 표시하고, 비활성 계정만 준비 버튼을 보인다.
                           if (pgMode) {
                             if (isActive) {
                               return (
                                 <span
                                   className="text-xs px-2 py-1 rounded-full"
                                   style={{ background: "#C6F6D5", color: "#276749" }}
-                                  title="PostgreSQL 활성화됨"
+                                  title="PG 업무공간 준비됨"
                                 >
-                                  ✅ 활성
+                                  ✅ 준비됨
                                 </span>
                               );
                             }
@@ -1972,12 +1990,13 @@ export default function AdminPage() {
                               <button
                                 onClick={() => handleRowWorkspace(acc)}
                                 disabled={isLoading}
+                                title="PostgreSQL 업무공간(테넌트/샘플)을 준비합니다. 승인형 SaaS 의 계정 활성화 링크와는 별개입니다."
                                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
                                 style={{ borderColor: "var(--hw-gold)", color: "var(--hw-gold-text)", background: "var(--hw-gold-light)" }}
                               >
                                 {isLoading
-                                  ? <><Loader2 size={10} className="animate-spin" /> 활성화 중</>
-                                  : <><FolderOpen size={10} /> 활성화</>}
+                                  ? <><Loader2 size={10} className="animate-spin" /> 준비 중</>
+                                  : <><FolderOpen size={10} /> PG 업무공간 준비</>}
                               </button>
                             );
                           }

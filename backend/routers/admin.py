@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from backend.auth import (
-    get_current_user, require_admin, is_master_login, MASTER_ADMIN_LOGIN_ID,
+    get_current_user, require_admin, require_admin_or_system, is_master_login, MASTER_ADMIN_LOGIN_ID,
 )
 from backend.models import AccountUpdate, AccountCreate, AccountRoleUpdate
 
@@ -121,7 +121,7 @@ class WorkspaceCreateRequest(BaseModel):
 
 
 @router.get("/accounts")
-def list_accounts(user: dict = Depends(require_admin)):
+def list_accounts(user: dict = Depends(require_admin_or_system)):
     # PG-only(Phase B): 계정 목록은 항상 PostgreSQL.
     from backend.db.feature_flags import local_drive_mock_enabled
     if True:
@@ -263,7 +263,7 @@ def list_accounts(user: dict = Depends(require_admin)):
 def update_account(
     login_id: str,
     update: AccountUpdate,
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_admin_or_system),
 ):
     # PG-only(Phase B): 계정 수정은 항상 PostgreSQL.
     if True:
@@ -288,6 +288,26 @@ def update_account(
                 raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
             will_deactivate = deactivating and u.is_active
             target_tenant_id = u.tenant_id
+            # 승인형 SaaS ON: 비활성→활성 전환은 좌석을 1개 소비한다. 같은 트랜잭션에서
+            # tenant 를 잠그고(FOR UPDATE) 한도를 초과하면 활성화를 거부(409, 롤백).
+            will_activate = (update.is_active is True) and (not u.is_active)
+            if will_activate:
+                try:
+                    from backend.db.feature_flags import approved_saas_enabled
+                    saas_on = approved_saas_enabled()
+                except Exception:
+                    saas_on = False
+                if saas_on:
+                    from backend.services.account_lifecycle_pg_service import (
+                        assert_seat_within_limit, LifecycleError,
+                    )
+                    eff_tenant = (update.tenant_id or u.tenant_id)
+                    try:
+                        assert_seat_within_limit(session, eff_tenant, activating_login_id=login_id)
+                    except LifecycleError as e:
+                        if getattr(e, "code", "") == "SEAT_LIMIT":
+                            raise HTTPException(status_code=409, detail=e.message)
+                        raise
             if update.is_active is not None:
                 u.is_active = bool(update.is_active)
             if update.is_admin is not None:
@@ -342,7 +362,7 @@ def _agent_rrn_status(t) -> dict:
 
 
 @router.get("/accounts/{login_id}/agent-rrn")
-def get_agent_rrn_status(login_id: str, user: dict = Depends(require_admin)):
+def get_agent_rrn_status(login_id: str, user: dict = Depends(require_admin_or_system)):
     """행정사 주민번호 등록 상태만 반환(원문/암호문 미노출)."""
     from sqlalchemy import select
     from backend.db.models.tenant import Tenant
@@ -358,7 +378,7 @@ def get_agent_rrn_status(login_id: str, user: dict = Depends(require_admin)):
 
 
 @router.put("/accounts/{login_id}/agent-rrn")
-def set_agent_rrn(login_id: str, body: AgentRrnUpdate, user: dict = Depends(require_admin)):
+def set_agent_rrn(login_id: str, body: AgentRrnUpdate, user: dict = Depends(require_admin_or_system)):
     """행정사 주민번호를 **암호화**해 저장하거나(빈 값이면) 삭제. 원문은 응답에 미포함.
     key 미설정 시 503, 형식 오류 시 400(메시지에 평문 없음)."""
     from sqlalchemy import select
@@ -502,7 +522,7 @@ def _bust_tenant_cache() -> None:
 @router.delete("/accounts/{login_id}")
 def delete_account(
     login_id: str,
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_admin_or_system),
 ):
     """계정 비활성화 (소프트 삭제). is_active=FALSE → 다음 요청부터 즉시 차단 + 세션 revoke."""
     login_id = login_id.strip()
@@ -537,7 +557,7 @@ def delete_account(
 
 
 @router.post("/accounts/{login_id}/restore")
-def restore_account(login_id: str, user: dict = Depends(require_admin)):
+def restore_account(login_id: str, user: dict = Depends(require_admin_or_system)):
     """비활성 계정 복구 (is_active=TRUE). 워크스페이스/시트키는 변경하지 않음."""
     login_id = login_id.strip()
     from sqlalchemy import select
@@ -558,7 +578,7 @@ def restore_account(login_id: str, user: dict = Depends(require_admin)):
 
 
 @router.put("/accounts/{login_id}/role")
-def set_account_role(login_id: str, body: AccountRoleUpdate, user: dict = Depends(require_admin)):
+def set_account_role(login_id: str, body: AccountRoleUpdate, user: dict = Depends(require_admin_or_system)):
     """준 관리자 권한 부여/회수 — role 을 'sub_admin' 또는 'user' 로 설정한다(admin 전용).
 
     - full admin 승격/강등은 기존 is_admin 토글(PUT /accounts/{id})로 한다 → 여기선 불가.
@@ -607,7 +627,7 @@ def _assert_delete_scope(actor: dict, target_tenant_id: str) -> None:
 
 
 @router.get("/accounts/{login_id}/hard-delete-preview")
-def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
+def hard_delete_preview(login_id: str, user: dict = Depends(require_admin_or_system)):
     """완전삭제 전 영향 미리보기 — 계정과 실제로 연관된 데이터만 표시. 실제 삭제는 하지 않는다.
 
     tenant 공용 업무 데이터(cert_*/customers/work_reference_*)는 계정 삭제와 무관하게
@@ -650,7 +670,7 @@ def hard_delete_preview(login_id: str, user: dict = Depends(require_admin)):
 def hard_delete_account(
     login_id: str,
     confirm_login_id: str = Query("", description="삭제 확인용 — 대상 login_id 와 동일해야 함"),
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_admin_or_system),
 ):
     """사용자 계정 **완전 삭제**(물리 삭제). 강한 안전검사 통과 시에만 수행.
 
@@ -737,7 +757,7 @@ def hard_delete_account(
 @router.post("/accounts")
 def create_account(
     body: AccountCreate,
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_admin_or_system),
 ):
     """신규 테넌트 계정 생성 (관리자 전용)"""
     from backend.services.accounts_service import (
@@ -757,6 +777,31 @@ def create_account(
     provided_customer = bool((body.customer_sheet_key or "").strip())
     provided_work = bool((body.work_sheet_key or "").strip())
     immediate_active = provided_folder and provided_customer and provided_work
+
+    # 승인형 SaaS ON + 즉시 활성 생성은 좌석을 1개 소비한다. 새 계정을 만들기 전에
+    # tenant 좌석 한도를 초과하지 않는지 검증(초과 시 409 — 레거시 3번째 계정 우회 차단).
+    if immediate_active:
+        try:
+            from backend.db.feature_flags import approved_saas_enabled
+            saas_on = approved_saas_enabled()
+        except Exception:
+            saas_on = False
+        if saas_on:
+            from backend.db.session import get_sessionmaker, is_configured
+            if is_configured():
+                from backend.services.account_lifecycle_pg_service import (
+                    assert_seat_within_limit, LifecycleError,
+                )
+                tid = (body.tenant_id or "").strip() or body.login_id.strip()
+                SessionLocal = get_sessionmaker()
+                try:
+                    with SessionLocal() as session:
+                        assert_seat_within_limit(session, tid,
+                                                 activating_login_id=body.login_id.strip())
+                except LifecycleError as e:
+                    if getattr(e, "code", "") == "SEAT_LIMIT":
+                        raise HTTPException(status_code=409, detail=e.message)
+                    raise
 
     account = build_account_dict(
         login_id=body.login_id,
@@ -808,7 +853,7 @@ def create_account(
 
 
 @router.post("/seed-samples/{login_id}")
-def seed_samples(login_id: str, user: dict = Depends(require_admin)):
+def seed_samples(login_id: str, user: dict = Depends(require_admin_or_system)):
     """선택한 테넌트에 온보딩 예시 데이터를 시드 (대상 영역이 비어 있을 때만).
 
     future-safe admin helper — "샘플 데이터 추가" 버튼용. 기존 데이터가 있으면
@@ -827,8 +872,24 @@ def seed_samples(login_id: str, user: dict = Depends(require_admin)):
 @router.post("/workspace")
 def create_workspace(
     body: WorkspaceCreateRequest,
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_admin_or_system),
 ):
+    # 승인형 SaaS ON 상태에서는 레거시 워크스페이스 활성화 경로를 차단한다(409).
+    # 이 경로가 invited/suspended/replaced 계정을 is_active=True 로 되돌려 SaaS lifecycle·
+    # activation·seat_limit 정책을 우회하는 것을 막는다. 계정 활성화는 activation 링크 완료로만,
+    # 복구는 lifecycle restore(seat_limit 검증 포함)로만 수행한다.
+    try:
+        from backend.db.feature_flags import approved_saas_enabled
+        if approved_saas_enabled():
+            raise HTTPException(
+                status_code=409,
+                detail="승인형 SaaS 활성 상태에서는 이 경로를 사용할 수 없습니다. "
+                       "계정 활성화는 활성화 링크로, 계정 복구는 계정관리(lifecycle) 화면을 이용하세요.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
     """
     테넌트 워크스페이스 생성/재생성 (멱등성 보장).
 

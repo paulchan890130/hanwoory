@@ -144,6 +144,18 @@ def complete_activation(raw: str, new_password: str) -> dict:
         if u is None:
             raise ActivationError("NO_USER", "계정을 찾을 수 없습니다.")
 
+        # 좌석 한도 원자 검증 — 활성화는 좌석을 1개 소비한다. tenant 를 잠가(FOR UPDATE)
+        # 동시 활성화/복구/교체를 직렬화하고, 초과 시 **토큰을 소비하지 않고** 롤백한다.
+        try:
+            from backend.services.account_lifecycle_pg_service import (
+                assert_seat_within_limit, LifecycleError,
+            )
+            assert_seat_within_limit(session, row.tenant_id, activating_login_id=u.login_id)
+        except LifecycleError as e:
+            if getattr(e, "code", "") == "SEAT_LIMIT":
+                raise ActivationError("SEAT_LIMIT", e.message)
+            raise
+
         now = _now()
         u.password_hash = hash_password(new_password)
         u.is_active = True

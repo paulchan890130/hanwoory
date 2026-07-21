@@ -373,6 +373,14 @@ def approve(application_id: str, reviewer: str,
         if u1["email"] == u2["email"]:
             raise ApplicationError("DUPLICATE_USER_EMAIL", "두 계정의 이메일이 동일합니다.")
 
+        # 좌석 한도 원자 검증 — 승인은 초대 계정 2개를 만든다. seat_limit 이 이보다 작으면
+        # 활성화 시점에 2번째 계정이 반드시 막히므로(모순 상태) 승인 자체를 거부한다.
+        effective_seat = int(seat_limit or SEAT_LIMIT_DEFAULT)
+        if 2 > effective_seat:
+            raise ApplicationError(
+                "SEAT_LIMIT",
+                f"좌석 한도({effective_seat})가 발급 계정 수(2)보다 적습니다. 좌석 한도를 2 이상으로 설정하세요.")
+
         # 전역 login_id(=email) 중복 방지.
         for u in (u1, u2):
             if session.scalar(select(AccountUser.id).where(AccountUser.login_id == u["email"])) is not None:

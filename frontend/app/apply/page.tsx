@@ -1,7 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { officeApplicationApi } from "@/lib/api";
+
+// 가용성 4-state: 확인 중 / 신청 가능 / 신청 마감(비활성) / 확인 실패.
+// disabled·error 상태에서는 신청 폼을 렌더링하지 않고 POST 도 하지 않는다(fail-closed).
+type Availability = "loading" | "enabled" | "disabled" | "error";
 
 // 공개 사무소 이용신청 — 계정을 만들지 않는다. 신청서만 접수하고 접수번호를 안내한다.
 // 승인/로그인 링크 없음. 개인정보는 POST body 로만 전송(URL query 노출 금지).
@@ -34,6 +38,15 @@ export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<Availability>("loading");
+
+  useEffect(() => {
+    let alive = true;
+    officeApplicationApi.availability()
+      .then((r) => { if (alive) setAvailability(r.data?.enabled ? "enabled" : "disabled"); })
+      .catch(() => { if (alive) setAvailability("error"); });
+    return () => { alive = false; };
+  }, []);
 
   const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -43,6 +56,7 @@ export default function ApplyPage() {
 
   const submit = async () => {
     setError("");
+    if (availability !== "enabled") { setError("현재 신청을 받을 수 없습니다."); return; }
     if (missing.length) { setError(`필수 항목을 입력해 주세요: ${missing.join(", ")}`); return; }
     if (!agreePrivacy || !agreeTerms) { setError("개인정보 및 이용약관에 동의해 주세요."); return; }
     setSubmitting(true);
@@ -79,6 +93,34 @@ export default function ApplyPage() {
             <Link href="/login" className="btn-secondary" style={{ textDecoration: "none" }}>
               로그인 화면으로
             </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 확인 중 / 마감 / 확인 실패 — 폼을 렌더링하지 않는다(fail-closed).
+  if (availability !== "enabled") {
+    const panel =
+      availability === "loading"
+        ? { icon: "⏳", title: "신청 가능 여부 확인 중…", body: "잠시만 기다려 주세요." }
+        : availability === "disabled"
+        ? { icon: "🚫", title: "현재 신규 신청을 받지 않습니다",
+            body: "사무소 이용 신청이 일시적으로 마감되었습니다. 자세한 사항은 한우리 행정사에 문의해 주세요." }
+        : { icon: "⚠️", title: "신청 가능 여부를 확인할 수 없습니다",
+            body: "네트워크 상태를 확인한 뒤 잠시 후 다시 시도해 주세요." };
+    return (
+      <div style={{ maxWidth: 560, margin: "48px auto", padding: "0 16px" }}>
+        <div className="hw-card" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>{panel.icon}</div>
+          <h1 className="hw-page-title" style={{ marginBottom: 12 }}>{panel.title}</h1>
+          <p style={{ fontSize: 14, color: "var(--hw-text-sub)", lineHeight: 1.7 }}>{panel.body}</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20 }}>
+            {availability === "error" && (
+              <button className="btn-secondary" onClick={() => window.location.reload()}>다시 시도</button>
+            )}
+            <Link href="/" className="btn-secondary" style={{ textDecoration: "none" }}>홈으로</Link>
+            <Link href="/login" className="btn-secondary" style={{ textDecoration: "none" }}>로그인</Link>
           </div>
         </div>
       </div>

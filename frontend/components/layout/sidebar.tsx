@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getUser, isFullAdmin, canManageContent } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { getUser, isFullAdmin, isSystemAdmin, canManageContent } from "@/lib/auth";
+import { officeApplicationApi } from "@/lib/api";
 import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, Search, FileEdit,
@@ -49,6 +51,20 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const user = getUser();
+
+  // 승인형 SaaS 활성 여부(공개 availability). OFF 회귀 방지를 위해 메뉴 노출 기준에 사용:
+  //  - 관리자(시스템 전체): 시스템 관리자 || (SaaS OFF 인 레거시에서 full admin)
+  //  - 우리 사무소 계정: SaaS ON + full admin (office 서브계정 관리 — SaaS 전용 화면)
+  const [saasEnabled, setSaasEnabled] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    officeApplicationApi.availability()
+      .then((r) => { if (alive) setSaasEnabled(!!r.data?.enabled); })
+      .catch(() => { if (alive) setSaasEnabled(false); });
+    return () => { alive = false; };
+  }, []);
+  const showAdminMenu = isSystemAdmin(user) || (!saasEnabled && isFullAdmin(user));
+  const showOfficeAccountsMenu = saasEnabled && isFullAdmin(user);
 
   const isActive = (href: string) => pathname.startsWith(href) && href !== "/";
 
@@ -192,8 +208,9 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
             {showExpanded && <span className="truncate">{MY_ITEM.label}</span>}
           </Link>
 
-          {/* 우리 사무소 계정 — 사무소 주계정(office_admin/master). office_staff 는 미표시(서버도 차단). */}
-          {isFullAdmin(user) && (
+          {/* 우리 사무소 계정 — 승인형 SaaS 의 사무소 주계정(office_admin/master) 전용.
+              office_staff 는 미표시(서버도 차단). SaaS OFF 에서는 이 화면이 동작하지 않아 숨긴다. */}
+          {showOfficeAccountsMenu && (
             <Link
               href={OFFICE_ACCOUNTS_ITEM.href}
               title={!showExpanded ? OFFICE_ACCOUNTS_ITEM.label : undefined}
@@ -218,7 +235,9 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               {showExpanded && <span className="truncate">{MARKETING_ITEM.label}</span>}
             </Link>
           )}
-          {isFullAdmin(user) && (
+          {/* 관리자(시스템 전체 관리) — 시스템 운영 관리자 전용(SaaS ON). SaaS OFF 레거시에서는
+              기존처럼 full admin 에게 노출(회귀 방지). office_admin 은 SaaS ON 에서 미표시(서버도 차단). */}
+          {showAdminMenu && (
             <Link
               href={ADMIN_ITEM.href}
               title={!showExpanded ? ADMIN_ITEM.label : undefined}

@@ -28,6 +28,42 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def assert_seat_within_limit(session, tenant_id: Optional[str],
+                             activating_login_id: Optional[str] = None) -> None:
+    """좌석 한도 원자 검증 — **열려 있는 트랜잭션 내부에서만** 호출한다.
+
+    tenant 행을 ``FOR UPDATE`` 로 잠가 같은 tenant 의 동시 좌석 조작(activation/restore/
+    replace/legacy create)을 직렬화한 뒤, ``activating_login_id`` 를 활성으로 전환했을 때의
+    active 사용자 수가 ``seat_limit`` 을 넘으면 ``SEAT_LIMIT`` 로 거부(호출측 롤백)한다.
+
+    - ``activating_login_id`` 가 이미 active 면 추가 좌석을 세지 않는다(멱등 — 재실행 안전).
+    - ``activating_login_id`` 가 None 이면 현재 active 수만 한도와 비교(교체 후 검증 등).
+    - tenant 행이 없으면(레거시/미프로비저닝) 검증을 건너뛴다.
+    """
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+
+    if not tenant_id:
+        return
+    t = session.scalar(
+        select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update())
+    if t is None:
+        return
+    seat_limit = int(getattr(t, "seat_limit", 2) or 2)
+    active_cnt = session.scalar(select(func.count()).select_from(AccountUser).where(
+        AccountUser.tenant_id == tenant_id, AccountUser.is_active.is_(True))) or 0
+    projected = int(active_cnt)
+    if activating_login_id:
+        already = session.scalar(select(AccountUser.is_active).where(
+            AccountUser.login_id == activating_login_id))
+        if not already:
+            projected += 1
+    if projected > seat_limit:
+        raise LifecycleError(
+            "SEAT_LIMIT",
+            f"좌석 한도({seat_limit})를 초과합니다. 좌석을 늘리거나 기존 계정을 정지/교체하세요.")
+
+
 def _revoke_sessions(login_id: str, reason: str) -> None:
     try:
         from backend.services.session_pg_service import revoke_active_sessions
@@ -80,6 +116,8 @@ def restore_user(login_id: str, actor: str) -> dict:
         if u.account_status == "replaced":
             raise LifecycleError("REPLACED", "교체된 계정은 복구할 수 없습니다.")
         tenant_id = u.tenant_id
+        # 복구는 좌석을 1개 소비 → 트랜잭션 내 원자 검증(초과 시 롤백).
+        assert_seat_within_limit(session, tenant_id, activating_login_id=login_id)
         u.is_active = True
         u.account_status = "active"
         session.commit()
@@ -136,7 +174,6 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
     """
     import re
     from backend.auth import is_master_login
-    from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
     from backend.services.accounts_service import hash_password
@@ -163,9 +200,6 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
         if session.scalar(select(AccountUser.id).where(AccountUser.login_id == new_email)) is not None:
             raise LifecycleError("EMAIL_IN_USE", "이미 사용 중인 이메일입니다.")
 
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-        seat_limit = int(getattr(t, "seat_limit", 2) or 2) if t is not None else 2
-
         # 기존 역할을 기본 제안값으로 사용(관리자 override 가능).
         default_role = new_role or ("office_admin" if old.is_admin else "office_staff")
         is_admin = (default_role == "office_admin")
@@ -191,11 +225,9 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
         session.flush()
         old.replaced_by_user_id = new_row.id
 
-        # active seat 검증 — 교체 후 tenant 의 active 사용자 수가 seat_limit 을 넘지 않아야 한다.
-        active_cnt = session.scalar(select(func.count()).select_from(AccountUser).where(
-            AccountUser.tenant_id == tenant_id, AccountUser.is_active.is_(True)))
-        if active_cnt is not None and active_cnt > seat_limit:
-            raise LifecycleError("SEAT_LIMIT", "좌석 수를 초과합니다.")  # 롤백
+        # active seat 원자 검증 — 신규 계정은 invited(비활성)이라 좌석을 소비하지 않지만,
+        # tenant 를 잠가 동시 좌석 조작을 직렬화하고 현재 active 수가 한도 내인지 확인한다.
+        assert_seat_within_limit(session, tenant_id, activating_login_id=None)
 
         raw = _act.issue_activation_token(session, new_email, tenant_id)
         session.commit()
@@ -254,8 +286,11 @@ def tenant_account_summary(tenant_id: str) -> Optional[dict]:
 
 
 # ── office_admin 스코프 검증 — 대상이 같은 tenant 의 서브계정(office_staff)인지 확인 ──
-def _assert_manageable_sub(tenant_id: str, actor_login: str, target_login: str) -> None:
-    """office_admin 이 관리 가능한 대상만 통과. 아니면 LifecycleError.
+def _assert_manageable_sub_locked(session, tenant_id: str, actor_login: str,
+                                  target_login: str):
+    """**열린 session 내부**에서 대상 서브계정을 ``FOR UPDATE`` 로 잠그고 스코프를 검증한 뒤
+    그 행을 반환한다. 검증과 후속 조작을 **하나의 트랜잭션**으로 묶어 TOCTOU 를 제거한다.
+
     - 대상이 같은 tenant 소속이어야 함(크로스테넌트 차단)
     - 대상이 자기 자신이면 불가(주계정 자기 정지/교체 금지)
     - 대상이 office_staff(is_admin=false) 여야 함(다른 관리자/주계정 관리 불가)
@@ -263,35 +298,141 @@ def _assert_manageable_sub(tenant_id: str, actor_login: str, target_login: str) 
     """
     from backend.auth import is_master_login
     from backend.db.models.user import AccountUser
-    from backend.db.session import get_sessionmaker
 
     if target_login == actor_login:
         raise LifecycleError("SELF_FORBIDDEN", "본인 계정은 이 화면에서 관리할 수 없습니다.")
     if is_master_login(target_login):
         raise LifecycleError("MASTER_PROTECTED", "관리할 수 없는 계정입니다.")
-    SessionLocal = get_sessionmaker()
-    with SessionLocal() as session:
-        u = session.scalar(select(AccountUser).where(AccountUser.login_id == target_login))
-        if u is None:
-            raise LifecycleError("NOT_FOUND", "계정을 찾을 수 없습니다.")
-        if (u.tenant_id or "") != (tenant_id or ""):
-            raise LifecycleError("CROSS_TENANT", "다른 사무소의 계정은 관리할 수 없습니다.")
-        if bool(u.is_admin):
-            raise LifecycleError("NOT_SUB_ACCOUNT", "서브계정(직원)만 관리할 수 있습니다.")
+    u = session.scalar(
+        select(AccountUser).where(AccountUser.login_id == target_login).with_for_update())
+    if u is None:
+        raise LifecycleError("NOT_FOUND", "계정을 찾을 수 없습니다.")
+    if (u.tenant_id or "") != (tenant_id or ""):
+        raise LifecycleError("CROSS_TENANT", "다른 사무소의 계정은 관리할 수 없습니다.")
+    if bool(u.is_admin):
+        raise LifecycleError("NOT_SUB_ACCOUNT", "서브계정(직원)만 관리할 수 있습니다.")
+    return u
 
 
 def office_suspend_sub(tenant_id: str, actor_login: str, target_login: str) -> dict:
-    _assert_manageable_sub(tenant_id, actor_login, target_login)
-    return suspend_user(target_login, actor_login)
+    """스코프 검증 + 정지를 **단일 트랜잭션**으로 수행."""
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
+        u.is_active = False
+        u.account_status = "suspended"
+        session.commit()
+    _revoke_sessions(target_login, reason="account_suspended")
+    _audit("user_suspended", actor_login, target_login, tenant_id)
+    return {"login_id": target_login, "account_status": "suspended"}
 
 
 def office_restore_sub(tenant_id: str, actor_login: str, target_login: str) -> dict:
-    _assert_manageable_sub(tenant_id, actor_login, target_login)
-    return restore_user(target_login, actor_login)
+    """스코프 검증 + 좌석 원자 검증 + 복구를 **단일 트랜잭션**으로 수행."""
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
+        if u.account_status == "replaced":
+            raise LifecycleError("REPLACED", "교체된 계정은 복구할 수 없습니다.")
+        assert_seat_within_limit(session, tenant_id, activating_login_id=target_login)
+        u.is_active = True
+        u.account_status = "active"
+        session.commit()
+    _audit("user_restored", actor_login, target_login, tenant_id)
+    return {"login_id": target_login, "account_status": "active"}
+
+
+def office_reissue_sub(tenant_id: str, actor_login: str, target_login: str) -> dict:
+    """스코프 검증 + 활성화 토큰 재발급을 **단일 트랜잭션**으로 수행.
+
+    라우터가 private ``_assert_manageable_sub`` 를 직접 호출하던 우회를 제거한다.
+    """
+    from datetime import timedelta
+    from backend.db.models.activation_token import ActivationToken
+    from backend.db.session import get_sessionmaker
+    from backend.services import activation_pg_service as _act
+    from sqlalchemy import update
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
+        if bool(u.is_active):
+            raise LifecycleError("ALREADY_ACTIVE", "이미 활성화된 계정입니다.")
+        # 기존 미사용 토큰 폐기 후 새 토큰 발급 — 같은 트랜잭션.
+        session.execute(
+            update(ActivationToken)
+            .where(ActivationToken.login_id == target_login,
+                   ActivationToken.used_at.is_(None))
+            .values(used_at=_now())
+        )
+        raw = _act.issue_activation_token(session, target_login, u.tenant_id)
+        session.commit()
+    _audit("activation_reissued", actor_login, target_login, tenant_id)
+    return {"login_id": target_login, "activation_token": raw}
 
 
 def office_replace_sub(tenant_id: str, actor_login: str, old_login: str,
                        new_name: str, new_email: str) -> dict:
-    _assert_manageable_sub(tenant_id, actor_login, old_login)
-    # 서브계정 교체는 항상 office_staff 역할 유지(주계정 승격 금지).
-    return replace_user(old_login, new_name, new_email, actor_login, new_role="office_staff")
+    """스코프 검증 + 교체를 **단일 트랜잭션**으로 수행(서브계정 역할 유지 — 주계정 승격 금지)."""
+    import re
+    import secrets
+    from backend.db.models.activation_token import ActivationToken  # noqa: F401 (issue_token 내부 사용)
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    from backend.services.accounts_service import hash_password
+    from backend.services import activation_pg_service as _act
+
+    new_email = (new_email or "").strip().lower()
+    new_name = (new_name or "").strip()
+    if not new_name or not new_email:
+        raise LifecycleError("MISSING_USER", "신규 사용자 이름과 이메일이 필요합니다.")
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", new_email):
+        raise LifecycleError("BAD_EMAIL", "이메일 형식이 올바르지 않습니다.")
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        old = _assert_manageable_sub_locked(session, tenant_id, actor_login, old_login)
+        if old.account_status == "replaced":
+            raise LifecycleError("ALREADY_REPLACED", "이미 교체된 계정입니다.")
+        if session.scalar(select(AccountUser.id).where(AccountUser.login_id == new_email)) is not None:
+            raise LifecycleError("EMAIL_IN_USE", "이미 사용 중인 이메일입니다.")
+
+        now = _now()
+        old.is_active = False
+        old.account_status = "replaced"
+
+        new_row = AccountUser(
+            login_id=new_email,
+            tenant_id=tenant_id,
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            contact_name=new_name,
+            is_admin=False,           # 서브계정 교체는 항상 office_staff 유지
+            is_active=False,
+        )
+        new_row.role = "user"
+        new_row.account_status = "invited"
+        new_row.invited_at = now
+        new_row.replaces_user_id = old.id
+        session.add(new_row)
+        session.flush()
+        old.replaced_by_user_id = new_row.id
+
+        assert_seat_within_limit(session, tenant_id, activating_login_id=None)
+        raw = _act.issue_activation_token(session, new_email, tenant_id)
+        session.commit()
+
+    _revoke_sessions(old_login, reason="account_replaced")
+    _audit("user_replaced", actor_login, old_login, tenant_id,
+           {"new_login_id": new_email, "role": "office_staff"})
+    _audit("user_invited", actor_login, new_email, tenant_id,
+           {"role": "office_staff", "replaces": old_login})
+    return {
+        "old_login_id": old_login,
+        "new_login_id": new_email,
+        "role": "office_staff",
+        "activation_token": raw,
+    }

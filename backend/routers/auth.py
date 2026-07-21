@@ -6,7 +6,10 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 from backend.models import LoginRequest, SignupRequest, TokenResponse
-from backend.auth import create_access_token, get_current_user, is_master_login
+from backend.auth import (
+    create_access_token, get_current_user, is_master_login,
+    is_system_admin as _is_system_admin,
+)
 
 # ── 공용 helper (모든 Accounts 읽기·쓰기는 accounts_service 경유) ─────────────
 from backend.services.accounts_service import (
@@ -161,6 +164,7 @@ def login(req: LoginRequest, request: Request = None):
         is_admin=is_admin,
         role=role,
         is_master=is_master,
+        is_system_admin=_is_system_admin(req.login_id),
         office_name=office_name,
         contact_name=contact_name,
     )

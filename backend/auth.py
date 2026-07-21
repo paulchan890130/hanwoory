@@ -167,6 +167,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         "role":         role,
         "is_master":    is_master,
         "is_sub_admin": is_sub_admin,
+        # 시스템 운영 관리자 여부(마스터 + SYSTEM_ADMIN_LOGIN_IDS). office_admin(is_admin)과 구분.
+        "is_system_admin": is_system_admin(login_id),
         "office_name":  office_name,
         "contact_name": contact_name,
         "session_id":   payload.get("sid", ""),
@@ -213,4 +215,28 @@ def require_office_admin(current_user: dict = Depends(get_current_user)) -> dict
     """
     if not (current_user.get("is_admin") or current_user.get("is_master")):
         raise HTTPException(status_code=403, detail="사무소 관리자 권한이 필요합니다.")
+    return current_user
+
+
+def require_admin_or_system(current_user: dict = Depends(get_current_user)) -> dict:
+    """레거시 시스템 전체(A급) 관리 API 게이트 — flag 상태에 따라 권한을 전환한다.
+
+    - FEATURE_APPROVED_SAAS ON: **시스템 운영 관리자(require_system_admin)만** 허용.
+      office_admin(tenant 내 is_admin)은 403 → 전체 계정목록/계정생성/tenant_id변경/승격/워크스페이스 등
+      크로스테넌트 시스템 기능을 우회할 수 없다.
+    - FEATURE_APPROVED_SAAS OFF(현행 운영): 기존 require_admin(full admin/master) 동작 그대로 유지 → 회귀 없음.
+    프론트 숨김이 아니라 서버에서 강제한다.
+    """
+    try:
+        from backend.db.feature_flags import approved_saas_enabled
+        saas_on = approved_saas_enabled()
+    except Exception:
+        saas_on = False
+    if saas_on:
+        if not is_system_admin(current_user.get("login_id", "")):
+            raise HTTPException(status_code=403, detail="시스템 관리자 권한이 필요합니다.")
+        return current_user
+    # 레거시: 기존 full admin/master
+    if not (current_user.get("is_admin") or current_user.get("is_master")):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
     return current_user

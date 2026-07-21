@@ -100,14 +100,15 @@ def test_tenant_summary_missing():
     assert svc.tenant_account_summary("") is None
 
 
-# ── office_admin 스코프 가드 ──────────────────────────────────────────────────
+# ── office_admin 스코프 가드 (열린 session 내부 검증) ────────────────────────
 def test_office_scope_blocks_cross_tenant(db):
     from backend.services import account_lifecycle_pg_service as svc
     _seed_tenant(db, "of-1")
     _seed_tenant(db, "of-2")
     # of-1 admin 이 of-2 staff 관리 시도 → CROSS_TENANT
-    with pytest.raises(svc.LifecycleError) as ei:
-        svc._assert_manageable_sub("of-1", "admin@of1.kr", "staff@of2.kr")
+    with db() as s:
+        with pytest.raises(svc.LifecycleError) as ei:
+            svc._assert_manageable_sub_locked(s, "of-1", "admin@of1.kr", "staff@of2.kr")
     assert ei.value.code == "CROSS_TENANT"
 
 
@@ -115,15 +116,17 @@ def test_office_scope_blocks_admin_target(db):
     from backend.services import account_lifecycle_pg_service as svc
     _seed_tenant(db)
     # 주계정(office_admin)은 서브계정 관리 대상 아님
-    with pytest.raises(svc.LifecycleError) as ei:
-        svc._assert_manageable_sub("of-1", "admin@of1.kr", "admin@of1.kr")
+    with db() as s:
+        with pytest.raises(svc.LifecycleError) as ei:
+            svc._assert_manageable_sub_locked(s, "of-1", "admin@of1.kr", "admin@of1.kr")
     assert ei.value.code in ("SELF_FORBIDDEN", "NOT_SUB_ACCOUNT")
 
 
 def test_office_scope_allows_own_staff(db):
     from backend.services import account_lifecycle_pg_service as svc
     _seed_tenant(db)
-    svc._assert_manageable_sub("of-1", "admin@of1.kr", "staff@of1.kr")  # no raise
+    with db() as s:
+        svc._assert_manageable_sub_locked(s, "of-1", "admin@of1.kr", "staff@of1.kr")  # no raise
 
 
 def test_office_suspend_restore_sub(db):

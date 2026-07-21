@@ -5,6 +5,7 @@ import "./homepage.css";
 import { PublicMobileNav } from "@/components/PublicMobileNav";
 import { DirectionsSection } from "@/components/public/DirectionsSection";
 import SelfCheckLauncher from "@/components/selfcheck/SelfCheckLauncher";
+import { officeApplicationApi } from "@/lib/api";
 
 export interface Post {
   id: string;
@@ -39,6 +40,15 @@ export default function HomePage({ initialPosts = [] }: { initialPosts?: Post[] 
   // 게시글은 서버(page.tsx)에서 /board 와 동일하게 SSR 로 받아 prop 으로 주입한다.
   // (과거 클라이언트 fetch 경로는 홈 preview 가 비는 원인이라 제거 — /board 와 동일 소스/동작.)
   const [posts] = useState<Post[]>(initialPosts);
+  // 승인형 SaaS 신청 가용 시에만 '사무소 이용신청' CTA 노출(가용성 게이트).
+  const [applyEnabled, setApplyEnabled] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    officeApplicationApi.availability()
+      .then((r) => { if (alive) setApplyEnabled(!!(r.data as { enabled?: boolean })?.enabled); })
+      .catch(() => { if (alive) setApplyEnabled(false); });
+    return () => { alive = false; };
+  }, []);
 
   // Nav scroll shadow
   useEffect(() => {
@@ -208,6 +218,11 @@ export default function HomePage({ initialPosts = [] }: { initialPosts?: Post[] 
             <a href="#faq">FAQ</a>
             <a href="#directions">오시는 길</a>
             <a href="#contact">상담 문의</a>
+            {applyEnabled && (
+              <Link href="/apply" className="nav-login" style={{ background: "transparent", border: "1px solid var(--gold-600)", color: "var(--gold-600)", marginRight: 8 }}>
+                사무소 이용신청
+              </Link>
+            )}
             <Link href="/login" className="nav-login">로그인 →</Link>
           </div>
           <button
@@ -229,6 +244,11 @@ export default function HomePage({ initialPosts = [] }: { initialPosts?: Post[] 
         <a href="#faq" onClick={closeMenu}>FAQ</a>
         <a href="#directions" onClick={closeMenu}>오시는 길</a>
         <a href="#contact" onClick={closeMenu}>상담 문의</a>
+        {applyEnabled && (
+          <Link href="/apply" style={{ color: "var(--gold-600)", fontWeight: 700 }} onClick={closeMenu}>
+            사무소 이용신청
+          </Link>
+        )}
         <Link href="/login" style={{ color: "var(--gold-600)" }} onClick={closeMenu}>
           로그인 →
         </Link>

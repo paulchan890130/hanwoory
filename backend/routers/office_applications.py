@@ -178,7 +178,8 @@ def complete_activation(body: ActivationComplete):
     try:
         result = act.complete_activation(body.token, body.new_password)
     except act.ActivationError as e:
-        code_map = {"EXPIRED": 410, "BAD_TOKEN": 400, "NO_USER": 404, "WEAK_PASSWORD": 400}
+        code_map = {"EXPIRED": 410, "BAD_TOKEN": 400, "NO_USER": 404,
+                    "WEAK_PASSWORD": 400, "SEAT_LIMIT": 409}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
     return {"ok": True, "login_id": result["login_id"]}
 
@@ -230,7 +231,8 @@ def admin_approve(application_id: str, body: ApproveRequest, user: dict = Depend
         )
     except svc.ApplicationError as e:
         code_map = {"NOT_FOUND": 404, "BAD_STATE": 409, "EMAIL_IN_USE": 409,
-                    "DUPLICATE_USER_EMAIL": 409, "MISSING_USER": 400, "BAD_EMAIL": 400}
+                    "DUPLICATE_USER_EMAIL": 409, "MISSING_USER": 400, "BAD_EMAIL": 400,
+                    "SEAT_LIMIT": 409}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
@@ -375,14 +377,10 @@ def my_office_restore(login_id: str, user: dict = Depends(require_office_admin))
 @router.post("/my/office/users/{login_id}/reissue-activation")
 def my_office_reissue(login_id: str, user: dict = Depends(require_office_admin)):
     _require_saas()
-    from backend.services import account_lifecycle_pg_service as life
-    from backend.services import activation_pg_service as act
+    from backend.services import account_lifecycle_pg_service as svc
     try:
-        life._assert_manageable_sub(user.get("tenant_id", ""), user.get("login_id", ""), login_id)
-        return act.reissue_activation_token(login_id, actor=user.get("login_id", ""))
-    except life.LifecycleError as e:
-        raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
-    except act.ActivationError as e:
+        return svc.office_reissue_sub(user.get("tenant_id", ""), user.get("login_id", ""), login_id)
+    except svc.LifecycleError as e:
         raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
 
 

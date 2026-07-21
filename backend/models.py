@@ -27,6 +27,7 @@ class TokenResponse(BaseModel):
     is_admin: bool
     role: str = "user"          # 'user' | 'sub_admin' | 'admin'
     is_master: bool = False     # 마스터 계정(wkdwhfl) 여부
+    is_system_admin: bool = False  # 시스템 운영 관리자(마스터 + SYSTEM_ADMIN_LOGIN_IDS) — 승인형 SaaS 시스템 API 게이트
     office_name: str
     contact_name: str = ""
 

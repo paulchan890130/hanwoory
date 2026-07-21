@@ -74,6 +74,7 @@ export interface UserInfo {
   is_admin: boolean;
   role?: string;          // 'user' | 'sub_admin' | 'admin'
   is_master?: boolean;    // 마스터 계정(wkdwhfl) 여부
+  is_system_admin?: boolean; // 시스템 운영 관리자(마스터 + SYSTEM_ADMIN_LOGIN_IDS) — 로그인/`/me` 응답에서 제공
   is_sub_admin?: boolean; // /me 응답에서 제공(준 관리자)
   office_name: string;
   access_token: string;

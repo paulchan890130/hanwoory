@@ -48,13 +48,24 @@ const labelStyle: React.CSSProperties = {
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"login" | "signup">("login");
-  // 승인형 SaaS 활성 시 직접 가입 대신 '사무소 이용신청'(/apply) 안내.
-  const [applyEnabled, setApplyEnabled] = useState(false);
+  // 가입 흐름 가용성 4-state (fail-closed):
+  //  loading  — 확인 중 (폼/CTA 둘 다 숨김)
+  //  enabled  — 승인형 SaaS ON → 직접 가입 대신 '사무소 이용신청'(/apply) CTA
+  //  disabled — SaaS OFF 확정 → 레거시 가입신청 폼 노출(기존 동작)
+  //  error    — 확인 실패(네트워크 등) → 레거시 폼을 **절대 노출하지 않고** 재시도 안내
+  const [applyState, setApplyState] = useState<"loading" | "enabled" | "disabled" | "error">("loading");
+  const loadAvailability = () => {
+    setApplyState("loading");
+    officeApplicationApi.availability()
+      .then((r) => setApplyState((r.data as { enabled?: boolean })?.enabled ? "enabled" : "disabled"))
+      .catch(() => setApplyState("error"));
+  };
   useEffect(() => {
     let cancelled = false;
+    setApplyState("loading");
     officeApplicationApi.availability()
-      .then((r) => { if (!cancelled) setApplyEnabled(!!(r.data as { enabled?: boolean })?.enabled); })
-      .catch(() => { if (!cancelled) setApplyEnabled(false); });
+      .then((r) => { if (!cancelled) setApplyState((r.data as { enabled?: boolean })?.enabled ? "enabled" : "disabled"); })
+      .catch(() => { if (!cancelled) setApplyState("error"); });
     return () => { cancelled = true; };
   }, []);
   const [loading, setLoading] = useState(false);
@@ -107,6 +118,11 @@ export default function LoginPage() {
   };
 
   const onSignup = async (data: SignupForm) => {
+    // fail-closed: SaaS OFF 가 확정된 경우에만 레거시 가입을 허용한다.
+    if (applyState !== "disabled") {
+      toast.error("현재 직접 가입을 사용할 수 없습니다.");
+      return;
+    }
     if (data.password !== data.confirm_password) {
       toast.error("비밀번호 확인이 일치하지 않습니다.");
       return;
@@ -371,9 +387,27 @@ export default function LoginPage() {
             </form>
           )}
 
-          {/* ── 가입신청 폼 ── */}
-          {/* 승인형 SaaS 활성 시: 직접 가입 폼 대신 '사무소 이용신청' 안내(중복 가입흐름 방지). */}
-          {tab === "signup" && applyEnabled && (
+          {/* ── 가입신청 (가용성 4-state, fail-closed) ── */}
+          {/* 확인 중 — 폼/CTA 둘 다 숨김 */}
+          {tab === "signup" && applyState === "loading" && (
+            <div style={{ padding: "28px 16px", textAlign: "center", color: "#718096", fontSize: 14 }}>
+              가입 방식을 확인하는 중입니다…
+            </div>
+          )}
+          {/* 확인 실패 — 레거시 폼을 노출하지 않고 재시도 안내(fail-closed) */}
+          {tab === "signup" && applyState === "error" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#9B2C2C", lineHeight: 1.7, background: "rgba(254,178,178,0.25)", border: "1px solid rgba(252,129,129,0.45)", borderRadius: 8, padding: "14px 16px" }}>
+                가입 가능 여부를 확인하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.
+              </div>
+              <button type="button" className="btn-secondary" onClick={loadAvailability}
+                style={{ justifyContent: "center", padding: "10px 0" }}>
+                다시 시도
+              </button>
+            </div>
+          )}
+          {/* 승인형 SaaS ON: 직접 가입 폼 대신 '사무소 이용신청' 안내(중복 가입흐름 방지). */}
+          {tab === "signup" && applyState === "enabled" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 13, color: "#4A5568", lineHeight: 1.7, background: "rgba(212,168,67,0.06)", borderRadius: 8, padding: "14px 16px" }}>
                 신청 후 관리자 심사를 거쳐 <strong>실명 계정 2개</strong>(주계정·직원)가 발급됩니다.
@@ -384,7 +418,7 @@ export default function LoginPage() {
               </Link>
             </div>
           )}
-          {tab === "signup" && !applyEnabled && (
+          {tab === "signup" && applyState === "disabled" && (
             <form
               onSubmit={signupForm.handleSubmit(onSignup)}
               style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "62vh", overflowY: "auto", paddingRight: 4 }}
