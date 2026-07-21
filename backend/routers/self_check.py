@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from backend.auth import require_system_admin
@@ -128,11 +128,15 @@ def _envelope(row: dict | None) -> dict:
     return {"published": published, "config": config}
 
 
-# ── 공개: 게시된 설정만 반환(사용자 답변 미수집) ──────────────────────────────
+# ── 공개: 게시된 유효 설정만 반환(사용자 답변 미수집) ─────────────────────────
+# no-store 로 응답 → 관리자가 비공개 전환 시 프록시/브라우저 캐시로 인해 늦게 반영되지 않음.
+# 미게시 또는 content 손상(config=None) → 안전하게 published=false/config=null 반환
+# (published=true + null config 로 노출하지 않는다). 잘못된 설정을 공개로 흘리지 않는다.
 @router.get("/config")
-def public_get_config():
+def public_get_config(response: Response):
+    response.headers["Cache-Control"] = "no-store"
     env = _envelope(_load_row())
-    if not env["published"]:
+    if not env["published"] or env["config"] is None:
         return {"published": False, "config": None}
     return env
 

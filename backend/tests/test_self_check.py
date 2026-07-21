@@ -146,6 +146,68 @@ def test_public_config_has_no_auth_dependency():
             assert require_system_admin not in deps
 
 
+# ── 공개 여부(envelope / public GET) ──────────────────────────────────────────
+def _valid_cfg_json():
+    import json
+    return json.dumps(_valid_cfg(), ensure_ascii=False)
+
+
+def test_envelope_no_row():
+    from backend.routers.self_check import _envelope
+    assert _envelope(None) == {"published": False, "config": None}
+
+
+def test_envelope_unpublished():
+    from backend.routers.self_check import _envelope
+    env = _envelope({"is_published": "FALSE", "content": _valid_cfg_json()})
+    assert env["published"] is False
+
+
+def test_envelope_published_valid():
+    from backend.routers.self_check import _envelope
+    env = _envelope({"is_published": "TRUE", "content": _valid_cfg_json()})
+    assert env["published"] is True and isinstance(env["config"], dict)
+
+
+def test_envelope_published_corrupt_json():
+    from backend.routers.self_check import _envelope
+    env = _envelope({"is_published": "TRUE", "content": "{ this is not json"})
+    assert env["published"] is True and env["config"] is None
+
+
+def test_public_get_config_hides_when_no_row(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    monkeypatch.setattr(sc, "_load_row", lambda: None)
+    out = sc.public_get_config(Response())
+    assert out == {"published": False, "config": None}
+
+
+def test_public_get_config_hides_unpublished(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "FALSE", "content": _valid_cfg_json()})
+    assert sc.public_get_config(Response()) == {"published": False, "config": None}
+
+
+def test_public_get_config_hides_published_corrupt(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": "{bad"})
+    # 게시됐지만 손상 → 공개로 흘리지 않음(안전 비공개 응답)
+    assert sc.public_get_config(Response()) == {"published": False, "config": None}
+
+
+def test_public_get_config_returns_published_valid(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _valid_cfg_json()})
+    r = Response()
+    out = sc.public_get_config(r)
+    assert out["published"] is True and isinstance(out["config"], dict)
+    assert r.headers.get("Cache-Control") == "no-store"  # 캐시 방지
+
+
 def test_router_has_no_answer_or_result_submission_endpoint():
     """개인정보: 답변/결과/경로를 받는 endpoint 가 존재하지 않아야 한다."""
     paths = {r.path for r in router.routes}
