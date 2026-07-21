@@ -20,3 +20,21 @@ secrets
 backups
 migration_input
 analysis
+
+# ── 슬림화(안전) — 런타임 미참조 파일만 이미지 컨텍스트에서 제외 (0031 승인형 SaaS 작업) ──
+# 주의: unlocked_*.pdf(뷰어 fallback)·data/*.json(런타임 로드)·templates(HWPX)·alembic·start.sh
+#       ·OCR 모델은 절대 제외하지 않는다.
+backend/data/backups
+backend/data/*.backup-*
+backend/data/*.rhwp_remap_backup_*
+docs
+*.log
+frontend/dev-trace.log
+frontend/tsconfig.tsbuildinfo
+.pytest_cache
+.mypy_cache
+*.bak
+homepage.txt
+# 개발용 참고 텍스트 사본(런타임 미사용 — page_scan 도너는 .py 로 유지)
+frontend/app/(main)/scan/page - 2.txt
+frontend/app/(main)/scan/page.txt
