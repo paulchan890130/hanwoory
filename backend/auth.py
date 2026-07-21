@@ -18,6 +18,27 @@ MASTER_ADMIN_LOGIN_ID = "wkdwhfl"
 def is_master_login(login_id: str) -> bool:
     return str(login_id or "").strip() == MASTER_ADMIN_LOGIN_ID
 
+
+def _system_admin_login_ids() -> set[str]:
+    """시스템 운영 관리자 login_id 허용목록(env ``SYSTEM_ADMIN_LOGIN_IDS``, 콤마구분).
+
+    승인형 SaaS 의 **시스템 관리 API**(가입승인/반려·테넌트 정지·계정 교체 등)는 사무소
+    관리자(office_admin, tenant 내 is_admin=true)와 반드시 구분해야 한다. is_admin 만으로는
+    office_admin 도 통과하므로(권한상승), 시스템 운영자는 마스터 또는 이 허용목록으로만 식별한다.
+    기본값은 비어 있음 → **마스터만** 시스템 관리자(deny-by-default, fail-closed).
+    매 호출 env 를 새로 읽는다(재시작만으로 반영, 캐시 없음).
+    """
+    raw = os.environ.get("SYSTEM_ADMIN_LOGIN_IDS", "")
+    return {x.strip() for x in raw.split(",") if x.strip()}
+
+
+def is_system_admin(login_id: str) -> bool:
+    """시스템 운영 관리자 여부 = 마스터 OR env 허용목록. office_admin(is_admin) 은 포함되지 않는다."""
+    lid = str(login_id or "").strip()
+    if not lid:
+        return False
+    return is_master_login(lid) or (lid in _system_admin_login_ids())
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
@@ -74,28 +95,31 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         # PG 조회 실패 시 인증을 막지 않는다(가용성 우선) — 기존 세션검사 정책과 동일.
         pass
 
-    # ── 테넌트 정지/종료 즉시 차단 (승인형 SaaS) ──────────────────────────────
-    # FEATURE_APPROVED_SAAS on 이고 tenant.service_status 가 suspended/terminated 면
-    # 해당 tenant 전체 사용자를 차단한다. 마스터는 예외(운영 복구용). 컬럼 미적용/조회
-    # 실패는 fail-open(기존 동작 유지). 이 검사는 flag off 면 전혀 동작하지 않는다.
+    # ── 테넌트 상태 검사 (승인형 SaaS) — flag ON 시 fail-closed ────────────────
+    # FEATURE_APPROVED_SAAS on 이면 tenant.service_status 가 'active'/'pending_activation'
+    # 인 요청만 허용하고, suspended/terminated/missing/null/no_column/error 는 모두 **차단**한다
+    # (보안경계에서 예외 삼킴 없이 fail-closed). 마스터는 예외(운영 복구용 escape hatch).
+    # flag OFF 면 이 검사는 전혀 동작하지 않아 기존 동작 100% 유지.
+    # (activation 완료 전 계정은 is_active=false 로 이미 차단되므로 pending_activation 허용은 무해.)
+    enforce_tenant = False
     if not is_master_login(login_id):
         try:
             from backend.db.feature_flags import approved_saas_enabled
             from backend.db.session import is_configured as _cfg
-            if approved_saas_enabled() and _cfg() and tenant_id:
-                from backend.services.auth_pg_service import tenant_service_status
-                tst = tenant_service_status(tenant_id)
-                if tst in ("suspended", "terminated"):
-                    raise HTTPException(
-                        status_code=401,
-                        detail={"code": "TENANT_SUSPENDED",
-                                "message": "사무소 서비스가 정지되었습니다. 관리자에게 문의하십시오."},
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-        except HTTPException:
-            raise
+            enforce_tenant = bool(approved_saas_enabled() and _cfg() and tenant_id)
         except Exception:
-            pass
+            enforce_tenant = False
+    if enforce_tenant:
+        from backend.services.auth_pg_service import tenant_service_status
+        tst = tenant_service_status(tenant_id)  # 예외 없이 상태 문자열 반환(오류도 문자열)
+        if tst not in ("active", "pending_activation"):
+            _code = "TENANT_SUSPENDED" if tst in ("suspended", "terminated") else "TENANT_UNAVAILABLE"
+            raise HTTPException(
+                status_code=401,
+                detail={"code": _code,
+                        "message": "사무소 서비스를 사용할 수 없습니다. 관리자에게 문의하십시오."},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     # 마스터 계정은 항상 full admin 으로 취급(서버 강제).
     if is_master_login(login_id):
@@ -168,3 +192,25 @@ def require_admin_or_sub_admin(current_user: dict = Depends(get_current_user)) -
 # 둘 다 admin/master/sub_admin 을 허용한다(계정관리·보안설정 등은 require_admin 유지).
 require_guideline_editor = require_admin_or_sub_admin
 require_board_manager = require_admin_or_sub_admin
+
+
+def require_system_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """**시스템 운영 관리자 전용** — 승인형 SaaS 의 크로스테넌트/시스템 API 게이트.
+
+    마스터 또는 env(SYSTEM_ADMIN_LOGIN_IDS) 허용목록만 통과한다. 사무소 관리자(office_admin,
+    tenant 내 is_admin=true)는 is_admin 이 true 여도 **차단**된다 → 권한상승 방지. 프론트 숨김이
+    아니라 서버에서 강제한다.
+    """
+    if not is_system_admin(current_user.get("login_id", "")):
+        raise HTTPException(status_code=403, detail="시스템 관리자 권한이 필요합니다.")
+    return current_user
+
+
+def require_office_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """사무소 관리자(자기 tenant 내부 관리) — 시스템 관리자 또는 tenant 내 full admin.
+
+    tenant 스코프 기능용. 시스템 관리 API 에는 쓰지 않는다(그건 require_system_admin).
+    """
+    if not (current_user.get("is_admin") or current_user.get("is_master")):
+        raise HTTPException(status_code=403, detail="사무소 관리자 권한이 필요합니다.")
+    return current_user

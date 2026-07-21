@@ -84,29 +84,42 @@ def account_auth_status(login_id: str) -> dict:
 
 
 def tenant_service_status(tenant_id: str) -> str:
-    """tenant 의 service_status — 'active' | 'suspended' | 'terminated' | 'pending_activation' | 'missing' | 'unknown'.
+    """tenant 의 service_status 정밀 상태.
 
-    승인형 SaaS 의 테넌트 정지를 로그인/요청 인증에서 즉시 반영하기 위한 조회.
-    service_status 컬럼(migration 0031)이 없는 DB(운영=0016)에서는 'unknown' 을 반환해
-    기존 동작을 바꾸지 않는다(가용성 우선). 호출측은 'suspended'/'terminated' 만 차단한다.
+    반환:
+      - 'active' / 'suspended' / 'terminated' / 'pending_activation' : service_status 실제값
+      - 'missing'      : tenant 행 없음
+      - 'null_status'  : 행은 있으나 service_status 가 NULL(비정상 — NOT NULL default 라 정상엔 없음)
+      - 'no_column'    : service_status 컬럼 없음(migration 0031 미적용)
+      - 'error'        : 조회/DB 오류
+
+    **예외를 삼키지 않는다** — 오류는 문자열 상태('error'/'no_column')로 반환해, 호출측(auth)이
+    fail-closed 로 차단할 수 있게 한다. 이 함수 자체는 flag 를 보지 않으며 상태만 알려준다.
     """
     from backend.db.models.tenant import Tenant
     from backend.db.session import get_sessionmaker
 
     tid = (tenant_id or "").strip()
     if not tid:
-        return "unknown"
-    SessionLocal = get_sessionmaker()
-    with SessionLocal() as session:
-        try:
-            st = session.scalar(select(Tenant.service_status).where(Tenant.tenant_id == tid))
-        except Exception:
-            return "unknown"  # 0031 미적용 컬럼 없음 → 기존 동작 유지
-        if st is None:
-            # tenant 행 자체가 없을 수도(레거시). 존재 여부만 별도 확인.
-            exists = session.scalar(select(Tenant.id).where(Tenant.tenant_id == tid))
-            return "unknown" if exists is None else "unknown"
-        return str(st)
+        return "missing"
+    try:
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            try:
+                row = session.execute(
+                    select(Tenant.id, Tenant.service_status).where(Tenant.tenant_id == tid)
+                ).first()
+            except Exception as e:  # noqa: BLE001
+                msg = str(e).lower()
+                if "service_status" in msg or "undefined column" in msg or "no such column" in msg:
+                    return "no_column"  # 0031 미적용
+                return "error"
+            if row is None:
+                return "missing"
+            st = row[1]
+            return str(st) if st is not None else "null_status"
+    except Exception:  # 세션 획득 실패 등
+        return "error"
 
 
 def find_user_pg(login_id: str) -> Optional[PGUserInfo]:

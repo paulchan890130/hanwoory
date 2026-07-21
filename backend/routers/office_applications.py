@@ -1,6 +1,6 @@
 """수동 승인형 SaaS — 공개 신청 / 활성화 / 관리자 심사·승인·계정 lifecycle 라우터.
 
-전체가 FEATURE_APPROVED_SAAS 로 게이트된다(off → 404). 관리자 엔드포인트는 require_admin
+전체가 FEATURE_APPROVED_SAAS 로 게이트된다(off → 404). 관리자(시스템 운영) 엔드포인트는 require_system_admin
 (서버측 권한검사) 로 보호한다. 공개 엔드포인트는 무인증이며 rate-limit + 입력검증을 적용한다.
 
 증빙 업로드는 FEATURE_OFFICE_APPLICATION_UPLOADS 로 별도 게이트(기본 off) — 지속 스토리지 확정 전까지 비활성.
@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.auth import require_admin
+from backend.auth import require_system_admin
 
 router = APIRouter()
 
@@ -48,13 +48,32 @@ def _rate_limit(ip: str) -> None:
         dq.append(now)
 
 
+def _trust_proxy() -> bool:
+    """신뢰 프록시(예: Render 엣지) 뒤에 있을 때만 X-Forwarded-For 를 신뢰한다.
+    env ``TRUST_PROXY_HEADERS`` truthy 일 때만 True. 기본 False → XFF 무시(스푸핑 방지).
+    운영(Render)에서는 반드시 켜야 rate-limit 이 클라이언트별로 동작한다(꺼져 있으면 프록시 IP
+    하나로 집계되어 과차단될 수 있음 — 안전측 실패)."""
+    import os
+    return os.environ.get("TRUST_PROXY_HEADERS", "").strip().lower() in ("1", "true", "yes", "y", "on")
+
+
 def _client_ip(request: Optional[Request]) -> Optional[str]:
+    """서버에서 신뢰 가능한 IP 만 추출한다. 클라이언트가 제출한 IP(body/query)는 절대 사용하지 않는다.
+
+    - 기본: TCP 연결의 request.client.host 만 사용(스푸핑 불가).
+    - TRUST_PROXY_HEADERS on(신뢰 엣지 프록시 뒤): X-Forwarded-For 의 최좌측(원 클라이언트) 사용.
+      off 인데 XFF 가 와도 **무시**한다 → 임의 클라이언트가 XFF 로 rate-limit 우회 불가.
+    """
     if request is None:
         return None
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else None
+    direct = request.client.host if request.client else None
+    if _trust_proxy():
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            first = xff.split(",")[0].strip()
+            if first:
+                return first
+    return direct
 
 
 # ── 스키마 ───────────────────────────────────────────────────────────────────
@@ -166,14 +185,14 @@ def complete_activation(body: ActivationComplete):
 
 # ── 관리자: 신청 심사 ─────────────────────────────────────────────────────────
 @router.get("/admin/office-applications")
-def admin_list_applications(status: Optional[str] = None, user: dict = Depends(require_admin)):
+def admin_list_applications(status: Optional[str] = None, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import office_application_pg_service as svc
     return {"applications": svc.list_applications(status)}
 
 
 @router.get("/admin/office-applications/{application_id}")
-def admin_get_application(application_id: str, user: dict = Depends(require_admin)):
+def admin_get_application(application_id: str, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import office_application_pg_service as svc
     a = svc.get_application(application_id)
@@ -183,7 +202,7 @@ def admin_get_application(application_id: str, user: dict = Depends(require_admi
 
 
 @router.patch("/admin/office-applications/{application_id}/review")
-def admin_review(application_id: str, body: ReviewPatch, user: dict = Depends(require_admin)):
+def admin_review(application_id: str, body: ReviewPatch, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import office_application_pg_service as svc
     try:
@@ -199,7 +218,7 @@ def admin_review(application_id: str, body: ReviewPatch, user: dict = Depends(re
 
 
 @router.post("/admin/office-applications/{application_id}/approve")
-def admin_approve(application_id: str, body: ApproveRequest, user: dict = Depends(require_admin)):
+def admin_approve(application_id: str, body: ApproveRequest, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import office_application_pg_service as svc
     try:
@@ -216,7 +235,7 @@ def admin_approve(application_id: str, body: ApproveRequest, user: dict = Depend
 
 
 @router.post("/admin/office-applications/{application_id}/reject")
-def admin_reject(application_id: str, body: RejectRequest, user: dict = Depends(require_admin)):
+def admin_reject(application_id: str, body: RejectRequest, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import office_application_pg_service as svc
     if not (body.rejection_reason_public or "").strip():
@@ -231,7 +250,7 @@ def admin_reject(application_id: str, body: RejectRequest, user: dict = Depends(
 
 # ── 관리자: 테넌트/사용자 lifecycle ───────────────────────────────────────────
 @router.post("/admin/tenants/{tenant_id}/suspend")
-def admin_suspend_tenant(tenant_id: str, user: dict = Depends(require_admin)):
+def admin_suspend_tenant(tenant_id: str, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import account_lifecycle_pg_service as svc
     try:
@@ -241,7 +260,7 @@ def admin_suspend_tenant(tenant_id: str, user: dict = Depends(require_admin)):
 
 
 @router.post("/admin/tenants/{tenant_id}/restore")
-def admin_restore_tenant(tenant_id: str, user: dict = Depends(require_admin)):
+def admin_restore_tenant(tenant_id: str, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import account_lifecycle_pg_service as svc
     try:
@@ -251,7 +270,7 @@ def admin_restore_tenant(tenant_id: str, user: dict = Depends(require_admin)):
 
 
 @router.post("/admin/users/{login_id}/suspend")
-def admin_suspend_user(login_id: str, user: dict = Depends(require_admin)):
+def admin_suspend_user(login_id: str, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import account_lifecycle_pg_service as svc
     try:
@@ -262,7 +281,7 @@ def admin_suspend_user(login_id: str, user: dict = Depends(require_admin)):
 
 
 @router.post("/admin/users/{login_id}/restore")
-def admin_restore_user(login_id: str, user: dict = Depends(require_admin)):
+def admin_restore_user(login_id: str, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import account_lifecycle_pg_service as svc
     try:
@@ -272,8 +291,19 @@ def admin_restore_user(login_id: str, user: dict = Depends(require_admin)):
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
+@router.post("/admin/users/{login_id}/reissue-activation")
+def admin_reissue_activation(login_id: str, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import activation_pg_service as act
+    try:
+        return act.reissue_activation_token(login_id, actor=user.get("login_id", ""))
+    except act.ActivationError as e:
+        code_map = {"NO_USER": 404, "ALREADY_ACTIVE": 409}
+        raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
+
+
 @router.post("/admin/users/{login_id}/replace")
-def admin_replace_user(login_id: str, body: ReplaceRequest, user: dict = Depends(require_admin)):
+def admin_replace_user(login_id: str, body: ReplaceRequest, user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import account_lifecycle_pg_service as svc
     try:

@@ -51,6 +51,46 @@ def issue_activation_token(session, login_id: str, tenant_id: Optional[str],
     return raw
 
 
+def reissue_activation_token(login_id: str, actor: Optional[str] = None,
+                             ttl_hours: int = DEFAULT_TTL_HOURS) -> dict:
+    """활성화 토큰 **재발급** — 기존 미사용 토큰을 모두 폐기하고 새 토큰 1개를 발급한다.
+
+    시스템 관리자만 호출(라우터에서 require_system_admin). 대상 계정이 아직 미활성이어야 한다.
+    반환 raw 토큰은 1회만 노출(관리자가 대상자에게 전달). 원문/평문은 저장·로그하지 않는다.
+    """
+    from backend.db.models.activation_token import ActivationToken
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    from sqlalchemy import update
+
+    lid = (login_id or "").strip()
+    if not lid:
+        raise ActivationError("NO_USER", "대상 계정이 없습니다.")
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == lid))
+        if u is None:
+            raise ActivationError("NO_USER", "계정을 찾을 수 없습니다.")
+        if bool(u.is_active):
+            raise ActivationError("ALREADY_ACTIVE", "이미 활성화된 계정입니다.")
+        # 기존 미사용 토큰 폐기(used_at 설정 → verify/complete 에서 거부됨).
+        session.execute(
+            update(ActivationToken)
+            .where(ActivationToken.login_id == lid, ActivationToken.used_at.is_(None))
+            .values(used_at=_now())
+        )
+        raw = issue_activation_token(session, lid, u.tenant_id, ttl_hours)
+        tenant_id = u.tenant_id
+        session.commit()
+    try:
+        from backend.services import audit_service
+        audit_service.log_event(action="activation_reissued", actor_login_id=actor,
+                                tenant_id=tenant_id, target_type="user", target_id=lid)
+    except Exception:
+        pass
+    return {"login_id": lid, "activation_token": raw}
+
+
 def verify_activation_token(raw: str) -> Optional[dict]:
     """읽기 전용 검증 — 유효하면 {'login_id','tenant_id'} 아니면 None."""
     from backend.db.models.activation_token import ActivationToken

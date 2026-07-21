@@ -259,6 +259,8 @@ export const officeApplicationApi = {
     api.post(`/api/admin/users/${encodeURIComponent(loginId)}/restore`),
   replaceUser: (loginId: string, body: { new_name: string; new_email: string; new_role?: string }) =>
     api.post(`/api/admin/users/${encodeURIComponent(loginId)}/replace`, body),
+  reissueActivation: (loginId: string) =>
+    api.post(`/api/admin/users/${encodeURIComponent(loginId)}/reissue-activation`),
 };
 
 // 전자명함 (마이페이지)
