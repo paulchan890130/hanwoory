@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { officeApplicationApi, type OfficeApplication } from "@/lib/api";
+import { officeApplicationApi, type OfficeApplication, type TenantSummary, type OfficeAccount } from "@/lib/api";
 
 // 승인형 SaaS 관리자 화면 — 사무소 이용신청 목록/상세/심사/승인/반려.
 // 기존 hw-card / hw-table / btn-primary 디자인 시스템 재사용. 전면 재설계 없음.
@@ -40,7 +40,14 @@ export default function OfficeApplicationsTab() {
   const [note, setNote] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [approveResult, setApproveResult] = useState<{ tenant_id: string; users: { login_id: string; name: string; role: string; activation_token: string }[] } | null>(null);
+  const [summary, setSummary] = useState<TenantSummary | null>(null);
+  const [reissued, setReissued] = useState<{ login: string; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const loadSummary = useCallback((tid?: string | null) => {
+    if (!tid) { setSummary(null); return; }
+    officeApplicationApi.tenantSummary(tid).then((r) => setSummary(r.data)).catch(() => setSummary(null));
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -58,7 +65,30 @@ export default function OfficeApplicationsTab() {
   useEffect(() => { load(); }, [load]);
 
   const openDetail = (a: OfficeApplication) => {
-    setSel(a); setNote(a.review_note_internal || ""); setRejectReason(""); setApproveResult(null);
+    setSel(a); setNote(a.review_note_internal || ""); setRejectReason(""); setApproveResult(null); setReissued(null);
+    loadSummary(a.status === "approved" ? a.approved_tenant_id : null);  // 승인건은 계정 요약 상시 표시
+  };
+
+  const err = (e: unknown) => toast.error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "실패");
+  const withBusy = async (fn: () => Promise<unknown>, ok: string) => {
+    setBusy(true);
+    try { await fn(); toast.success(ok); if (sel?.approved_tenant_id) loadSummary(sel.approved_tenant_id); }
+    catch (e) { err(e); } finally { setBusy(false); }
+  };
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const doReissueSys = async (a: OfficeAccount) => {
+    if (!confirm(`${a.name}(${a.login_id}) 활성화 링크를 재발급하시겠습니까? 기존 링크는 즉시 무효화됩니다.`)) return;
+    setBusy(true);
+    try { const r = await officeApplicationApi.reissueActivation(a.login_id); setReissued({ login: a.login_id, token: (r.data as { activation_token: string }).activation_token }); toast.success("재발급됨"); }
+    catch (e) { err(e); } finally { setBusy(false); if (sel?.approved_tenant_id) loadSummary(sel.approved_tenant_id); }
+  };
+  const doReplaceSys = async (a: OfficeAccount) => {
+    const name = prompt("새 사용자 이름:"); if (!name) return;
+    const email = prompt("새 사용자 이메일(로그인 ID):"); if (!email) return;
+    if (!confirm(`${a.login_id} 을 ${name}(${email})으로 교체하시겠습니까? 기존 계정은 복구 불가합니다.`)) return;
+    setBusy(true);
+    try { const r = await officeApplicationApi.replaceUser(a.login_id, { new_name: name, new_email: email }); setReissued({ login: email, token: (r.data as { activation_token: string }).activation_token }); toast.success("교체됨"); }
+    catch (e) { err(e); } finally { setBusy(false); if (sel?.approved_tenant_id) loadSummary(sel.approved_tenant_id); }
   };
 
   const doReview = async (action: string) => {
@@ -86,6 +116,7 @@ export default function OfficeApplicationsTab() {
       load();
       const g = await officeApplicationApi.get(sel.application_id);
       setSel(g.data as OfficeApplication);
+      loadSummary((g.data as OfficeApplication).approved_tenant_id || data.tenant_id);
     } catch (e) { toast.error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "승인 실패"); }
     finally { setBusy(false); }
   };
@@ -210,6 +241,52 @@ export default function OfficeApplicationsTab() {
                   <code style={{ fontSize: 11 }}>{`${typeof window !== "undefined" ? window.location.origin : ""}/activate/${u.activation_token}`}</code>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* 승인건: 계정 상태 상시 표시 + 시스템 관리자 lifecycle (새로고침해도 유지) */}
+          {sel.status === "approved" && summary && (
+            <div style={{ marginTop: 14 }}>
+              <div className="hw-section-divider">발급 계정 및 사무소 상태</div>
+              <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 6 }}>
+                {summary.office_name} · 상태 {summary.service_status} · 좌석 {summary.active_count}/{summary.seat_limit}
+                {summary.service_status === "suspended"
+                  ? <button className="hw-filter-btn" style={{ marginLeft: 8 }} disabled={busy} onClick={() => withBusy(() => officeApplicationApi.restoreTenant(summary.tenant_id), "사무소 복구됨")}>사무소 복구</button>
+                  : <button className="hw-filter-btn" style={{ marginLeft: 8 }} disabled={busy} onClick={() => { if (confirm("사무소 전체를 정지하시겠습니까? 전 사용자 로그인이 차단됩니다.")) withBusy(() => officeApplicationApi.suspendTenant(summary.tenant_id), "사무소 정지됨"); }}>사무소 정지</button>}
+              </div>
+              <table className="hw-table">
+                <thead><tr><th>구분</th><th>이름</th><th>로그인 ID</th><th>상태</th><th>활성화</th><th style={{ width: 220 }}>관리</th></tr></thead>
+                <tbody>
+                  {summary.accounts.map((a) => (
+                    <tr key={a.login_id}>
+                      <td style={{ fontWeight: 700 }}>{a.is_admin ? "주계정" : "직원"}</td>
+                      <td>{a.name}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.login_id}</td>
+                      <td><span style={{ color: a.is_active ? "#276749" : "#C53030", fontWeight: 600 }}>{a.account_status}</span></td>
+                      <td style={{ fontSize: 11, color: "#718096" }}>{a.activated_at ? "완료" : a.invited_at ? "미활성" : "—"}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {!a.activated_at && <button className="hw-filter-btn" disabled={busy} onClick={() => doReissueSys(a)}>활성화 재발급</button>}
+                          {a.is_active
+                            ? <button className="hw-filter-btn" disabled={busy} onClick={() => { if (confirm(`${a.name} 계정을 정지하시겠습니까?`)) withBusy(() => officeApplicationApi.suspendUser(a.login_id), "정지됨"); }}>정지</button>
+                            : a.account_status !== "replaced" && <button className="hw-filter-btn" disabled={busy} onClick={() => withBusy(() => officeApplicationApi.restoreUser(a.login_id), "복구됨")}>복구</button>}
+                          <button className="hw-filter-btn" disabled={busy} onClick={() => doReplaceSys(a)}>교체</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {reissued && (
+            <div style={{ marginTop: 12, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>활성화 링크 (1회 표시 — {reissued.login})</div>
+              <code style={{ fontSize: 11, wordBreak: "break-all" }}>{`${origin}/activate/${reissued.token}`}</code>
+              <div style={{ marginTop: 6 }}>
+                <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => { navigator.clipboard?.writeText(`${origin}/activate/${reissued.token}`); toast.success("복사됨"); }}>링크 복사</button>
+              </div>
             </div>
           )}
         </div>

@@ -231,8 +231,18 @@ export interface OfficeApplication {
   created_at?: string | null;
 }
 
+export interface OfficeAccount {
+  login_id: string; name: string; role: string; is_admin: boolean;
+  account_status: string; is_active: boolean; invited_at?: string | null; activated_at?: string | null;
+}
+export interface TenantSummary {
+  tenant_id: string; office_name: string; service_status: string; service_tier: string;
+  seat_limit: number; active_count: number; accounts: OfficeAccount[];
+}
+
 export const officeApplicationApi = {
   // 공개
+  availability: () => api.get<{ enabled: boolean }>("/api/public/availability", _pub),
   submit: (data: Record<string, unknown>) =>
     api.post("/api/public/office-applications", data, _pub),
   checkActivation: (token: string) =>
@@ -261,6 +271,18 @@ export const officeApplicationApi = {
     api.post(`/api/admin/users/${encodeURIComponent(loginId)}/replace`, body),
   reissueActivation: (loginId: string) =>
     api.post(`/api/admin/users/${encodeURIComponent(loginId)}/reissue-activation`),
+  tenantSummary: (tenantId: string) =>
+    api.get<TenantSummary>(`/api/admin/tenants/${encodeURIComponent(tenantId)}/summary`),
+};
+
+// 사무소 주계정(office_admin) — 자기 tenant 서브계정 관리. tenant_id 는 서버 JWT 에서만 취득.
+export const myOfficeApi = {
+  accounts: () => api.get<TenantSummary>("/api/my/office/accounts"),
+  suspend: (loginId: string) => api.post(`/api/my/office/users/${encodeURIComponent(loginId)}/suspend`),
+  restore: (loginId: string) => api.post(`/api/my/office/users/${encodeURIComponent(loginId)}/restore`),
+  reissue: (loginId: string) => api.post(`/api/my/office/users/${encodeURIComponent(loginId)}/reissue-activation`),
+  replace: (loginId: string, body: { new_name: string; new_email: string }) =>
+    api.post(`/api/my/office/users/${encodeURIComponent(loginId)}/replace`, body),
 };
 
 // 전자명함 (마이페이지)

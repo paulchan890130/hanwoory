@@ -234,6 +234,19 @@ def _prepare_agent_rrn_fields(raw_value):
 
 @router.post("/signup")
 def signup(req: SignupRequest):
+    # 승인형 SaaS 활성 시 직접 가입(즉시 tenant/user 생성) 차단 — '사무소 이용신청' 흐름만 허용.
+    # 프론트 우회/직접 API 호출로도 tenant/user 가 만들어지지 않도록 서버에서 강제.
+    # FEATURE_APPROVED_SAAS OFF(현행 운영)면 기존 동작 그대로 유지.
+    try:
+        from backend.db.feature_flags import approved_saas_enabled
+        _saas_on = approved_saas_enabled()
+    except Exception:
+        _saas_on = False
+    if _saas_on:
+        raise HTTPException(
+            status_code=409,
+            detail="사무소 이용신청 화면(/apply)을 이용해 주세요. 관리자 심사 후 계정이 발급됩니다.",
+        )
     if req.password != req.confirm_password:
         raise HTTPException(status_code=400, detail="비밀번호 확인이 일치하지 않습니다.")
     if not req.login_id.strip():

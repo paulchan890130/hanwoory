@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.auth import require_system_admin
+from backend.auth import require_system_admin, require_office_admin
 
 router = APIRouter()
 
@@ -313,3 +313,85 @@ def admin_replace_user(login_id: str, body: ReplaceRequest, user: dict = Depends
         code_map = {"NOT_FOUND": 404, "EMAIL_IN_USE": 409, "ALREADY_REPLACED": 409,
                     "SEAT_LIMIT": 409, "MASTER_PROTECTED": 400, "BAD_EMAIL": 400, "MISSING_USER": 400}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
+
+
+# ── 공개: 승인형 SaaS 신청 가용 여부(민감정보 미반환, flag 상태만) ─────────────
+@router.get("/public/availability")
+def public_availability():
+    from backend.db.feature_flags import approved_saas_enabled
+    from backend.db.session import is_configured
+    return {"enabled": bool(approved_saas_enabled() and is_configured())}
+
+
+# ── 시스템 관리자: tenant 계정 요약(승인 결과 상시 확인용, read-only) ──────────
+@router.get("/admin/tenants/{tenant_id}/summary")
+def admin_tenant_summary(tenant_id: str, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import account_lifecycle_pg_service as svc
+    s = svc.tenant_account_summary(tenant_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="테넌트를 찾을 수 없습니다.")
+    return s
+
+
+# ── 사무소 주계정(office_admin): 자기 tenant 계정 관리 ────────────────────────
+# tenant_id 는 JWT 에서만 취득(body/query 불신). 서브계정(office_staff)만 관리 가능.
+@router.get("/my/office/accounts")
+def my_office_accounts(user: dict = Depends(require_office_admin)):
+    _require_saas()
+    from backend.services import account_lifecycle_pg_service as svc
+    s = svc.tenant_account_summary(user.get("tenant_id", ""))
+    if s is None:
+        raise HTTPException(status_code=404, detail="사무소 정보를 찾을 수 없습니다.")
+    return s
+
+
+_OFFICE_CODE_MAP = {"NOT_FOUND": 404, "CROSS_TENANT": 403, "NOT_SUB_ACCOUNT": 403,
+                    "SELF_FORBIDDEN": 403, "MASTER_PROTECTED": 403, "REPLACED": 409,
+                    "EMAIL_IN_USE": 409, "ALREADY_REPLACED": 409, "SEAT_LIMIT": 409,
+                    "BAD_EMAIL": 400, "MISSING_USER": 400, "ALREADY_ACTIVE": 409}
+
+
+@router.post("/my/office/users/{login_id}/suspend")
+def my_office_suspend(login_id: str, user: dict = Depends(require_office_admin)):
+    _require_saas()
+    from backend.services import account_lifecycle_pg_service as svc
+    try:
+        return svc.office_suspend_sub(user.get("tenant_id", ""), user.get("login_id", ""), login_id)
+    except svc.LifecycleError as e:
+        raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
+
+
+@router.post("/my/office/users/{login_id}/restore")
+def my_office_restore(login_id: str, user: dict = Depends(require_office_admin)):
+    _require_saas()
+    from backend.services import account_lifecycle_pg_service as svc
+    try:
+        return svc.office_restore_sub(user.get("tenant_id", ""), user.get("login_id", ""), login_id)
+    except svc.LifecycleError as e:
+        raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
+
+
+@router.post("/my/office/users/{login_id}/reissue-activation")
+def my_office_reissue(login_id: str, user: dict = Depends(require_office_admin)):
+    _require_saas()
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.services import activation_pg_service as act
+    try:
+        life._assert_manageable_sub(user.get("tenant_id", ""), user.get("login_id", ""), login_id)
+        return act.reissue_activation_token(login_id, actor=user.get("login_id", ""))
+    except life.LifecycleError as e:
+        raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
+    except act.ActivationError as e:
+        raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
+
+
+@router.post("/my/office/users/{login_id}/replace")
+def my_office_replace(login_id: str, body: ReplaceRequest, user: dict = Depends(require_office_admin)):
+    _require_saas()
+    from backend.services import account_lifecycle_pg_service as svc
+    try:
+        return svc.office_replace_sub(user.get("tenant_id", ""), user.get("login_id", ""),
+                                      login_id, body.new_name, body.new_email)
+    except svc.LifecycleError as e:
+        raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)

@@ -210,3 +210,88 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
         "role": default_role,
         "activation_token": raw,
     }
+
+
+# ── 요약 조회 (읽기전용, 안전필드만 — hash/token/평문 미포함) ──────────────────
+def tenant_account_summary(tenant_id: str) -> Optional[dict]:
+    """tenant + 소속 계정 요약. 비밀번호 hash/activation token/PII 원문은 포함하지 않는다."""
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    tid = (tenant_id or "").strip()
+    if not tid:
+        return None
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tid))
+        if t is None:
+            return None
+        rows = session.scalars(
+            select(AccountUser).where(AccountUser.tenant_id == tid)
+            .order_by(AccountUser.is_admin.desc(), AccountUser.id.asc())
+        ).all()
+        accounts = [{
+            "login_id": u.login_id,
+            "name": u.contact_name or "",
+            "role": "office_admin" if u.is_admin else "office_staff",
+            "is_admin": bool(u.is_admin),
+            "account_status": getattr(u, "account_status", None) or ("active" if u.is_active else "disabled"),
+            "is_active": bool(u.is_active),
+            "invited_at": u.invited_at.isoformat() if getattr(u, "invited_at", None) else None,
+            "activated_at": u.activated_at.isoformat() if getattr(u, "activated_at", None) else None,
+        } for u in rows]
+        active_cnt = sum(1 for a in accounts if a["is_active"])
+        return {
+            "tenant_id": t.tenant_id,
+            "office_name": t.office_name or "",
+            "service_status": getattr(t, "service_status", None) or ("active" if t.is_active else "pending_activation"),
+            "service_tier": getattr(t, "service_tier", None) or "managed_basic",
+            "seat_limit": int(getattr(t, "seat_limit", 2) or 2),
+            "active_count": active_cnt,
+            "accounts": accounts,
+        }
+
+
+# ── office_admin 스코프 검증 — 대상이 같은 tenant 의 서브계정(office_staff)인지 확인 ──
+def _assert_manageable_sub(tenant_id: str, actor_login: str, target_login: str) -> None:
+    """office_admin 이 관리 가능한 대상만 통과. 아니면 LifecycleError.
+    - 대상이 같은 tenant 소속이어야 함(크로스테넌트 차단)
+    - 대상이 자기 자신이면 불가(주계정 자기 정지/교체 금지)
+    - 대상이 office_staff(is_admin=false) 여야 함(다른 관리자/주계정 관리 불가)
+    - 마스터 대상 불가
+    """
+    from backend.auth import is_master_login
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    if target_login == actor_login:
+        raise LifecycleError("SELF_FORBIDDEN", "본인 계정은 이 화면에서 관리할 수 없습니다.")
+    if is_master_login(target_login):
+        raise LifecycleError("MASTER_PROTECTED", "관리할 수 없는 계정입니다.")
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == target_login))
+        if u is None:
+            raise LifecycleError("NOT_FOUND", "계정을 찾을 수 없습니다.")
+        if (u.tenant_id or "") != (tenant_id or ""):
+            raise LifecycleError("CROSS_TENANT", "다른 사무소의 계정은 관리할 수 없습니다.")
+        if bool(u.is_admin):
+            raise LifecycleError("NOT_SUB_ACCOUNT", "서브계정(직원)만 관리할 수 있습니다.")
+
+
+def office_suspend_sub(tenant_id: str, actor_login: str, target_login: str) -> dict:
+    _assert_manageable_sub(tenant_id, actor_login, target_login)
+    return suspend_user(target_login, actor_login)
+
+
+def office_restore_sub(tenant_id: str, actor_login: str, target_login: str) -> dict:
+    _assert_manageable_sub(tenant_id, actor_login, target_login)
+    return restore_user(target_login, actor_login)
+
+
+def office_replace_sub(tenant_id: str, actor_login: str, old_login: str,
+                       new_name: str, new_email: str) -> dict:
+    _assert_manageable_sub(tenant_id, actor_login, old_login)
+    # 서브계정 교체는 항상 office_staff 역할 유지(주계정 승격 금지).
+    return replace_user(old_login, new_name, new_email, actor_login, new_role="office_staff")

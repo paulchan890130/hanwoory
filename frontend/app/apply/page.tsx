@@ -70,10 +70,16 @@ export default function ApplyPage() {
           </p>
           <p style={{ fontSize: 13, color: "var(--hw-text-sub)", marginTop: 8, lineHeight: 1.7 }}>
             관리자 심사 후 별도로 안내드립니다. 승인 전에는 로그인할 수 없습니다.
+            <br />자동 이메일 발송은 없으며, 승인 시 관리자가 활성화 링크를 직접 안내합니다.
           </p>
-          <Link href="/login" className="btn-secondary" style={{ marginTop: 20, textDecoration: "none" }}>
-            로그인 화면으로
-          </Link>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20 }}>
+            <button className="btn-secondary" onClick={() => { navigator.clipboard?.writeText(receipt); }}>
+              접수번호 복사
+            </button>
+            <Link href="/login" className="btn-secondary" style={{ textDecoration: "none" }}>
+              로그인 화면으로
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -98,11 +104,25 @@ export default function ApplyPage() {
 
   return (
     <div style={{ maxWidth: 560, margin: "40px auto", padding: "0 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <Link href="/" aria-label="한우리 홈페이지로 이동"
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none", color: "var(--hw-text)", fontWeight: 800, fontSize: 18 }}>
+          <img src="/hanwoori-logo-new.jpeg" alt="한우리 로고" style={{ width: 36, height: 36, objectFit: "contain" }} /> K.ID
+        </Link>
+        <Link href="/login" style={{ fontSize: 13, color: "var(--hw-gold-700)", textDecoration: "none" }}>로그인 →</Link>
+      </div>
       <h1 className="hw-page-title" style={{ marginBottom: 6 }}>사무소 이용 신청</h1>
-      <p style={{ fontSize: 13, color: "var(--hw-text-sub)", marginBottom: 20, lineHeight: 1.7 }}>
+      <p style={{ fontSize: 13, color: "var(--hw-text-sub)", marginBottom: 12, lineHeight: 1.7 }}>
         신청서를 제출하면 관리자 심사 후 사무소 워크스페이스와 <strong>실명 계정 2개</strong>가 발급됩니다.
         본 신청으로 계정이 즉시 생성되지는 않습니다.
       </p>
+      <ol style={{ fontSize: 12.5, color: "var(--hw-text-sub)", lineHeight: 1.7, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "12px 16px 12px 30px", marginBottom: 20 }}>
+        <li>신청서 접수</li>
+        <li>관리자 심사</li>
+        <li>사무소 승인</li>
+        <li>주계정·직원(서브계정) 발급</li>
+        <li>활성화 링크로 각자 비밀번호 설정 (자동 이메일 없음 — 관리자가 직접 안내)</li>
+      </ol>
 
       {renderGroup("사무소 정보", OFFICE_FIELDS)}
       {renderGroup("신청 담당자", APPLICANT_FIELDS)}

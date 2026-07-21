@@ -1,9 +1,10 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { authApi } from "@/lib/api";
+import { authApi, officeApplicationApi } from "@/lib/api";
 import { setUser } from "@/lib/auth";
 
 type LoginForm = { login_id: string; password: string };
@@ -47,6 +48,15 @@ const labelStyle: React.CSSProperties = {
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"login" | "signup">("login");
+  // 승인형 SaaS 활성 시 직접 가입 대신 '사무소 이용신청'(/apply) 안내.
+  const [applyEnabled, setApplyEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    officeApplicationApi.availability()
+      .then((r) => { if (!cancelled) setApplyEnabled(!!(r.data as { enabled?: boolean })?.enabled); })
+      .catch(() => { if (!cancelled) setApplyEnabled(false); });
+    return () => { cancelled = true; };
+  }, []);
   const [loading, setLoading] = useState(false);
   // 동시 중복 제출 방지 — disabled 속성은 React re-render 전에 두 번째 클릭이 가능하므로 ref로 동기 가드
   const inflightRef = useRef(false);
@@ -141,7 +151,12 @@ export default function LoginPage() {
       >
         {/* 로고 */}
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 48 }}>
+          <Link
+            href="/"
+            aria-label="한우리 홈페이지로 이동"
+            style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 48,
+              textDecoration: "none", borderRadius: 8, outlineOffset: 3 }}
+          >
             <img
               src="/hanwoori-logo-new.jpeg"
               alt="한우리 로고"
@@ -155,7 +170,7 @@ export default function LoginPage() {
               <div style={{ fontSize: 26, fontWeight: 900, color: "#1A202C", letterSpacing: "-1px" }}>K.ID</div>
               <div style={{ fontSize: 12, color: "#718096", marginTop: 2, fontWeight: 500 }}>출입국 업무관리 시스템</div>
             </div>
-          </div>
+          </Link>
 
           <div style={{ marginBottom: 36 }}>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1A202C", lineHeight: 1.45, marginBottom: 12 }}>
@@ -357,7 +372,19 @@ export default function LoginPage() {
           )}
 
           {/* ── 가입신청 폼 ── */}
-          {tab === "signup" && (
+          {/* 승인형 SaaS 활성 시: 직접 가입 폼 대신 '사무소 이용신청' 안내(중복 가입흐름 방지). */}
+          {tab === "signup" && applyEnabled && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "#4A5568", lineHeight: 1.7, background: "rgba(212,168,67,0.06)", borderRadius: 8, padding: "14px 16px" }}>
+                신청 후 관리자 심사를 거쳐 <strong>실명 계정 2개</strong>(주계정·직원)가 발급됩니다.
+                이 화면에서 계정이 즉시 생성되지 않습니다.
+              </div>
+              <Link href="/apply" className="btn-primary" style={{ textDecoration: "none", justifyContent: "center", padding: "12px 0", fontSize: 15 }}>
+                사무소 이용신청 하러 가기
+              </Link>
+            </div>
+          )}
+          {tab === "signup" && !applyEnabled && (
             <form
               onSubmit={signupForm.handleSubmit(onSignup)}
               style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "62vh", overflowY: "auto", paddingRight: 4 }}

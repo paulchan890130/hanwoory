@@ -33,6 +33,7 @@ const HIKOREA_MANUAL_URL =
 const MY_ITEM = { href: "/my", label: "마이페이지", icon: User };
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: Settings };
 const MARKETING_ITEM = { href: "/marketing", label: "마케팅", icon: Globe };
+const OFFICE_ACCOUNTS_ITEM = { href: "/account-management", label: "우리 사무소 계정", icon: Users };
 
 export const SIDEBAR_EXPANDED_WIDTH = 164;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -190,6 +191,20 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
             <MY_ITEM.icon size={16} className="shrink-0" />
             {showExpanded && <span className="truncate">{MY_ITEM.label}</span>}
           </Link>
+
+          {/* 우리 사무소 계정 — 사무소 주계정(office_admin/master). office_staff 는 미표시(서버도 차단). */}
+          {isFullAdmin(user) && (
+            <Link
+              href={OFFICE_ACCOUNTS_ITEM.href}
+              title={!showExpanded ? OFFICE_ACCOUNTS_ITEM.label : undefined}
+              className={`hw-sidebar-item ${isActive(OFFICE_ACCOUNTS_ITEM.href) ? "active" : ""}`}
+              aria-current={isActive(OFFICE_ACCOUNTS_ITEM.href) ? "page" : undefined}
+              onClick={isMobile ? onMobileClose : undefined}
+            >
+              <OFFICE_ACCOUNTS_ITEM.icon size={16} className="shrink-0" />
+              {showExpanded && <span className="truncate">{OFFICE_ACCOUNTS_ITEM.label}</span>}
+            </Link>
+          )}
 
           {canManageContent(user) && (
             <Link
