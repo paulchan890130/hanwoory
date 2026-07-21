@@ -14,6 +14,7 @@ import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
 import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
+import OfficeApplicationsTab from "@/components/admin/OfficeApplicationsTab";
 import { ManualUpdatePgView, type PgStateResp } from "@/components/admin/ManualReviewView";
 import GuidelineUpdateInboxTab from "@/components/admin/GuidelineUpdateInboxTab";
 import { ApplyToV3Modal } from "@/components/qualifications/editV3";
@@ -572,7 +573,7 @@ function AccountDetailPanel({
       async () => {
         const {
           login_id, password_hash, is_admin, is_active, created_at,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          // eslint-disable-next-line no-unused-vars
           ...editable
         } = form;
         void login_id; void password_hash; void is_admin; void is_active; void created_at;
@@ -1552,7 +1553,7 @@ export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "onboarding" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
   // "매뉴얼 업데이트" 탭 내부 서브탭 — PG 페이지단위 diff 검토(기존, 자동감지 118p 등
   // 스크롤이 긴 화면)와 반영내역·패키지 검토(구 "실무지침 업데이트 검토함")를 한
   // 화면에 이어붙이면 관리자가 전자를 다 지나쳐야 후자에 닿는 문제가 있어 분리한다.
@@ -1718,6 +1719,13 @@ export default function AdminPage() {
           onClick={() => setActiveTab("accounts")}>
           계정관리
         </button>
+        {/* 승인형 SaaS — 사무소 이용신청 심사·승인·계정 lifecycle */}
+        <button
+          className={`hw-tab ${activeTab === "onboarding" ? "active" : ""}`}
+          onClick={() => setActiveTab("onboarding")}>
+          <UserPlus size={12} className="inline mr-1" />
+          사무소 승인
+        </button>
         {/* 문서자동작성 선택 구조/필요서류 편집 */}
         <button
           className={`hw-tab ${activeTab === "doc-config" ? "active" : ""}`}
@@ -1752,6 +1760,13 @@ export default function AdminPage() {
       {activeTab === "security" && (
         <div style={{ marginTop: 12 }}>
           <AccountSecurityPanel />
+        </div>
+      )}
+
+      {/* 사무소 승인 — 이용신청 목록/상세/승인·반려 */}
+      {activeTab === "onboarding" && (
+        <div style={{ marginTop: 12 }}>
+          <OfficeApplicationsTab />
         </div>
       )}
 

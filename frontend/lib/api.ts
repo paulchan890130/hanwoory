@@ -203,6 +203,64 @@ export const authApi = {
   me: () => api.get("/api/auth/me"),
 };
 
+// ── 승인형 SaaS (사무소 이용신청 / 활성화 / 관리자 심사·계정 lifecycle) ──────────
+const _pub = { headers: { "X-Skip-Auth-Redirect": "1" } };  // 공개 호출: 401 자동 리다이렉트 방지
+
+export interface OfficeApplication {
+  id: number;
+  application_id: string;
+  status: string;
+  office_name: string;
+  representative_name?: string | null;
+  business_registration_number?: string | null;
+  office_address?: string | null;
+  office_phone?: string | null;
+  applicant_name?: string | null;
+  applicant_email?: string | null;
+  applicant_phone?: string | null;
+  intended_use?: string | null;
+  requested_user_1_name?: string | null;
+  requested_user_1_email?: string | null;
+  requested_user_2_name?: string | null;
+  requested_user_2_email?: string | null;
+  reviewed_by?: string | null;
+  rejection_reason_public?: string | null;
+  review_note_internal?: string | null;
+  approved_tenant_id?: string | null;
+  duplicate_flags?: Record<string, unknown>;
+  created_at?: string | null;
+}
+
+export const officeApplicationApi = {
+  // 공개
+  submit: (data: Record<string, unknown>) =>
+    api.post("/api/public/office-applications", data, _pub),
+  checkActivation: (token: string) =>
+    api.get(`/api/public/activation/${encodeURIComponent(token)}`, _pub),
+  completeActivation: (token: string, new_password: string) =>
+    api.post("/api/public/activation/complete", { token, new_password }, _pub),
+  // 관리자
+  list: (status?: string) =>
+    api.get("/api/admin/office-applications", { params: status ? { status } : {} }),
+  get: (id: string) => api.get(`/api/admin/office-applications/${encodeURIComponent(id)}`),
+  review: (id: string, body: { action: string; review_note_internal?: string }) =>
+    api.patch(`/api/admin/office-applications/${encodeURIComponent(id)}/review`, body),
+  approve: (id: string, body: Record<string, unknown>) =>
+    api.post(`/api/admin/office-applications/${encodeURIComponent(id)}/approve`, body),
+  reject: (id: string, body: { rejection_reason_public: string; review_note_internal?: string }) =>
+    api.post(`/api/admin/office-applications/${encodeURIComponent(id)}/reject`, body),
+  suspendTenant: (tenantId: string) =>
+    api.post(`/api/admin/tenants/${encodeURIComponent(tenantId)}/suspend`),
+  restoreTenant: (tenantId: string) =>
+    api.post(`/api/admin/tenants/${encodeURIComponent(tenantId)}/restore`),
+  suspendUser: (loginId: string) =>
+    api.post(`/api/admin/users/${encodeURIComponent(loginId)}/suspend`),
+  restoreUser: (loginId: string) =>
+    api.post(`/api/admin/users/${encodeURIComponent(loginId)}/restore`),
+  replaceUser: (loginId: string, body: { new_name: string; new_email: string; new_role?: string }) =>
+    api.post(`/api/admin/users/${encodeURIComponent(loginId)}/replace`, body),
+};
+
 // 전자명함 (마이페이지)
 export interface BusinessCard {
   office_name: string;

@@ -16,6 +16,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/board") ||
     pathname.startsWith("/card") ||    // 공개 전자명함 (/card/{slug})
     pathname.startsWith("/sign") ||    // 모바일 서명 패드 (/sign/{token})
+    pathname === "/apply" ||           // 공개 사무소 이용신청
+    pathname.startsWith("/activate") || // 계정 활성화(최초 비밀번호) /activate/{token}
     pathname === "/documents" ||
     pathname === "/siheung-immigration-agent" ||
     pathname === "/jeongwang-immigration-agent" ||
