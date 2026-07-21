@@ -29,11 +29,22 @@
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
 
-    /* ── 한우리 골드 브랜드 ── */
-    --hw-gold:          #D4A843;
-    --hw-gold-hover:    #B8922E;
-    --hw-gold-light:    #FFF9E6;
-    --hw-gold-text:     #6B5314;
+    /* ── 한우리 골드 브랜드 (통합 스케일) ──
+       하나의 세련된 황금색 시스템. 주황/형광/금속 gradient 지양.
+       700=텍스트·아이콘, 600=테두리·활성, 500=핵심강조, 200=연한테두리,
+       100=선택배경, 50=매우 연한 아이보리 카드·hover 배경 */
+    --hw-gold-700:      #8A6B1C;   /* 주요 텍스트·아이콘 */
+    --hw-gold-600:      #BE9433;   /* 주요 테두리·활성 */
+    --hw-gold-500:      #D4A843;   /* 핵심 강조 (브랜드) */
+    --hw-gold-200:      #E7D6A6;   /* 연한 테두리 */
+    --hw-gold-100:      #F4EACF;   /* 선택 배경·달력 chip */
+    --hw-gold-50:       #FBF8EF;   /* 매우 연한 아이보리 배경·hover */
+
+    /* 하위호환 별칭 (기존 참조 유지) */
+    --hw-gold:          var(--hw-gold-500);
+    --hw-gold-hover:    var(--hw-gold-600);
+    --hw-gold-light:    var(--hw-gold-50);
+    --hw-gold-text:     var(--hw-gold-700);
 
     /* ── 사이드바 (다크 네이비) ── */
     --hw-sidebar-bg:    #1A1F2E;
@@ -92,14 +103,14 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .hw-card {
   background: var(--hw-surface);
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--hw-border);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  padding: 20px 24px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  padding: 16px 20px;
 }
 
 .hw-card-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--hw-text);
   margin-bottom: 12px;
@@ -112,10 +123,28 @@
    버튼
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .btn-primary {
-  background: var(--hw-gold);
+  background: var(--hw-gold-500);
   color: #1A1F2E;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid var(--hw-gold-600);
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-primary:hover { background: var(--hw-gold-600); }
+.btn-primary:focus-visible { outline: 2px solid var(--hw-gold-700); outline-offset: 2px; }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-secondary {
+  background: #FFFFFF;
+  color: var(--hw-text-sub);
+  border: 1px solid var(--hw-border);
+  border-radius: 6px;
   padding: 7px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -125,30 +154,14 @@
   align-items: center;
   gap: 5px;
 }
-.btn-primary:hover { background: var(--hw-gold-hover); }
-.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.btn-secondary {
-  background: #FFFFFF;
-  color: var(--hw-text-sub);
-  border: 1px solid var(--hw-border);
-  border-radius: 8px;
-  padding: 7px 16px;
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: background 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
 .btn-secondary:hover { background: var(--hw-page-bg); }
+.btn-secondary:focus-visible { outline: 2px solid var(--hw-gold-600); outline-offset: 2px; }
 
 .btn-danger {
   background: #FC8181;
   color: #FFFFFF;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 7px 16px;
   font-size: 13px;
   cursor: pointer;
@@ -193,9 +206,9 @@
   border-bottom: 1px solid var(--hw-border);
 }
 .hw-table thead th {
-  padding: 10px 12px;
+  padding: 9px 12px;
   text-align: left;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--hw-text-sub);
   white-space: nowrap;
 }
@@ -203,13 +216,13 @@
   border-bottom: 1px solid var(--hw-border);
   transition: background 0.1s;
 }
-.hw-table tbody tr:hover { background: #EBF4FF; }
+.hw-table tbody tr:hover { background: var(--hw-gold-50); }
 .hw-table tbody td {
-  padding: 10px 12px;
+  padding: 8px 12px;
   color: var(--hw-text);
 }
-.hw-table tbody tr:nth-child(even) { background: #F9FAFB; }
-.hw-table tbody tr:nth-child(even):hover { background: #EBF4FF; }
+.hw-table tbody tr:nth-child(even) { background: #FAFBFC; }
+.hw-table tbody tr:nth-child(even):hover { background: var(--hw-gold-50); }
 
 /* 만기 경고 행 */
 .hw-table tbody tr.row-warn { background: var(--hw-expiry-warn-bg) !important; }
@@ -275,15 +288,15 @@
   transition: width 0.2s ease;
   overflow: hidden;
 }
-.hw-sidebar.expanded { width: 220px; }
+.hw-sidebar.expanded { width: 164px; }
 .hw-sidebar.collapsed { width: 64px; }
 
 .hw-sidebar-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 16px;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
   color: var(--hw-sidebar-text);
   text-decoration: none;
   font-size: 13px;
@@ -292,7 +305,7 @@
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  margin: 1px 8px;
+  margin: 1px 6px;
   position: relative;
 }
 .hw-sidebar-item:hover {
@@ -386,7 +399,7 @@
 }
 .hw-search-modal {
   background: #FFFFFF;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 600px;
   max-width: calc(100vw - 32px);
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
@@ -508,7 +521,7 @@
 }
 .hw-modal {
   background: #FFFFFF;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
   max-width: 480px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
@@ -538,10 +551,10 @@
    빠른 액션 버튼 바
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .hw-quick-actions {
-  background: var(--hw-gold-light);
-  border: 1px solid #E8DFC8;
-  border-radius: 10px;
-  padding: 10px 16px;
+  background: var(--hw-gold-50);
+  border: 1px solid var(--hw-gold-200);
+  border-radius: 8px;
+  padding: 8px 12px;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -550,22 +563,28 @@
 .hw-quick-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border-radius: 8px;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 6px;
   background: #FFFFFF;
-  border: 1px solid #E8DFC8;
-  color: var(--hw-gold-text);
+  border: 1px solid var(--hw-gold-200);
+  color: var(--hw-gold-700);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
   white-space: nowrap;
 }
 .hw-quick-action-btn:hover {
-  background: var(--hw-gold);
+  background: var(--hw-gold-500);
   color: #1A1F2E;
-  border-color: var(--hw-gold);
+  border-color: var(--hw-gold-600);
+}
+.hw-quick-action-btn:focus-visible {
+  outline: 2px solid var(--hw-gold-600);
+  outline-offset: 2px;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -647,36 +666,51 @@ input[type="number"]::-webkit-outer-spin-button {
    FullCalendar 골드 오버라이드
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .fc .fc-button {
-  background: var(--hw-gold) !important;
-  border-color: var(--hw-gold-hover) !important;
+  background: var(--hw-gold-500) !important;
+  border-color: var(--hw-gold-600) !important;
   color: #1A1F2E !important;
   font-size: 12px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   padding: 4px 10px !important;
   border-radius: 6px !important;
 }
 .fc .fc-button:hover {
-  background: var(--hw-gold-hover) !important;
+  background: var(--hw-gold-600) !important;
+}
+.fc .fc-button:focus-visible {
+  outline: 2px solid var(--hw-gold-700) !important;
+  outline-offset: 2px;
+  box-shadow: none !important;
 }
 .fc .fc-toolbar-title {
   font-size: 14px !important;
   font-weight: 600 !important;
   color: var(--hw-text) !important;
 }
+/* 오늘 날짜 강조 — 일정 chip(gold-100)보다 옅은 gold-50 배경 + gold-700 굵은 날짜로 구분 */
 .fc .fc-daygrid-day.fc-day-today {
-  background: var(--hw-gold-light) !important;
+  background: var(--hw-gold-50) !important;
 }
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-  color: var(--hw-gold-text) !important;
+  color: var(--hw-gold-700) !important;
   font-weight: 700 !important;
 }
+/* 일정 chip — 버튼보다 한 단계 연한 gold-100 배경 + gold-700 텍스트(과도한 진한색 제거) */
 .fc .fc-event {
-  background: var(--hw-gold) !important;
-  border-color: var(--hw-gold-hover) !important;
-  color: #1A1F2E !important;
-  font-size: 11px !important;
+  background: var(--hw-gold-100) !important;
+  border: 1px solid var(--hw-gold-200) !important;
+  color: var(--hw-gold-700) !important;
+  font-size: 9px !important;
   border-radius: 3px !important;
 }
+/* 일정 chip 여러 줄 표시 + 여백 축소(정보 밀도) */
+.fc .fc-daygrid-event {
+  white-space: normal !important;
+  padding: 1px 2px !important;
+  margin-top: 1px !important;
+  line-height: 1.3 !important;
+}
+.fc .fc-daygrid-day-events { margin-bottom: 0 !important; }
 /* Day-header weekday coloring (replaces dayHeaderContent JSX) */
 .fc .fc-col-header-cell .fc-col-header-cell-cushion          { color: #4A5568; font-weight: 700; font-size: 12px; }
 .fc .fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion { color: #DC2626; }

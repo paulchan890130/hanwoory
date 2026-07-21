@@ -61,14 +61,13 @@ export default function TaskSummaryCards({
           background: "#fff",
           border: "1px solid #E2E8F0",
           borderRadius: 8,
-          padding: "14px 18px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+          padding: "12px 16px",
         }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", letterSpacing: "0.04em", marginBottom: 6, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", letterSpacing: "0.02em", marginBottom: 6 }}>
             {c.label}
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-            <span style={{ fontSize: 28, fontWeight: 700, color: c.valueColor, lineHeight: 1 }}>
+            <span style={{ fontSize: 23, fontWeight: 700, color: c.valueColor, lineHeight: 1 }}>
               {"format" in c && c.format ? formatNumber(c.value) : c.value}
             </span>
             <span style={{ fontSize: 12, color: "#A0AEC0" }}>{c.unit}</span>

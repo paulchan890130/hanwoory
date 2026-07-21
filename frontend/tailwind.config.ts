@@ -40,12 +40,18 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // 한우리 골드 시스템
+        // 한우리 골드 시스템 (통합 스케일)
         gold: {
           DEFAULT: "#D4A843",
-          hover:   "#B8922E",
-          light:   "#FFF9E6",
-          text:    "#6B5314",
+          hover:   "#BE9433",
+          light:   "#FBF8EF",
+          text:    "#8A6B1C",
+          50:  "#FBF8EF",
+          100: "#F4EACF",
+          200: "#E7D6A6",
+          500: "#D4A843",
+          600: "#BE9433",
+          700: "#8A6B1C",
         },
         // 사이드바 네이비
         sidebar: {

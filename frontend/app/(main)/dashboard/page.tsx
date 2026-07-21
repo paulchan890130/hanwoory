@@ -883,7 +883,10 @@ export default function DashboardPage() {
       );
     }
     return (
-      <div style={{ fontSize: 11, padding: "1px 4px", whiteSpace: "pre-line", lineHeight: 1.4, overflow: "hidden", width: "100%" }}>
+      <div
+        title={arg.event.title}
+        style={{ fontSize: 9, padding: "0 2px", whiteSpace: "pre-line", lineHeight: 1.3, overflow: "hidden", width: "100%", wordBreak: "break-word" }}
+      >
         {arg.event.title}
       </div>
     );
@@ -1003,7 +1006,7 @@ export default function DashboardPage() {
         {alertCount > 0 && (
           <span
             style={{
-              fontSize: 12, padding: "4px 10px", borderRadius: 99, fontWeight: 500, cursor: "pointer",
+              fontSize: 12, padding: "4px 10px", borderRadius: 6, fontWeight: 500, cursor: "pointer",
               background: "#FFF5F5", color: "#C53030", border: "1px solid #FEB2B2",
             }}
             onClick={() => router.push("/dashboard")}
@@ -1191,7 +1194,7 @@ export default function DashboardPage() {
                   <span style={{
                     fontSize: 11, fontWeight: 600, color: "#276749",
                     background: "#F0FFF4", border: "1px solid #9AE6B4",
-                    borderRadius: 999, padding: "2px 10px", whiteSpace: "nowrap",
+                    borderRadius: 6, padding: "2px 10px", whiteSpace: "nowrap",
                   }}>
                     💰 수입 합계 오늘 {formatNumber(incomeSummary.today)}원 / 이번 달 {formatNumber(incomeSummary.month)}원
                   </span>
@@ -1200,7 +1203,7 @@ export default function DashboardPage() {
                   <span style={{
                     fontSize: 11, fontWeight: 600, color: "#9C4221",
                     background: "#FFFAF0", border: "1px solid #FBD38D",
-                    borderRadius: 999, padding: "2px 10px", whiteSpace: "nowrap",
+                    borderRadius: 6, padding: "2px 10px", whiteSpace: "nowrap",
                   }}>
                     💳 카드지출 오늘 {formatNumber(cardExpense.today)}원 / 이번 달 {formatNumber(cardExpense.month)}원
                   </span>

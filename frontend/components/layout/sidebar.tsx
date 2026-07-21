@@ -34,7 +34,7 @@ const MY_ITEM = { href: "/my", label: "마이페이지", icon: User };
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: Settings };
 const MARKETING_ITEM = { href: "/marketing", label: "마케팅", icon: Globe };
 
-export const SIDEBAR_EXPANDED_WIDTH = 220;
+export const SIDEBAR_EXPANDED_WIDTH = 164;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
 interface SidebarProps {
@@ -96,21 +96,19 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            padding: showExpanded ? "14px 16px" : "12px 0",
+            gap: 9,
+            padding: showExpanded ? "12px 12px" : "12px 0",
             justifyContent: showExpanded ? "flex-start" : "center",
             borderBottom: "1px solid rgba(255,255,255,0.08)",
-            background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
-            minHeight: 72,
+            minHeight: 60,
           }}
         >
           <div style={{
-            width: showExpanded ? 44 : 38,
-            height: showExpanded ? 44 : 38,
-            borderRadius: 10,
+            width: showExpanded ? 34 : 34,
+            height: showExpanded ? 34 : 34,
+            borderRadius: 8,
             background: "#FFFFFF",
-            padding: 4,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            padding: 3,
             flexShrink: 0,
             overflow: "hidden",
           }}>
@@ -129,13 +127,13 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
           {showExpanded && (
             <div style={{ overflow: "hidden", flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 14, fontWeight: 800, color: "#FFFFFF",
+                fontSize: 13, fontWeight: 800, color: "#FFFFFF",
                 lineHeight: 1.2, letterSpacing: "-0.01em",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               }}>
                 한우리 소프트
               </div>
-              <div style={{ fontSize: 10, color: "#718096", lineHeight: 1.4, marginTop: 3 }}>
+              <div style={{ fontSize: 10, color: "#718096", lineHeight: 1.3, marginTop: 2 }}>
                 출입국 업무관리
               </div>
             </div>
