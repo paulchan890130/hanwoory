@@ -229,11 +229,14 @@ def _seed_invited_token(db, login_id, tid="of-1"):
 
 def test_verify_reflects_user_and_tenant_state(db):
     from backend.services import activation_pg_service as act
-    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.user import AccountUser
     _seed(db, seat_limit=3, active_admins=1)
     raw = _seed_invited_token(db, "inv@of1.kr")
     assert act.verify_activation_token(raw) is not None      # invited + active tenant → 유효
-    life.suspend_user("inv@of1.kr", actor="sys")             # 정지(토큰 폐기)
+    # 계정이 replaced 로 전이하면(교체) 잔존 링크는 상태상 무효로 표시돼야 한다.
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "inv@of1.kr"))
+        u.account_status = "replaced"; u.is_active = False; s.commit()
     assert act.verify_activation_token(raw) is None
 
 
@@ -307,11 +310,19 @@ def test_reissue_state_guards(db):
 
 def test_suspend_revokes_unused_tokens(db):
     from backend.services import account_lifecycle_pg_service as life
+    from backend.services import activation_pg_service as act
     from backend.db.models.activation_token import ActivationToken
+    from backend.db.models.user import AccountUser
     from backend.services.activation_pg_service import _hash
     _seed(db, seat_limit=3, active_admins=1)
-    raw = _seed_invited_token(db, "inv@of1.kr")
-    life.suspend_user("inv@of1.kr", actor="sys")
+    # 정지는 active 계정 전용 → active 계정에 잔존 미사용 토큰이 있으면 정지 시 폐기돼야 한다.
+    with db() as s:
+        u = AccountUser(login_id="act@of1.kr", tenant_id="of-1", password_hash="x",
+                        is_admin=False, is_active=True)
+        u.account_status = "active"; s.add(u); s.flush()
+        raw = act.issue_activation_token(s, "act@of1.kr", "of-1")
+        s.commit()
+    life.suspend_user("act@of1.kr", actor="sys")
     with db() as s:
         row = s.scalar(select(ActivationToken).where(ActivationToken.token_hash == _hash(raw)))
         assert row.used_at is not None

@@ -74,7 +74,10 @@ def reissue_activation_token(login_id: str, actor: Optional[str] = None,
             select(AccountUser).where(AccountUser.login_id == lid).with_for_update())
         if u is None:
             raise ActivationError("NO_USER", "계정을 찾을 수 없습니다.")
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id)) if u.tenant_id else None
+        # tenant 를 FOR UPDATE 로 잠근 뒤 상태를 검사한다(잠금순서 user→tenant) — 동시
+        # suspend_tenant 와 직렬화해 정지 사무소에서 뒤늦게 토큰이 재발급되는 경쟁을 차단.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == u.tenant_id).with_for_update()) if u.tenant_id else None
         # 재발급은 invited(비활성) + tenant pending/active 일 때만 — 공통 해석 소스 사용.
         block = _st.reissue_block_reason(u, t)
         if block is not None:

@@ -15,7 +15,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from sqlalchemy import create_engine, text, select
+from sqlalchemy import create_engine, text, select, func
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -142,16 +142,88 @@ def test_replaced_token_verify_fails(db):
     assert act.verify_activation_token(old_raw) is None
 
 
-# ── 3: invited suspend 후 토큰 활성화 실패 ────────────────────────────────────
-def test_invited_suspend_then_activation_fails(db):
+# ── 3: invited suspend 자체가 거부(정책) — 토큰 유효 유지, 활성화 링크는 정상 ──
+def test_invited_suspend_rejected_token_still_valid(db):
+    """invited 계정은 정지 자체가 INVITED 로 거부된다(suspend→restore 우회 원천 차단).
+
+    기존 정책(invited 를 suspend 로 만든 뒤 토큰 폐기)에서 변경: invited 정지 불가 →
+    토큰 무변경 → 활성화 링크를 통한 정상 활성화는 그대로 가능해야 한다.
+    """
     from backend.services import activation_pg_service as act
     from backend.services import account_lifecycle_pg_service as life
-    _mk_tenant(db, seat_limit=2)
+    _mk_tenant(db, seat_limit=2, service_status="pending_activation")
     raw = _mk_invited_with_token(db, "inv@of1.kr")
-    life.suspend_user("inv@of1.kr", actor="sys")
-    with pytest.raises(act.ActivationError):
-        act.complete_activation(raw, "password123")
-    assert _token_used(db, raw) is True  # suspend 시 폐기
+    with pytest.raises(life.LifecycleError) as ei:
+        life.suspend_user("inv@of1.kr", actor="sys")
+    assert ei.value.code == "INVITED"
+    assert _token_used(db, raw) is False          # 정지 실패 → 토큰 미폐기
+    r = act.complete_activation(raw, "password123")  # 링크 활성화는 정상
+    assert r["login_id"] == "inv@of1.kr"
+
+
+# ── 3b: suspend 상태 전이 강제 (active 만 정지 가능) ──────────────────────────
+def test_suspend_state_transitions(db):
+    from backend.services import account_lifecycle_pg_service as life
+    _mk_tenant(db, seat_limit=5)
+    _mk_user(db, "active@of1.kr", is_active=True, account_status="active")
+    _mk_user(db, "rep@of1.kr", is_active=False, account_status="replaced")
+    _mk_user(db, "dis@of1.kr", is_active=False, account_status="disabled")
+    _mk_invited_with_token(db, "inv@of1.kr")
+
+    # replaced → 거부(REPLACED)
+    with pytest.raises(life.LifecycleError) as e1:
+        life.suspend_user("rep@of1.kr", actor="sys")
+    assert e1.value.code == "REPLACED"
+    # invited → 거부(INVITED)
+    with pytest.raises(life.LifecycleError) as e2:
+        life.suspend_user("inv@of1.kr", actor="sys")
+    assert e2.value.code == "INVITED"
+    # disabled(레거시) → 거부(LEGACY_DISABLED)
+    with pytest.raises(life.LifecycleError) as e3:
+        life.suspend_user("dis@of1.kr", actor="sys")
+    assert e3.value.code == "LEGACY_DISABLED"
+    # active → 성공
+    r = life.suspend_user("active@of1.kr", actor="sys")
+    assert r["account_status"] == "suspended"
+    # 재정지 → ALREADY_SUSPENDED(멱등 거부)
+    with pytest.raises(life.LifecycleError) as e4:
+        life.suspend_user("active@of1.kr", actor="sys")
+    assert e4.value.code == "ALREADY_SUSPENDED"
+
+
+# ── 3c: replaced suspend→restore 우회 불가 (두 다리 모두 차단) ────────────────
+def test_replaced_suspend_restore_bypass_blocked(db):
+    from backend.services import account_lifecycle_pg_service as life
+    _mk_tenant(db, seat_limit=5)
+    _mk_user(db, "rep@of1.kr", is_active=False, account_status="replaced")
+    # 1) suspend 다리 차단.
+    with pytest.raises(life.LifecycleError) as e1:
+        life.suspend_user("rep@of1.kr", actor="sys")
+    assert e1.value.code == "REPLACED"
+    # 2) restore 다리도 차단(설령 상태가 어떻게든 suspended 로 갔다 해도 replaced 는 복구불가).
+    with pytest.raises(life.LifecycleError) as e2:
+        life.restore_user("rep@of1.kr", actor="sys")
+    assert e2.value.code == "REPLACED"
+
+
+# ── 3d: office_admin 경로 — replaced/invited 서브계정 직접 정지 차단 ──────────
+def test_office_suspend_sub_state_transitions(db):
+    from backend.services import account_lifecycle_pg_service as life
+    _mk_tenant(db, seat_limit=5)
+    _mk_user(db, "admin@of1.kr", is_admin=True, is_active=True, account_status="active")
+    _mk_user(db, "rep@of1.kr", is_admin=False, is_active=False, account_status="replaced")
+    _mk_user(db, "inv@of1.kr", is_admin=False, is_active=False, account_status="invited")
+    _mk_user(db, "act@of1.kr", is_admin=False, is_active=True, account_status="active")
+
+    with pytest.raises(life.LifecycleError) as e1:
+        life.office_suspend_sub("of-1", "admin@of1.kr", "rep@of1.kr")
+    assert e1.value.code == "REPLACED"
+    with pytest.raises(life.LifecycleError) as e2:
+        life.office_suspend_sub("of-1", "admin@of1.kr", "inv@of1.kr")
+    assert e2.value.code == "INVITED"
+    # active 서브계정은 정상 정지.
+    r = life.office_suspend_sub("of-1", "admin@of1.kr", "act@of1.kr")
+    assert r["account_status"] == "suspended"
 
 
 # ── 4~5: tenant suspend 후 활성화 실패 + tenant 상태 유지 ─────────────────────
@@ -289,3 +361,133 @@ def test_two_invited_activate_within_seat_limit(db):
     with db() as s:
         t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
         assert t.service_status == "active" and t.is_active is True
+
+
+# ── 17: tenant lifecycle 상태 제한 ────────────────────────────────────────────
+def test_restore_tenant_state_restrictions(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.tenant import Tenant
+    # active → ALREADY_ACTIVE
+    _mk_tenant(db, tid="of-act", service_status="active")
+    with pytest.raises(life.LifecycleError) as e1:
+        life.restore_tenant("of-act", actor="sys")
+    assert e1.value.code == "ALREADY_ACTIVE"
+    # terminated → 복구 거부(종착)
+    _mk_tenant(db, tid="of-term", service_status="terminated")
+    with pytest.raises(life.LifecycleError) as e2:
+        life.restore_tenant("of-term", actor="sys")
+    assert e2.value.code == "TENANT_TERMINATED"
+    # pending → BAD_TENANT_STATE
+    _mk_tenant(db, tid="of-pend", service_status="pending_activation")
+    with pytest.raises(life.LifecycleError) as e3:
+        life.restore_tenant("of-pend", actor="sys")
+    assert e3.value.code == "BAD_TENANT_STATE"
+    # suspended → 복구 성공
+    _mk_tenant(db, tid="of-susp", service_status="suspended")
+    r = life.restore_tenant("of-susp", actor="sys")
+    assert r["service_status"] == "active"
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-susp"))
+        assert t.service_status == "active" and t.is_active is True
+
+
+def test_suspend_terminated_tenant_blocked(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.tenant import Tenant
+    _mk_tenant(db, tid="of-term", service_status="terminated")
+    with pytest.raises(life.LifecycleError) as e:
+        life.suspend_tenant("of-term", actor="sys")
+    assert e.value.code == "TENANT_TERMINATED"
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-term"))
+        assert t.service_status == "terminated"  # 종착 상태 무변경
+
+
+# ── 18: tenant suspend ↔ reissue 동시 실행(실제 FOR UPDATE) ──────────────────
+def _count_unused_tokens(db, tenant_id="of-1"):
+    from backend.db.models.activation_token import ActivationToken
+    with db() as s:
+        return s.scalar(select(func.count()).select_from(ActivationToken).where(
+            ActivationToken.tenant_id == tenant_id,
+            ActivationToken.used_at.is_(None))) or 0
+
+
+def test_concurrent_tenant_suspend_and_reissue(db):
+    """tenant suspend 와 activation 재발급이 동시에 일어나도 최종 미사용 토큰은 0개.
+
+    A(reissue 선행): 새 토큰 발급→commit 후 suspend 가 폐기 → 0.
+    B(suspend 선행): tenant suspended → reissue 는 잠금대기 후 TENANT_SUSPENDED → 미발급 → 0.
+    어느 순서든 정지 사무소에 유효한 활성화 토큰이 남으면 안 된다.
+    """
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.services import activation_pg_service as act
+    _mk_tenant(db, seat_limit=5, service_status="active")
+    _mk_user(db, "inv@of1.kr", is_active=False, account_status="invited")
+
+    def _suspend():
+        try:
+            life.suspend_tenant("of-1", actor="sys")
+            return ("suspend", "ok")
+        except life.LifecycleError as e:
+            return ("suspend", e.code)
+
+    def _reissue():
+        try:
+            act.reissue_activation_token("inv@of1.kr", actor="sys")
+            return ("reissue", "ok")
+        except act.ActivationError as e:
+            return ("reissue", e.code)
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_reissue), ex.submit(_suspend)]
+        _ = [f.result() for f in futs]
+
+    assert _count_unused_tokens(db, "of-1") == 0   # 정지 사무소에 유효 토큰 0개
+
+    from backend.db.models.tenant import Tenant
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        assert t.service_status == "suspended"
+
+
+# ── 19: tenant suspend ↔ user restore 동시 실행(실제 FOR UPDATE) ─────────────
+def test_concurrent_tenant_suspend_and_user_restore(db):
+    """suspended user restore 와 동일 tenant suspend 동시 실행.
+
+    허용되는 최종 상태는 둘 중 하나:
+      1) restore 선행: user active + 이후 tenant suspended(로그인은 tenant 로 차단)
+      2) suspend 선행: restore 는 TENANT_SUSPENDED 로 거부 + user suspended 유지
+    'tenant suspended 인데 user 가 active 로 복구 성공'이 되면 안 된다(불일치 금지).
+    """
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    _mk_tenant(db, seat_limit=5, service_status="active")
+    _mk_user(db, "s@of1.kr", is_active=False, account_status="suspended")
+
+    def _restore():
+        try:
+            life.restore_user("s@of1.kr", actor="sys")
+            return ("restore", "ok")
+        except life.LifecycleError as e:
+            return ("restore", e.code)
+
+    def _suspend():
+        life.suspend_tenant("of-1", actor="sys")
+        return ("suspend", "ok")
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_restore), ex.submit(_suspend)]
+        results = dict(f.result() for f in futs)
+
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "s@of1.kr"))
+        assert t.service_status == "suspended"  # suspend 는 항상 반영됨
+        if results.get("restore") == "ok":
+            # restore 가 tenant 잠금을 먼저 잡음 → user active 지만 tenant 는 이후 정지.
+            assert u.account_status == "active"
+        else:
+            # suspend 선행 → restore 는 TENANT_SUSPENDED 거부, user suspended 유지.
+            assert results["restore"] == "TENANT_SUSPENDED"
+            assert u.account_status == "suspended"

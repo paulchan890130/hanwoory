@@ -99,8 +99,10 @@ def _revoke_unused_tokens(session, login_id: str) -> None:
 
 def suspend_user(login_id: str, actor: str) -> dict:
     from backend.auth import is_master_login
+    from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
+    from backend.services import account_state as _st
 
     if is_master_login(login_id):
         raise LifecycleError("MASTER_PROTECTED", "마스터 계정은 정지할 수 없습니다.")
@@ -111,6 +113,12 @@ def suspend_user(login_id: str, actor: str) -> dict:
         if u is None:
             raise LifecycleError("NOT_FOUND", "계정을 찾을 수 없습니다.")
         tenant_id = u.tenant_id
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # 정지는 active 계정 전용(공통 해석 소스). invited/replaced/suspended/disabled 및
+        # 상태 불일치는 거부 → 여기서 실패하면 account_status/is_active/토큰/세션 무변경.
+        block = _st.suspend_block_reason(u, t)
+        if block is not None:
+            raise LifecycleError(block[0], block[1])
         u.is_active = False
         u.account_status = "suspended"
         # 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지).
@@ -134,7 +142,10 @@ def restore_user(login_id: str, actor: str) -> dict:
         if u is None:
             raise LifecycleError("NOT_FOUND", "계정을 찾을 수 없습니다.")
         tenant_id = u.tenant_id
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # tenant 를 FOR UPDATE 로 먼저 잠근 뒤 상태를 검사한다 — 동시 suspend_tenant 와의
+        # 경쟁을 직렬화(잠금 획득 후 재검사)해 "정지된 사무소에서 뒤늦게 복구 성공"을 차단.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
         # 복구는 suspended 계정 전용(공통 해석 소스). invited/replaced/active/disabled 및
         # 정지·종료 tenant 는 거부 → 사용자만 임의로 활성화되지 않는다.
         block = _st.restore_block_reason(u, t)
@@ -154,12 +165,18 @@ def suspend_tenant(tenant_id: str, actor: str) -> dict:
     from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
+    from backend.services import account_state as _st
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        # tenant 를 FOR UPDATE 로 잠근 뒤 상태검사·정지·토큰폐기를 같은 트랜잭션에서 수행한다.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update())
         if t is None:
             raise LifecycleError("NOT_FOUND", "테넌트를 찾을 수 없습니다.")
+        block = _st.suspend_tenant_block_reason(t)  # terminated → 거부(종착 상태)
+        if block is not None:
+            raise LifecycleError(block[0], block[1])
         t.service_status = "suspended"
         t.is_active = False
         logins = list(session.scalars(
@@ -182,12 +199,18 @@ def suspend_tenant(tenant_id: str, actor: str) -> dict:
 def restore_tenant(tenant_id: str, actor: str) -> dict:
     from backend.db.models.tenant import Tenant
     from backend.db.session import get_sessionmaker
+    from backend.services import account_state as _st
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update())
         if t is None:
             raise LifecycleError("NOT_FOUND", "테넌트를 찾을 수 없습니다.")
+        # 복구는 suspended 사무소 전용 — active(멱등 아님·거부)/terminated(종착)/기타 상태 거부.
+        block = _st.restore_tenant_block_reason(t)
+        if block is not None:
+            raise LifecycleError(block[0], block[1])
         t.service_status = "active"
         t.is_active = True
         session.commit()
@@ -349,12 +372,19 @@ def _assert_manageable_sub_locked(session, tenant_id: str, actor_login: str,
 
 
 def office_suspend_sub(tenant_id: str, actor_login: str, target_login: str) -> dict:
-    """스코프 검증 + 정지를 **단일 트랜잭션**으로 수행."""
+    """스코프 검증 + 상태 전이 검증 + 정지를 **단일 트랜잭션**으로 수행."""
+    from backend.db.models.tenant import Tenant
     from backend.db.session import get_sessionmaker
+    from backend.services import account_state as _st
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # 정지는 active 전용(시스템 관리자 경로와 동일 규칙) — replaced/invited/suspended 우회 차단.
+        block = _st.suspend_block_reason(u, t)
+        if block is not None:
+            raise LifecycleError(block[0], block[1])
         u.is_active = False
         u.account_status = "suspended"
         # 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지).
@@ -374,7 +404,9 @@ def office_restore_sub(tenant_id: str, actor_login: str, target_login: str) -> d
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # tenant FOR UPDATE 로 잠근 뒤 상태검사 — 동시 suspend_tenant 경쟁 직렬화.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
         # 복구는 suspended 전용(시스템 관리자 경로와 동일 규칙).
         block = _st.restore_block_reason(u, t)
         if block is not None:
@@ -401,7 +433,9 @@ def office_reissue_sub(tenant_id: str, actor_login: str, target_login: str) -> d
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # tenant FOR UPDATE 로 잠근 뒤 상태검사 — 동시 suspend_tenant 경쟁 직렬화.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
         block = _st.reissue_block_reason(u, t)
         if block is not None:
             raise LifecycleError(block[0], block[1])

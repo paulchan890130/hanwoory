@@ -37,10 +37,12 @@ TENANT_ACTIVATABLE = (TENANT_PENDING, TENANT_ACTIVE)
 # (code, http_status) 매핑 — 라우터가 그대로 쓸 수 있게 노출한다.
 STATE_ERROR_HTTP = {
     "BAD_ACCOUNT_STATE": 409,
+    "BAD_TENANT_STATE": 409,
     "TENANT_SUSPENDED": 409,
     "TENANT_TERMINATED": 409,
     "SEAT_LIMIT": 409,
     "ALREADY_ACTIVE": 409,
+    "ALREADY_SUSPENDED": 409,
     "INVITED": 409,
     "REPLACED": 409,
     "SUSPENDED": 409,
@@ -122,3 +124,61 @@ def restore_block_reason(user, tenant) -> BlockReason:
         return ("LEGACY_DISABLED", "레거시 비활성 계정입니다. 레거시 정책으로 처리하세요.")
     # st == suspended → 계정은 허용. 테넌트 상태만 추가로 확인.
     return _tenant_block(tenant)
+
+
+def _suspend_tenant_block(tenant) -> BlockReason:
+    """정지 공통 — 정지/종료 사무소의 개별 계정은 사무소 단위로만 처리(개별 정지 거부)."""
+    tstatus = tenant_status_of(tenant)
+    if tstatus == TENANT_SUSPENDED:
+        return ("TENANT_SUSPENDED", "정지된 사무소의 계정은 개별 정지할 수 없습니다. 사무소 단위로 처리하세요.")
+    if tstatus == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사무소의 계정입니다.")
+    return None
+
+
+def suspend_block_reason(user, tenant) -> BlockReason:
+    """정지(active→suspended) 허용 여부. 허용이면 None, 아니면 (code, message).
+
+    현재 상태를 확인하지 않고 account_status="suspended" 로 덮어쓰면 replaced/invited 계정을
+    suspended 로 만든 뒤 restore 로 되살리는 우회가 생긴다. 그래서 **active + is_active=True**
+    계정만 정지할 수 있게 강제한다:
+    - invited   → INVITED (활성화 취소/교체로만)
+    - suspended → ALREADY_SUSPENDED (멱등 거부)
+    - replaced  → REPLACED (종착 상태 — 되살릴 수 없음)
+    - disabled  → LEGACY_DISABLED (레거시 정책 별도)
+    - active 인데 is_active=False 등 불일치 → BAD_ACCOUNT_STATE
+    - 사무소가 정지/종료 → 사무소 단위로만 처리(TENANT_*)
+    """
+    st = account_status_of(user)
+    if st == ACCOUNT_INVITED:
+        return ("INVITED", "초대 상태 계정은 정지할 수 없습니다. 활성화 취소 또는 계정 교체를 사용하세요.")
+    if st == ACCOUNT_SUSPENDED:
+        return ("ALREADY_SUSPENDED", "이미 정지된 계정입니다.")
+    if st == ACCOUNT_REPLACED:
+        return ("REPLACED", "교체된 계정은 정지할 수 없습니다(종착 상태).")
+    if st == ACCOUNT_DISABLED:
+        return ("LEGACY_DISABLED", "레거시 비활성 계정입니다. 레거시 정책으로 처리하세요.")
+    if st != ACCOUNT_ACTIVE:
+        return ("BAD_ACCOUNT_STATE", "정지할 수 없는 계정 상태입니다.")
+    if not bool(getattr(user, "is_active", False)):
+        return ("BAD_ACCOUNT_STATE", "계정 상태가 일치하지 않습니다(active/비활성 불일치).")
+    return _suspend_tenant_block(tenant)
+
+
+def suspend_tenant_block_reason(tenant) -> BlockReason:
+    """사무소 정지 허용 여부. terminated 는 종착이라 거부(그 외 상태는 정지 허용/멱등)."""
+    if tenant_status_of(tenant) == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사무소는 정지할 수 없습니다(종착 상태).")
+    return None
+
+
+def restore_tenant_block_reason(tenant) -> BlockReason:
+    """사무소 복구 허용 여부 — **suspended 전용**. 허용이면 None."""
+    tstatus = tenant_status_of(tenant)
+    if tstatus == TENANT_ACTIVE:
+        return ("ALREADY_ACTIVE", "이미 활성 상태인 사무소입니다.")
+    if tstatus == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사무소는 복구할 수 없습니다(종착 상태).")
+    if tstatus != TENANT_SUSPENDED:
+        return ("BAD_TENANT_STATE", "복구할 수 없는 사무소 상태입니다.")
+    return None

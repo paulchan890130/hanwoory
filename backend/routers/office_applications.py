@@ -259,7 +259,8 @@ def admin_suspend_tenant(tenant_id: str, user: dict = Depends(require_system_adm
     try:
         return svc.suspend_tenant(tenant_id, user.get("login_id", ""))
     except svc.LifecycleError as e:
-        raise HTTPException(status_code=404 if e.code == "NOT_FOUND" else 400, detail=e.message)
+        code_map = {"NOT_FOUND": 404, **_STATE_HTTP}
+        raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
 @router.post("/admin/tenants/{tenant_id}/restore")
@@ -269,7 +270,8 @@ def admin_restore_tenant(tenant_id: str, user: dict = Depends(require_system_adm
     try:
         return svc.restore_tenant(tenant_id, user.get("login_id", ""))
     except svc.LifecycleError as e:
-        raise HTTPException(status_code=404 if e.code == "NOT_FOUND" else 400, detail=e.message)
+        code_map = {"NOT_FOUND": 404, **_STATE_HTTP}
+        raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
 @router.post("/admin/users/{login_id}/suspend")
@@ -279,7 +281,7 @@ def admin_suspend_user(login_id: str, user: dict = Depends(require_system_admin)
     try:
         return svc.suspend_user(login_id, user.get("login_id", ""))
     except svc.LifecycleError as e:
-        code_map = {"NOT_FOUND": 404, "MASTER_PROTECTED": 400}
+        code_map = {"NOT_FOUND": 404, "MASTER_PROTECTED": 400, **_STATE_HTTP}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
