@@ -56,6 +56,22 @@ class Tenant(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("TRUE")
     )
+    # ── 승인형 SaaS lifecycle (migration 0031) — deferred: 0031 미적용 DB 에서도
+    #    기존 full-row select(Tenant) 가 깨지지 않도록 명시 접근 시에만 읽는다. ──
+    service_tier: Mapped[str] = mapped_column(
+        Text, nullable=False, default="managed_basic",
+        server_default=text("'managed_basic'"), deferred=True,
+    )
+    seat_limit: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=2, server_default=text("2"), deferred=True,
+    )
+    service_status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="pending_activation",
+        server_default=text("'pending_activation'"), deferred=True,
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
+    approved_by: Mapped[str | None] = mapped_column(Text, deferred=True)
+    source_application_id: Mapped[str | None] = mapped_column(Text, deferred=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

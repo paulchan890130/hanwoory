@@ -51,6 +51,19 @@ class AccountUser(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("TRUE")
     )
+    # ── 승인형 SaaS lifecycle (migration 0031) — deferred: 0031 미적용 DB 에서도
+    #    기존 full-row select(AccountUser) 가 깨지지 않도록 명시 접근 시에만 읽는다.
+    #    is_active 가 여전히 로그인/차단의 source of truth 이고, account_status 는 병행 상태값. ──
+    account_status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="active",
+        server_default=text("'active'"), deferred=True,
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
+    approved_by: Mapped[str | None] = mapped_column(Text, deferred=True)
+    replaced_by_user_id: Mapped[int | None] = mapped_column(BigInteger, deferred=True)
+    replaces_user_id: Mapped[int | None] = mapped_column(BigInteger, deferred=True)
+    invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -49,6 +49,8 @@ from backend.db.models.terms import TermsVersion, UserTermsAcceptance  # noqa: F
 from backend.db.models.account_security import (  # noqa: F401
     LoginEvent, AccountSecurity, SecurityNotification,
 )
+from backend.db.models.office_application import OfficeApplication  # noqa: F401
+from backend.db.models.activation_token import ActivationToken  # noqa: F401
 
 __all__ = [
     "Tenant", "AccountUser", "AuditLog",
@@ -72,4 +74,5 @@ __all__ = [
     "DocTreeNode", "DocRequiredDocument",
     "LoginAttempt", "TermsVersion", "UserTermsAcceptance",
     "LoginEvent", "AccountSecurity", "SecurityNotification",
+    "OfficeApplication", "ActivationToken",
 ]

@@ -137,6 +137,20 @@ def guidelines_v3_edit_enabled() -> bool:
     return _bool("FEATURE_GUIDELINES_V3_EDIT")
 
 
+def approved_saas_enabled() -> bool:
+    """If true, 수동 승인형 SaaS(사무소 이용신청/승인/계정 lifecycle) API 를 활성화한다.
+    Off(기본) → 공개 신청 및 관리자 승인/정지/교체 API 는 404/409. 데이터는 migration 0031
+    (office_applications / activation_tokens / tenants·users lifecycle 컬럼)에 의존하므로
+    **0031 적용 후에만** 켠다(플래그가 migration 보다 먼저 켜지지 않도록)."""
+    return _bool("FEATURE_APPROVED_SAAS")
+
+
+def office_application_uploads_enabled() -> bool:
+    """If true, 사무소 이용신청 증빙 파일 업로드를 허용한다. Off(기본) → 업로드 비활성
+    (지속 가능한 파일 스토리지 미확정 → 증빙은 이메일 송부로 우회). 저장계층 확정 후에만 켠다."""
+    return _bool("FEATURE_OFFICE_APPLICATION_UPLOADS")
+
+
 def snapshot() -> dict[str, bool]:
     """Return the current flag state. Useful for debug endpoints."""
     return {
@@ -160,4 +174,6 @@ def snapshot() -> dict[str, bool]:
         "FEATURE_SINGLE_SESSION": single_session_enabled(),
         "FEATURE_GUIDELINES_V3": guidelines_v3_enabled(),
         "FEATURE_GUIDELINES_V3_EDIT": guidelines_v3_edit_enabled(),
+        "FEATURE_APPROVED_SAAS": approved_saas_enabled(),
+        "FEATURE_OFFICE_APPLICATION_UPLOADS": office_application_uploads_enabled(),
     }
