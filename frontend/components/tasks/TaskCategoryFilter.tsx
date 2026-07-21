@@ -28,27 +28,29 @@ export default function TaskCategoryFilter({ categories, activeCategory, onChang
           <button
             key={cat}
             onClick={() => onChange(cat as string | "all")}
+            aria-pressed={isActive}
             style={{
               padding: "8px 14px",
               fontSize: 13,
-              fontWeight: isActive ? 700 : 400,
-              color: isActive ? "#1A202C" : "#718096",
-              background: "none",
+              fontWeight: isActive ? 700 : 500,
+              color: isActive ? "var(--hw-gold-700)" : "#4A5568",
+              background: isActive ? "var(--hw-gold-50)" : "none",
               border: "none",
-              borderBottom: isActive ? "2px solid #1A202C" : "2px solid transparent",
+              borderBottom: isActive ? "2px solid var(--hw-gold-500)" : "2px solid transparent",
+              borderRadius: "6px 6px 0 0",
               marginBottom: -2,
               cursor: "pointer",
               whiteSpace: "nowrap",
               display: "flex",
               alignItems: "center",
               gap: 5,
-              transition: "color 0.1s",
+              transition: "color 0.12s, background 0.12s",
             }}
             onMouseEnter={(e) => {
-              if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = "#2D3748";
+              if (!isActive) { const t = e.currentTarget as HTMLButtonElement; t.style.color = "#1A202C"; t.style.background = "var(--hw-gold-50)"; }
             }}
             onMouseLeave={(e) => {
-              if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = "#718096";
+              if (!isActive) { const t = e.currentTarget as HTMLButtonElement; t.style.color = "#4A5568"; t.style.background = "none"; }
             }}
           >
             {label}
@@ -56,8 +58,8 @@ export default function TaskCategoryFilter({ categories, activeCategory, onChang
               <span style={{
                 fontSize: 11,
                 fontWeight: 700,
-                background: isActive ? "#1A202C" : "#EDF2F7",
-                color: isActive ? "#fff" : "#718096",
+                background: isActive ? "var(--hw-gold-200)" : "#EDF2F7",
+                color: isActive ? "#111827" : "#718096",
                 padding: "1px 6px",
                 borderRadius: 10,
                 minWidth: 18,

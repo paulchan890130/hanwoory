@@ -643,14 +643,11 @@ export default function TasksPage() {
                   totalCount={allActive.length}
                 />
                 {/* 뷰 토글 */}
-                <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #E2E8F0", flexShrink: 0, marginLeft: 12 }}>
+                <div className="hw-seg" style={{ flexShrink: 0, marginLeft: 12 }} role="group" aria-label="보기 방식">
                   {(["table", "card"] as const).map(mode => (
-                    <button key={mode} onClick={() => setViewMode(mode)} style={{
-                      height: 28, padding: "0 12px", fontSize: 11, fontWeight: 600,
-                      cursor: "pointer", border: "none",
-                      background: viewMode === mode ? "#4A5568" : "#F7FAFC",
-                      color: viewMode === mode ? "#fff" : "#718096",
-                    }}>
+                    <button key={mode} className="hw-seg-btn" onClick={() => setViewMode(mode)}
+                      aria-pressed={viewMode === mode}
+                      style={{ height: 28, padding: "0 12px", fontSize: 12 }}>
                       {mode === "table" ? "☰ 테이블" : "⊞ 카드"}
                     </button>
                   ))}

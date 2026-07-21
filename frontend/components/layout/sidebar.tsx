@@ -156,6 +156,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               href={navHref(href)}
               title={!showExpanded ? label : undefined}
               className={`hw-sidebar-item ${navActive(href) ? "active" : ""}`}
+              aria-current={navActive(href) ? "page" : undefined}
               onClick={isMobile ? onMobileClose : undefined}
             >
               <Icon size={16} className="shrink-0" />
@@ -183,6 +184,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
             href={MY_ITEM.href}
             title={!showExpanded ? MY_ITEM.label : undefined}
             className={`hw-sidebar-item ${isActive(MY_ITEM.href) ? "active" : ""}`}
+            aria-current={isActive(MY_ITEM.href) ? "page" : undefined}
             onClick={isMobile ? onMobileClose : undefined}
           >
             <MY_ITEM.icon size={16} className="shrink-0" />
@@ -194,6 +196,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               href={MARKETING_ITEM.href}
               title={!showExpanded ? MARKETING_ITEM.label : undefined}
               className={`hw-sidebar-item ${isActive(MARKETING_ITEM.href) ? "active" : ""}`}
+              aria-current={isActive(MARKETING_ITEM.href) ? "page" : undefined}
               onClick={isMobile ? onMobileClose : undefined}
             >
               <MARKETING_ITEM.icon size={16} className="shrink-0" />
@@ -205,6 +208,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               href={ADMIN_ITEM.href}
               title={!showExpanded ? ADMIN_ITEM.label : undefined}
               className={`hw-sidebar-item ${isActive(ADMIN_ITEM.href) ? "active" : ""}`}
+              aria-current={isActive(ADMIN_ITEM.href) ? "page" : undefined}
               onClick={isMobile ? onMobileClose : undefined}
             >
               <ADMIN_ITEM.icon size={16} className="shrink-0" />

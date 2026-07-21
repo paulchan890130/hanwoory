@@ -1248,14 +1248,12 @@ export default function DashboardPage() {
                   />
                   {/* 모바일은 가로로 넓은 표 대신 세로로 쌓이는 카드만 사용 → 토글 숨김 */}
                   {!isMobile && (
-                    <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #E2E8F0", flexShrink: 0, marginLeft: 12 }}>
+                    <div className="hw-seg" style={{ flexShrink: 0, marginLeft: 12 }} role="group" aria-label="보기 방식">
                       {(["card", "table"] as const).map(mode => (
-                        <button key={mode} onClick={() => setDashViewMode(mode)} style={{
-                          height: 26, padding: "0 10px", fontSize: 11, fontWeight: 600,
-                          cursor: "pointer", border: "none",
-                          background: dashViewMode === mode ? "#4A5568" : "#F7FAFC",
-                          color: dashViewMode === mode ? "#fff" : "#718096",
-                        }}>
+                        <button key={mode} className="hw-seg-btn" onClick={() => setDashViewMode(mode)}
+                          aria-pressed={dashViewMode === mode}
+                          aria-label={mode === "table" ? "표 보기" : "카드 보기"}
+                          style={{ height: 26, padding: "0 10px", fontSize: 12 }}>
                           {mode === "table" ? "☰" : "⊞"}
                         </button>
                       ))}
