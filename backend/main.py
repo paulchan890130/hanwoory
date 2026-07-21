@@ -222,6 +222,7 @@ from backend.routers import (
     terms,
     account_security,
     office_applications,
+    self_check,
     health as health_router,
 )
 
@@ -279,6 +280,7 @@ app.include_router(business_card.router,   prefix="/api",                       
 app.include_router(terms.router,           prefix="/api/terms",                    tags=["약관동의"])
 app.include_router(account_security.router, prefix="/api",                         tags=["계정보안"])
 app.include_router(office_applications.router, prefix="/api",                       tags=["승인형 SaaS"])
+app.include_router(self_check.router,     prefix="/api/self-check",               tags=["공통기준 자가점검"])
 app.include_router(health_router.router,  prefix="/health",                       tags=["헬스체크"])
 
 # ── Local-beta only: PostgreSQL dev endpoints ─────────────────────────────────

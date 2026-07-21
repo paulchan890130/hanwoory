@@ -1,0 +1,6 @@
+# Playwright (dev/CI 전용 — 운영 이미지 미포함, 브라우저 바이너리 별도)
+/test-results/
+/playwright-report/
+/e2e/.report/
+/e2e/.artifacts/
+/.playwright/

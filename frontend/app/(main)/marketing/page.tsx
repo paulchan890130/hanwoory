@@ -65,6 +65,20 @@ export default function MarketingHomePage() {
             <br />공개 홈페이지의 <strong>/documents</strong> 에 표시됩니다.
           </p>
         </button>
+
+        <button
+          onClick={() => router.push("/marketing/self-check")}
+          style={cardStyle}
+          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = "#D4A843"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#E2E8F0"; }}
+        >
+          <div style={{ fontSize: 28, marginBottom: 12 }}>✅</div>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: "#1A202C", margin: "0 0 8px" }}>공통기준 자가점검 관리</h2>
+          <p style={{ fontSize: 13, color: "#718096", margin: 0, lineHeight: 1.6 }}>
+            질문·분기·결과·주의문구·로직 버전을 관리합니다. 사용자 답변·결과는 서버에 저장되지 않습니다.
+            <br />공개 홈페이지의 <strong>자가점검 팝업</strong> 에 표시됩니다.
+          </p>
+        </button>
       </div>
     </div>
   );

@@ -38,3 +38,8 @@ homepage.txt
 # 개발용 참고 텍스트 사본(런타임 미사용 — page_scan 도너는 .py 로 유지)
 frontend/app/(main)/scan/page - 2.txt
 frontend/app/(main)/scan/page.txt
+# Playwright 개발/CI 테스트 — 런타임 이미지 미포함(브라우저 바이너리도 별도)
+frontend/e2e
+frontend/playwright.config.ts
+frontend/test-results
+frontend/playwright-report

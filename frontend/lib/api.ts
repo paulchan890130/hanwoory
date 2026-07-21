@@ -1842,3 +1842,13 @@ export const accountSecurityApi = {
   myMarkRead: (id: number) =>
     api.post<{ ok: boolean }>(`/api/my/security-notifications/${id}/read`),
 };
+
+// ── 공통기준 자가점검 설정 (관리 설정만 저장/조회 — 사용자 답변/결과는 서버 미전송) ──
+// 공개는 게시된 설정만 GET. 답변 제출/결과 저장 endpoint는 존재하지 않는다.
+const _pubSC = { headers: { "X-Skip-Auth-Redirect": "1" } };
+export const selfCheckApi = {
+  getPublic: () => api.get("/api/self-check/config", _pubSC),   // { published, config }
+  adminGet: () => api.get("/api/self-check/admin/config"),
+  adminSave: (config: unknown, is_published: boolean) =>
+    api.put("/api/self-check/admin/config", { config, is_published }),
+};
