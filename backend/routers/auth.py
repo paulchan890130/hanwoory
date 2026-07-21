@@ -86,6 +86,20 @@ def login(req: LoginRequest, request: Request = None):
     office_name = str(acc.get("office_name", "")).strip()
     contact_name = str(acc.get("contact_name", "")).strip()
 
+    # 승인형 SaaS: 정지/종료된 테넌트는 신규 토큰 발급 차단(마스터 예외). flag off/컬럼 미적용 시 무동작.
+    if not is_master_login(req.login_id):
+        try:
+            from backend.db.feature_flags import approved_saas_enabled
+            from backend.db.session import is_configured as _cfg
+            if approved_saas_enabled() and _cfg():
+                from backend.services.auth_pg_service import tenant_service_status
+                if tenant_service_status(tenant_id) in ("suspended", "terminated"):
+                    raise HTTPException(status_code=403, detail="사무소 서비스가 정지되었습니다. 관리자에게 문의하십시오.")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     # 권한(role) 산정 — 마스터는 항상 admin, 그 외는 PG role 조회(없으면 is_admin 기반).
     is_master = is_master_login(req.login_id)
     if is_master:

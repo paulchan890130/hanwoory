@@ -83,6 +83,32 @@ def account_auth_status(login_id: str) -> dict:
         }
 
 
+def tenant_service_status(tenant_id: str) -> str:
+    """tenant 의 service_status — 'active' | 'suspended' | 'terminated' | 'pending_activation' | 'missing' | 'unknown'.
+
+    승인형 SaaS 의 테넌트 정지를 로그인/요청 인증에서 즉시 반영하기 위한 조회.
+    service_status 컬럼(migration 0031)이 없는 DB(운영=0016)에서는 'unknown' 을 반환해
+    기존 동작을 바꾸지 않는다(가용성 우선). 호출측은 'suspended'/'terminated' 만 차단한다.
+    """
+    from backend.db.models.tenant import Tenant
+    from backend.db.session import get_sessionmaker
+
+    tid = (tenant_id or "").strip()
+    if not tid:
+        return "unknown"
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        try:
+            st = session.scalar(select(Tenant.service_status).where(Tenant.tenant_id == tid))
+        except Exception:
+            return "unknown"  # 0031 미적용 컬럼 없음 → 기존 동작 유지
+        if st is None:
+            # tenant 행 자체가 없을 수도(레거시). 존재 여부만 별도 확인.
+            exists = session.scalar(select(Tenant.id).where(Tenant.tenant_id == tid))
+            return "unknown" if exists is None else "unknown"
+        return str(st)
+
+
 def find_user_pg(login_id: str) -> Optional[PGUserInfo]:
     """Look up one user by ``login_id``. Returns ``None`` if not found.
 

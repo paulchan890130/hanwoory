@@ -74,6 +74,29 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         # PG 조회 실패 시 인증을 막지 않는다(가용성 우선) — 기존 세션검사 정책과 동일.
         pass
 
+    # ── 테넌트 정지/종료 즉시 차단 (승인형 SaaS) ──────────────────────────────
+    # FEATURE_APPROVED_SAAS on 이고 tenant.service_status 가 suspended/terminated 면
+    # 해당 tenant 전체 사용자를 차단한다. 마스터는 예외(운영 복구용). 컬럼 미적용/조회
+    # 실패는 fail-open(기존 동작 유지). 이 검사는 flag off 면 전혀 동작하지 않는다.
+    if not is_master_login(login_id):
+        try:
+            from backend.db.feature_flags import approved_saas_enabled
+            from backend.db.session import is_configured as _cfg
+            if approved_saas_enabled() and _cfg() and tenant_id:
+                from backend.services.auth_pg_service import tenant_service_status
+                tst = tenant_service_status(tenant_id)
+                if tst in ("suspended", "terminated"):
+                    raise HTTPException(
+                        status_code=401,
+                        detail={"code": "TENANT_SUSPENDED",
+                                "message": "사무소 서비스가 정지되었습니다. 관리자에게 문의하십시오."},
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     # 마스터 계정은 항상 full admin 으로 취급(서버 강제).
     if is_master_login(login_id):
         is_admin = True
