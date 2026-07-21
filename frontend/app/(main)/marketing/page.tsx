@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getUser, canManageContent } from "@/lib/auth";
+import { getUser, canManageContent, isSystemAdmin } from "@/lib/auth";
 
 // 마케팅 첫 화면: 공개 홈페이지 구조와 동일하게 두 영역으로 분리.
 //   - 업무안내 관리  → /board (공지/업무안내/제도변경 등 게시판형 글)
@@ -66,6 +66,8 @@ export default function MarketingHomePage() {
           </p>
         </button>
 
+        {/* 자가점검은 전역 설정 → 시스템 관리자에게만 메뉴 노출(서버도 require_system_admin 로 강제). */}
+        {isSystemAdmin(user) && (
         <button
           onClick={() => router.push("/marketing/self-check")}
           style={cardStyle}
@@ -79,6 +81,7 @@ export default function MarketingHomePage() {
             <br />공개 홈페이지의 <strong>자가점검 팝업</strong> 에 표시됩니다.
           </p>
         </button>
+        )}
       </div>
     </div>
   );

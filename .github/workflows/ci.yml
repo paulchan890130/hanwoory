@@ -93,3 +93,39 @@ jobs:
         env:
           # 빌드 중 sitemap fetch 실패(백엔드 미기동)는 기존과 동일하게 graceful — 빌드 실패 아님.
           API_URL: "http://127.0.0.1:8000"
+
+  # 공통기준 자가점검 E2E — 백엔드/DB 없이 next start + 기본설정 fallback 으로 동작.
+  # 운영 이미지에는 브라우저 미포함(여기서만 chromium 설치). 실제 문자 발송/운영 키/운영 DB 미사용.
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Install Playwright chromium (+ OS deps)
+        run: npx playwright install --with-deps chromium
+      - name: Build (needed by `next start` webServer)
+        run: npm run build
+        env:
+          API_URL: "http://127.0.0.1:59999"
+      - name: Playwright test (360×740 / 375×812 / 390×844 / 412×915 무스크롤 포함)
+        run: npx playwright test
+      - name: Upload Playwright artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/e2e/.report
+            frontend/e2e/.artifacts
+            frontend/test-results
+          retention-days: 7
+          if-no-files-found: ignore

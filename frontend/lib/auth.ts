@@ -49,3 +49,10 @@ export function isSubAdmin(u: UserInfo | null): boolean {
 export function canManageContent(u: UserInfo | null): boolean {
   return isFullAdmin(u) || isSubAdmin(u);
 }
+
+/** 시스템 운영 관리자(전역 설정) — 프론트가 아는 신호는 master 뿐.
+ *  (백엔드 require_system_admin 는 master + SYSTEM_ADMIN_LOGIN_IDS 허용목록이 최종 권위.
+ *   env 허용목록 계정은 이 함수로는 감지 못하므로 서버 응답을 최종 판단으로 쓴다.) */
+export function isSystemAdmin(u: UserInfo | null): boolean {
+  return !!(u && u.is_master);
+}

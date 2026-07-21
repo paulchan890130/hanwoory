@@ -15,7 +15,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.auth import require_admin
+from backend.auth import require_system_admin
 
 router = APIRouter()
 
@@ -28,11 +28,14 @@ class ConfigSave(BaseModel):
     is_published: bool = False
 
 
-# ── 그래프 무결성 검증 (logic.ts 와 동일 개념) ────────────────────────────────
-def _validate_config(cfg: dict, for_publish: bool) -> list[str]:
+# ── 그래프 무결성 검증 (frontend lib/selfcheck/logic.ts validateConfig 와 동일 개념) ──
+# 반환: {"errors": [...], "warnings": [...]}. errors 는 게시 차단, warnings 는 안내.
+# 프론트/백엔드 결과가 동일하도록 검사 항목·판정 기준을 맞춘다.
+def _validate_config_report(cfg: dict) -> dict:
     errors: list[str] = []
+    warnings: list[str] = []
     if not isinstance(cfg, dict):
-        return ["설정 형식이 올바르지 않습니다."]
+        return {"errors": ["설정 형식이 올바르지 않습니다."], "warnings": []}
     questions = cfg.get("questions") or []
     results = cfg.get("results") or []
     qids = [q.get("id") for q in questions]
@@ -50,22 +53,24 @@ def _validate_config(cfg: dict, for_publish: bool) -> list[str]:
         errors.append("결과가 없습니다.")
     qmap = {q.get("id"): q for q in questions}
     for q in questions:
-        for br in ("yes", "no"):
+        for br, ko in (("yes", "예"), ("no", "아니오")):
             tgt = q.get(br)
             if not tgt or tgt not in idset:
-                errors.append(f"질문 {q.get('id')}의 '{br}' 대상이 유효하지 않습니다.")
+                errors.append(f"질문 {q.get('id')}의 '{ko}' 대상({tgt or '없음'})이 존재하지 않습니다.")
     start = cfg.get("start_question_id")
     if not start or start not in qmap:
-        errors.append("시작 질문이 유효하지 않습니다.")
-        return errors
-    # 순환 감지 + 결과 도달성 (DFS 컬러링)
+        errors.append("시작 질문이 없거나 유효하지 않습니다.")
+        return {"errors": errors, "warnings": warnings}  # 시작 없으면 도달성/순환 분석 불가
+
+    # 순환 감지 + 도달성(DFS 컬러링). 도달한 질문/결과 집계.
     color: dict[str, int] = {}
-    reached_result = {"v": False}
+    reachable_q: set = set()
+    reachable_r: set = set()
     cycle = {"v": False}
 
     def dfs(node: str) -> None:
         if node in rids:
-            reached_result["v"] = True
+            reachable_r.add(node)
             return
         q = qmap.get(node)
         if not q:
@@ -76,6 +81,7 @@ def _validate_config(cfg: dict, for_publish: bool) -> list[str]:
         if color.get(node) == 2:
             return
         color[node] = 1
+        reachable_q.add(node)
         for br in ("yes", "no"):
             tgt = q.get(br)
             if tgt in idset:
@@ -84,12 +90,22 @@ def _validate_config(cfg: dict, for_publish: bool) -> list[str]:
 
     dfs(start)
     if cycle["v"]:
-        errors.append("질문 순환(loop) 감지 — 모든 경로가 결과로 끝나야 합니다.")
-    if not reached_result["v"] and not cycle["v"]:
+        errors.append("질문 순환(loop)이 감지되었습니다. 모든 경로가 결과로 끝나야 합니다.")
+    # 도달 불가 경고
+    for q in questions:
+        if q.get("id") not in reachable_q:
+            warnings.append(f"도달 불가능한 질문: {q.get('id')}")
+    for r in results:
+        if r.get("id") not in reachable_r:
+            warnings.append(f"도달 불가능한 결과: {r.get('id')}")
+    if not cycle["v"] and len(reachable_r) == 0:
         errors.append("어떤 경로에서도 결과에 도달하지 못합니다.")
-    if for_publish and not start:
-        errors.append("공개하려면 시작 질문이 필요합니다.")
-    return errors
+    return {"errors": errors, "warnings": warnings}
+
+
+# 하위호환 + 간결 호출용 — errors 리스트만 반환.
+def _validate_config(cfg: dict, for_publish: bool = False) -> list[str]:
+    return _validate_config_report(cfg)["errors"]
 
 
 def _load_row() -> dict | None:
@@ -123,14 +139,15 @@ def public_get_config():
 
 # ── 관리자: 편집용 조회(게시 여부 무관) ───────────────────────────────────────
 @router.get("/admin/config")
-def admin_get_config(user: dict = Depends(require_admin)):
+def admin_get_config(user: dict = Depends(require_system_admin)):
     return _envelope(_load_row())
 
 
 # ── 관리자: 저장 + 게시(검증 통과 시에만) ─────────────────────────────────────
 @router.put("/admin/config")
-def admin_save_config(body: ConfigSave, user: dict = Depends(require_admin)):
-    errors = _validate_config(body.config, for_publish=body.is_published)
+def admin_save_config(body: ConfigSave, user: dict = Depends(require_system_admin)):
+    report = _validate_config_report(body.config)
+    errors, warnings = report["errors"], report["warnings"]
     if body.is_published and errors:
         raise HTTPException(status_code=400, detail={"message": "게시하려면 오류를 먼저 수정하세요.", "errors": errors})
     from backend.services import marketing_pg_service as mk
@@ -150,4 +167,4 @@ def admin_save_config(body: ConfigSave, user: dict = Depends(require_admin)):
         mk.upsert_post(rec)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"저장 실패: {e}")
-    return {"ok": True, "published": body.is_published, "warnings": [] if body.is_published else errors}
+    return {"ok": True, "published": body.is_published, "errors": errors, "warnings": warnings}
