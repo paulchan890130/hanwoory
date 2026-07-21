@@ -1,0 +1,124 @@
+"""승인형 SaaS 계정/테넌트 상태 — **단일 해석 소스**.
+
+서비스마다 account_status/service_status 를 다르게 해석하면 상태 전이 우회가 생긴다.
+그 해석과 허용 전이 규칙을 이 모듈 한 곳에 모아 모든 서비스(activation/lifecycle/admin)가
+같은 기준을 쓰게 한다. 이 모듈은 순수 함수만 두고 다른 서비스에 의존하지 않는다(순환 import 방지).
+
+허용 전이(서버 강제):
+  invited  → active     : 활성화 링크 완료로만
+  active   → suspended  : suspend lifecycle 로만
+  suspended→ active     : restore lifecycle 로만
+  * → replaced          : replace lifecycle 로만
+  replaced              : 복구/활성화/재발급 불가(종착)
+  disabled(레거시)       : 레거시 정책 별도 — invited 와 혼동 금지
+"""
+from __future__ import annotations
+
+from typing import Optional, Tuple
+
+# ── 계정 상태(account_status) ─────────────────────────────────────────────────
+ACCOUNT_INVITED = "invited"
+ACCOUNT_ACTIVE = "active"
+ACCOUNT_SUSPENDED = "suspended"
+ACCOUNT_REPLACED = "replaced"
+ACCOUNT_DISABLED = "disabled"   # 레거시: SaaS lifecycle 상태 없이 is_active=False 인 계정
+_SAAS_ACCOUNT_STATES = (ACCOUNT_INVITED, ACCOUNT_ACTIVE, ACCOUNT_SUSPENDED, ACCOUNT_REPLACED)
+
+# ── 테넌트 상태(service_status) ───────────────────────────────────────────────
+TENANT_PENDING = "pending_activation"
+TENANT_ACTIVE = "active"
+TENANT_SUSPENDED = "suspended"
+TENANT_TERMINATED = "terminated"
+_TENANT_STATES = (TENANT_PENDING, TENANT_ACTIVE, TENANT_SUSPENDED, TENANT_TERMINATED)
+
+# activation/restore/reissue 를 진행할 수 있는 테넌트 상태.
+TENANT_ACTIVATABLE = (TENANT_PENDING, TENANT_ACTIVE)
+
+# (code, http_status) 매핑 — 라우터가 그대로 쓸 수 있게 노출한다.
+STATE_ERROR_HTTP = {
+    "BAD_ACCOUNT_STATE": 409,
+    "TENANT_SUSPENDED": 409,
+    "TENANT_TERMINATED": 409,
+    "SEAT_LIMIT": 409,
+    "ALREADY_ACTIVE": 409,
+    "INVITED": 409,
+    "REPLACED": 409,
+    "SUSPENDED": 409,
+    "LEGACY_DISABLED": 409,
+}
+
+BlockReason = Optional[Tuple[str, str]]  # (code, message) 또는 None(허용)
+
+
+def account_status_of(user) -> str:
+    """AccountUser 행의 lifecycle 상태를 **하나의 규칙**으로 해석한다.
+
+    저장된 account_status 가 SaaS 상태값이면 그대로, 아니면(NULL/미상) 레거시로 본다:
+    is_active True → active, False → disabled. **레거시 disabled 를 invited 로 승격하지 않는다.**
+    """
+    st = (getattr(user, "account_status", None) or "").strip().lower()
+    if st in _SAAS_ACCOUNT_STATES:
+        return st
+    return ACCOUNT_ACTIVE if bool(getattr(user, "is_active", False)) else ACCOUNT_DISABLED
+
+
+def tenant_status_of(tenant) -> str:
+    """Tenant 행의 service_status 를 하나의 규칙으로 해석한다(NULL → is_active 기반 폴백)."""
+    st = (getattr(tenant, "service_status", None) or "").strip().lower()
+    if st in _TENANT_STATES:
+        return st
+    return TENANT_ACTIVE if bool(getattr(tenant, "is_active", False)) else TENANT_PENDING
+
+
+def _tenant_block(tenant) -> BlockReason:
+    """activation/restore/reissue 공통 — 테넌트가 진행 불가 상태면 차단 사유 반환."""
+    tstatus = tenant_status_of(tenant)
+    if tstatus == TENANT_SUSPENDED:
+        return ("TENANT_SUSPENDED", "정지된 사무소의 계정은 처리할 수 없습니다. 사무소를 먼저 복구하세요.")
+    if tstatus == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사무소의 계정은 처리할 수 없습니다.")
+    if tstatus not in TENANT_ACTIVATABLE:
+        return ("BAD_ACCOUNT_STATE", "처리할 수 없는 사무소 상태입니다.")
+    return None
+
+
+def activation_block_reason(user, tenant) -> BlockReason:
+    """활성화(invited→active) 허용 여부. 허용이면 None, 아니면 (code, message).
+
+    - 계정은 반드시 invited + is_active=False.
+    - 테넌트는 pending_activation/active (suspended/terminated 거부).
+    """
+    if account_status_of(user) != ACCOUNT_INVITED or bool(getattr(user, "is_active", False)):
+        return ("BAD_ACCOUNT_STATE", "이미 처리되었거나 활성화할 수 없는 계정입니다.")
+    return _tenant_block(tenant)
+
+
+def reissue_block_reason(user, tenant) -> BlockReason:
+    """활성화 토큰 재발급 허용 여부(invited 전용). 허용이면 None."""
+    st = account_status_of(user)
+    if st != ACCOUNT_INVITED or bool(getattr(user, "is_active", False)):
+        if st == ACCOUNT_ACTIVE:
+            return ("ALREADY_ACTIVE", "이미 활성화된 계정입니다.")
+        if st == ACCOUNT_SUSPENDED:
+            return ("SUSPENDED", "정지된 계정은 재발급할 수 없습니다. 먼저 복구하세요.")
+        if st == ACCOUNT_REPLACED:
+            return ("REPLACED", "교체된 계정은 재발급할 수 없습니다.")
+        if st == ACCOUNT_DISABLED:
+            return ("LEGACY_DISABLED", "레거시 비활성 계정입니다. 레거시 정책으로 처리하세요.")
+        return ("BAD_ACCOUNT_STATE", "재발급할 수 없는 계정 상태입니다.")
+    return _tenant_block(tenant)
+
+
+def restore_block_reason(user, tenant) -> BlockReason:
+    """복구(suspended→active) 허용 여부(suspended 전용). 허용이면 None."""
+    st = account_status_of(user)
+    if st == ACCOUNT_ACTIVE:
+        return ("ALREADY_ACTIVE", "이미 활성 상태인 계정입니다.")
+    if st == ACCOUNT_INVITED:
+        return ("INVITED", "초대 상태 계정입니다. 활성화 링크를 사용하거나 재발급하세요.")
+    if st == ACCOUNT_REPLACED:
+        return ("REPLACED", "교체된 계정은 복구할 수 없습니다.")
+    if st == ACCOUNT_DISABLED:
+        return ("LEGACY_DISABLED", "레거시 비활성 계정입니다. 레거시 정책으로 처리하세요.")
+    # st == suspended → 계정은 허용. 테넌트 상태만 추가로 확인.
+    return _tenant_block(tenant)

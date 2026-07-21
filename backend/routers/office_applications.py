@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.auth import require_system_admin, require_office_admin
+from backend.services.account_state import STATE_ERROR_HTTP as _STATE_HTTP
 
 router = APIRouter()
 
@@ -179,7 +180,7 @@ def complete_activation(body: ActivationComplete):
         result = act.complete_activation(body.token, body.new_password)
     except act.ActivationError as e:
         code_map = {"EXPIRED": 410, "BAD_TOKEN": 400, "NO_USER": 404,
-                    "WEAK_PASSWORD": 400, "SEAT_LIMIT": 409}
+                    "WEAK_PASSWORD": 400, **_STATE_HTTP}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
     return {"ok": True, "login_id": result["login_id"]}
 
@@ -289,7 +290,7 @@ def admin_restore_user(login_id: str, user: dict = Depends(require_system_admin)
     try:
         return svc.restore_user(login_id, user.get("login_id", ""))
     except svc.LifecycleError as e:
-        code_map = {"NOT_FOUND": 404, "REPLACED": 409}
+        code_map = {"NOT_FOUND": 404, **_STATE_HTTP}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
@@ -300,7 +301,7 @@ def admin_reissue_activation(login_id: str, user: dict = Depends(require_system_
     try:
         return act.reissue_activation_token(login_id, actor=user.get("login_id", ""))
     except act.ActivationError as e:
-        code_map = {"NO_USER": 404, "ALREADY_ACTIVE": 409}
+        code_map = {"NO_USER": 404, **_STATE_HTTP}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
@@ -349,9 +350,11 @@ def my_office_accounts(user: dict = Depends(require_office_admin)):
 
 
 _OFFICE_CODE_MAP = {"NOT_FOUND": 404, "CROSS_TENANT": 403, "NOT_SUB_ACCOUNT": 403,
-                    "SELF_FORBIDDEN": 403, "MASTER_PROTECTED": 403, "REPLACED": 409,
-                    "EMAIL_IN_USE": 409, "ALREADY_REPLACED": 409, "SEAT_LIMIT": 409,
-                    "BAD_EMAIL": 400, "MISSING_USER": 400, "ALREADY_ACTIVE": 409}
+                    "SELF_FORBIDDEN": 403, "MASTER_PROTECTED": 403,
+                    "EMAIL_IN_USE": 409, "ALREADY_REPLACED": 409,
+                    "BAD_EMAIL": 400, "MISSING_USER": 400,
+                    # 상태 전이 코드(BAD_ACCOUNT_STATE/TENANT_*/SEAT_LIMIT/INVITED/… 409)는 공통 소스 사용.
+                    **_STATE_HTTP}
 
 
 @router.post("/my/office/users/{login_id}/suspend")

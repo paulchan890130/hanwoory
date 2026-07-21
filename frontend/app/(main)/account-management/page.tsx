@@ -83,12 +83,28 @@ export default function AccountManagementPage() {
                     {a.is_admin ? (
                       <span style={{ fontSize: 11, color: "#A0AEC0" }}>주계정은 시스템 관리자에게 문의</span>
                     ) : (
+                      // 상태 전이에 맞춘 버튼만 노출(서버도 동일 규칙으로 강제):
+                      //  invited → 활성화 링크 재발급 / active → 정지·교체 / suspended → 복구
+                      //  replaced → 조작 불가 / disabled(레거시) → 안내 문구
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {!a.activated_at && <button className="hw-filter-btn" disabled={busy} onClick={() => doReissue(a)}>활성화 재발급</button>}
-                        {a.is_active
-                          ? <button className="hw-filter-btn" disabled={busy} onClick={() => doSuspend(a)}>정지</button>
-                          : a.account_status !== "replaced" && <button className="hw-filter-btn" disabled={busy} onClick={() => doRestore(a)}>복구</button>}
-                        <button className="hw-filter-btn" disabled={busy} onClick={() => doReplace(a)}>교체</button>
+                        {a.account_status === "invited" && (
+                          <button className="hw-filter-btn" disabled={busy} onClick={() => doReissue(a)}>활성화 링크 재발급</button>
+                        )}
+                        {a.account_status === "active" && (
+                          <>
+                            <button className="hw-filter-btn" disabled={busy} onClick={() => doSuspend(a)}>정지</button>
+                            <button className="hw-filter-btn" disabled={busy} onClick={() => doReplace(a)}>교체</button>
+                          </>
+                        )}
+                        {a.account_status === "suspended" && (
+                          <button className="hw-filter-btn" disabled={busy} onClick={() => doRestore(a)}>복구</button>
+                        )}
+                        {a.account_status === "replaced" && (
+                          <span style={{ fontSize: 11, color: "#A0AEC0" }}>교체됨 — 조작 불가</span>
+                        )}
+                        {a.account_status === "disabled" && (
+                          <span style={{ fontSize: 11, color: "#A0AEC0" }}>레거시 비활성 — 시스템 관리자 문의</span>
+                        )}
                       </div>
                     )}
                   </td>

@@ -265,12 +265,28 @@ export default function OfficeApplicationsTab() {
                       <td><span style={{ color: a.is_active ? "#276749" : "#C53030", fontWeight: 600 }}>{a.account_status}</span></td>
                       <td style={{ fontSize: 11, color: "#718096" }}>{a.activated_at ? "완료" : a.invited_at ? "미활성" : "—"}</td>
                       <td>
+                        {/* 상태 전이에 맞춘 버튼만 노출(서버도 동일 규칙으로 강제):
+                            invited → 활성화 링크 재발급 / active → 정지·교체 / suspended → 복구
+                            replaced → 조작 불가 / disabled(레거시) → 안내 문구 */}
                         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                          {!a.activated_at && <button className="hw-filter-btn" disabled={busy} onClick={() => doReissueSys(a)}>활성화 재발급</button>}
-                          {a.is_active
-                            ? <button className="hw-filter-btn" disabled={busy} onClick={() => { if (confirm(`${a.name} 계정을 정지하시겠습니까?`)) withBusy(() => officeApplicationApi.suspendUser(a.login_id), "정지됨"); }}>정지</button>
-                            : a.account_status !== "replaced" && <button className="hw-filter-btn" disabled={busy} onClick={() => withBusy(() => officeApplicationApi.restoreUser(a.login_id), "복구됨")}>복구</button>}
-                          <button className="hw-filter-btn" disabled={busy} onClick={() => doReplaceSys(a)}>교체</button>
+                          {a.account_status === "invited" && (
+                            <button className="hw-filter-btn" disabled={busy} onClick={() => doReissueSys(a)}>활성화 링크 재발급</button>
+                          )}
+                          {a.account_status === "active" && (
+                            <>
+                              <button className="hw-filter-btn" disabled={busy} onClick={() => { if (confirm(`${a.name} 계정을 정지하시겠습니까?`)) withBusy(() => officeApplicationApi.suspendUser(a.login_id), "정지됨"); }}>정지</button>
+                              <button className="hw-filter-btn" disabled={busy} onClick={() => doReplaceSys(a)}>교체</button>
+                            </>
+                          )}
+                          {a.account_status === "suspended" && (
+                            <button className="hw-filter-btn" disabled={busy} onClick={() => withBusy(() => officeApplicationApi.restoreUser(a.login_id), "복구됨")}>복구</button>
+                          )}
+                          {a.account_status === "replaced" && (
+                            <span style={{ fontSize: 11, color: "#A0AEC0" }}>교체됨 — 조작 불가</span>
+                          )}
+                          {a.account_status === "disabled" && (
+                            <span style={{ fontSize: 11, color: "#A0AEC0" }}>레거시 비활성</span>
+                          )}
                         </div>
                       </td>
                     </tr>

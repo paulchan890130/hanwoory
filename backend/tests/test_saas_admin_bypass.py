@@ -211,3 +211,173 @@ def test_approve_rejects_seat_below_two(db):
     with pytest.raises(svc.ApplicationError) as ei:
         svc.approve("app-1", "wkdwhfl", seat_limit=1)
     assert ei.value.code == "SEAT_LIMIT"
+
+
+# ── 상태 전이 강제 (SQLite 수준 로직) ─────────────────────────────────────────
+def _seed_invited_token(db, login_id, tid="of-1"):
+    from backend.db.models.user import AccountUser
+    from backend.services import activation_pg_service as act
+    with db() as s:
+        u = AccountUser(login_id=login_id, tenant_id=tid, password_hash="x",
+                        is_admin=False, is_active=False)
+        u.account_status = "invited"
+        s.add(u); s.flush()
+        raw = act.issue_activation_token(s, login_id, tid)
+        s.commit()
+    return raw
+
+
+def test_verify_reflects_user_and_tenant_state(db):
+    from backend.services import activation_pg_service as act
+    from backend.services import account_lifecycle_pg_service as life
+    _seed(db, seat_limit=3, active_admins=1)
+    raw = _seed_invited_token(db, "inv@of1.kr")
+    assert act.verify_activation_token(raw) is not None      # invited + active tenant → 유효
+    life.suspend_user("inv@of1.kr", actor="sys")             # 정지(토큰 폐기)
+    assert act.verify_activation_token(raw) is None
+
+
+def test_verify_none_when_tenant_suspended(db):
+    from backend.services import activation_pg_service as act
+    from backend.services import account_lifecycle_pg_service as life
+    _seed(db, seat_limit=3, active_admins=1)
+    raw = _seed_invited_token(db, "inv@of1.kr")
+    life.suspend_tenant("of-1", actor="sys")
+    assert act.verify_activation_token(raw) is None
+
+
+def test_activation_blocked_when_not_invited(db):
+    from backend.services import activation_pg_service as act
+    from backend.db.models.user import AccountUser
+    _seed(db, seat_limit=3, active_admins=1)
+    # active 계정에 잔존 토큰이 있어도 활성화 불가.
+    raw = _seed_invited_token(db, "u@of1.kr")
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "u@of1.kr"))
+        u.is_active = True; u.account_status = "active"; s.commit()
+    with pytest.raises(act.ActivationError) as ei:
+        act.complete_activation(raw, "password123")
+    assert ei.value.code == "BAD_ACCOUNT_STATE"
+
+
+def test_activation_blocked_when_tenant_suspended(db):
+    from backend.services import activation_pg_service as act
+    from backend.db.models.tenant import Tenant
+    _seed(db, seat_limit=3, active_admins=1)
+    raw = _seed_invited_token(db, "inv@of1.kr")
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        t.service_status = "suspended"; t.is_active = False; s.commit()
+    with pytest.raises(act.ActivationError) as ei:
+        act.complete_activation(raw, "password123")
+    assert ei.value.code == "TENANT_SUSPENDED"
+
+
+def test_restore_state_guards(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.user import AccountUser
+    _seed(db, seat_limit=5, active_admins=1)
+    with db() as s:
+        for lid, st, act_ in [("inv@of1.kr", "invited", False), ("rep@of1.kr", "replaced", False),
+                              ("act@of1.kr", "active", True)]:
+            u = AccountUser(login_id=lid, tenant_id="of-1", password_hash="x", is_admin=False, is_active=act_)
+            u.account_status = st; s.add(u)
+        s.commit()
+    for lid, code in [("inv@of1.kr", "INVITED"), ("rep@of1.kr", "REPLACED"), ("act@of1.kr", "ALREADY_ACTIVE")]:
+        with pytest.raises(life.LifecycleError) as ei:
+            life.restore_user(lid, actor="sys")
+        assert ei.value.code == code, lid
+
+
+def test_reissue_state_guards(db):
+    from backend.services import activation_pg_service as act
+    from backend.db.models.user import AccountUser
+    _seed(db, seat_limit=5, active_admins=1)
+    with db() as s:
+        for lid, st, a in [("s@of1.kr", "suspended", False), ("r@of1.kr", "replaced", False),
+                           ("a@of1.kr", "active", True)]:
+            u = AccountUser(login_id=lid, tenant_id="of-1", password_hash="x", is_admin=False, is_active=a)
+            u.account_status = st; s.add(u)
+        s.commit()
+    for lid, code in [("s@of1.kr", "SUSPENDED"), ("r@of1.kr", "REPLACED"), ("a@of1.kr", "ALREADY_ACTIVE")]:
+        with pytest.raises(act.ActivationError) as ei:
+            act.reissue_activation_token(lid, actor="sys")
+        assert ei.value.code == code, lid
+
+
+def test_suspend_revokes_unused_tokens(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.activation_token import ActivationToken
+    from backend.services.activation_pg_service import _hash
+    _seed(db, seat_limit=3, active_admins=1)
+    raw = _seed_invited_token(db, "inv@of1.kr")
+    life.suspend_user("inv@of1.kr", actor="sys")
+    with db() as s:
+        row = s.scalar(select(ActivationToken).where(ActivationToken.token_hash == _hash(raw)))
+        assert row.used_at is not None
+
+
+def test_replace_revokes_old_token(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.activation_token import ActivationToken
+    from backend.services.activation_pg_service import _hash
+    _seed(db, seat_limit=3, active_admins=1)
+    raw = _seed_invited_token(db, "old@of1.kr")
+    life.replace_user("old@of1.kr", "새이름", "new@of1.kr", actor="sys", new_role="office_staff")
+    with db() as s:
+        row = s.scalar(select(ActivationToken).where(ActivationToken.token_hash == _hash(raw)))
+        assert row.used_at is not None
+
+
+# ── 레거시 admin 상태변경 우회 차단 (FEATURE ON) ─────────────────────────────
+def test_legacy_create_blocked_when_saas_on(db, monkeypatch):
+    from backend.routers.admin import create_account
+    from backend.models import AccountCreate
+    monkeypatch.setenv("FEATURE_APPROVED_SAAS", "1")
+    with pytest.raises(HTTPException) as ei:
+        create_account(AccountCreate(login_id="x@of1.kr", password="pw123456", office_name="O"),
+                       user={"login_id": "wkdwhfl", "is_admin": True, "is_master": True})
+    assert ei.value.status_code == 409
+
+
+def test_legacy_update_privileged_blocked_when_saas_on(db, monkeypatch):
+    from backend.routers.admin import update_account
+    from backend.models import AccountUpdate
+    monkeypatch.setenv("FEATURE_APPROVED_SAAS", "1")
+    _seed(db, seat_limit=3, active_admins=1)
+    for payload in [{"is_active": True}, {"tenant_id": "other"}, {"is_admin": True}]:
+        with pytest.raises(HTTPException) as ei:
+            update_account("admin0@of1.kr", AccountUpdate(**payload),
+                           user={"login_id": "wkdwhfl", "is_admin": True, "is_master": True})
+        assert ei.value.status_code == 409, payload
+
+
+def test_legacy_update_contact_allowed_when_saas_on(db, monkeypatch):
+    from backend.routers.admin import update_account
+    from backend.models import AccountUpdate
+    monkeypatch.setenv("FEATURE_APPROVED_SAAS", "1")
+    _seed(db, seat_limit=3, active_admins=1)
+    # 연락처만 수정 → 허용(예외 없음).
+    res = update_account("admin0@of1.kr", AccountUpdate(contact_name="새이름"),
+                         user={"login_id": "wkdwhfl", "is_admin": True, "is_master": True})
+    assert res.get("ok") is True
+
+
+def test_legacy_restore_delegates_when_saas_on(db, monkeypatch):
+    from backend.routers.admin import restore_account
+    from backend.db.models.user import AccountUser
+    monkeypatch.setenv("FEATURE_APPROVED_SAAS", "1")
+    _seed(db, seat_limit=3, active_admins=1)
+    with db() as s:
+        u = AccountUser(login_id="s@of1.kr", tenant_id="of-1", password_hash="x", is_admin=False, is_active=False)
+        u.account_status = "suspended"; s.add(u)
+        inv = AccountUser(login_id="inv@of1.kr", tenant_id="of-1", password_hash="x", is_admin=False, is_active=False)
+        inv.account_status = "invited"; s.add(inv)
+        s.commit()
+    # suspended → 복구 성공
+    res = restore_account("s@of1.kr", user={"login_id": "wkdwhfl", "is_admin": True, "is_master": True})
+    assert res.get("ok") is True and res.get("account_status") == "active"
+    # invited → lifecycle 가 차단(409)
+    with pytest.raises(HTTPException) as ei:
+        restore_account("inv@of1.kr", user={"login_id": "wkdwhfl", "is_admin": True, "is_master": True})
+    assert ei.value.status_code == 409

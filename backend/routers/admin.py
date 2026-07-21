@@ -14,6 +14,15 @@ from backend.models import AccountUpdate, AccountCreate, AccountRoleUpdate
 router = APIRouter()
 
 
+def _approved_saas_on() -> bool:
+    """FEATURE_APPROVED_SAAS 상태(예외 시 False = 레거시)."""
+    try:
+        from backend.db.feature_flags import approved_saas_enabled
+        return approved_saas_enabled()
+    except Exception:
+        return False
+
+
 def _assert_not_master(login_id: str, action: str) -> None:
     """마스터 계정 보호 — 비활성화/삭제/강등 등 위험 조작을 서버에서 강제 거부한다."""
     if is_master_login(login_id):
@@ -265,6 +274,23 @@ def update_account(
     update: AccountUpdate,
     user: dict = Depends(require_admin_or_system),
 ):
+    # 승인형 SaaS ON: 상태·소속·권한의 직접 변경은 이 레거시 경로로 금지한다.
+    #  - is_active 직접 변경 → 계정 활성화/정지/복구 lifecycle 로만
+    #  - tenant_id 직접 변경 → 금지(활성 사용자를 다른 tenant 로 옮겨 seat_limit 우회 방지)
+    #  - is_admin 직접 승격/강등 → 역할 전용 API 로만
+    # 연락처·표시정보(contact_name/contact_tel/office_name/office_adr/biz_reg_no) 수정만 허용.
+    if _approved_saas_on():
+        blocked = []
+        if update.is_active is not None: blocked.append("is_active")
+        if update.tenant_id: blocked.append("tenant_id")
+        if update.is_admin is not None: blocked.append("is_admin")
+        if blocked:
+            raise HTTPException(
+                status_code=409,
+                detail="승인형 SaaS 활성 상태에서는 이 경로로 상태/소속/권한을 변경할 수 없습니다"
+                       f"({', '.join(blocked)}). 계정 정지·복구·교체는 계정관리(lifecycle) 화면, "
+                       "권한 변경은 역할 API 를 사용하세요. 이 경로는 연락처·표시정보 수정만 허용합니다.")
+
     # PG-only(Phase B): 계정 수정은 항상 PostgreSQL.
     if True:
         from sqlalchemy import select
@@ -288,26 +314,6 @@ def update_account(
                 raise HTTPException(status_code=409, detail="마지막 관리자 계정은 비활성화하거나 삭제할 수 없습니다.")
             will_deactivate = deactivating and u.is_active
             target_tenant_id = u.tenant_id
-            # 승인형 SaaS ON: 비활성→활성 전환은 좌석을 1개 소비한다. 같은 트랜잭션에서
-            # tenant 를 잠그고(FOR UPDATE) 한도를 초과하면 활성화를 거부(409, 롤백).
-            will_activate = (update.is_active is True) and (not u.is_active)
-            if will_activate:
-                try:
-                    from backend.db.feature_flags import approved_saas_enabled
-                    saas_on = approved_saas_enabled()
-                except Exception:
-                    saas_on = False
-                if saas_on:
-                    from backend.services.account_lifecycle_pg_service import (
-                        assert_seat_within_limit, LifecycleError,
-                    )
-                    eff_tenant = (update.tenant_id or u.tenant_id)
-                    try:
-                        assert_seat_within_limit(session, eff_tenant, activating_login_id=login_id)
-                    except LifecycleError as e:
-                        if getattr(e, "code", "") == "SEAT_LIMIT":
-                            raise HTTPException(status_code=409, detail=e.message)
-                        raise
             if update.is_active is not None:
                 u.is_active = bool(update.is_active)
             if update.is_admin is not None:
@@ -560,6 +566,19 @@ def delete_account(
 def restore_account(login_id: str, user: dict = Depends(require_admin_or_system)):
     """비활성 계정 복구 (is_active=TRUE). 워크스페이스/시트키는 변경하지 않음."""
     login_id = login_id.strip()
+    # 승인형 SaaS ON: 신규 lifecycle restore 서비스로 위임 → suspended 전용, seat_limit 원자
+    # 검증, invited/replaced 우회 차단. (레거시 무조건 is_active=TRUE 경로를 쓰지 않는다.)
+    if _approved_saas_on():
+        from backend.services import account_lifecycle_pg_service as life
+        from backend.services.account_state import STATE_ERROR_HTTP as _SH
+        try:
+            res = life.restore_user(login_id, str(user.get("login_id", "")))
+        except life.LifecycleError as e:
+            code_map = {"NOT_FOUND": 404, **_SH}
+            raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
+        _bust_tenant_cache()
+        return {"ok": True, "login_id": login_id, "account_status": res.get("account_status")}
+
     from sqlalchemy import select
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
@@ -760,6 +779,15 @@ def create_account(
     user: dict = Depends(require_admin_or_system),
 ):
     """신규 테넌트 계정 생성 (관리자 전용)"""
+    # 승인형 SaaS ON: 이 레거시 경로로 tenant/user 를 새로 만들지 않는다. 신규 사무소는
+    # 신청→승인(office_application_pg_service.approve) 단일 트랜잭션으로만 생성한다
+    # (seat 확인 후 별도 append_account 실행 = 우회 경로 → 차단).
+    if _approved_saas_on():
+        raise HTTPException(
+            status_code=409,
+            detail="승인형 SaaS 활성 상태에서는 이 경로로 계정을 만들 수 없습니다. "
+                   "사무소 신청 승인(office-applications/approve)으로 발급하세요.")
+
     from backend.services.accounts_service import (
         hash_password,
         find_account,
@@ -777,31 +805,7 @@ def create_account(
     provided_customer = bool((body.customer_sheet_key or "").strip())
     provided_work = bool((body.work_sheet_key or "").strip())
     immediate_active = provided_folder and provided_customer and provided_work
-
-    # 승인형 SaaS ON + 즉시 활성 생성은 좌석을 1개 소비한다. 새 계정을 만들기 전에
-    # tenant 좌석 한도를 초과하지 않는지 검증(초과 시 409 — 레거시 3번째 계정 우회 차단).
-    if immediate_active:
-        try:
-            from backend.db.feature_flags import approved_saas_enabled
-            saas_on = approved_saas_enabled()
-        except Exception:
-            saas_on = False
-        if saas_on:
-            from backend.db.session import get_sessionmaker, is_configured
-            if is_configured():
-                from backend.services.account_lifecycle_pg_service import (
-                    assert_seat_within_limit, LifecycleError,
-                )
-                tid = (body.tenant_id or "").strip() or body.login_id.strip()
-                SessionLocal = get_sessionmaker()
-                try:
-                    with SessionLocal() as session:
-                        assert_seat_within_limit(session, tid,
-                                                 activating_login_id=body.login_id.strip())
-                except LifecycleError as e:
-                    if getattr(e, "code", "") == "SEAT_LIMIT":
-                        raise HTTPException(status_code=409, detail=e.message)
-                    raise
+    # (SaaS ON 은 위에서 이미 409 로 차단됨 — 여기 도달하면 레거시 경로이므로 좌석 검증 불필요.)
 
     account = build_account_dict(
         login_id=body.login_id,
