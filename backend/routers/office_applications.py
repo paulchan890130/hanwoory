@@ -316,7 +316,8 @@ def admin_replace_user(login_id: str, body: ReplaceRequest, user: dict = Depends
                                 user.get("login_id", ""), new_role=body.new_role)
     except svc.LifecycleError as e:
         code_map = {"NOT_FOUND": 404, "EMAIL_IN_USE": 409, "ALREADY_REPLACED": 409,
-                    "SEAT_LIMIT": 409, "MASTER_PROTECTED": 400, "BAD_EMAIL": 400, "MISSING_USER": 400}
+                    "SEAT_LIMIT": 409, "MASTER_PROTECTED": 400, "BAD_EMAIL": 400, "MISSING_USER": 400,
+                    **_STATE_HTTP}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 

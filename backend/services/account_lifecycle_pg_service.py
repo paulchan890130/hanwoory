@@ -113,7 +113,9 @@ def suspend_user(login_id: str, actor: str) -> dict:
         if u is None:
             raise LifecycleError("NOT_FOUND", "계정을 찾을 수 없습니다.")
         tenant_id = u.tenant_id
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # 표준 잠금 순서 user → tenant → token: tenant 도 FOR UPDATE 로 잠근 뒤 token 을 폐기한다.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
         # 정지는 active 계정 전용(공통 해석 소스). invited/replaced/suspended/disabled 및
         # 상태 불일치는 거부 → 여기서 실패하면 account_status/is_active/토큰/세션 무변경.
         block = _st.suspend_block_reason(u, t)
@@ -121,7 +123,7 @@ def suspend_user(login_id: str, actor: str) -> dict:
             raise LifecycleError(block[0], block[1])
         u.is_active = False
         u.account_status = "suspended"
-        # 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지).
+        # 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지), tenant 잠금 이후에만.
         _revoke_unused_tokens(session, login_id)
         session.commit()
     _revoke_sessions(login_id, reason="account_suspended")
@@ -229,10 +231,12 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
     """
     import re
     from backend.auth import is_master_login
+    from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
     from backend.services.accounts_service import hash_password
     from backend.services import activation_pg_service as _act
+    from backend.services import account_state as _st
 
     new_email = (new_email or "").strip().lower()
     new_name = (new_name or "").strip()
@@ -245,6 +249,7 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
+        # 표준 잠금 순서 user → tenant → token: 기존 계정 잠금 → tenant 잠금·상태검사 → (그 뒤) token 폐기.
         old = session.scalar(
             select(AccountUser).where(AccountUser.login_id == old_login_id).with_for_update())
         if old is None:
@@ -252,6 +257,12 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
         if old.account_status == "replaced":
             raise LifecycleError("ALREADY_REPLACED", "이미 교체된 계정입니다.")
         tenant_id = old.tenant_id
+        # tenant FOR UPDATE(token 폐기 이전) — 정지/종료 사무소는 fail-closed 로 교체 거부.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
+        block = _st.replace_tenant_block_reason(t)
+        if block is not None:
+            raise LifecycleError(block[0], block[1])
         if session.scalar(select(AccountUser.id).where(AccountUser.login_id == new_email)) is not None:
             raise LifecycleError("EMAIL_IN_USE", "이미 사용 중인 이메일입니다.")
 
@@ -263,7 +274,7 @@ def replace_user(old_login_id: str, new_name: str, new_email: str, actor: str,
         # 기존 사용자 replaced 처리(삭제 아님, 이름/이메일 보존).
         old.is_active = False
         old.account_status = "replaced"
-        # 기존 계정의 미사용 초대 토큰 폐기 — 신규 계정 토큰만 유효(교체 우회 방지).
+        # 기존 계정의 미사용 초대 토큰 폐기 — 신규 계정 토큰만 유효(교체 우회 방지). tenant 잠금 이후.
         _revoke_unused_tokens(session, old_login_id)
 
         new_row = AccountUser(
@@ -380,14 +391,16 @@ def office_suspend_sub(tenant_id: str, actor_login: str, target_login: str) -> d
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         u = _assert_manageable_sub_locked(session, tenant_id, actor_login, target_login)
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id)) if tenant_id else None
+        # 표준 잠금 순서 user → tenant → token(user 는 위에서 이미 FOR UPDATE).
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
         # 정지는 active 전용(시스템 관리자 경로와 동일 규칙) — replaced/invited/suspended 우회 차단.
         block = _st.suspend_block_reason(u, t)
         if block is not None:
             raise LifecycleError(block[0], block[1])
         u.is_active = False
         u.account_status = "suspended"
-        # 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지).
+        # 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지), tenant 잠금 이후에만.
         _revoke_unused_tokens(session, target_login)
         session.commit()
     _revoke_sessions(target_login, reason="account_suspended")
@@ -452,10 +465,12 @@ def office_replace_sub(tenant_id: str, actor_login: str, old_login: str,
     """스코프 검증 + 교체를 **단일 트랜잭션**으로 수행(서브계정 역할 유지 — 주계정 승격 금지)."""
     import re
     import secrets
+    from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
     from backend.services.accounts_service import hash_password
     from backend.services import activation_pg_service as _act
+    from backend.services import account_state as _st
 
     new_email = (new_email or "").strip().lower()
     new_name = (new_name or "").strip()
@@ -466,16 +481,23 @@ def office_replace_sub(tenant_id: str, actor_login: str, old_login: str,
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
+        # 표준 잠금 순서 user → tenant → token(user 는 _assert_manageable_sub_locked 에서 FOR UPDATE).
         old = _assert_manageable_sub_locked(session, tenant_id, actor_login, old_login)
         if old.account_status == "replaced":
             raise LifecycleError("ALREADY_REPLACED", "이미 교체된 계정입니다.")
+        # tenant FOR UPDATE(token 폐기 이전) — 정지/종료 사무소는 fail-closed 로 교체 거부.
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update()) if tenant_id else None
+        block = _st.replace_tenant_block_reason(t)
+        if block is not None:
+            raise LifecycleError(block[0], block[1])
         if session.scalar(select(AccountUser.id).where(AccountUser.login_id == new_email)) is not None:
             raise LifecycleError("EMAIL_IN_USE", "이미 사용 중인 이메일입니다.")
 
         now = _now()
         old.is_active = False
         old.account_status = "replaced"
-        # 기존 계정의 미사용 초대 토큰 폐기 — 신규 계정 토큰만 유효(교체 우회 방지).
+        # 기존 계정의 미사용 초대 토큰 폐기 — 신규 계정 토큰만 유효(교체 우회 방지). tenant 잠금 이후.
         _revoke_unused_tokens(session, old_login)
 
         new_row = AccountUser(

@@ -144,10 +144,14 @@ def verify_activation_token(raw: str) -> Optional[dict]:
 def complete_activation(raw: str, new_password: str) -> dict:
     """토큰을 검증·소비하고 계정을 활성화(비밀번호 설정 + is_active=True). **단일 트랜잭션·원자적**.
 
-    잠금 순서(고정): 1) activation token FOR UPDATE → 2) user FOR UPDATE → 3) tenant FOR UPDATE.
-    검증: 토큰 미사용/미만료, login_id·tenant_id 일치, user==invited·비활성, tenant pending/active,
-    seat_limit 통과. 하나라도 실패하면 **토큰·user·tenant 를 전혀 건드리지 않고 전체 rollback**.
-    성공 시에만 비밀번호/활성화 반영. suspended/terminated tenant 를 active 로 되돌리지 않는다.
+    **잠금 순서(전역 표준): user → tenant → activation token.** (token 을 먼저 잡고 tenant 를
+    기다리면 tenant → token 순인 suspend_tenant 와 데드락한다 — 그래서 token 을 마지막에 잠근다.)
+    어떤 user/tenant 를 잠글지 결정하기 위해 token 메타를 **잠금 없이 1회** 조회하되 그 값은
+    신뢰하지 않고, 잠금 획득 후 동일 token row 를 다시 잠그고 **전 조건을 재검증**한다:
+    토큰 존재·hash 일치·미사용·미만료, login_id·tenant_id 일치, user==invited·비활성, tenant
+    pending/active, seat_limit. 하나라도 실패하면 **아무것도 건드리지 않고 전체 rollback**(토큰
+    미소비). 성공 시에만 비밀번호/활성화 반영. suspended/terminated tenant 를 되돌리지 않는다.
+    동일 토큰을 동시에 써도 user 잠금으로 직렬화되어 **정확히 한 건만** 성공한다.
     """
     from backend.db.models.activation_token import ActivationToken
     from backend.db.models.tenant import Tenant
@@ -161,12 +165,34 @@ def complete_activation(raw: str, new_password: str) -> dict:
     if len((new_password or "")) < MIN_PASSWORD_LEN:
         raise ActivationError("WEAK_PASSWORD", f"비밀번호는 {MIN_PASSWORD_LEN}자 이상이어야 합니다.")
 
+    token_hash = _hash(raw)
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
-        # 1) 토큰 잠금.
+        # 0) 잠금 없이 token 메타만 조회 — 어떤 user/tenant 를 잠글지 결정용(신뢰하지 않음).
+        meta = session.execute(
+            select(ActivationToken.login_id, ActivationToken.tenant_id)
+            .where(ActivationToken.token_hash == token_hash)
+        ).first()
+        if meta is None:
+            raise ActivationError("BAD_TOKEN", "이미 사용되었거나 유효하지 않은 활성화 링크입니다.")
+        meta_login_id = meta[0]
+
+        # 1) user 잠금(표준 순서 1번).
+        u = session.scalar(
+            select(AccountUser).where(AccountUser.login_id == meta_login_id).with_for_update())
+        if u is None:
+            raise ActivationError("NO_USER", "계정을 찾을 수 없습니다.")
+
+        # 2) tenant 잠금(표준 순서 2번 — 없으면 활성화 불가).
+        t = session.scalar(
+            select(Tenant).where(Tenant.tenant_id == u.tenant_id).with_for_update()) if u.tenant_id else None
+        if t is None:
+            raise ActivationError("BAD_ACCOUNT_STATE", "사무소 정보를 찾을 수 없어 활성화할 수 없습니다.")
+
+        # 3) token 잠금(표준 순서 3번 — 마지막). 잠금 후 동일 row 를 다시 확보해 재검증한다.
         row = session.scalar(
             select(ActivationToken)
-            .where(ActivationToken.token_hash == _hash(raw))
+            .where(ActivationToken.token_hash == token_hash)
             .with_for_update()
         )
         if row is None or row.used_at is not None:
@@ -176,23 +202,11 @@ def complete_activation(raw: str, new_password: str) -> dict:
             exp = exp.replace(tzinfo=timezone.utc)
         if exp is not None and exp < _now():
             raise ActivationError("EXPIRED", "활성화 링크가 만료되었습니다. 관리자에게 재발급을 요청하세요.")
-
-        # 2) user 잠금.
-        u = session.scalar(
-            select(AccountUser).where(AccountUser.login_id == row.login_id).with_for_update())
-        if u is None:
-            raise ActivationError("NO_USER", "계정을 찾을 수 없습니다.")
         # 토큰이 실제로 이 user/tenant 를 위한 것인지 확인(탈취/재사용 방어).
         if (row.login_id or "") != (u.login_id or "") or (row.tenant_id or "") != (u.tenant_id or ""):
             raise ActivationError("BAD_TOKEN", "활성화 링크가 계정과 일치하지 않습니다.")
 
-        # 3) tenant 잠금(없으면 활성화 불가 — 반드시 프로비저닝된 tenant 여야 함).
-        t = session.scalar(
-            select(Tenant).where(Tenant.tenant_id == u.tenant_id).with_for_update()) if u.tenant_id else None
-        if t is None:
-            raise ActivationError("BAD_ACCOUNT_STATE", "사무소 정보를 찾을 수 없어 활성화할 수 없습니다.")
-
-        # 상태 전이 검증(단일 해석 소스). 실패 시 아무것도 변경하지 않고 롤백.
+        # 4) 상태 전이 검증(단일 해석 소스). 실패 시 아무것도 변경하지 않고 롤백.
         block = _st.activation_block_reason(u, t)
         if block is not None:
             raise ActivationError(block[0], block[1])

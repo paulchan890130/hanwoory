@@ -182,3 +182,18 @@ def restore_tenant_block_reason(tenant) -> BlockReason:
     if tstatus != TENANT_SUSPENDED:
         return ("BAD_TENANT_STATE", "복구할 수 없는 사무소 상태입니다.")
     return None
+
+
+def replace_tenant_block_reason(tenant) -> BlockReason:
+    """계정 교체 허용 여부(테넌트 관점). 정지/종료 사무소는 **fail-closed** 로 거부한다.
+
+    active/pending 만 허용(교체 대상은 invited 또는 active 계정일 수 있으므로 pending 도 허용).
+    정지 사무소에서의 교체 정책이 모호하므로 명시적으로 TENANT_SUSPENDED(409) 로 막는다 —
+    복구 후 교체하도록 유도한다.
+    """
+    tstatus = tenant_status_of(tenant)
+    if tstatus == TENANT_SUSPENDED:
+        return ("TENANT_SUSPENDED", "정지된 사무소에서는 계정을 교체할 수 없습니다. 사무소를 먼저 복구하세요.")
+    if tstatus == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사무소에서는 계정을 교체할 수 없습니다.")
+    return None

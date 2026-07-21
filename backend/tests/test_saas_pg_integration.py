@@ -491,3 +491,136 @@ def test_concurrent_tenant_suspend_and_user_restore(db):
             # suspend 선행 → restore 는 TENANT_SUSPENDED 거부, user suspended 유지.
             assert results["restore"] == "TENANT_SUSPENDED"
             assert u.account_status == "suspended"
+
+
+# ── 20~22: 전역 잠금 순서 통일 — activation/replace ↔ tenant suspend 데드락 없음 ──
+# 표준 순서 user→tenant→token. suspend_tenant 는 tenant→token. 어느 순서든 데드락/500 없이
+# 완료되고(future.result timeout), 허용된 최종 상태만 나오며 정지 tenant 미사용 token 은 0.
+def test_concurrent_activation_and_tenant_suspend(db):
+    from backend.services import activation_pg_service as act
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.tenant import Tenant
+    _mk_tenant(db, seat_limit=3, service_status="active")
+    raw = _mk_invited_with_token(db, "inv@of1.kr")
+
+    def _activate():
+        try:
+            act.complete_activation(raw, "password123")
+            return ("act", "ok")
+        except act.ActivationError as e:
+            return ("act", e.code)
+
+    def _suspend():
+        life.suspend_tenant("of-1", actor="sys")
+        return ("suspend", "ok")
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_activate), ex.submit(_suspend)]
+        results = dict(f.result(timeout=20) for f in futs)  # 데드락이면 여기서 타임아웃/에러
+
+    assert results["suspend"] == "ok"
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        assert t.service_status == "suspended"           # suspend 성공 → 최종 suspended
+    if results["act"] == "ok":
+        assert _token_used(db, raw) is True              # A. activation 선행 → token 소비
+    else:
+        assert results["act"] in ("TENANT_SUSPENDED", "BAD_TOKEN"), results  # B. suspend 선행
+    assert _count_unused_tokens(db, "of-1") == 0         # 정지 tenant 미사용 token 0
+
+
+def test_concurrent_system_replace_and_tenant_suspend(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    _mk_tenant(db, seat_limit=5, service_status="active")
+    _mk_user(db, "admin@of1.kr", is_admin=True, is_active=True, account_status="active")
+    _mk_user(db, "staff@of1.kr", is_admin=False, is_active=True, account_status="active")
+
+    def _replace():
+        try:
+            life.replace_user("staff@of1.kr", "새이름", "new@of1.kr",
+                              actor="admin@of1.kr", new_role="office_staff")
+            return ("replace", "ok")
+        except life.LifecycleError as e:
+            return ("replace", e.code)
+
+    def _suspend():
+        life.suspend_tenant("of-1", actor="sys")
+        return ("suspend", "ok")
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_replace), ex.submit(_suspend)]
+        results = dict(f.result(timeout=20) for f in futs)
+
+    assert results["suspend"] == "ok"
+    assert _count_unused_tokens(db, "of-1") == 0         # 교체가 새 token 을 냈어도 suspend 가 폐기
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        assert t.service_status == "suspended"
+        old = s.scalar(select(AccountUser).where(AccountUser.login_id == "staff@of1.kr"))
+        new = s.scalar(select(AccountUser).where(AccountUser.login_id == "new@of1.kr"))
+        if results["replace"] == "ok":
+            assert old.account_status == "replaced" and new is not None and new.account_status == "invited"
+        else:
+            assert results["replace"] == "TENANT_SUSPENDED", results
+            assert new is None and old.account_status == "active"   # 교체 미실행
+
+
+def test_concurrent_office_replace_and_tenant_suspend(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    _mk_tenant(db, seat_limit=5, service_status="active")
+    _mk_user(db, "admin@of1.kr", is_admin=True, is_active=True, account_status="active")
+    _mk_user(db, "staff@of1.kr", is_admin=False, is_active=True, account_status="active")
+
+    def _replace():
+        try:
+            life.office_replace_sub("of-1", "admin@of1.kr", "staff@of1.kr", "새이름", "new@of1.kr")
+            return ("replace", "ok")
+        except life.LifecycleError as e:
+            return ("replace", e.code)
+
+    def _suspend():
+        life.suspend_tenant("of-1", actor="sys")
+        return ("suspend", "ok")
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_replace), ex.submit(_suspend)]
+        results = dict(f.result(timeout=20) for f in futs)
+
+    assert results["suspend"] == "ok"
+    assert _count_unused_tokens(db, "of-1") == 0
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        assert t.service_status == "suspended"
+        new = s.scalar(select(AccountUser).where(AccountUser.login_id == "new@of1.kr"))
+        if results["replace"] != "ok":
+            assert results["replace"] == "TENANT_SUSPENDED", results
+            assert new is None
+
+
+# ── 23: 동일 activation token 동시 complete 2건 → 정확히 1건만 성공 ────────────
+def test_concurrent_same_token_activation(db):
+    from backend.services import activation_pg_service as act
+    _mk_tenant(db, seat_limit=3, service_status="pending_activation")
+    raw = _mk_invited_with_token(db, "inv@of1.kr")
+
+    def _try(_i):
+        try:
+            act.complete_activation(raw, "password123")
+            return ("ok", None)
+        except act.ActivationError as e:
+            return ("err", e.code)
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = [ex.submit(_try, i) for i in (0, 1)]
+        results = [f.result(timeout=20) for f in futs]
+
+    oks = [r for r in results if r[0] == "ok"]
+    errs = [r for r in results if r[0] == "err"]
+    assert len(oks) == 1, results        # 정확히 1건 성공
+    assert len(errs) == 1, results        # 정확히 1건 실패
+    assert errs[0][1] == "BAD_TOKEN", results
+    assert _token_used(db, raw) is True   # 성공분이 소비
