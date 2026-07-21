@@ -81,9 +81,13 @@ def _client_ip(request: Optional[Request]) -> Optional[str]:
 class OfficeApplicationCreate(BaseModel):
     office_name: str
     representative_name: Optional[str] = None
+    representative_email: Optional[str] = None        # 승인 시 office_admin 계정으로 발급
     business_registration_number: Optional[str] = None
     office_address: Optional[str] = None
     office_phone: Optional[str] = None
+    staff_name: Optional[str] = None                  # 승인 시 office_staff 서브계정으로 발급
+    staff_email: Optional[str] = None
+    # 구버전 클라이언트 호환용 fallback(신규 폼은 위 canonical 필드를 사용).
     applicant_name: Optional[str] = None
     applicant_email: Optional[str] = None
     applicant_phone: Optional[str] = None
@@ -129,6 +133,30 @@ class ReplaceRequest(BaseModel):
     new_role: Optional[str] = None
 
 
+class PurgeRequest(BaseModel):
+    confirm_tenant_id: str
+    confirm_office_name: str
+    confirmation_phrase: str
+
+
+class IssueAdminRequest(BaseModel):
+    name: str
+    email: str
+    confirm_tenant_id: Optional[str] = None
+
+
+class RelinkPreviewRequest(BaseModel):
+    login_id: str
+    target_tenant_id: str
+
+
+class RelinkRequest(BaseModel):
+    login_id: str
+    target_tenant_id: str
+    confirm_login_id: str
+    confirm_target_tenant_id: str
+
+
 # ── 공개: 신청 접수 ───────────────────────────────────────────────────────────
 @router.post("/public/office-applications")
 def submit_application(body: OfficeApplicationCreate, request: Request = None):
@@ -143,7 +171,9 @@ def submit_application(body: OfficeApplicationCreate, request: Request = None):
         result = svc.create_application(body.model_dump(exclude={"agree_privacy", "agree_terms"}),
                                         ip_hash=short_hash(ip))
     except svc.ApplicationError as e:
-        code_map = {"DUPLICATE_PENDING": 409}
+        code_map = {"DUPLICATE_PENDING": 409, "DUPLICATE_USER_EMAIL": 409,
+                    "MISSING_OFFICE_NAME": 400, "MISSING_FIELD": 400, "BAD_EMAIL": 400,
+                    "BAD_BIZ_REG_NO": 400, "BAD_PHONE": 400}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
     try:
         from backend.services import audit_service
@@ -399,3 +429,97 @@ def my_office_replace(login_id: str, body: ReplaceRequest, user: dict = Depends(
                                       login_id, body.new_name, body.new_email)
     except svc.LifecycleError as e:
         raise HTTPException(status_code=_OFFICE_CODE_MAP.get(e.code, 400), detail=e.message)
+
+
+# ── 시스템 관리자: 신규 신청 건수(배지·알림용) ────────────────────────────────
+@router.get("/admin/office-application-stats")
+def admin_application_stats(user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import office_application_pg_service as svc
+    return svc.stats()
+
+
+# ── 시스템 관리자: 사업장 연결 현황 / 사용자 없는 사업장 ──────────────────────
+@router.get("/admin/tenants/{tenant_id}/connection-summary")
+def admin_tenant_connection_summary(tenant_id: str, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_admin_pg_service as svc
+    s = svc.tenant_connection_summary(tenant_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="사업장을 찾을 수 없습니다.")
+    return s
+
+
+@router.get("/admin/no-user-tenants")
+def admin_no_user_tenants(user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_admin_pg_service as svc
+    return {"tenants": svc.list_no_user_tenants()}
+
+
+_TENANT_ADMIN_CODE_MAP = {
+    "BAD_REQUEST": 400, "NOT_FOUND": 404, "MISSING_USER": 400, "BAD_EMAIL": 400,
+    "EMAIL_IN_USE": 409, "TENANT_TERMINATED": 409, "SEAT_LIMIT": 409, "PROTECTED": 403,
+    "CONFIRM_MISMATCH": 400, "SAME_TENANT": 409, "BLOCKED": 409,
+}
+
+
+@router.post("/admin/tenants/{tenant_id}/issue-admin-account")
+def admin_issue_admin_account(tenant_id: str, body: IssueAdminRequest,
+                              user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_admin_pg_service as svc
+    try:
+        return svc.issue_admin_account(tenant_id, body.name, body.email,
+                                       user.get("login_id", ""), confirm_tenant_id=body.confirm_tenant_id)
+    except svc.TenantAdminError as e:
+        raise HTTPException(status_code=_TENANT_ADMIN_CODE_MAP.get(e.code, 400), detail=e.message)
+
+
+# ── 시스템 관리자: 계정 연결 변경(relink) — 데이터는 이동하지 않음 ────────────
+@router.post("/admin/account-links/preview")
+def admin_account_link_preview(body: RelinkPreviewRequest, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_admin_pg_service as svc
+    return svc.relink_preview(body.login_id, body.target_tenant_id, user.get("login_id", ""))
+
+
+@router.post("/admin/account-links/relink")
+def admin_account_link_relink(body: RelinkRequest, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_admin_pg_service as svc
+    try:
+        return svc.relink_account(body.login_id, body.target_tenant_id, user.get("login_id", ""),
+                                  body.confirm_login_id, body.confirm_target_tenant_id)
+    except svc.TenantAdminError as e:
+        raise HTTPException(status_code=_TENANT_ADMIN_CODE_MAP.get(e.code, 400), detail=e.message)
+
+
+# ── 시스템 관리자: 사업장 전체 폐기(고위험) ──────────────────────────────────
+@router.get("/admin/tenants/{tenant_id}/purge-preview")
+def admin_purge_preview(tenant_id: str, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_purge_pg_service as svc
+    try:
+        return svc.purge_preview(tenant_id, actor_login=user.get("login_id", ""))
+    except svc.PurgeError as e:
+        code_map = {"NOT_FOUND": 404, "BAD_REQUEST": 400}
+        raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
+
+
+@router.post("/admin/tenants/{tenant_id}/purge")
+def admin_purge_tenant(tenant_id: str, body: PurgeRequest, user: dict = Depends(require_system_admin)):
+    _require_saas()
+    from backend.services import tenant_purge_pg_service as svc
+    try:
+        return svc.purge_tenant(
+            tenant_id, user.get("login_id", ""),
+            confirm_tenant_id=body.confirm_tenant_id,
+            confirm_office_name=body.confirm_office_name,
+            confirmation_phrase=body.confirmation_phrase,
+        )
+    except svc.PurgeError as e:
+        code_map = {"NOT_FOUND": 404, "BAD_REQUEST": 400, "CONFIRM_MISMATCH": 400,
+                    "BAD_STATE": 409, "PROTECTED": 403, "EXTERNAL_STORAGE": 409,
+                    "UNCLASSIFIED_TABLES": 409}
+        raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)

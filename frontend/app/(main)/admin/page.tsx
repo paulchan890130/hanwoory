@@ -8,13 +8,14 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle, XCircle, Shield, UserPlus, X, Save,
   FolderOpen, Loader2, ChevronRight, AlertTriangle, RefreshCw, Trash2,
-  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText, ExternalLink, GitMerge,
+  BookOpen, RotateCcw, CheckSquare, SkipForward, Edit3, FileText, ExternalLink, GitMerge, Settings,
 } from "lucide-react";
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
 import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
 import OfficeApplicationsTab from "@/components/admin/OfficeApplicationsTab";
+import TenantAdminPanel from "@/components/admin/TenantAdminPanel";
 import { ManualUpdatePgView, type PgStateResp } from "@/components/admin/ManualReviewView";
 import GuidelineUpdateInboxTab from "@/components/admin/GuidelineUpdateInboxTab";
 import { ApplyToV3Modal } from "@/components/qualifications/editV3";
@@ -1553,7 +1554,16 @@ export default function AdminPage() {
   const router = useRouter();
   const user = getUser();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"accounts" | "onboarding" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
+  const [activeTab, setActiveTab] = useState<"accounts" | "onboarding" | "tenant-admin" | "manual-review" | "manual-v1" | "doc-config" | "security">("accounts");
+  const [pendingApps, setPendingApps] = useState(0);
+  // 사이드바 배지/배너에서 ?tab=office-applications 로 진입하면 사무소 승인 탭을 연다.
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (t === "office-applications" || t === "onboarding") setActiveTab("onboarding");
+    } catch { /* noop */ }
+    officeApplicationApi.stats().then((r) => setPendingApps(r.data?.pending ?? 0)).catch(() => {});
+  }, []);
   // "매뉴얼 업데이트" 탭 내부 서브탭 — PG 페이지단위 diff 검토(기존, 자동감지 118p 등
   // 스크롤이 긴 화면)와 반영내역·패키지 검토(구 "실무지침 업데이트 검토함")를 한
   // 화면에 이어붙이면 관리자가 전자를 다 지나쳐야 후자에 닿는 문제가 있어 분리한다.
@@ -1741,7 +1751,14 @@ export default function AdminPage() {
           className={`hw-tab ${activeTab === "onboarding" ? "active" : ""}`}
           onClick={() => setActiveTab("onboarding")}>
           <UserPlus size={12} className="inline mr-1" />
-          사무소 승인
+          사무소 신청{pendingApps > 0 ? ` ${pendingApps}` : ""}
+        </button>
+        {/* 사업장 관리 — 사용자 없는 사업장/새 관리자 발급/연결 변경/전체 폐기 */}
+        <button
+          className={`hw-tab ${activeTab === "tenant-admin" ? "active" : ""}`}
+          onClick={() => setActiveTab("tenant-admin")}>
+          <Settings size={12} className="inline mr-1" />
+          사업장 관리
         </button>
         {/* 문서자동작성 선택 구조/필요서류 편집 */}
         <button
@@ -1781,6 +1798,12 @@ export default function AdminPage() {
       )}
 
       {/* 사무소 승인 — 이용신청 목록/상세/승인·반려 */}
+      {activeTab === "tenant-admin" && (
+        <div style={{ marginTop: 12 }}>
+          <TenantAdminPanel />
+        </div>
+      )}
+
       {activeTab === "onboarding" && (
         <div style={{ marginTop: 12 }}>
           <OfficeApplicationsTab />
@@ -2185,7 +2208,7 @@ function HardDeleteModal({
       <div onClick={(e) => e.stopPropagation()} className="hw-card" style={{ width: 480, maxWidth: "92vw", background: "#fff" }}>
         <div className="flex items-center gap-2 mb-2">
           <Trash2 size={16} style={{ color: "#C53030" }} />
-          <span className="font-semibold text-sm" style={{ color: "#C53030" }}>계정 완전 삭제 (복구 불가)</span>
+          <span className="font-semibold text-sm" style={{ color: "#C53030" }}>로그인 계정만 영구 삭제 — 복구 불가</span>
         </div>
         <div className="text-sm mb-3" style={{ color: "#4A5568", lineHeight: 1.6 }}>
           계정: <strong>{acc.office_name || acc.login_id}</strong> (<code className="font-mono">{acc.login_id}</code>)
@@ -2193,15 +2216,18 @@ function HardDeleteModal({
 
         {previewLoading && <div className="text-xs mb-3" style={{ color: "#718096" }}>연결 데이터 확인 중…</div>}
 
-        <div className="text-xs mb-3" style={{ color: "#276749", background: "#F0FFF4", border: "1px solid #C6F6D5", borderRadius: 6, padding: "6px 8px" }}>
-          사업장 공용 데이터(고객·분류·업무참고 등)는 계정 삭제와 관계없이 그대로 유지됩니다. 이 계정을 삭제해도 다른 사업장으로 이동하지 않습니다.
+        <div className="text-xs mb-3" style={{ color: "#276749", background: "#F0FFF4", border: "1px solid #C6F6D5", borderRadius: 6, padding: "8px 10px", lineHeight: 1.7 }}>
+          이 로그인 계정은 영구 삭제되며 복구할 수 없습니다.
+          <br />사업장과 고객·업무·분류·업무참고 데이터는 <strong>삭제하지 않습니다</strong>.
+          <br />새 관리자 계정을 발급하면 기존 데이터를 다시 사용할 수 있습니다.
+          <br />사업장 데이터도 삭제하려면 <strong>“사업장 전체 폐기”</strong>를 사용하세요.
         </div>
 
         {isLastUser && (
           <div className="text-xs mb-3" style={{ color: "#7B341E", background: "#FFFAF0", border: "1px solid #FBD38D", borderRadius: 6, padding: "8px 10px", lineHeight: 1.7 }}>
-            <div className="font-semibold mb-1">이 계정은 해당 사업장의 마지막 활성 사용자입니다.</div>
-            <div>계정을 삭제해도 사업장과 고객·업무·분류 데이터는 삭제되지 않지만, 해당 사업장에 로그인할 사용자가 없어집니다.</div>
-            <div className="mt-1">필요한 경우 계정을 삭제하기 전에 새 사용자를 먼저 추가하세요.</div>
+            <div className="font-semibold mb-1">이 계정을 삭제하면 해당 사업장에 로그인할 사용자가 0명이 됩니다.</div>
+            <div>사업장과 고객·업무·분류·업무참고 데이터는 계속 유지됩니다.</div>
+            <div className="mt-1">실험용 사업장 전체를 삭제하려면 “사업장 전체 폐기” 기능을 사용하세요.</div>
             {lastUserBlockedForActor && (
               <div className="mt-1 font-semibold">마지막 사용자 완전삭제는 전체 마스터 관리자만 할 수 있습니다.</div>
             )}

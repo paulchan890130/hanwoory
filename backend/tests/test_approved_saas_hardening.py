@@ -112,9 +112,9 @@ def test_tenant_status_precise_states(db):
     assert tenant_service_status("nope") == "missing"
     assert "missing" not in ALLOWED
     # 승인 → pending_activation (허용)
-    r = svc.create_application({"office_name": "t", "applicant_email": "a@a.kr",
-                                "requested_user_1_name": "A", "requested_user_1_email": "a1@a.kr",
-                                "requested_user_2_name": "B", "requested_user_2_email": "b1@a.kr"})
+    r = svc.create_application({"office_name": "t", "business_registration_number": "1112233444",
+                                "representative_name": "A", "representative_email": "a1@a.kr",
+                                "staff_name": "B", "staff_email": "b1@a.kr"})
     res = svc.approve(r["application_id"], "wkdwhfl")
     tid = res["tenant_id"]
     assert tenant_service_status(tid) == "pending_activation"
@@ -185,9 +185,9 @@ def test_rate_limit_uses_server_ip(monkeypatch):
 def test_reissue_revokes_old_token(db):
     from backend.services import office_application_pg_service as svc
     from backend.services import activation_pg_service as act
-    r = svc.create_application({"office_name": "t", "applicant_email": "a@a.kr",
-                                "requested_user_1_name": "A", "requested_user_1_email": "a1@a.kr",
-                                "requested_user_2_name": "B", "requested_user_2_email": "b1@a.kr"})
+    r = svc.create_application({"office_name": "t", "business_registration_number": "1112233444",
+                                "representative_name": "A", "representative_email": "a1@a.kr",
+                                "staff_name": "B", "staff_email": "b1@a.kr"})
     res = svc.approve(r["application_id"], "wkdwhfl")
     old = res["users"][0]["activation_token"]
     login_id = res["users"][0]["login_id"]
@@ -204,9 +204,9 @@ def test_reissue_revokes_old_token(db):
 def test_reissue_blocked_when_active(db):
     from backend.services import office_application_pg_service as svc
     from backend.services import activation_pg_service as act
-    r = svc.create_application({"office_name": "t", "applicant_email": "a@a.kr",
-                                "requested_user_1_name": "A", "requested_user_1_email": "a1@a.kr",
-                                "requested_user_2_name": "B", "requested_user_2_email": "b1@a.kr"})
+    r = svc.create_application({"office_name": "t", "business_registration_number": "1112233444",
+                                "representative_name": "A", "representative_email": "a1@a.kr",
+                                "staff_name": "B", "staff_email": "b1@a.kr"})
     res = svc.approve(r["application_id"], "wkdwhfl")
     login_id = res["users"][0]["login_id"]
     act.complete_activation(res["users"][0]["activation_token"], "newpass123")

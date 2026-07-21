@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { officeApplicationApi, type OfficeApplication, type TenantSummary, type OfficeAccount } from "@/lib/api";
+import TenantPurgeModal from "@/components/admin/TenantPurgeModal";
 
 // 승인형 SaaS 관리자 화면 — 사무소 이용신청 목록/상세/심사/승인/반려.
 // 기존 hw-card / hw-table / btn-primary 디자인 시스템 재사용. 전면 재설계 없음.
@@ -20,7 +21,8 @@ function fmtFlags(flags?: Record<string, unknown>): string[] {
     existing_tenant_biz_reg_no: "기존 사무소와 동일 사업자번호",
     duplicate_biz_reg_no_applications: "동일 사업자번호 신청 다수",
     duplicate_office_phone: "동일 대표전화 신청",
-    duplicate_applicant_email: "동일 신청 이메일",
+    duplicate_representative_email: "동일 대표자 이메일 신청",
+    existing_account_representative_email: "대표자 이메일이 기존 계정과 충돌",
     duplicate_office_address: "동일 주소 신청",
     duplicate_representative_name: "동일 대표자명 신청",
     matches_rejected_office: "과거 반려 사무소와 일치",
@@ -43,6 +45,23 @@ export default function OfficeApplicationsTab() {
   const [summary, setSummary] = useState<TenantSummary | null>(null);
   const [reissued, setReissued] = useState<{ login: string; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState<"unresolved" | "all" | "pending" | "reviewing" | "approved" | "rejected">("unresolved");
+  const [purgeOpen, setPurgeOpen] = useState(false);
+
+  const FILTERS: { key: typeof filter; label: string }[] = [
+    { key: "unresolved", label: "미처리" }, { key: "all", label: "전체" },
+    { key: "pending", label: "접수" }, { key: "reviewing", label: "심사중" },
+    { key: "approved", label: "승인" }, { key: "rejected", label: "반려" },
+  ];
+  const _rank = (s: string) => (s === "pending" ? 0 : s === "reviewing" ? 1 : 2);
+  const visibleApps = apps
+    .filter((a) => filter === "all" ? true
+      : filter === "unresolved" ? (a.status === "pending" || a.status === "reviewing")
+      : a.status === filter)
+    .sort((a, b) => _rank(a.status) - _rank(b.status)
+      || (b.created_at || "").localeCompare(a.created_at || ""));  // 미처리 우선 + 최신순
+  const pendingCount = apps.filter((a) => a.status === "pending").length;
+  const reviewingCount = apps.filter((a) => a.status === "reviewing").length;
 
   const loadSummary = useCallback((tid?: string | null) => {
     if (!tid) { setSummary(null); return; }
@@ -145,21 +164,47 @@ export default function OfficeApplicationsTab() {
       {/* 목록 */}
       <div className="hw-card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div className="hw-card-title" style={{ marginBottom: 0 }}>가입 신청 목록</div>
+          <div className="hw-card-title" style={{ marginBottom: 0 }}>사무소 이용 신청</div>
           <button className="btn-secondary" style={{ fontSize: 12 }} onClick={load}>새로고침</button>
         </div>
+
+        {/* 신규 신청 배너(미처리 pending 존재 시) */}
+        {pendingCount > 0 && (
+          <div style={{ background: "#FFF8E6", border: "1px solid var(--hw-gold-300, #E8C877)", borderRadius: 8,
+            padding: "10px 14px", fontSize: 13, marginBottom: 10, display: "flex",
+            justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span>🔔 신규 사무소 신청 <strong>{pendingCount}건</strong>이 있습니다.
+              {reviewingCount > 0 && ` (심사중 ${reviewingCount}건)`}</span>
+            <button className="hw-filter-btn" onClick={() => setFilter("unresolved")}>미처리 보기</button>
+          </div>
+        )}
+
+        {/* 상태 필터 */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          {FILTERS.map((f) => (
+            <button key={f.key}
+              className={`hw-filter-btn ${filter === f.key ? "active" : ""}`}
+              style={filter === f.key ? { background: "var(--hw-gold-600, #B7791F)", color: "#fff" } : undefined}
+              onClick={() => setFilter(f.key)}>
+              {f.label}
+              {f.key === "unresolved" && (pendingCount + reviewingCount) > 0 ? ` ${pendingCount + reviewingCount}` : ""}
+            </button>
+          ))}
+        </div>
+
         {loading ? <p style={{ fontSize: 13, color: "var(--hw-text-sub)" }}>불러오는 중...</p> :
-          apps.length === 0 ? <p style={{ fontSize: 13, color: "var(--hw-text-sub)" }}>신청이 없습니다.</p> : (
+          visibleApps.length === 0 ? <p style={{ fontSize: 13, color: "var(--hw-text-sub)" }}>해당 조건의 신청이 없습니다.</p> : (
             <div style={{ overflowX: "auto" }}>
               <table className="hw-table">
-                <thead><tr><th>상태</th><th>사무소</th><th>대표</th><th>신청자</th><th>경고</th><th>신청일</th></tr></thead>
+                <thead><tr><th>상태</th><th>사무소</th><th>대표자</th><th>대표자 이메일</th><th>실무자</th><th>경고</th><th>신청일</th></tr></thead>
                 <tbody>
-                  {apps.map((a) => (
+                  {visibleApps.map((a) => (
                     <tr key={a.application_id} style={{ cursor: "pointer" }} onClick={() => openDetail(a)}>
                       <td><span style={{ fontWeight: 700, color: STATUS_COLOR[a.status] || "#4A5568" }}>{STATUS_KO[a.status] || a.status}</span></td>
                       <td style={{ fontWeight: 600 }}>{a.office_name}</td>
                       <td>{a.representative_name || "—"}</td>
-                      <td>{a.applicant_name || "—"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.representative_email || "—"}</td>
+                      <td>{a.staff_name || "—"}</td>
                       <td>{Object.keys(a.duplicate_flags || {}).length > 0 ? <span style={{ color: "#C53030" }}>⚠️ {Object.keys(a.duplicate_flags || {}).length}</span> : "—"}</td>
                       <td style={{ whiteSpace: "nowrap" }}>{(a.created_at || "").slice(0, 10)}</td>
                     </tr>
@@ -182,18 +227,19 @@ export default function OfficeApplicationsTab() {
 
           <div style={{ fontSize: 13, lineHeight: 1.8, color: "var(--hw-text)" }}>
             <div>접수번호: <strong>{sel.application_id}</strong></div>
-            <div>대표자: {sel.representative_name || "—"} / 사업자: {sel.business_registration_number || "—"}</div>
+            <div>대표자: {sel.representative_name || "—"}</div>
+            <div>대표자 이메일: {sel.representative_email || "—"}</div>
+            <div>사업자등록번호: {sel.business_registration_number_formatted || sel.business_registration_number || "—"}</div>
             <div>주소: {sel.office_address || "—"}</div>
-            <div>대표전화: {sel.office_phone || "—"}</div>
-            <div>신청자: {sel.applicant_name || "—"} ({sel.applicant_email || "—"}, {sel.applicant_phone || "—"})</div>
-            <div>이용목적: {sel.intended_use || "—"}</div>
-            {sel.approved_tenant_id && <div>발급 테넌트: <strong>{sel.approved_tenant_id}</strong></div>}
+            <div>대표전화: {sel.office_phone_formatted || sel.office_phone || "—"}</div>
+            <div>실무자: {sel.staff_name || "—"} ({sel.staff_email || "—"})</div>
+            {sel.approved_tenant_id && <div>발급 사업장(tenant): <strong>{sel.approved_tenant_id}</strong></div>}
           </div>
 
-          <div className="hw-section-divider" style={{ marginTop: 12 }}>계정 발급 대상 2명</div>
+          <div className="hw-section-divider" style={{ marginTop: 12 }}>계정 발급 대상</div>
           <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-            <div>① {sel.requested_user_1_name || "—"} — {sel.requested_user_1_email || "—"} (office_admin 제안)</div>
-            <div>② {sel.requested_user_2_name || "—"} — {sel.requested_user_2_email || "—"} (office_staff 제안)</div>
+            <div>① 대표자 {sel.representative_name || "—"} — {sel.representative_email || "—"} <strong>(office_admin)</strong></div>
+            <div>② 실무자 {sel.staff_name || "—"} — {sel.staff_email || "—"} <strong>(office_staff)</strong></div>
           </div>
 
           {fmtFlags(sel.duplicate_flags).length > 0 && (
@@ -253,6 +299,13 @@ export default function OfficeApplicationsTab() {
                 {summary.service_status === "suspended"
                   ? <button className="hw-filter-btn" style={{ marginLeft: 8 }} disabled={busy} onClick={() => withBusy(() => officeApplicationApi.restoreTenant(summary.tenant_id), "사무소 복구됨")}>사무소 복구</button>
                   : <button className="hw-filter-btn" style={{ marginLeft: 8 }} disabled={busy} onClick={() => { if (confirm("사무소 전체를 정지하시겠습니까? 전 사용자 로그인이 차단됩니다.")) withBusy(() => officeApplicationApi.suspendTenant(summary.tenant_id), "사무소 정지됨"); }}>사무소 정지</button>}
+                {/* 사업장 전체 폐기 — suspended 일 때만 활성(고위험). */}
+                <button className="hw-filter-btn" style={{ marginLeft: 8, color: "#C53030", borderColor: "#FEB2B2" }}
+                  disabled={busy || summary.service_status !== "suspended"}
+                  title={summary.service_status !== "suspended" ? "먼저 사업장을 정지하세요." : "사업장 전체 폐기(복구 불가)"}
+                  onClick={() => setPurgeOpen(true)}>
+                  사업장 전체 폐기
+                </button>
               </div>
               <table className="hw-table">
                 <thead><tr><th>구분</th><th>이름</th><th>로그인 ID</th><th>상태</th><th>활성화</th><th style={{ width: 220 }}>관리</th></tr></thead>
@@ -306,6 +359,15 @@ export default function OfficeApplicationsTab() {
             </div>
           )}
         </div>
+      )}
+
+      {purgeOpen && summary && (
+        <TenantPurgeModal
+          tenantId={summary.tenant_id}
+          officeName={summary.office_name}
+          onClose={() => setPurgeOpen(false)}
+          onDone={() => { setPurgeOpen(false); setSel(null); setSummary(null); load(); }}
+        />
       )}
     </div>
   );

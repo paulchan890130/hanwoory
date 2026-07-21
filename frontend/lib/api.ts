@@ -213,9 +213,14 @@ export interface OfficeApplication {
   status: string;
   office_name: string;
   representative_name?: string | null;
+  representative_email?: string | null;
+  staff_name?: string | null;
+  staff_email?: string | null;
   business_registration_number?: string | null;
+  business_registration_number_formatted?: string | null;
   office_address?: string | null;
   office_phone?: string | null;
+  office_phone_formatted?: string | null;
   applicant_name?: string | null;
   applicant_email?: string | null;
   applicant_phone?: string | null;
@@ -274,6 +279,28 @@ export const officeApplicationApi = {
     api.post(`/api/admin/users/${encodeURIComponent(loginId)}/reissue-activation`),
   tenantSummary: (tenantId: string) =>
     api.get<TenantSummary>(`/api/admin/tenants/${encodeURIComponent(tenantId)}/summary`),
+  // 신규 신청 건수(배지·알림).
+  stats: () => api.get<{ pending: number; reviewing: number; unresolved: number }>(
+    "/api/admin/office-application-stats"),
+  // 사업장 연결 현황 / 사용자 없는 사업장.
+  connectionSummary: (tenantId: string) =>
+    api.get(`/api/admin/tenants/${encodeURIComponent(tenantId)}/connection-summary`),
+  noUserTenants: () => api.get("/api/admin/no-user-tenants"),
+  // 기존 사업장에 새 관리자 발급.
+  issueAdmin: (tenantId: string, body: { name: string; email: string; confirm_tenant_id: string }) =>
+    api.post(`/api/admin/tenants/${encodeURIComponent(tenantId)}/issue-admin-account`, body),
+  // 계정 연결 변경(relink) — 데이터는 이동하지 않음.
+  relinkPreview: (body: { login_id: string; target_tenant_id: string }) =>
+    api.post("/api/admin/account-links/preview", body),
+  relink: (body: { login_id: string; target_tenant_id: string;
+                   confirm_login_id: string; confirm_target_tenant_id: string }) =>
+    api.post("/api/admin/account-links/relink", body),
+  // 사업장 전체 폐기(고위험).
+  purgePreview: (tenantId: string) =>
+    api.get(`/api/admin/tenants/${encodeURIComponent(tenantId)}/purge-preview`),
+  purge: (tenantId: string, body: { confirm_tenant_id: string; confirm_office_name: string;
+                                    confirmation_phrase: string }) =>
+    api.post(`/api/admin/tenants/${encodeURIComponent(tenantId)}/purge`, body),
 };
 
 // 사무소 주계정(office_admin) — 자기 tenant 서브계정 관리. tenant_id 는 서버 JWT 에서만 취득.

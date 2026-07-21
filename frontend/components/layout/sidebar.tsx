@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { getUser, isFullAdmin, isSystemAdmin, canManageContent } from "@/lib/auth";
 import { officeApplicationApi } from "@/lib/api";
 import {
@@ -65,6 +66,43 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
   }, []);
   const showAdminMenu = isSystemAdmin(user) || (!saasEnabled && isFullAdmin(user));
   const showOfficeAccountsMenu = saasEnabled && isFullAdmin(user);
+
+  // 시스템 관리자 전용: 신규 사무소 신청 미처리(pending) 건수 배지 + 증가 시 1회 toast.
+  // 로그인/포커스 복귀/30초 주기로 갱신. sessionStorage 로 마지막 건수를 관리해 같은 건수 반복 toast 방지.
+  const [pendingApps, setPendingApps] = useState(0);
+  const firstStatPoll = useRef(true);
+  const sysAdmin = isSystemAdmin(user);
+  useEffect(() => {
+    if (!sysAdmin || !saasEnabled) return;
+    let alive = true;
+    const KEY = "office_app_last_pending";
+    const poll = () => {
+      officeApplicationApi.stats().then((r) => {
+        if (!alive) return;
+        const n = r.data?.pending ?? 0;
+        setPendingApps(n);
+        try {
+          const prev = Number(sessionStorage.getItem(KEY) || "0");
+          // 최초 폴링은 기준선만 저장(기존 pending 을 신규로 오인해 toast 하지 않음).
+          if (!firstStatPoll.current && n > prev) {
+            toast.info("새로운 사무소 이용 신청이 접수되었습니다.");
+          }
+          sessionStorage.setItem(KEY, String(n));
+          firstStatPoll.current = false;
+        } catch { /* sessionStorage 불가 환경 무시 */ }
+      }).catch(() => { /* OFF/오류는 배지 미표시 */ });
+    };
+    poll();
+    const id = setInterval(poll, 30000);
+    const onWake = () => poll();
+    window.addEventListener("focus", onWake);
+    document.addEventListener("visibilitychange", onWake);
+    return () => {
+      alive = false; clearInterval(id);
+      window.removeEventListener("focus", onWake);
+      document.removeEventListener("visibilitychange", onWake);
+    };
+  }, [sysAdmin, saasEnabled]);
 
   const isActive = (href: string) => pathname.startsWith(href) && href !== "/";
 
@@ -239,14 +277,26 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               기존처럼 full admin 에게 노출(회귀 방지). office_admin 은 SaaS ON 에서 미표시(서버도 차단). */}
           {showAdminMenu && (
             <Link
-              href={ADMIN_ITEM.href}
-              title={!showExpanded ? ADMIN_ITEM.label : undefined}
+              href={pendingApps > 0 ? `${ADMIN_ITEM.href}?tab=office-applications` : ADMIN_ITEM.href}
+              title={!showExpanded ? `${ADMIN_ITEM.label}${pendingApps > 0 ? ` · 신규 신청 ${pendingApps}` : ""}` : undefined}
               className={`hw-sidebar-item ${isActive(ADMIN_ITEM.href) ? "active" : ""}`}
               aria-current={isActive(ADMIN_ITEM.href) ? "page" : undefined}
               onClick={isMobile ? onMobileClose : undefined}
+              style={{ position: "relative" }}
             >
               <ADMIN_ITEM.icon size={16} className="shrink-0" />
               {showExpanded && <span className="truncate">{ADMIN_ITEM.label}</span>}
+              {pendingApps > 0 && (
+                showExpanded ? (
+                  <span style={{ marginLeft: "auto", background: "#C53030", color: "#fff",
+                    fontSize: 10, fontWeight: 800, borderRadius: 10, padding: "1px 7px", lineHeight: 1.5 }}>
+                    {pendingApps}
+                  </span>
+                ) : (
+                  <span style={{ position: "absolute", top: 6, right: 10, width: 8, height: 8,
+                    background: "#C53030", borderRadius: "50%" }} />
+                )
+              )}
             </Link>
           )}
         </nav>

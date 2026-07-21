@@ -62,54 +62,161 @@ def _norm_email(v: Optional[str]) -> str:
     return (v or "").strip().lower()
 
 
+# ── 사업자등록번호 / 전화번호 정규화·형식화 (프론트/백엔드 공통 규칙) ──────────────
+def normalize_biz_reg_no(v: Optional[str]) -> str:
+    """구분자 제거 후 숫자만 남긴다(digits-only 저장/비교용)."""
+    return re.sub(r"[^0-9]", "", v or "")
+
+
+def is_valid_biz_reg_no(digits: str) -> bool:
+    return len(digits or "") == 10 and (digits or "").isdigit()
+
+
+def format_biz_reg_no(v: Optional[str]) -> str:
+    """관리자 표시용 하이픈 형식(213-12-37464). 10자리가 아니면 원본 digits 반환."""
+    d = normalize_biz_reg_no(v)
+    return f"{d[:3]}-{d[3:5]}-{d[5:]}" if len(d) == 10 else d
+
+
+def normalize_phone(v: Optional[str]) -> str:
+    return re.sub(r"[^0-9]", "", v or "")
+
+
+def is_valid_phone(digits: str) -> bool:
+    """한국 전화 digits — 9~11자리, 0으로 시작."""
+    d = digits or ""
+    return 9 <= len(d) <= 11 and d.isdigit() and d[:1] == "0"
+
+
+def format_phone(v: Optional[str]) -> str:
+    """관리자 표시용 하이픈 형식. 규칙 밖이면 digits 원본."""
+    d = normalize_phone(v)
+    if d.startswith("02"):
+        if len(d) == 9:
+            return f"{d[:2]}-{d[2:5]}-{d[5:]}"      # 02-123-4567
+        if len(d) == 10:
+            return f"{d[:2]}-{d[2:6]}-{d[6:]}"      # 02-1234-5678
+    else:
+        if len(d) == 10:
+            return f"{d[:3]}-{d[3:6]}-{d[6:]}"      # 010-123-4567 / 031-123-4567
+        if len(d) == 11:
+            return f"{d[:3]}-{d[3:7]}-{d[7:]}"      # 010-1234-5678
+    return d
+
+
+def _biz_match_forms(v: Optional[str]) -> list[str]:
+    """digits + 표준 하이픈형 — 구버전(하이픈 저장) 행과도 중복 감지되도록 두 형태로 비교."""
+    d = normalize_biz_reg_no(v)
+    if not d:
+        return []
+    forms = {d}
+    if len(d) == 10:
+        forms.add(format_biz_reg_no(d))
+    return list(forms)
+
+
+def _phone_match_forms(v: Optional[str]) -> list[str]:
+    d = normalize_phone(v)
+    if not d:
+        return []
+    forms = {d}
+    f = format_phone(d)
+    if f:
+        forms.add(f)
+    return list(forms)
+
+
+def _canonical_application_input(data: dict) -> dict:
+    """공개 신청 입력을 하나의 canonical 구조로 변환한다.
+
+    신규 필드(representative_email / staff_name / staff_email)를 우선 사용하되,
+    롤링 배포·구버전 클라이언트 호환을 위해 기존 requested_user_* fallback 을 허용한다.
+    """
+    rep_name = (data.get("representative_name") or data.get("requested_user_1_name") or "").strip()
+    rep_email = _norm_email(data.get("representative_email") or data.get("requested_user_1_email"))
+    staff_name = (data.get("staff_name") or data.get("requested_user_2_name") or "").strip()
+    staff_email = _norm_email(data.get("staff_email") or data.get("requested_user_2_email"))
+    return {
+        "office_name": (data.get("office_name") or "").strip(),
+        "representative_name": rep_name,
+        "representative_email": rep_email,
+        "staff_name": staff_name,
+        "staff_email": staff_email,
+        "business_registration_number": normalize_biz_reg_no(data.get("business_registration_number")),
+        "office_address": (data.get("office_address") or "").strip(),
+        "office_phone": normalize_phone(data.get("office_phone")),
+    }
+
+
 # ── 신청 생성 ────────────────────────────────────────────────────────────────
 def create_application(data: dict, ip_hash: Optional[str] = None) -> dict:
-    """공개 신청서를 저장한다. tenants/users 는 만들지 않는다."""
+    """공개 신청서를 저장한다. tenants/users 는 만들지 않는다.
+
+    canonical 구조: 사무소 정보 + 대표자(승인 시 office_admin) + 실무자(office_staff) 1명.
+    저장은 기존 컬럼을 재사용한다(신규 migration 없음):
+      representative_email → requested_user_1_email, representative_name → requested_user_1_name,
+      staff_name/email → requested_user_2_*. applicant_*/intended_use 는 null.
+    """
     from backend.db.models.office_application import OfficeApplication
     from backend.db.session import get_sessionmaker
 
-    office_name = (data.get("office_name") or "").strip()
-    if not office_name:
+    c = _canonical_application_input(data)
+
+    # 필수값 서버 재검증(공백 문자열 차단).
+    if not c["office_name"]:
         raise ApplicationError("MISSING_OFFICE_NAME", "사무소명을 입력해 주세요.")
-    applicant_email = _norm_email(data.get("applicant_email"))
-    if applicant_email and not _EMAIL_RE.match(applicant_email):
-        raise ApplicationError("BAD_EMAIL", "신청 담당자 이메일 형식이 올바르지 않습니다.")
-    for key in ("requested_user_1_email", "requested_user_2_email"):
-        v = _norm_email(data.get(key))
-        if v and not _EMAIL_RE.match(v):
-            raise ApplicationError("BAD_EMAIL", "계정 사용자 이메일 형식이 올바르지 않습니다.")
+    if not c["representative_name"]:
+        raise ApplicationError("MISSING_FIELD", "대표자명을 입력해 주세요.")
+    if not c["representative_email"]:
+        raise ApplicationError("MISSING_FIELD", "대표자 이메일을 입력해 주세요.")
+    if not c["staff_name"]:
+        raise ApplicationError("MISSING_FIELD", "실무자 이름을 입력해 주세요.")
+    if not c["staff_email"]:
+        raise ApplicationError("MISSING_FIELD", "실무자 이메일을 입력해 주세요.")
+    if not _EMAIL_RE.match(c["representative_email"]):
+        raise ApplicationError("BAD_EMAIL", "대표자 이메일 형식이 올바르지 않습니다.")
+    if not _EMAIL_RE.match(c["staff_email"]):
+        raise ApplicationError("BAD_EMAIL", "실무자 이메일 형식이 올바르지 않습니다.")
+    if c["representative_email"] == c["staff_email"]:
+        raise ApplicationError("DUPLICATE_USER_EMAIL", "대표자와 실무자의 이메일이 동일합니다. 서로 다른 이메일을 입력해 주세요.")
+    if not is_valid_biz_reg_no(c["business_registration_number"]):
+        raise ApplicationError("BAD_BIZ_REG_NO", "사업자등록번호 10자리를 입력해 주세요.")
+    if c["office_phone"] and not is_valid_phone(c["office_phone"]):
+        raise ApplicationError("BAD_PHONE", "전화번호 형식이 올바르지 않습니다. 숫자 9~11자리로 입력해 주세요.")
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
-        # 중복 제출 방지 — 동일 사무소명 + 동일 신청 이메일이 이미 미결(pending/reviewing)이면 차단.
-        if applicant_email:
-            dup = session.scalar(
-                select(OfficeApplication.id).where(
-                    func.lower(OfficeApplication.office_name) == office_name.lower(),
-                    OfficeApplication.applicant_email == applicant_email,
-                    OfficeApplication.status.in_([ST_PENDING, ST_REVIEWING]),
-                )
+        # 중복 제출 방지 — 동일 사무소명 + 동일 대표자 이메일이 이미 미결(pending/reviewing)이면 차단.
+        # 대표자 이메일은 requested_user_1_email 에 저장되므로 그 컬럼 기준으로 검사한다.
+        dup = session.scalar(
+            select(OfficeApplication.id).where(
+                func.lower(OfficeApplication.office_name) == c["office_name"].lower(),
+                OfficeApplication.requested_user_1_email == c["representative_email"],
+                OfficeApplication.status.in_([ST_PENDING, ST_REVIEWING]),
             )
-            if dup is not None:
-                raise ApplicationError("DUPLICATE_PENDING", "이미 접수되어 심사 중인 신청이 있습니다.")
+        )
+        if dup is not None:
+            raise ApplicationError("DUPLICATE_PENDING", "이미 접수되어 심사 중인 신청이 있습니다.")
 
-        flags = _compute_duplicate_flags(session, data, ip_hash)
+        flags = _compute_duplicate_flags(session, c, ip_hash)
         app = OfficeApplication(
             application_id=_gen_application_id(),
             status=ST_PENDING,
-            office_name=office_name,
-            representative_name=(data.get("representative_name") or "").strip() or None,
-            business_registration_number=(data.get("business_registration_number") or "").strip() or None,
-            office_address=(data.get("office_address") or "").strip() or None,
-            office_phone=(data.get("office_phone") or "").strip() or None,
-            applicant_name=(data.get("applicant_name") or "").strip() or None,
-            applicant_email=applicant_email or None,
-            applicant_phone=(data.get("applicant_phone") or "").strip() or None,
-            intended_use=(data.get("intended_use") or "").strip() or None,
-            requested_user_1_name=(data.get("requested_user_1_name") or "").strip() or None,
-            requested_user_1_email=_norm_email(data.get("requested_user_1_email")) or None,
-            requested_user_2_name=(data.get("requested_user_2_name") or "").strip() or None,
-            requested_user_2_email=_norm_email(data.get("requested_user_2_email")) or None,
+            office_name=c["office_name"],
+            representative_name=c["representative_name"] or None,
+            business_registration_number=c["business_registration_number"] or None,  # digits-only
+            office_address=c["office_address"] or None,
+            office_phone=c["office_phone"] or None,                                  # digits-only
+            # applicant_*/intended_use 는 신규 신청에서 사용하지 않음(구조 단순화).
+            applicant_name=None,
+            applicant_email=None,
+            applicant_phone=None,
+            intended_use=None,
+            # 대표자를 requested_user_1(승인 시 office_admin), 실무자를 requested_user_2 로 매핑.
+            requested_user_1_name=c["representative_name"] or None,
+            requested_user_1_email=c["representative_email"] or None,
+            requested_user_2_name=c["staff_name"] or None,
+            requested_user_2_email=c["staff_email"] or None,
             submitted_at=_now(),
             duplicate_flags=flags or None,
             submit_ip_hash=ip_hash,
@@ -120,86 +227,105 @@ def create_application(data: dict, ip_hash: Optional[str] = None) -> dict:
 
 
 # ── 중복/위험 경고 계산 (자동 반려 아님 — 사람 판단 보조) ──────────────────────
-def _compute_duplicate_flags(session, data: dict, ip_hash: Optional[str]) -> dict:
+def _compute_duplicate_flags(session, c: dict, ip_hash: Optional[str]) -> dict:
+    """중복·위험 경고(자동 반려 아님 — 사람 판단 보조). canonical 입력 c 를 받는다.
+
+    사업자번호·전화번호는 digits/하이픈 두 형태로 비교해 구버전(하이픈 저장) 행과도 감지된다.
+    대표자 이메일(requested_user_1_email) 기준으로 이메일 중복을 계산한다.
+    """
     from backend.db.models.office_application import OfficeApplication
     from backend.db.models.tenant import Tenant
 
     flags: dict[str, Any] = {}
-    biz = (data.get("business_registration_number") or "").strip()
-    phone = (data.get("office_phone") or "").strip()
-    email = _norm_email(data.get("applicant_email"))
-    addr = (data.get("office_address") or "").strip()
-    rep = (data.get("representative_name") or "").strip()
-    office = (data.get("office_name") or "").strip()
+    biz_forms = _biz_match_forms(c.get("business_registration_number"))
+    phone_forms = _phone_match_forms(c.get("office_phone"))
+    email = c.get("representative_email") or ""
+    addr = (c.get("office_address") or "").strip()
+    rep = (c.get("representative_name") or "").strip()
+    office = (c.get("office_name") or "").strip()
 
-    if biz:
-        if session.scalar(select(Tenant.id).where(Tenant.biz_reg_no == biz)) is not None:
+    if biz_forms:
+        if session.scalar(select(Tenant.id).where(Tenant.biz_reg_no.in_(biz_forms))) is not None:
             flags["existing_tenant_biz_reg_no"] = True
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
-            OfficeApplication.business_registration_number == biz))
-        if c and c > 0:
-            flags["duplicate_biz_reg_no_applications"] = int(c)
-    if phone:
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
-            OfficeApplication.office_phone == phone))
-        if c and c > 0:
-            flags["duplicate_office_phone"] = int(c)
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+            OfficeApplication.business_registration_number.in_(biz_forms)))
+        if n and n > 0:
+            flags["duplicate_biz_reg_no_applications"] = int(n)
+    if phone_forms:
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+            OfficeApplication.office_phone.in_(phone_forms)))
+        if n and n > 0:
+            flags["duplicate_office_phone"] = int(n)
     if email:
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
-            OfficeApplication.applicant_email == email))
-        if c and c > 0:
-            flags["duplicate_applicant_email"] = int(c)
+        # 대표자 이메일은 requested_user_1_email 에 저장된다(구조 단순화 후 canonical).
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+            OfficeApplication.requested_user_1_email == email))
+        if n and n > 0:
+            flags["duplicate_representative_email"] = int(n)
+        # 전역 계정(users.login_id) 과 이미 충돌하는지도 경고.
+        try:
+            from backend.db.models.user import AccountUser
+            if session.scalar(select(AccountUser.id).where(AccountUser.login_id == email)) is not None:
+                flags["existing_account_representative_email"] = True
+        except Exception:
+            pass
     if addr:
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
             OfficeApplication.office_address == addr))
-        if c and c > 0:
-            flags["duplicate_office_address"] = int(c)
+        if n and n > 0:
+            flags["duplicate_office_address"] = int(n)
     if rep:
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
             OfficeApplication.representative_name == rep))
-        if c and c > 0:
-            flags["duplicate_representative_name"] = int(c)
+        if n and n > 0:
+            flags["duplicate_representative_name"] = int(n)
     if office:
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
             func.lower(OfficeApplication.office_name) == office.lower(),
             OfficeApplication.status == ST_REJECTED))
-        if c and c > 0:
-            flags["matches_rejected_office"] = int(c)
-    # suspended/terminated tenant 와 일치(사업자번호 기준)
-    if biz:
+        if n and n > 0:
+            flags["matches_rejected_office"] = int(n)
+    if biz_forms:
         try:
-            c = session.scalar(select(func.count()).select_from(Tenant).where(
-                Tenant.biz_reg_no == biz, Tenant.service_status.in_(["suspended", "terminated"])))
-            if c and c > 0:
-                flags["matches_suspended_tenant"] = int(c)
+            n = session.scalar(select(func.count()).select_from(Tenant).where(
+                Tenant.biz_reg_no.in_(biz_forms), Tenant.service_status.in_(["suspended", "terminated"])))
+            if n and n > 0:
+                flags["matches_suspended_tenant"] = int(n)
         except Exception:
             pass  # service_status 컬럼 미적용(0031 전) — 조용히 건너뜀
     if ip_hash:
         since = _now() - timedelta(hours=1)
-        c = session.scalar(select(func.count()).select_from(OfficeApplication).where(
+        n = session.scalar(select(func.count()).select_from(OfficeApplication).where(
             OfficeApplication.submit_ip_hash == ip_hash,
             OfficeApplication.created_at >= since))
-        if c and c > 1:
-            flags["repeated_ip_1h"] = int(c)
-    # 필수정보 누락
-    missing = [k for k in ("office_name", "representative_name", "business_registration_number",
-                           "applicant_email") if not (data.get(k) or "").strip()]
-    if missing:
-        flags["missing_fields"] = missing
+        if n and n > 1:
+            flags["repeated_ip_1h"] = int(n)
     return flags
 
 
 # ── 조회 ────────────────────────────────────────────────────────────────────
 def _to_dict(app) -> dict:
+    # canonical 대표자/실무자 — 신규 행은 requested_user_1(대표자)/requested_user_2(실무자).
+    # 구버전 행 호환: 대표자 이메일이 없으면 applicant_email 로 fallback 표시.
+    rep_name = app.representative_name or app.requested_user_1_name
+    rep_email = app.requested_user_1_email or app.applicant_email
+    staff_name = app.requested_user_2_name
+    staff_email = app.requested_user_2_email
     return {
         "id": app.id,
         "application_id": app.application_id,
         "status": app.status,
         "office_name": app.office_name,
-        "representative_name": app.representative_name,
+        "representative_name": rep_name,
+        "representative_email": rep_email,
+        "staff_name": staff_name,
+        "staff_email": staff_email,
         "business_registration_number": app.business_registration_number,
+        "business_registration_number_formatted": format_biz_reg_no(app.business_registration_number),
         "office_address": app.office_address,
         "office_phone": app.office_phone,
+        "office_phone_formatted": format_phone(app.office_phone),
+        # 구버전 신청 열람 호환(신규 신청에서는 null).
         "applicant_name": app.applicant_name,
         "applicant_email": app.applicant_email,
         "applicant_phone": app.applicant_phone,
@@ -354,16 +480,19 @@ def approve(application_id: str, reviewer: str,
         if a.status in (ST_REJECTED, ST_CANCELLED):
             raise ApplicationError("BAD_STATE", "반려/취소된 신청은 승인할 수 없습니다.")
 
-        # 계정 2명 정보 확정(요청 override > 신청서 값).
+        # 계정 2명 정보 확정(요청 override > 신청서 값). 이름·이메일 오탈자만 정정 가능.
+        # **역할은 서버가 고정한다** — user1=대표자=office_admin, user2=실무자=office_staff.
+        # 프론트가 role 을 보내더라도 신뢰하지 않는다(권한 상승 방지).
         u1 = {
             "name": ((user1 or {}).get("name") or a.requested_user_1_name or "").strip(),
-            "email": _norm_email((user1 or {}).get("email") or a.requested_user_1_email),
-            "role": ((user1 or {}).get("role") or "office_admin").strip(),
+            "email": _norm_email((user1 or {}).get("email") or a.requested_user_1_email
+                                 or a.applicant_email),
+            "role": "office_admin",
         }
         u2 = {
             "name": ((user2 or {}).get("name") or a.requested_user_2_name or "").strip(),
             "email": _norm_email((user2 or {}).get("email") or a.requested_user_2_email),
-            "role": ((user2 or {}).get("role") or "office_staff").strip(),
+            "role": "office_staff",
         }
         for u in (u1, u2):
             if not u["name"] or not u["email"]:
@@ -457,6 +586,21 @@ def approve(application_id: str, reviewer: str,
     _audit("office_application_approved", reviewer, application_id, result["tenant_id"],
            {"application_id": application_id, "user_count": len(result["users"])})
     return result
+
+
+def stats() -> dict:
+    """시스템 관리자 배지·알림용 신청 건수 요약. pending/reviewing 만 미처리로 집계."""
+    from backend.db.models.office_application import OfficeApplication
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        def _count(st: str) -> int:
+            return int(session.scalar(select(func.count()).select_from(OfficeApplication).where(
+                OfficeApplication.status == st)) or 0)
+        pending = _count(ST_PENDING)
+        reviewing = _count(ST_REVIEWING)
+        return {"pending": pending, "reviewing": reviewing, "unresolved": pending + reviewing}
 
 
 def _audit(action: str, actor: Optional[str], target_id: Optional[str],

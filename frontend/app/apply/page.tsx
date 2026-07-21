@@ -8,30 +8,62 @@ import { officeApplicationApi } from "@/lib/api";
 type Availability = "loading" | "enabled" | "disabled" | "error";
 
 // 공개 사무소 이용신청 — 계정을 만들지 않는다. 신청서만 접수하고 접수번호를 안내한다.
-// 승인/로그인 링크 없음. 개인정보는 POST body 로만 전송(URL query 노출 금지).
+// 대표자(승인 시 사무소 관리자) + 실무자(서브계정) 정보만 받는다.
 
-type Field = { key: string; label: string; required?: boolean; placeholder?: string };
+// ── 사업자등록번호 / 전화번호 정규화·형식화 (백엔드와 동일 규칙) ──────────────
+const bizDigits = (v: string) => (v || "").replace(/[^0-9]/g, "").slice(0, 10);
+const fmtBiz = (v: string) => {
+  const d = bizDigits(v);
+  if (d.length <= 3) return d;
+  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
+};
+const phoneDigits = (v: string) => (v || "").replace(/[^0-9]/g, "").slice(0, 11);
+const fmtPhone = (v: string) => {
+  const d = phoneDigits(v);
+  if (d.startsWith("02")) {
+    if (d.length <= 2) return d;
+    if (d.length <= 5) return `${d.slice(0, 2)}-${d.slice(2)}`;
+    if (d.length <= 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`;
+    return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`;
+  }
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+};
+
+type Field = {
+  key: string; label: string; required?: boolean; placeholder?: string;
+  desc?: string; kind?: "text" | "email" | "biz" | "phone";
+};
 
 const OFFICE_FIELDS: Field[] = [
   { key: "office_name", label: "사무소명", required: true },
   { key: "representative_name", label: "대표자명", required: true },
-  { key: "business_registration_number", label: "사업자등록번호", required: true, placeholder: "숫자만" },
+  {
+    key: "representative_email", label: "대표자 이메일", required: true, kind: "email",
+    placeholder: "name@example.com", desc: "승인 후 사무소 관리자 계정으로 발급됩니다.",
+  },
+  {
+    key: "business_registration_number", label: "사업자등록번호", required: true, kind: "biz",
+    placeholder: "213-12-37464", desc: "숫자만 입력하면 자동으로 형식이 적용됩니다.",
+  },
   { key: "office_address", label: "사무소 주소" },
-  { key: "office_phone", label: "대표 전화" },
+  {
+    key: "office_phone", label: "대표 전화", kind: "phone",
+    placeholder: "010-0000-0000", desc: "숫자만 입력하면 자동으로 형식이 적용됩니다.",
+  },
 ];
-const APPLICANT_FIELDS: Field[] = [
-  { key: "applicant_name", label: "신청 담당자명", required: true },
-  { key: "applicant_email", label: "담당자 이메일", required: true, placeholder: "name@example.com" },
-  { key: "applicant_phone", label: "담당자 전화" },
-];
-const USER_FIELDS: Field[] = [
-  { key: "requested_user_1_name", label: "계정 사용자 1 이름", required: true },
-  { key: "requested_user_1_email", label: "계정 사용자 1 이메일", required: true },
-  { key: "requested_user_2_name", label: "계정 사용자 2 이름", required: true },
-  { key: "requested_user_2_email", label: "계정 사용자 2 이메일", required: true },
+const STAFF_FIELDS: Field[] = [
+  { key: "staff_name", label: "실무자 이름", required: true },
+  {
+    key: "staff_email", label: "실무자 이메일", required: true, kind: "email",
+    placeholder: "name@example.com", desc: "승인 후 직원용 서브계정으로 발급됩니다.",
+  },
 ];
 
 export default function ApplyPage() {
+  // form 에는 사업자번호·전화번호를 **digits-only** 로 보관하고, 화면에만 형식을 적용한다.
   const [form, setForm] = useState<Record<string, string>>({});
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -49,8 +81,19 @@ export default function ApplyPage() {
   }, []);
 
   const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  const onChangeField = (f: Field, raw: string) => {
+    if (f.kind === "biz") set(f.key, bizDigits(raw));
+    else if (f.kind === "phone") set(f.key, phoneDigits(raw));
+    else set(f.key, raw);
+  };
+  const displayValue = (f: Field): string => {
+    const v = form[f.key] || "";
+    if (f.kind === "biz") return fmtBiz(v);
+    if (f.kind === "phone") return fmtPhone(v);
+    return v;
+  };
 
-  const missing = [...OFFICE_FIELDS, ...APPLICANT_FIELDS, ...USER_FIELDS]
+  const missing = [...OFFICE_FIELDS, ...STAFF_FIELDS]
     .filter((f) => f.required && !(form[f.key] || "").trim())
     .map((f) => f.label);
 
@@ -58,11 +101,26 @@ export default function ApplyPage() {
     setError("");
     if (availability !== "enabled") { setError("현재 신청을 받을 수 없습니다."); return; }
     if (missing.length) { setError(`필수 항목을 입력해 주세요: ${missing.join(", ")}`); return; }
+    const biz = bizDigits(form["business_registration_number"] || "");
+    if (biz.length !== 10) { setError("사업자등록번호 10자리를 입력해 주세요."); return; }
+    const repEmail = (form["representative_email"] || "").trim().toLowerCase();
+    const staffEmail = (form["staff_email"] || "").trim().toLowerCase();
+    if (repEmail && staffEmail && repEmail === staffEmail) {
+      setError("대표자와 실무자의 이메일은 서로 달라야 합니다."); return;
+    }
     if (!agreePrivacy || !agreeTerms) { setError("개인정보 및 이용약관에 동의해 주세요."); return; }
     setSubmitting(true);
     try {
       const res = await officeApplicationApi.submit({
-        ...form, agree_privacy: agreePrivacy, agree_terms: agreeTerms,
+        office_name: form["office_name"],
+        representative_name: form["representative_name"],
+        representative_email: repEmail,
+        business_registration_number: biz,
+        office_address: form["office_address"] || "",
+        office_phone: phoneDigits(form["office_phone"] || ""),
+        staff_name: form["staff_name"],
+        staff_email: staffEmail,
+        agree_privacy: agreePrivacy, agree_terms: agreeTerms,
       });
       setReceipt((res.data as { application_id: string }).application_id);
     } catch (e) {
@@ -135,10 +193,15 @@ export default function ApplyPage() {
           <label className="hw-label">{f.label}{f.required && <span style={{ color: "#C53030" }}> *</span>}</label>
           <input
             className="hw-input"
-            value={form[f.key] || ""}
+            value={displayValue(f)}
             placeholder={f.placeholder}
-            onChange={(e) => set(f.key, e.target.value)}
+            inputMode={f.kind === "biz" ? "numeric" : f.kind === "phone" ? "tel" : undefined}
+            type={f.kind === "email" ? "email" : "text"}
+            onChange={(e) => onChangeField(f, e.target.value)}
           />
+          {f.desc && (
+            <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginTop: 4 }}>{f.desc}</div>
+          )}
         </div>
       ))}
     </div>
@@ -155,30 +218,19 @@ export default function ApplyPage() {
       </div>
       <h1 className="hw-page-title" style={{ marginBottom: 6 }}>사무소 이용 신청</h1>
       <p style={{ fontSize: 13, color: "var(--hw-text-sub)", marginBottom: 12, lineHeight: 1.7 }}>
-        신청서를 제출하면 관리자 심사 후 사무소 워크스페이스와 <strong>실명 계정 2개</strong>가 발급됩니다.
-        본 신청으로 계정이 즉시 생성되지는 않습니다.
+        신청서를 제출하면 관리자 심사 후 사무소 업무공간과 <strong>대표자 관리자 계정 1개, 실무자 계정 1개</strong>가
+        발급됩니다. 신청 즉시 계정이 생성되지는 않습니다.
       </p>
       <ol style={{ fontSize: 12.5, color: "var(--hw-text-sub)", lineHeight: 1.7, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "12px 16px 12px 30px", marginBottom: 20 }}>
         <li>신청서 접수</li>
         <li>관리자 심사</li>
         <li>사무소 승인</li>
-        <li>주계정·직원(서브계정) 발급</li>
+        <li>대표자 관리자 계정·실무자 계정 발급</li>
         <li>활성화 링크로 각자 비밀번호 설정 (자동 이메일 없음 — 관리자가 직접 안내)</li>
       </ol>
 
       {renderGroup("사무소 정보", OFFICE_FIELDS)}
-      {renderGroup("신청 담당자", APPLICANT_FIELDS)}
-      <div className="hw-card" style={{ marginBottom: 16 }}>
-        <div className="hw-card-title">이용 목적</div>
-        <textarea
-          className="hw-input"
-          style={{ height: 72, resize: "vertical", padding: "8px 12px", lineHeight: 1.6 }}
-          value={form["intended_use"] || ""}
-          onChange={(e) => set("intended_use", e.target.value)}
-          placeholder="예: 출입국 체류/사증 업무 관리"
-        />
-      </div>
-      {renderGroup("발급 계정 2명 (실명)", USER_FIELDS)}
+      {renderGroup("실무자용 계정 발급 정보", STAFF_FIELDS)}
 
       <div className="hw-card" style={{ marginBottom: 16 }}>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, marginBottom: 8, cursor: "pointer" }}>

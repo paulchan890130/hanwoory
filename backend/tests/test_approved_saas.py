@@ -48,14 +48,13 @@ def db(monkeypatch, tmp_path):
 
 
 def _base_app_data(**over):
+    # canonical 신청 구조: 대표자(승인 시 office_admin) + 실무자(office_staff).
     d = {
-        "office_name": "한빛행정사", "representative_name": "김대표",
+        "office_name": "한빛행정사",
+        "representative_name": "관리자A", "representative_email": "admin@hanbit.kr",
         "business_registration_number": "1112233444", "office_address": "서울 강남",
-        "office_phone": "02-111-2222", "applicant_name": "김담당",
-        "applicant_email": "apply@hanbit.kr", "applicant_phone": "010-1111-2222",
-        "intended_use": "출입국 업무", "requested_user_1_name": "관리자A",
-        "requested_user_1_email": "admin@hanbit.kr", "requested_user_2_name": "직원B",
-        "requested_user_2_email": "staff@hanbit.kr",
+        "office_phone": "02-111-2222",
+        "staff_name": "직원B", "staff_email": "staff@hanbit.kr",
     }
     d.update(over)
     return d
@@ -199,8 +198,8 @@ def test_tenant_isolation(db):
     from backend.services import office_application_pg_service as svc
     r1 = svc.create_application(_base_app_data())
     r2 = svc.create_application(_base_app_data(
-        office_name="두번째행정사", applicant_email="a2@x.kr",
-        requested_user_1_email="admin2@x.kr", requested_user_2_email="staff2@x.kr"))
+        office_name="두번째행정사",
+        representative_email="admin2@x.kr", staff_email="staff2@x.kr"))
     a = svc.approve(r1["application_id"], "wkdwhfl")
     b = svc.approve(r2["application_id"], "wkdwhfl")
     assert a["tenant_id"] != b["tenant_id"]  # 격리된 별도 tenant
