@@ -167,9 +167,9 @@ export function RichEditor({
       onClick={onClick}
       style={{
         ...BTN_BASE,
-        background: active ? "#D4A843" : "#fff",
-        color: active ? "#fff" : "#374151",
-        borderColor: active ? "#D4A843" : "#D1D5DB",
+        background: active ? "var(--hw-gold-soft-bg)" : "#fff",
+        color: active ? "var(--hw-gold-soft-text)" : "#374151",
+        borderColor: active ? "var(--hw-gold-soft-border)" : "#D1D5DB",
       }}
       onMouseEnter={(e) => {
         if (!active) e.currentTarget.style.background = "#F3F4F6";
@@ -228,9 +228,9 @@ export function RichEditor({
           onClick={() => setPreview((p) => !p)}
           style={{
             ...BTN_BASE,
-            border: "1px solid #D4A843",
-            background: preview ? "#D4A843" : "#fff",
-            color: preview ? "#fff" : "#D4A843",
+            border: "1px solid var(--hw-gold-soft-border)",
+            background: preview ? "var(--hw-gold-soft-bg)" : "#fff",
+            color: "var(--hw-gold-soft-text)",
           }}
         >
           {preview ? "✏️ 편집" : "👁 미리보기"}
@@ -297,9 +297,9 @@ export function RichEditor({
                 ...BTN_BASE,
                 padding: "7px 14px",
                 fontSize: 13,
-                border: "none",
-                background: imgDlg.url ? "#D4A843" : "#ccc",
-                color: "#fff",
+                border: imgDlg.url ? "1px solid var(--hw-gold-soft-border)" : "none",
+                background: imgDlg.url ? "var(--hw-gold-soft-bg)" : "#ccc",
+                color: imgDlg.url ? "var(--hw-gold-soft-text)" : "#fff",
                 cursor: imgDlg.url ? "pointer" : "not-allowed",
               }}
             >
@@ -315,9 +315,9 @@ export function RichEditor({
                     ...BTN_BASE,
                     padding: "7px 14px",
                     fontSize: 13,
-                    border: "1px solid #D4A843",
+                    border: "1px solid var(--hw-gold-soft-border)",
                     background: "#fff",
-                    color: "#D4A843",
+                    color: "var(--hw-gold-soft-text)",
                     cursor: imgDlg.uploading ? "not-allowed" : "pointer",
                   }}
                 >

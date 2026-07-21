@@ -36,6 +36,10 @@ const OVERRIDE_FIELDS: { label: string; key: string; placeholder: string }[] = [
 const GOLD = "#D4A843";
 const GOLD_LIGHT = "rgba(212,168,67,0.10)";
 const BORDER = "#E2E8F0";
+// soft gold 액션(선택 pill·CTA 버튼) — 연한 배경 + 검정 글자
+const GOLD_SOFT = "var(--hw-gold-soft-bg)";
+const GOLD_SOFT_TEXT = "var(--hw-gold-soft-text)";
+const GOLD_SOFT_BORDER = "var(--hw-gold-soft-border)";
 const GRAY_BG = "#F9FAFB";
 
 function getLocalDateString(): string {
@@ -848,7 +852,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
             <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 6 }}>구분</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {(tree?.categories ?? ["체류", "사증"]).map((c) => (
-                <button key={c} onClick={() => selectCategory(c)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${category === c ? GOLD : BORDER}`, background: category === c ? GOLD : "#fff", color: category === c ? "#fff" : "#4A5568", fontWeight: category === c ? 700 : 400, transition: "all 0.1s" }}>
+                <button key={c} onClick={() => selectCategory(c)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${category === c ? GOLD_SOFT_BORDER : BORDER}`, background: category === c ? GOLD_SOFT : "#fff", color: category === c ? GOLD_SOFT_TEXT : "#4A5568", fontWeight: category === c ? 700 : 400, transition: "all 0.1s" }}>
                   {c}
                 </button>
               ))}
@@ -859,7 +863,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
               <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 6 }}>민원</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {(tree?.minwon[category] ?? []).map((m) => (
-                  <button key={m} onClick={() => selectMinwon(m)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${minwon === m ? GOLD : BORDER}`, background: minwon === m ? GOLD : "#fff", color: minwon === m ? "#fff" : "#4A5568", fontWeight: minwon === m ? 700 : 400 }}>
+                  <button key={m} onClick={() => selectMinwon(m)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${minwon === m ? GOLD_SOFT_BORDER : BORDER}`, background: minwon === m ? GOLD_SOFT : "#fff", color: minwon === m ? GOLD_SOFT_TEXT : "#4A5568", fontWeight: minwon === m ? 700 : 400 }}>
                     {m}
                   </button>
                 ))}
@@ -871,7 +875,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
               <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 6 }}>종류</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {typeOptions.map((k) => (
-                  <button key={k} onClick={() => selectKind(k)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${kind === k ? GOLD : BORDER}`, background: kind === k ? GOLD : "#fff", color: kind === k ? "#fff" : "#4A5568", fontWeight: kind === k ? 700 : 400 }}>
+                  <button key={k} onClick={() => selectKind(k)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${kind === k ? GOLD_SOFT_BORDER : BORDER}`, background: kind === k ? GOLD_SOFT : "#fff", color: kind === k ? GOLD_SOFT_TEXT : "#4A5568", fontWeight: kind === k ? 700 : 400 }}>
                     {k}
                   </button>
                 ))}
@@ -883,7 +887,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
               <div style={{ fontSize: 11, fontWeight: 600, color: "#718096", marginBottom: 6 }}>세부</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {subtypeOptions.map((d) => (
-                  <button key={d} onClick={() => setDetail(d)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${detail === d ? GOLD : BORDER}`, background: detail === d ? GOLD : "#fff", color: detail === d ? "#fff" : "#4A5568", fontWeight: detail === d ? 700 : 400 }}>
+                  <button key={d} onClick={() => setDetail(d)} style={{ padding: "5px 10px", borderRadius: 99, fontSize: 12, cursor: "pointer", border: `1.5px solid ${detail === d ? GOLD_SOFT_BORDER : BORDER}`, background: detail === d ? GOLD_SOFT : "#fff", color: detail === d ? GOLD_SOFT_TEXT : "#4A5568", fontWeight: detail === d ? 700 : 400 }}>
                     {kind === "F" ? `F-${d}` : d}
                   </button>
                 ))}
@@ -1013,7 +1017,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
               <div style={{ fontSize: 13, fontWeight: 600, color: "#C53030", marginBottom: 6 }}>누락 항목이 있습니다:</div>
               {confirmMissing.map((r) => (<div key={r} style={{ fontSize: 12, color: "#9B2C2C", marginBottom: 2 }}>• {r}이(가) 입력되지 않았습니다.</div>))}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button onClick={() => { setConfirmMissing(null); doGenerate(); }} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, cursor: "pointer", background: GOLD, color: "#fff", border: "none", fontWeight: 600 }}>그대로 작성</button>
+                <button onClick={() => { setConfirmMissing(null); doGenerate(); }} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, cursor: "pointer", background: GOLD_SOFT, color: GOLD_SOFT_TEXT, border: "1px solid var(--hw-gold-soft-border)", fontWeight: 600 }}>그대로 작성</button>
                 <button onClick={() => setConfirmMissing(null)} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, cursor: "pointer", background: "#fff", border: `1px solid ${BORDER}`, color: "#718096" }}>취소</button>
               </div>
             </div>
@@ -1046,7 +1050,7 @@ function QuickDocPanelInner({ initialCustomer, presetWorktype, embedded, onClose
             disabled={!hwpxReady || hwpxLoading}
             onClick={doGenerateHwpx}
             loadingText="HWPX 생성 중..."
-            style={{ width: "100%", padding: "12px 0", background: (!hwpxReady || hwpxLoading) ? "#E2E8F0" : GOLD, color: (!hwpxReady || hwpxLoading) ? "#A0AEC0" : "#fff", borderRadius: 10, fontSize: 14, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
+            style={{ width: "100%", padding: "12px 0", background: (!hwpxReady || hwpxLoading) ? "#E2E8F0" : GOLD_SOFT, color: (!hwpxReady || hwpxLoading) ? "#A0AEC0" : GOLD_SOFT_TEXT, border: (!hwpxReady || hwpxLoading) ? "none" : "1px solid var(--hw-gold-soft-border)", borderRadius: 10, fontSize: 14, fontWeight: 700, transition: "all 0.15s", marginBottom: 8 }}
           >
             <><FileText size={14} /> 📝 HWPX 생성{hwpxSupportedDocs.length > 0 ? ` (${hwpxSupportedDocs.length}건)` : ""}</>
           </SubmitButton>

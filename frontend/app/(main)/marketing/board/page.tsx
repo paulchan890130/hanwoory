@@ -109,8 +109,8 @@ export default function MarketingBoardPage() {
         <button
           onClick={() => router.push("/marketing/new?from=/marketing/board")}
           style={{
-            padding: "10px 20px", borderRadius: 8, background: "#D4A843",
-            color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
+            padding: "10px 20px", borderRadius: 8, background: "var(--hw-gold-soft-bg)",
+            color: "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 14, border: "1px solid var(--hw-gold-soft-border)", cursor: "pointer",
           }}
         >
           + 새 게시물

@@ -115,7 +115,7 @@ export function BulkAddModal({ onClose, onDone }: { onClose: () => void; onDone:
         </div>
 
         {file && !result && (
-          <button onClick={runValidate} disabled={validating} style={{ padding: "10px 20px", borderRadius: 8, background: validating ? "#ccc" : "#D4A843", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: validating ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button onClick={runValidate} disabled={validating} style={{ padding: "10px 20px", borderRadius: 8, background: validating ? "#ccc" : "var(--hw-gold-soft-bg)", color: validating ? "#fff" : "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 14, border: validating ? "none" : "1px solid var(--hw-gold-soft-border)", cursor: validating ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
             {validating && <Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} />}
             업로드 · 검증
           </button>

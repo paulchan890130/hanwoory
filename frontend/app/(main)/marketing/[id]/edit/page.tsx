@@ -387,9 +387,9 @@ export default function MarketingEditPage() {
             disabled={saving}
             style={{
               padding: "12px 28px", borderRadius: 8,
-              background: saving ? "#ccc" : "#D4A843",
-              color: "#fff", fontWeight: 700, fontSize: 15,
-              border: "none", cursor: saving ? "not-allowed" : "pointer",
+              background: saving ? "#ccc" : "var(--hw-gold-soft-bg)",
+              color: saving ? "#fff" : "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 15,
+              border: saving ? "none" : "1px solid var(--hw-gold-soft-border)", cursor: saving ? "not-allowed" : "pointer",
             }}
           >
             {saving ? "저장 중..." : "저장"}

@@ -26,9 +26,9 @@ export function SubmitButton({
 }: Props) {
   const variantStyles: Record<string, React.CSSProperties> = {
     primary: {
-      background: "var(--hw-gold, #F5A623)",
-      color: "#fff",
-      border: "none",
+      background: "var(--hw-gold-soft-bg, #E7D6A6)",
+      color: "var(--hw-gold-soft-text, #1F2937)",
+      border: "1px solid var(--hw-gold-soft-border, #D3B96A)",
     },
     secondary: {
       background: "#fff",

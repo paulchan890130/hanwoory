@@ -421,9 +421,9 @@ export default function QuickPoaPage() {
         disabled={loading || selectedOutputs.size === 0}
         style={{
           marginTop: 18, width: "100%", padding: "11px 0",
-          borderRadius: 9, border: "none", fontSize: 14, fontWeight: 700,
-          background: (loading || selectedOutputs.size === 0) ? "#CBD5E0" : "#D4A843",
-          color: "#fff", cursor: (loading || selectedOutputs.size === 0) ? "not-allowed" : "pointer",
+          borderRadius: 9, border: (loading || selectedOutputs.size === 0) ? "none" : "1px solid var(--hw-gold-soft-border)", fontSize: 14, fontWeight: 700,
+          background: (loading || selectedOutputs.size === 0) ? "#CBD5E0" : "var(--hw-gold-soft-bg)",
+          color: (loading || selectedOutputs.size === 0) ? "#fff" : "var(--hw-gold-soft-text)", cursor: (loading || selectedOutputs.size === 0) ? "not-allowed" : "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
         }}
       >

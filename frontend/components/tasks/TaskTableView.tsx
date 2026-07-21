@@ -130,7 +130,7 @@ function ActiveTaskRow({
         {dirty && (
           <button onClick={handleSave} style={{
             padding: "2px 7px", fontSize: 9, fontWeight: 700,
-            background: "#D4A843", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer",
+            background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", border: "1px solid var(--hw-gold-soft-border)", borderRadius: 4, cursor: "pointer",
           }}>저장</button>
         )}
       </td>

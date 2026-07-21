@@ -135,7 +135,7 @@ export default function MarketingDocGroupsPage() {
         </div>
         <button
           onClick={() => setShowAdd((v) => !v)}
-          style={{ padding: "10px 18px", borderRadius: 8, background: "#D4A843", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}
+          style={{ padding: "10px 18px", borderRadius: 8, background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 14, border: "1px solid var(--hw-gold-soft-border)", cursor: "pointer", whiteSpace: "nowrap" }}
         >
           + 중분류 추가
         </button>
@@ -164,7 +164,7 @@ export default function MarketingDocGroupsPage() {
             <input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} style={inputStyle} placeholder="보조 문구" />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={handleCreate} disabled={creating} style={{ padding: "9px 20px", borderRadius: 8, background: creating ? "#ccc" : "#D4A843", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: creating ? "not-allowed" : "pointer" }}>
+            <button onClick={handleCreate} disabled={creating} style={{ padding: "9px 20px", borderRadius: 8, background: creating ? "#ccc" : "var(--hw-gold-soft-bg)", color: creating ? "#fff" : "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 13, border: creating ? "none" : "1px solid var(--hw-gold-soft-border)", cursor: creating ? "not-allowed" : "pointer" }}>
               {creating ? "추가 중..." : "추가"}
             </button>
             <button onClick={() => setShowAdd(false)} style={{ padding: "9px 20px", borderRadius: 8, background: "#fff", color: "#4A5568", fontWeight: 600, fontSize: 13, border: "1px solid #E2E8F0", cursor: "pointer" }}>취소</button>
@@ -239,7 +239,7 @@ export default function MarketingDocGroupsPage() {
                     <div style={{ display: "flex", gap: 8 }}>
                       {editing ? (
                         <>
-                          <button onClick={() => saveEdit(g.id)} disabled={busy} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "none", background: "#D4A843", color: "#fff", fontWeight: 600, cursor: "pointer" }}>저장</button>
+                          <button onClick={() => saveEdit(g.id)} disabled={busy} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "1px solid var(--hw-gold-soft-border)", background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", fontWeight: 600, cursor: "pointer" }}>저장</button>
                           <button onClick={() => setEditId(null)} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer", color: "#4A5568" }}>취소</button>
                         </>
                       ) : (

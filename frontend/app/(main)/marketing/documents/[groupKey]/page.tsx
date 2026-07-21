@@ -141,7 +141,7 @@ export default function MarketingDocGroupDetailPage() {
         </div>
         <button
           onClick={() => router.push(`/marketing/new?doc_group=${encodeURIComponent(groupKey)}&from=${encodeURIComponent(`/marketing/documents/${groupKey}`)}`)}
-          style={{ padding: "10px 18px", borderRadius: 8, background: "#D4A843", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}
+          style={{ padding: "10px 18px", borderRadius: 8, background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 14, border: "1px solid var(--hw-gold-soft-border)", cursor: "pointer", whiteSpace: "nowrap" }}
         >
           + 새 준비서류 글
         </button>

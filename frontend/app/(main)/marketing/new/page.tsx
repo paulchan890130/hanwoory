@@ -343,9 +343,9 @@ export default function MarketingNewPage() {
             disabled={loading}
             style={{
               padding: "12px 28px", borderRadius: 8,
-              background: loading ? "#ccc" : "#D4A843",
-              color: "#fff", fontWeight: 700, fontSize: 15,
-              border: "none", cursor: loading ? "not-allowed" : "pointer",
+              background: loading ? "#ccc" : "var(--hw-gold-soft-bg)",
+              color: loading ? "#fff" : "var(--hw-gold-soft-text)", fontWeight: 700, fontSize: 15,
+              border: loading ? "none" : "1px solid var(--hw-gold-soft-border)", cursor: loading ? "not-allowed" : "pointer",
             }}
           >
             {loading ? "저장 중..." : "저장 (미게시)"}

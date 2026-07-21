@@ -523,7 +523,7 @@ function AgentRrnField({ loginId }: { loginId: string }) {
         />
         <button type="button" onClick={save} disabled={busy}
           className="text-xs px-3 py-1 rounded"
-          style={{ background: "var(--hw-gold)", color: "#fff", opacity: busy ? 0.6 : 1 }}>
+          style={{ background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", border: "1px solid var(--hw-gold-soft-border)", opacity: busy ? 0.6 : 1 }}>
           저장
         </button>
         {status?.has && (

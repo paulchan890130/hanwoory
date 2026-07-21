@@ -188,8 +188,8 @@ function ManualUpdateAlertModal() {
             이번 업데이트 다시 알리지 않음
           </button>
           <button type="button" onClick={confirm} disabled={busy}
-            style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#D4A843",
-              color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--hw-gold-soft-border)", background: "var(--hw-gold-soft-bg)",
+              color: "var(--hw-gold-soft-text)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
             {isAdmin ? "매뉴얼 업데이트 확인" : "확인"}
           </button>
         </div>

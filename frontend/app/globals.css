@@ -36,9 +36,19 @@
     --hw-gold-700:      #8A6B1C;   /* 주요 텍스트·아이콘 */
     --hw-gold-600:      #BE9433;   /* 주요 테두리·활성 */
     --hw-gold-500:      #D4A843;   /* 핵심 강조 (브랜드) */
-    --hw-gold-200:      #E7D6A6;   /* 연한 테두리 */
+    --hw-gold-400:      #D3B96A;   /* 연한 테두리·soft active */
+    --hw-gold-300:      #DEC888;   /* soft hover */
+    --hw-gold-200:      #E7D6A6;   /* soft 배경 */
     --hw-gold-100:      #F4EACF;   /* 선택 배경·달력 chip */
     --hw-gold-50:       #FBF8EF;   /* 매우 연한 아이보리 배경·hover */
+
+    /* ── soft gold 액션(버튼·아이콘) 시스템 ──
+       연한 고급 황금 배경 + 검정 글자/아이콘. 진한 금색 fill·흰 글자 금지. */
+    --hw-gold-soft-bg:     var(--hw-gold-200);
+    --hw-gold-soft-hover:  var(--hw-gold-300);
+    --hw-gold-soft-active: var(--hw-gold-400);
+    --hw-gold-soft-border: var(--hw-gold-400);
+    --hw-gold-soft-text:   #1F2937;   /* neutral-800, 검정 계열 */
 
     /* 하위호환 별칭 (기존 참조 유지) */
     --hw-gold:          var(--hw-gold-500);
@@ -123,9 +133,9 @@
    버튼
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .btn-primary {
-  background: var(--hw-gold-500);
-  color: #1A1F2E;
-  border: 1px solid var(--hw-gold-600);
+  background: var(--hw-gold-soft-bg);
+  color: var(--hw-gold-soft-text);
+  border: 1px solid var(--hw-gold-soft-border);
   border-radius: 6px;
   padding: 7px 16px;
   font-size: 13px;
@@ -136,8 +146,9 @@
   align-items: center;
   gap: 5px;
 }
-.btn-primary:hover { background: var(--hw-gold-600); }
-.btn-primary:focus-visible { outline: 2px solid var(--hw-gold-700); outline-offset: 2px; }
+.btn-primary:hover { background: var(--hw-gold-soft-hover); }
+.btn-primary:active { background: var(--hw-gold-soft-active); }
+.btn-primary:focus-visible { outline: 2px solid var(--hw-gold-600); outline-offset: 2px; }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .btn-secondary {
@@ -568,9 +579,9 @@
   height: 32px;
   padding: 0 14px;
   border-radius: 6px;
-  background: #FFFFFF;
-  border: 1px solid var(--hw-gold-200);
-  color: var(--hw-gold-700);
+  background: var(--hw-gold-soft-bg);
+  border: 1px solid var(--hw-gold-soft-border);
+  color: var(--hw-gold-soft-text);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -578,9 +589,12 @@
   white-space: nowrap;
 }
 .hw-quick-action-btn:hover {
-  background: var(--hw-gold-500);
-  color: #1A1F2E;
-  border-color: var(--hw-gold-600);
+  background: var(--hw-gold-soft-hover);
+  color: var(--hw-gold-soft-text);
+  border-color: var(--hw-gold-soft-border);
+}
+.hw-quick-action-btn:active {
+  background: var(--hw-gold-soft-active);
 }
 .hw-quick-action-btn:focus-visible {
   outline: 2px solid var(--hw-gold-600);
@@ -666,16 +680,22 @@ input[type="number"]::-webkit-outer-spin-button {
    FullCalendar 골드 오버라이드
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .fc .fc-button {
-  background: var(--hw-gold-500) !important;
-  border-color: var(--hw-gold-600) !important;
-  color: #1A1F2E !important;
+  background: var(--hw-gold-soft-bg) !important;
+  border-color: var(--hw-gold-soft-border) !important;
+  color: var(--hw-gold-soft-text) !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   padding: 4px 10px !important;
   border-radius: 6px !important;
 }
 .fc .fc-button:hover {
-  background: var(--hw-gold-600) !important;
+  background: var(--hw-gold-soft-hover) !important;
+  color: var(--hw-gold-soft-text) !important;
+}
+.fc .fc-button:active,
+.fc .fc-button:disabled {
+  background: var(--hw-gold-soft-active) !important;
+  color: var(--hw-gold-soft-text) !important;
 }
 .fc .fc-button:focus-visible {
   outline: 2px solid var(--hw-gold-700) !important;
@@ -695,14 +715,28 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--hw-gold-700) !important;
   font-weight: 700 !important;
 }
-/* 일정 chip — 버튼보다 한 단계 연한 gold-100 배경 + gold-700 텍스트(과도한 진한색 제거) */
+/* 일정 chip — 연한 gold-100 배경 + 검정(neutral-800) 텍스트. 흰색 텍스트 금지.
+   hover/selected/active/드래그(mirror) 모든 상태에서 검정 유지. */
+.fc .fc-event,
+.fc .fc-event .fc-event-title,
+.fc .fc-event .fc-event-main,
+.fc .fc-daygrid-event {
+  color: #1F2937 !important;
+}
 .fc .fc-event {
   background: var(--hw-gold-100) !important;
   border: 1px solid var(--hw-gold-200) !important;
-  color: var(--hw-gold-700) !important;
   font-size: 9px !important;
   border-radius: 3px !important;
 }
+.fc .fc-event:hover,
+.fc .fc-event.fc-event-selected,
+.fc .fc-event-mirror {
+  background: var(--hw-gold-200) !important;
+  color: #1F2937 !important;
+}
+.fc .fc-event:hover .fc-event-title,
+.fc .fc-event:hover .fc-event-main { color: #1F2937 !important; }
 /* 일정 chip 여러 줄 표시 + 여백 축소(정보 밀도) */
 .fc .fc-daygrid-event {
   white-space: normal !important;

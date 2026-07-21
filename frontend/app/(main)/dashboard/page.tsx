@@ -275,8 +275,8 @@ function ActiveTaskRow({
             onClick={handleSave}
             style={{
               padding: "2px 7px", fontSize: 9, fontWeight: 700,
-              background: "#D4A843", color: "#fff",
-              border: "none", borderRadius: 4, cursor: "pointer",
+              background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)",
+              border: "1px solid var(--hw-gold-soft-border)", borderRadius: 4, cursor: "pointer",
               whiteSpace: "nowrap",
             }}
           >
@@ -412,9 +412,9 @@ function PlannedTaskRow({
           disabled={!dirty}
           style={{
             padding: "3px 8px", fontSize: 10, fontWeight: 700,
-            background: dirty ? "#D4A843" : "#E2E8F0",
-            color: dirty ? "#fff" : "#A0AEC0",
-            border: "none", borderRadius: 4,
+            background: dirty ? "var(--hw-gold-soft-bg)" : "#E2E8F0",
+            color: dirty ? "var(--hw-gold-soft-text)" : "#A0AEC0",
+            border: dirty ? "1px solid var(--hw-gold-soft-border)" : "1px solid transparent", borderRadius: 4,
             cursor: dirty ? "pointer" : "default",
             whiteSpace: "nowrap",
           }}
@@ -885,7 +885,7 @@ export default function DashboardPage() {
     return (
       <div
         title={arg.event.title}
-        style={{ fontSize: 9, padding: "0 2px", whiteSpace: "pre-line", lineHeight: 1.3, overflow: "hidden", width: "100%", wordBreak: "break-word" }}
+        style={{ fontSize: 9, padding: "0 2px", whiteSpace: "pre-line", lineHeight: 1.3, overflow: "hidden", width: "100%", wordBreak: "break-word", color: "#1F2937" }}
       >
         {arg.event.title}
       </div>

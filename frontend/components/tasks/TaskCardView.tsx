@@ -356,8 +356,8 @@ function ExpandedCard({
           {dirty && !readonly && (
             <button onClick={handleSave} style={{
               padding: "3px 10px", fontSize: 11, fontWeight: 700,
-              background: "#D4A843", color: "#fff",
-              border: "none", borderRadius: 5, cursor: "pointer",
+              background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)",
+              border: "1px solid var(--hw-gold-soft-border)", borderRadius: 5, cursor: "pointer",
             }}>저장</button>
           )}
           <button onClick={onCollapse} style={{

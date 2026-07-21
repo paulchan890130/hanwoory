@@ -138,8 +138,8 @@ export function EntityEditModal({ title, fields, initial, onSave, onClose }: {
             style={{ fontSize: 12.5, padding: "7px 16px", borderRadius: 8, border: "1px solid #E2E8F0",
               background: "#fff", color: "#718096", cursor: "pointer" }}>취소</button>
           <button onClick={submit} disabled={saving}
-            style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 18px", borderRadius: 8, border: "none",
-              background: "var(--hw-gold)", color: "#fff", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+            style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 18px", borderRadius: 8, border: "1px solid var(--hw-gold-soft-border)",
+              background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
             {saving ? "저장 중…" : "저장"}
           </button>
         </div>
@@ -611,7 +611,7 @@ export function ApplyToV3Modal({
             style={{ flex: 1, fontSize: 13, padding: "7px 10px", borderRadius: 8, border: "1px solid #E2E8F0" }} />
           <button onClick={() => lookup(code)} disabled={loading}
             style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600,
-              padding: "7px 14px", borderRadius: 8, border: "none", background: "var(--hw-gold)", color: "#fff",
+              padding: "7px 14px", borderRadius: 8, border: "1px solid var(--hw-gold-soft-border)", background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)",
               cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
             {loading ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} 조회
           </button>

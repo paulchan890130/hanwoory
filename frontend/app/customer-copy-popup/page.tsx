@@ -176,7 +176,7 @@ function Inner() {
           <span style={{ fontSize: 15, fontWeight: 700, color: "#2D3748" }}>{name}</span>
           <span style={{
             fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 8,
-            background: "#D4A843", color: "#fff",
+            background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", border: "1px solid var(--hw-gold-soft-border)",
           }}>
             {MODE_TITLE[mode]}
           </span>

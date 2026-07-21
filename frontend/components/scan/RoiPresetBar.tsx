@@ -153,7 +153,7 @@ export default function RoiPresetBar({
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
-                      style={{ ...BASE_BTN, background: "#D4A843", color: "#fff", border: "1px solid #D4A843" }}
+                      style={{ ...BASE_BTN, background: "var(--hw-gold-soft-bg)", color: "var(--hw-gold-soft-text)", border: "1px solid var(--hw-gold-soft-border)" }}
                       onClick={() => {
                         setEmptyPopover(null);
                         onSaveEmpty(slot as 2 | 3);
@@ -238,9 +238,9 @@ export default function RoiPresetBar({
           onClick={saveEnabled ? onSave : undefined}
           style={{
             ...BASE_BTN,
-            background: saveEnabled ? "#D4A843" : "#F7FAFC",
-            color: saveEnabled ? "#fff" : "#CBD5E0",
-            border: saveEnabled ? "1px solid #D4A843" : "1px solid #E2E8F0",
+            background: saveEnabled ? "var(--hw-gold-soft-bg)" : "#F7FAFC",
+            color: saveEnabled ? "var(--hw-gold-soft-text)" : "#CBD5E0",
+            border: saveEnabled ? "1px solid var(--hw-gold-soft-border)" : "1px solid #E2E8F0",
             cursor: saveEnabled ? "pointer" : "not-allowed",
           }}
         >

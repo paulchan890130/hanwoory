@@ -439,7 +439,7 @@ function DetailPanelV3({ sel, v2Rows, drs, subCodes, subNames, masterCode, maste
         <div style={{ marginBottom:14, padding:"12px 14px", borderRadius:10,
           background:"#FFFDF5", border:"1px solid rgba(212,168,67,0.4)" }}>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:3, flexWrap:"wrap" }}>
-            <span style={{ fontSize:10.5, fontWeight:800, color:"#fff", background:"var(--hw-gold)",
+            <span style={{ fontSize:10.5, fontWeight:800, color:"var(--hw-gold-soft-text)", background:"var(--hw-gold-soft-bg)", border:"1px solid var(--hw-gold-soft-border)",
               borderRadius:6, padding:"2px 8px", flexShrink:0 }}>1단계</span>
             <span style={{ fontSize:13.5, fontWeight:800, color:"#2D3748" }}>세부약호를 선택하세요</span>
           </div>
@@ -1046,9 +1046,9 @@ export default function QualificationDetailPage() {
               {i > 0 && <ChevronRight size={13} style={{ color:"#CBD5E0" }} />}
               <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, fontWeight:700,
                 padding:"4px 12px", borderRadius:99,
-                color: active ? "#fff" : done ? "#276749" : "#A0AEC0",
-                background: active ? "var(--hw-gold)" : done ? "#F0FFF4" : "#F7FAFC",
-                border: `1px solid ${active ? "var(--hw-gold)" : done ? "#C6F6D5" : "#E2E8F0"}` }}>
+                color: active ? "var(--hw-gold-soft-text)" : done ? "#276749" : "#A0AEC0",
+                background: active ? "var(--hw-gold-soft-bg)" : done ? "#F0FFF4" : "#F7FAFC",
+                border: `1px solid ${active ? "var(--hw-gold-soft-border)" : done ? "#C6F6D5" : "#E2E8F0"}` }}>
                 {done ? <Check size={12} /> : <span>STEP{s.n}</span>}
                 {s.label}
               </span>
@@ -1063,7 +1063,7 @@ export default function QualificationDetailPage() {
           background: subPicked ? "#fff" : "#FFFDF5",
           border: `1px solid ${subPicked ? "#E2E8F0" : "rgba(212,168,67,0.45)"}` }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
-            <span style={{ fontSize:10.5, fontWeight:800, color:"#fff", background:"var(--hw-gold)",
+            <span style={{ fontSize:10.5, fontWeight:800, color:"var(--hw-gold-soft-text)", background:"var(--hw-gold-soft-bg)", border:"1px solid var(--hw-gold-soft-border)",
               borderRadius:6, padding:"2px 8px" }}>STEP 1</span>
             <span style={{ fontSize:15, fontWeight:800, color:"#2D3748" }}>세부자격을 선택하세요</span>
           </div>
