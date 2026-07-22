@@ -310,37 +310,37 @@ function ResultView({ config, result, answers, finalResultId, headingRef, onSms,
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 };
   return (
     <>
-      <div style={{ padding: "10px 16px 4px", overflow: "hidden", minHeight: 0,
+      <div data-testid="selfcheck-result-body" style={{ padding: "10px 16px 4px", overflow: "hidden", minHeight: 0,
         display: "grid", gridTemplateRows: "auto auto auto auto auto", gap: 8, alignContent: "start" }}>
         <div>
           <div style={{ fontSize: "clamp(15px, 4vw, 17px)", color: "var(--hw-text-sub)", fontWeight: 600 }}>{itemName}</div>
-          <h2 ref={headingRef} tabIndex={-1} aria-live="polite"
+          <h2 ref={headingRef} tabIndex={-1} aria-live="polite" data-testid="selfcheck-headline"
             style={{ fontSize: "clamp(22px, 6.2vw, 27px)", fontWeight: 800, color: "#111827", lineHeight: 1.15, margin: "2px 0 0", outline: "none", overflowWrap: "anywhere" }}>
             {result.headline}
           </h2>
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--hw-gold-700)", marginBottom: 2 }}>내 답변</div>
-          <div style={{ fontSize: "clamp(11.5px, 3.2vw, 13px)", color: "#2D3748", lineHeight: 1.5 }}>
+          <div data-testid="selfcheck-answer-list" style={{ fontSize: "clamp(11.5px, 3.2vw, 13px)", color: "#2D3748", lineHeight: 1.5 }}>
             {answerLines.map((l, i) => <div key={i}>{l}</div>)}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--hw-gold-700)", marginBottom: 2 }}>판정 경로</div>
-          <div style={{ fontSize: "clamp(11.5px, 3.2vw, 13px)", color: "#2D3748", lineHeight: 1.4, overflowWrap: "anywhere" }}>{pathLine}</div>
+          <div data-testid="selfcheck-path" style={{ fontSize: "clamp(11.5px, 3.2vw, 13px)", color: "#2D3748", lineHeight: 1.4, overflowWrap: "anywhere" }}>{pathLine}</div>
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#718096", marginBottom: 2 }}>전체 판정 로직</div>
-          <div style={{ fontSize: "clamp(9.5px, 2.7vw, 10.5px)", color: "#718096", lineHeight: 1.3 }}>
-            {fullLogic.map((l, i) => <div key={i}>{l}</div>)}
+          <div data-testid="selfcheck-full-logic" style={{ fontSize: "clamp(9.5px, 2.7vw, 10.5px)", color: "#718096", lineHeight: 1.3 }}>
+            {fullLogic.map((l, i) => <div key={i} data-testid={i === fullLogic.length - 1 ? "selfcheck-full-logic-last" : undefined}>{l}</div>)}
           </div>
         </div>
         <div>
-          {notice && <div style={{ fontSize: "clamp(10px, 2.8vw, 11px)", color: "#9C4221", lineHeight: 1.35 }}>{notice}</div>}
-          <div style={{ fontSize: 10.5, color: "#A0AEC0", marginTop: 2 }}>적용 로직: {config.logic_version}</div>
+          {notice && <div data-testid="selfcheck-notice" style={{ fontSize: "clamp(10px, 2.8vw, 11px)", color: "#9C4221", lineHeight: 1.35 }}>{notice}</div>}
+          <div data-testid="selfcheck-version" style={{ fontSize: 10.5, color: "#A0AEC0", marginTop: 2 }}>적용 로직: {config.logic_version}</div>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: onChangeItem ? "1.3fr 1fr 1fr 1fr" : "1.4fr 1fr 1fr", gap: 6, padding: "8px 12px 12px", borderTop: "1px solid var(--hw-border)" }}>
+      <div data-testid="selfcheck-actions" style={{ display: "grid", gridTemplateColumns: onChangeItem ? "1.3fr 1fr 1fr 1fr" : "1.4fr 1fr 1fr", gap: 6, padding: "8px 12px 12px", borderTop: "1px solid var(--hw-border)" }}>
         <button onClick={onSms} disabled={busy} aria-label="문자로 보내기"
           style={{ ...actBtn, background: "var(--hw-gold-200)", color: "#111827", border: "1px solid var(--hw-gold-500)" }}>
           <MessageSquare size={15} /> 문자

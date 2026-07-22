@@ -1915,7 +1915,9 @@ export const accountSecurityApi = {
 const _pubSC = { headers: { "X-Skip-Auth-Redirect": "1" } };
 export const selfCheckApi = {
   // 공개: 게시된 항목 번들 { schema_version, items:[...] } (답변/결과 제출 endpoint 없음)
-  getPublic: () => api.get("/api/self-check/config", _pubSC),
+  // placement 지정 시 해당 노출 위치 항목만 서버가 필터(런처가 위치를 전달).
+  getPublic: (placement?: string) =>
+    api.get("/api/self-check/config", { ..._pubSC, params: placement ? { placement } : {} }),
   // 관리: 전체 번들 조회/저장
   adminGet: () => api.get("/api/self-check/admin/config"),
   adminSave: (bundle: unknown) =>

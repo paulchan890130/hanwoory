@@ -130,6 +130,7 @@ export function normalizeBundle(raw: unknown, legacyPublished = false): SelfChec
       return { schema_version: 2, items };
     }
     // 레거시 단일 config → item 1개로 감싼다(관리자에게 그대로 표시, DB 자동 변경 없음).
+    // 기존 공개 상태 보존을 위해 placement 를 ["home"] 으로 해석(백엔드와 동일 정책).
     if (Array.isArray(obj.questions) && Array.isArray(obj.results)) {
       const cfg = raw as SelfCheckConfig;
       return {
@@ -137,7 +138,7 @@ export function normalizeBundle(raw: unknown, legacyPublished = false): SelfChec
         items: [{
           item_id: "legacy", title: cfg.item_name || "기존 설정", description: null,
           sort_order: 0, is_published: legacyPublished, popup_enabled: true,
-          placement: [], config: cfg,
+          placement: ["home"], config: cfg,
         }],
       };
     }
@@ -168,11 +169,13 @@ export function validateBundle(bundle: SelfCheckBundle | null | undefined): Bund
   return { errors, warnings, itemErrors };
 }
 
-// 공개(런처/공개 API)에 노출할 항목: 게시 + 팝업 + 그래프 유효 + sort_order 정렬.
-export function publishedItems(bundle: SelfCheckBundle | null | undefined): SelfCheckItem[] {
+// 공개(런처/공개 API)에 노출할 항목: 게시 + 팝업 + 그래프 유효 + (placement 지정 시)
+// 노출 위치 포함 + sort_order 정렬. placement 미지정이면 위치 필터 없음(백엔드와 동일 정책).
+export function publishedItems(bundle: SelfCheckBundle | null | undefined, placement?: string): SelfCheckItem[] {
   if (!bundle || !Array.isArray(bundle.items)) return [];
   return bundle.items
-    .filter((it) => it.is_published && it.popup_enabled && validateConfig(it.config).errors.length === 0)
+    .filter((it) => it.is_published && it.popup_enabled && validateConfig(it.config).errors.length === 0
+      && (placement == null || (Array.isArray(it.placement) && it.placement.includes(placement))))
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 

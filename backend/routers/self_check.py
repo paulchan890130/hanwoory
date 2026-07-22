@@ -151,22 +151,27 @@ def _normalize_bundle(raw: Any, legacy_published: bool = False) -> dict:
             })
         return {"schema_version": 2, "items": items}
     if isinstance(raw, dict) and isinstance(raw.get("questions"), list) and isinstance(raw.get("results"), list):
+        # 레거시 단일 config → 기존 공개 상태 보존을 위해 placement 를 ["home"] 으로 해석.
         return {"schema_version": 2, "items": [{
             "item_id": "legacy", "title": raw.get("item_name") or "기존 설정", "description": None,
             "sort_order": 0, "is_published": bool(legacy_published), "popup_enabled": True,
-            "placement": [], "config": raw,
+            "placement": ["home"], "config": raw,
         }]}
     return {"schema_version": 2, "items": []}
 
 
-def _public_items(bundle: dict) -> list[dict]:
-    """게시 + 팝업 + 그래프 유효 항목만, sort_order 정렬(공개 노출용)."""
+def _public_items(bundle: dict, placement: str | None = None) -> list[dict]:
+    """게시 + 팝업 + 그래프 유효 + (placement 지정 시) 노출 위치 포함 항목만, sort_order 정렬."""
     out = []
     for it in bundle.get("items", []):
         if not it.get("is_published") or it.get("popup_enabled") is False:
             continue
         if _validate_config_report(it.get("config") or {})["errors"]:
             continue
+        if placement is not None:
+            places = it.get("placement") if isinstance(it.get("placement"), list) else []
+            if placement not in places:
+                continue
         out.append(it)
     out.sort(key=lambda x: x.get("sort_order", 0))
     return out
@@ -174,13 +179,16 @@ def _public_items(bundle: dict) -> list[dict]:
 
 # ── 공개: 게시된 유효 항목만 반환(사용자 답변 미수집) ─────────────────────────
 # no-store 로 응답 → 관리자가 비공개 전환 시 프록시/브라우저 캐시로 늦게 반영되지 않음.
-# 손상/미게시 → 빈 items(런처가 숨김). 잘못된 설정을 공개로 흘리지 않는다.
+# fail-closed: (1) marketing row 자체가 비공개면 내부 항목이 게시여도 공개하지 않는다.
+# (2) 손상/미게시/그래프오류/위치불일치 항목 제외. 잘못된 설정을 공개로 흘리지 않는다.
 @router.get("/config")
-def public_get_config(response: Response):
+def public_get_config(response: Response, placement: str | None = None):
     response.headers["Cache-Control"] = "no-store"
-    raw, published = _parse_content(_load_row())
-    bundle = _normalize_bundle(raw, legacy_published=published)
-    return {"schema_version": 2, "items": _public_items(bundle)}
+    raw, row_published = _parse_content(_load_row())
+    if not row_published:
+        return {"schema_version": 2, "items": []}  # 최상위 row 비공개 → 전면 차단
+    bundle = _normalize_bundle(raw, legacy_published=True)
+    return {"schema_version": 2, "items": _public_items(bundle, placement=placement)}
 
 
 # ── 관리자: 편집용 조회(게시 여부 무관) — 전체 번들 반환 ───────────────────────
@@ -190,22 +198,74 @@ def admin_get_config(user: dict = Depends(require_system_admin)):
     return _normalize_bundle(raw, legacy_published=published)
 
 
+# ── 쓰기 엄격 검증: 잘못된 item 을 조용히 버리지 않는다(하나라도 손상 시 전체 400) ──
+def _structural_bundle_errors(raw: Any) -> list[str]:
+    """저장 요청 bundle 의 구조 무결성 검사(그래프 무결성과 별개). 오류 목록 반환."""
+    errs: list[str] = []
+    if not isinstance(raw, dict):
+        return ["bundle 이 객체가 아닙니다."]
+    if raw.get("schema_version") != 2:
+        errs.append("schema_version 은 2 여야 합니다.")
+    items = raw.get("items")
+    if not isinstance(items, list):
+        return errs + ["items 가 배열이 아닙니다."]
+    seen: set[str] = set()
+    for idx, it in enumerate(items):
+        tag = f"항목[{idx}]"
+        if not isinstance(it, dict):
+            errs.append(f"{tag} 이(가) 객체가 아닙니다.")
+            continue
+        iid = it.get("item_id")
+        if not isinstance(iid, str) or not iid.strip():
+            errs.append(f"{tag} item_id 가 비어 있습니다.")
+        else:
+            if iid in seen:
+                errs.append(f"중복 item_id: {iid}")
+            seen.add(iid)
+        if not isinstance(it.get("title"), str) or not it.get("title").strip():
+            errs.append(f"{tag} title 이 비어 있습니다.")
+        so = it.get("sort_order")
+        if not isinstance(so, (int, float)) or isinstance(so, bool) or so != so or so in (float("inf"), float("-inf")):
+            errs.append(f"{tag} sort_order 가 유효한 숫자가 아닙니다.")
+        if not isinstance(it.get("is_published"), bool):
+            errs.append(f"{tag} is_published 가 boolean 이 아닙니다.")
+        if not isinstance(it.get("popup_enabled"), bool):
+            errs.append(f"{tag} popup_enabled 가 boolean 이 아닙니다.")
+        pl = it.get("placement")
+        if not isinstance(pl, list) or not all(isinstance(p, str) for p in pl):
+            errs.append(f"{tag} placement 가 문자열 배열이 아닙니다.")
+        cfg = it.get("config")
+        if not isinstance(cfg, dict):
+            errs.append(f"{tag} config 가 객체가 아닙니다.")
+        else:
+            if not isinstance(cfg.get("questions"), list):
+                errs.append(f"{tag} config.questions 가 배열이 아닙니다.")
+            if not isinstance(cfg.get("results"), list):
+                errs.append(f"{tag} config.results 가 배열이 아닙니다.")
+    return errs
+
+
 # ── 관리자: 저장 + 게시(검증 통과 시에만) ─────────────────────────────────────
 @router.put("/admin/config")
 def admin_save_config(body: ConfigSave, user: dict = Depends(require_system_admin)):
     # 번들 우선. 레거시 {config,is_published} 는 item 1개 번들로 감싼다(하위호환).
     if body.bundle is not None:
-        bundle = _normalize_bundle(body.bundle)
+        # 쓰기 엄격 검증: 구조 손상 item 이 하나라도 있으면 400(조용한 제거 금지).
+        struct_errs = _structural_bundle_errors(body.bundle)
+        if struct_errs:
+            raise HTTPException(status_code=400, detail={"message": "저장할 수 없는 손상된 설정입니다.", "errors": struct_errs})
+        # 구조 검증을 통과한 원본을 그대로 저장(item 손실 없음). 타입은 이미 검증됨.
+        bundle = {"schema_version": 2, "items": [dict(it) for it in body.bundle["items"]]}
     elif body.config is not None:
         bundle = {"schema_version": 2, "items": [{
             "item_id": "legacy", "title": body.config.get("item_name") or "기존 설정",
             "description": None, "sort_order": 0, "is_published": bool(body.is_published),
-            "popup_enabled": True, "placement": [], "config": body.config,
+            "popup_enabled": True, "placement": ["home"], "config": body.config,
         }]}
     else:
         raise HTTPException(status_code=400, detail={"message": "bundle 또는 config 가 필요합니다.", "errors": ["빈 요청"]})
 
-    # item_id 중복 차단.
+    # item_id 중복/빈값(레거시 경로 방어 — 번들 경로는 위에서 이미 검증).
     ids = [it["item_id"] for it in bundle["items"]]
     if len(ids) != len(set(ids)):
         dup = sorted({i for i in ids if ids.count(i) > 1})
@@ -213,7 +273,7 @@ def admin_save_config(body: ConfigSave, user: dict = Depends(require_system_admi
     if any(not i for i in ids):
         raise HTTPException(status_code=400, detail={"message": "item_id 가 비어 있는 항목이 있습니다.", "errors": ["빈 item_id"]})
 
-    # 게시하려는 항목은 그래프 오류가 없어야 한다(비공개 항목은 draft 허용).
+    # 게시하려는 항목은 그래프 오류가 없어야 한다(비공개 draft 는 그래프 오류 허용).
     item_errors: dict[str, list[str]] = {}
     for it in bundle["items"]:
         rep = _validate_config_report(it.get("config") or {})

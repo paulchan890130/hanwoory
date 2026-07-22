@@ -12,25 +12,27 @@ interface Props {
   className?: string;
   label?: string;
   style?: React.CSSProperties;
+  /** 이 런처가 놓인 공개 노출 위치. 해당 위치에 지정된 항목만 표시한다. */
+  placement?: string;
 }
 
-export default function SelfCheckLauncher({ className, label = "공통기준 자가점검", style }: Props) {
+export default function SelfCheckLauncher({ className, label = "공통기준 자가점검", style, placement = "home" }: Props) {
   const [items, setItems] = useState<SelfCheckItem[]>([]);
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    // 공개 API 는 {schema_version, items:[게시 항목]} 를 반환. 클라이언트도 재검증 후 노출.
-    selfCheckApi.getPublic()
+    // 공개 API 는 {schema_version, items:[게시 항목]} 를 반환. 클라이언트도 위치·유효성 재검증.
+    selfCheckApi.getPublic(placement)
       .then((r) => {
         if (cancelled) return;
         const bundle = normalizeBundle(r.data);
-        setItems(publishedItems(bundle));
+        setItems(publishedItems(bundle, placement));
       })
       .catch(() => { if (!cancelled) setItems([]); });
     return () => { cancelled = true; };
-  }, []);
+  }, [placement]);
 
   if (!items.length) return null;  // 게시 유효 항목이 없으면 런처 자체를 렌더하지 않음
 

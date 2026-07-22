@@ -279,7 +279,7 @@ export default function HomePage({ initialPosts = [] }: { initialPosts?: Post[] 
               기존 사용자 로그인
             </Link>
             {/* 공통기준 자가점검 — 개인정보 무전송(프론트 메모리 전용) 팝업 */}
-            <SelfCheckLauncher className="btn-secondary" label="공통기준 자가점검" />
+            <SelfCheckLauncher className="btn-secondary" label="공통기준 자가점검" placement="home" />
           </div>
           <div className="hero-trust">
             <span className="hero-trust-item">체류자격 연장·변경</span>

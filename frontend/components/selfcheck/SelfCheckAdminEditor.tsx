@@ -13,6 +13,14 @@ import CommonCriteriaSelfCheck from "./CommonCriteriaSelfCheck";
 
 const RECO = { item_name: 22, headline: 18, label: 8, question_text: 44, summary: 16, notice: 90 };
 
+// 저장소가 현재 실제 지원하는 공개 진입 위치(런처가 배치된 곳). 존재하지 않는 위치를 만들지 않는다.
+const SUPPORTED_PLACEMENTS: { id: string; label: string }[] = [{ id: "home", label: "홈페이지" }];
+
+// 관리자 미리보기 viewport(모바일 4종).
+const PREVIEW_VIEWPORTS = [
+  { w: 360, h: 740 }, { w: 375, h: 812 }, { w: 390, h: 844 }, { w: 412, h: 915 },
+];
+
 const cell: React.CSSProperties = { border: "1px solid var(--hw-border)", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%", boxSizing: "border-box" };
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--hw-text-sub)", display: "block", marginBottom: 3 };
 
@@ -37,6 +45,8 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
   const [selIdx, setSelIdx] = useState<number>(0);
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [previewVpIdx, setPreviewVpIdx] = useState(0); // 기본 360×740
+  const isLegacy = bundle.items.some((it) => it.item_id === "legacy");
 
   const sorted = useMemo(() => bundle.items.map((it, i) => ({ it, i })).sort((a, b) => (a.it.sort_order ?? 0) - (b.it.sort_order ?? 0)), [bundle]);
   const bundleReport = useMemo(() => validateBundle(bundle), [bundle]);
@@ -124,6 +134,14 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+      {isLegacy && (
+        <div data-testid="selfcheck-legacy-banner" style={{ flex: "1 1 100%", background: "#FFFAF0", border: "1px solid #FBD38D",
+          color: "#9C4221", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>
+          현재 저장본은 <b>기존 단일 자가점검 설정</b>입니다. PDF 기준 3개 항목을 적용하려면
+          ‘PDF 기준 3개 기본 항목 불러오기’를 누른 뒤 내용을 검토하고 저장해야 합니다.
+          자동으로 운영 설정을 변경하지 않습니다.
+        </div>
+      )}
       {/* 편집 pane */}
       <div className="hw-card" style={{ flex: "1 1 440px", minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -181,6 +199,31 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
                   {cfg.questions.map((q) => <option key={q.id} value={q.id}>{q.display_number} ({q.id})</option>)}
                 </select></div>
               <div><label style={lbl}>공통 주의문구 <Counter v={cfg.notice_text || ""} max={RECO.notice} /></label><input style={cell} value={cfg.notice_text || ""} onChange={(e) => patchCfg({ notice_text: e.target.value })} /></div>
+            </div>
+
+            {/* 항목 설명 + 노출 위치 */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbl}>항목 설명</label>
+              <textarea data-testid="item-description" style={{ ...cell, height: 48, resize: "vertical" }}
+                value={item.description || ""} onChange={(e) => setItem(selIdx, { description: e.target.value })} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbl}>노출 위치(선택 안 하면 어느 런처에도 표시되지 않음)</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {SUPPORTED_PLACEMENTS.map((p) => {
+                  const on = (item.placement || []).includes(p.id);
+                  return (
+                    <label key={p.id} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <input type="checkbox" data-testid={`placement-${p.id}`} checked={on}
+                        onChange={(e) => setItem(selIdx, {
+                          placement: e.target.checked
+                            ? Array.from(new Set([...(item.placement || []), p.id]))
+                            : (item.placement || []).filter((x) => x !== p.id),
+                        })} /> {p.label}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             <div style={{ marginBottom: 12 }}>
@@ -274,23 +317,42 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
       </div>
 
       {/* 미리보기 pane (공개 컴포넌트 재사용) */}
-      <div style={{ flex: "0 0 360px", maxWidth: "100%", position: "sticky", top: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hw-text-sub)", marginBottom: 6 }}>
-          미리보기 (360×740){item ? ` — ${item.title || item.config.item_name}` : ""}
-        </div>
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          {item ? (
-            <CommonCriteriaSelfCheck items={previewItems} open={preview} onClose={() => setPreview(false)} frame={{ width: 360, height: 740 }} />
-          ) : null}
-          {!preview && (
-            <div style={{ width: 360, height: 740, maxWidth: "100%", boxSizing: "border-box", border: "1px dashed var(--hw-border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#A0AEC0", fontSize: 13 }}>
-              {item ? "“미리보기”를 눌러 확인" : "편집할 항목을 선택하세요"}
+      {(() => {
+        const vp = PREVIEW_VIEWPORTS[previewVpIdx];
+        const scale = Math.min(1, 360 / vp.w);           // 좁은 관리자 화면에서 가로 스크롤 방지(외부 축소)
+        const boxW = Math.round(vp.w * scale), boxH = Math.round(vp.h * scale);
+        return (
+          <div style={{ flex: "0 0 360px", maxWidth: "100%", position: "sticky", top: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hw-text-sub)", marginBottom: 6 }}>
+              미리보기{item ? ` — ${item.title || item.config.item_name}` : ""}
             </div>
-          )}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hw-text-sub)", margin: "12px 0 4px" }}>문자 본문 미리보기(전송 안 함)</div>
-        <pre style={{ fontSize: 11, background: "#F7FAFC", border: "1px solid var(--hw-border)", borderRadius: 6, padding: 8, whiteSpace: "pre-wrap", maxHeight: 200, overflow: "auto" }}>{smsPreview}</pre>
-      </div>
+            {/* viewport 선택(내부 레이아웃 계산은 선택한 원본 크기 기준, 외부 wrapper 만 축소) */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {PREVIEW_VIEWPORTS.map((v, i) => (
+                <button key={`${v.w}x${v.h}`} data-testid={`preview-vp-${v.w}`} onClick={() => setPreviewVpIdx(i)}
+                  className={i === previewVpIdx ? "btn-primary" : "btn-secondary"} style={{ fontSize: 11, padding: "4px 8px" }}>
+                  {v.w}×{v.h}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", maxWidth: "100%" }}>
+              {item && preview ? (
+                <div style={{ width: boxW, height: boxH, maxWidth: "100%", overflow: "hidden" }}>
+                  <div style={{ width: vp.w, height: vp.h, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+                    <CommonCriteriaSelfCheck items={previewItems} open onClose={() => setPreview(false)} frame={{ width: vp.w, height: vp.h }} />
+                  </div>
+                </div>
+              ) : (
+                <div style={{ width: boxW, height: boxH, maxWidth: "100%", boxSizing: "border-box", border: "1px dashed var(--hw-border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#A0AEC0", fontSize: 13, textAlign: "center", padding: 8 }}>
+                  {item ? "“미리보기”를 눌러 확인" : "편집할 항목을 선택하세요"}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hw-text-sub)", margin: "12px 0 4px" }}>문자 본문 미리보기(전송 안 함)</div>
+            <pre style={{ fontSize: 11, background: "#F7FAFC", border: "1px solid var(--hw-border)", borderRadius: 6, padding: 8, whiteSpace: "pre-wrap", maxHeight: 200, overflow: "auto" }}>{smsPreview}</pre>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -305,3 +305,109 @@ def test_router_has_no_answer_or_result_submission_endpoint():
     joined = " ".join(paths).lower()
     for banned in ("answer", "submit", "result", "response", "track", "log"):
         assert banned not in joined
+
+
+# ── PART A: row-level fail-closed ─────────────────────────────────────────────
+def test_public_fail_closed_when_row_unpublished(monkeypatch):
+    # 최상위 marketing row 가 비공개면 내부 item is_published=TRUE 여도 공개 0.
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    content = _bundle_json([_item("criminal-record", published=True)])
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "FALSE", "content": content})
+    assert sc.public_get_config(Response())["items"] == []
+
+
+def test_public_shows_when_row_published(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    it = _item("criminal-record", published=True)
+    it["placement"] = ["home"]
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _bundle_json([it])})
+    out = sc.public_get_config(Response())
+    assert [x["item_id"] for x in out["items"]] == ["criminal-record"]
+
+
+# ── PART A/C: placement 필터 ──────────────────────────────────────────────────
+def test_public_items_placement_filter():
+    from backend.routers.self_check import _public_items
+    a = _item("a", published=True); a["placement"] = ["home"]
+    b = _item("b", published=True); b["placement"] = ["other"]
+    c = _item("c", published=True); c["placement"] = []
+    bundle = {"schema_version": 2, "items": [a, b, c]}
+    assert [x["item_id"] for x in _public_items(bundle, placement="home")] == ["a"]
+    assert [x["item_id"] for x in _public_items(bundle, placement="other")] == ["b"]
+    assert {x["item_id"] for x in _public_items(bundle, placement=None)} == {"a", "b", "c"}
+
+
+def test_legacy_public_home_placement(monkeypatch):
+    # 레거시 단일 config + 행 게시 → placement=home 으로 해석되어 home 런처에 노출.
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _valid_cfg_json()})
+    out = sc.public_get_config(Response(), placement="home")
+    assert len(out["items"]) == 1 and out["items"][0]["item_id"] == "legacy"
+    # 다른 위치에는 미노출
+    assert sc.public_get_config(Response(), placement="other")["items"] == []
+
+
+# ── PART B: 쓰기 엄격 검증(손상 item 저장 차단, 조용한 제거 금지) ─────────────
+def _save_capture(monkeypatch):
+    from backend.routers import self_check as sc
+    import backend.db.session as dbs
+    calls = {"n": 0}
+    monkeypatch.setattr(dbs, "is_configured", lambda: True)
+    monkeypatch.setattr("backend.services.marketing_pg_service.upsert_post",
+                        lambda rec: calls.__setitem__("n", calls["n"] + 1) or rec)
+    return sc, calls
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda it: it.update({"config": None}),                 # config 누락
+    lambda it: it.__setitem__("config", {"questions": "x", "results": []}),  # questions 문자열
+    lambda it: it.__setitem__("placement", "home"),          # placement 문자열
+    lambda it: it.__setitem__("sort_order", float("nan")),   # NaN
+    lambda it: it.__setitem__("title", ""),                  # 빈 title
+    lambda it: it.__setitem__("is_published", "yes"),        # boolean 아님
+])
+def test_save_malformed_item_blocks_and_no_upsert(monkeypatch, mutate):
+    sc, calls = _save_capture(monkeypatch)
+    good1, good2 = _item("a", published=False), _item("b", published=False)
+    bad = _item("c", published=False)
+    mutate(bad)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [good1, bad, good2]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0  # upsert 미호출 → 정상 2개만 저장되는 부분 저장 없음
+
+
+def test_save_null_item_blocks(monkeypatch):
+    sc, calls = _save_capture(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_item("a"), None]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0
+
+
+def test_save_wrong_schema_version_blocks(monkeypatch):
+    sc, calls = _save_capture(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 1, "items": [_item("a")]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0
+
+
+def test_save_valid_bundle_preserves_all_items(monkeypatch):
+    sc, calls = _save_capture(monkeypatch)
+    saved = {}
+    monkeypatch.setattr("backend.services.marketing_pg_service.upsert_post",
+                        lambda rec: saved.update(rec) or rec)
+    items = [_item("a", published=False), _item("b", published=False), _item("c", published=False)]
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": items})
+    res = sc.admin_save_config(body, user={"login_id": "sys"})
+    import json as _json
+    stored = _json.loads(saved["content"])
+    assert [it["item_id"] for it in stored["items"]] == ["a", "b", "c"]  # 손실 없음
+    assert res["ok"] is True

@@ -9,7 +9,8 @@ import type { SelfCheckConfig, SelfCheckItem } from "../lib/selfcheck/types";
 const CONFIG_URL = "**/api/self-check/config*";
 
 function item(id: string, config: SelfCheckConfig, over: Partial<SelfCheckItem> = {}): SelfCheckItem {
-  return { item_id: id, title: config.item_name, sort_order: 0, is_published: true, popup_enabled: true, placement: [], config, ...over };
+  // 기본 placement=["home"] — 홈 런처 표시 테스트가 대부분. 위치 필터 테스트는 over 로 재정의.
+  return { item_id: id, title: config.item_name, sort_order: 0, is_published: true, popup_enabled: true, placement: ["home"], config, ...over };
 }
 function bundle(items: SelfCheckItem[]) {
   return { schema_version: 2, items };
@@ -172,6 +173,35 @@ test.describe("결과 화면 한 화면 완결 — 4개 모바일 viewport", () 
         // 결과 영역 clipping 없음(내부 스크롤 없이 한 화면)
         expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), `inner scroll @${key} ${v.w}x${v.h}`).toBeTruthy();
         expect(await dialog.evaluate((el) => el.getBoundingClientRect().height <= window.innerHeight + 1), `fits @${key}`).toBeTruthy();
+
+        // 직접 geometry: 결과 본문 무클리핑 + 각 섹션이 액션 버튼 위에 있음(잘림 착시 제거).
+        const geo = await page.evaluate(() => {
+          const q = (id: string) => document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+          const body = q("selfcheck-result-body")!;
+          const actions = q("selfcheck-actions")!;
+          const at = actions.getBoundingClientRect().top;
+          const bottomOf = (id: string) => { const e = q(id); return e ? e.getBoundingClientRect().bottom : -Infinity; };
+          const last = q("selfcheck-full-logic-last");
+          const lastRect = last?.getBoundingClientRect();
+          const vis = (r?: DOMRect) => !!r && r.width > 0 && r.height > 0 && r.bottom <= window.innerHeight + 1;
+          return {
+            bodyClip: body.scrollHeight <= body.clientHeight + 1,
+            answer: bottomOf("selfcheck-answer-list") <= at + 1,
+            path: bottomOf("selfcheck-path") <= at + 1,
+            logic: bottomOf("selfcheck-full-logic") <= at + 1,
+            version: bottomOf("selfcheck-version") <= at + 1,
+            lastLineVisible: vis(lastRect),
+            versionVisible: vis(q("selfcheck-version")?.getBoundingClientRect()),
+          };
+        });
+        expect(geo.bodyClip, `result body clipped @${key} ${v.w}x${v.h}`).toBeTruthy();
+        expect(geo.answer, `answer below actions @${key}`).toBeTruthy();
+        expect(geo.path, `path below actions @${key}`).toBeTruthy();
+        expect(geo.logic, `logic below actions @${key}`).toBeTruthy();
+        expect(geo.version, `version below actions @${key}`).toBeTruthy();
+        expect(geo.lastLineVisible, `last logic line not visible @${key}`).toBeTruthy();
+        expect(geo.versionVisible, `version not visible @${key}`).toBeTruthy();
+
         await expect(page.getByText("내 답변")).toBeVisible();
         await expect(page.getByText("판정 경로")).toBeVisible();
         await expect(page.getByText("전체 판정 로직")).toBeVisible();
@@ -204,4 +234,90 @@ test.describe("공통기준 자가점검 — 미게시/오류 시 런처 숨김"
   test("config API 404 → 숨김", async ({ page }) => { await mockStatus(page, 404); await assertHidden(page); });
   test("config API 500 → 숨김", async ({ page }) => { await mockStatus(page, 500); await assertHidden(page); });
   test("네트워크 실패 → 숨김", async ({ page }) => { await mockAbort(page); await assertHidden(page); });
+});
+
+test.describe("공통기준 자가점검 — placement 필터(런처)", () => {
+  test("home 항목만 노출(other/빈 placement 제외)", async ({ page }) => {
+    await mockBundle(page, bundle([
+      item("home-a", CRIMINAL_RECORD_CONFIG, { placement: ["home"], sort_order: 1 }),
+      item("other-b", TUBERCULOSIS_CONFIG, { placement: ["other"], sort_order: 2 }),
+      item("none-c", FINGERPRINT_CONFIG, { placement: [], sort_order: 3 }),
+    ]));
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    // home 항목이 1개 → 선택화면 없이 바로 진행(해외범죄 q1)
+    await expect(page.getByText("만 14세 이상입니까?")).toBeVisible();
+  });
+
+  test("home 에 지정된 항목이 없으면 런처 숨김", async ({ page }) => {
+    await mockBundle(page, bundle([
+      item("other-b", TUBERCULOSIS_CONFIG, { placement: ["other"] }),
+      item("none-c", FINGERPRINT_CONFIG, { placement: [] }),
+    ]));
+    await page.goto("/");
+    await expect(page.getByTestId("self-check-open")).toHaveCount(0);
+  });
+});
+
+test.describe("공통기준 자가점검 관리자 편집기", () => {
+  const ADMIN_URL = "**/api/self-check/admin/config";
+  const v2Bundle = {
+    schema_version: 2,
+    items: [
+      { item_id: "criminal-record", title: "해외범죄경력증명 필요 확인", description: "", sort_order: 1, is_published: false, popup_enabled: true, placement: ["home"], config: CRIMINAL_RECORD_CONFIG },
+      { item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "", sort_order: 2, is_published: false, popup_enabled: true, placement: ["home"], config: TUBERCULOSIS_CONFIG },
+    ],
+  };
+  const legacyContent = { ...CRIMINAL_RECORD_CONFIG, item_name: "기존 단일 설정" };
+
+  // 공개 페이지에서 실제 origin 에 localStorage(isLoggedIn) + cookie(미들웨어)를 심은 뒤 보호 라우트로 이동.
+  async function authAndGoto(page: import("@playwright/test").Page, adminBody: unknown) {
+    // (main) 레이아웃이 마운트 시 호출하는 두 endpoint 를 올바른 shape 으로 mock →
+    // 5xx/401 로 인한 /login 자동 리다이렉트·크래시 없이 관리 화면이 렌더된다.
+    const json = (body: unknown) => (route: import("@playwright/test").Route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    // 인증 셸(레이아웃/탑바)이 마운트 시 호출하는 endpoint 를 올바른 shape 으로 mock →
+    // 5xx/401 로 인한 전역 /login 리다이렉트·크래시 없이 관리 화면이 렌더된다.
+    await page.route("**/api/auth/me", json({ login_id: "sys@test", is_admin: true, is_master: true }));
+    await page.route("**/api/manual/alerts/active", json({ alerts: [], is_admin: true }));
+    await page.route("**/api/signature/temp-slots", json([]));
+    await page.route("**/api/signature/pad/events", json({ events: [] }));
+    await page.route("**/api/customers/expiry-alerts", json({ card_alerts: [], passport_alerts: [] }));
+    await page.route(ADMIN_URL, json(adminBody));
+    await page.goto("/");  // 공개 → 리다이렉트 없음, origin 확보
+    await page.evaluate(() => {
+      localStorage.setItem("access_token", "e2e-test-token");
+      localStorage.setItem("user_info", JSON.stringify({ login_id: "sys@test", is_admin: true, is_master: true }));
+      document.cookie = "kid_auth=1; path=/; SameSite=Lax";
+    });
+    await page.goto("/marketing/self-check");
+  }
+
+  test("4개 viewport 선택 + description·placement 편집 노출", async ({ page }) => {
+    await authAndGoto(page, v2Bundle);
+    // 편집기 렌더(선택 항목 편집 섹션)
+    await expect(page.getByTestId("item-description")).toBeVisible();
+    await expect(page.getByTestId("placement-home")).toBeVisible();
+    // viewport 4종 버튼
+    for (const w of [360, 375, 390, 412]) await expect(page.getByTestId(`preview-vp-${w}`)).toBeVisible();
+    // description 편집 반영
+    await page.getByTestId("item-description").fill("설명 편집 테스트");
+    await expect(page.getByTestId("item-description")).toHaveValue("설명 편집 테스트");
+    // placement 토글
+    const home = page.getByTestId("placement-home");
+    await home.uncheck(); await expect(home).not.toBeChecked();
+    await home.check(); await expect(home).toBeChecked();
+    // 412 viewport 선택 → 미리보기 열기 시 가로 스크롤 없음
+    await page.getByTestId("preview-vp-412").click();
+    await page.getByRole("button", { name: "미리보기", exact: true }).click();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("legacy 단일 설정 → 안내 배너 표시", async ({ page }) => {
+    await authAndGoto(page, legacyContent);
+    await expect(page.getByTestId("selfcheck-legacy-banner")).toBeVisible();
+    // 배너 안내 + '불러오기' 버튼이 함께 존재(둘 다 같은 문구 → 버튼 role 로 특정).
+    await expect(page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" })).toBeVisible();
+  });
 });
