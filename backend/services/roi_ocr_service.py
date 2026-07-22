@@ -522,7 +522,9 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
 
     if field == "등록증":
         txt = _digits_ocr(crop, 7) + "\n" + _digits_ocr(crop, 6)
-        value = clean_reg_front(txt)
+        from backend.services.customer_identifier_normalize import canonical_reg_front
+        # clean_reg_front 는 6자리 문자열을 반환하나(선행 0 보존), int 변환 없이 문자열 정규화만.
+        value = canonical_reg_front(clean_reg_front(txt))
         reason = (
             "" if value
             else ("OCR returned no digits" if not txt.strip()

@@ -23,12 +23,21 @@ _GUARANTOR_FIELDS = (
 )
 
 
+def _canonicalize_reg_front_fields(d: dict) -> None:
+    """provider_reg_front / guarantor_reg_front 의 선행 0 손실을 비파괴적으로 복구(in-place)."""
+    from backend.services.customer_identifier_normalize import canonical_reg_front
+    for f in ("provider_reg_front", "guarantor_reg_front"):
+        if f in d and str(d.get(f, "")).strip():
+            d[f] = canonical_reg_front(d.get(f, ""))
+
+
 def _row_to_dict(row, fields) -> dict:
     if row is None:
         return {}
     out = {f: ("" if getattr(row, f, None) is None else str(getattr(row, f))) for f in fields}
     out["created_at"] = row.created_at.isoformat() if row.created_at else ""
     out["updated_at"] = row.updated_at.isoformat() if row.updated_at else ""
+    _canonicalize_reg_front_fields(out)
     return out
 
 
@@ -58,6 +67,7 @@ def save_accommodation(tenant_id: str, data: dict) -> dict:
         raise ValueError("target_customer_id required")
 
     payload = {f: str(data.get(f, "") or "") for f in _ACCOM_FIELDS}
+    _canonicalize_reg_front_fields(payload)
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         row = session.scalar(
@@ -119,6 +129,7 @@ def save_guarantor(tenant_id: str, data: dict) -> dict:
         raise ValueError("target_customer_id required")
 
     payload = {f: str(data.get(f, "") or "") for f in _GUARANTOR_FIELDS}
+    _canonicalize_reg_front_fields(payload)
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         row = session.scalar(

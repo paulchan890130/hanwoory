@@ -33,17 +33,24 @@ def _assert_not_master(login_id: str, action: str) -> None:
         )
 
 
-def _user_role(session, u) -> str:
-    """AccountUser 의 role 을 가드와 함께 읽는다(0024 미적용 DB → is_admin 기반 폴백)."""
-    if is_master_login(u.login_id) or bool(u.is_admin):
-        return "admin"
+def _preload_roles(session) -> dict:
+    """login_id → role 을 한 번의 쿼리로 로드(N+1 회피). 0024 미적용(role 컬럼 없음) → {} 폴백.
+    반환 dict 는 세션과 분리돼 있어 with 종료 후에도 안전하게 조회할 수 있다."""
     try:
         from sqlalchemy import select
         from backend.db.models.user import AccountUser
-        r = session.scalar(select(AccountUser.role).where(AccountUser.login_id == u.login_id))
-        return str(r) if r else "user"
+        return {lid: r for lid, r in session.execute(
+            select(AccountUser.login_id, AccountUser.role)).all()}
     except Exception:
-        return "user"
+        return {}
+
+
+def _resolve_role(login_id: str, is_admin: bool, roles_by_login: dict) -> str:
+    """세션 접근 없이 role 판정(미리 로드한 roles_by_login 사용). master/admin → 'admin'."""
+    if is_master_login(login_id) or is_admin:
+        return "admin"
+    r = roles_by_login.get(login_id)
+    return str(r) if r else "user"
 
 
 def _account_role_label(login_id: str, is_admin: bool, role: str) -> str:
@@ -230,6 +237,10 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
                 select(WorkReferenceSheet.tenant_id, func.count(WorkReferenceSheet.id))
                 .group_by(WorkReferenceSheet.tenant_id)
             ).all())
+            # role 을 with 안에서 한 번에 로드 → 아래 레코드 조립 루프는 세션을 재사용하지
+            # 않는다(이전엔 _user_role(session, u) 가 with 종료 후 세션을 되살려
+            # idle-in-transaction 커넥션·ACCESS SHARE 잠금을 남겼다).
+            roles_by_login = _preload_roles(session)
 
         is_mock_mode = local_drive_mock_enabled()
         storage_mode = "pg+local-mock" if is_mock_mode else "pg+google-drive"
@@ -253,7 +264,7 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
             )
 
             file_status, file_label = _classify_file_storage(folder, ckey, wkey)
-            _role = _user_role(session, u)
+            _role = _resolve_role(u.login_id, bool(u.is_admin), roles_by_login)
 
             # 계정 상태(invited/active/suspended/replaced/disabled) — is_active 만으로 구분하지 않는다.
             from backend.services import account_state as _acct_state
@@ -311,9 +322,9 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
                 "file_storage_status": file_status,
                 "file_storage_label": file_label,
             })
-        # 루프에서 _user_role(session, u) 가 with 종료 이후 session 을 재사용해 새 트랜잭션을 열어
-        # 두므로(idle-in-transaction), 명시적으로 닫아 커넥션 누수·ACCESS SHARE 잠금 잔존을 막는다.
-        session.close()
+        # 레코드 조립 루프는 세션을 건드리지 않는다(role 은 roles_by_login 으로 미리 로드,
+        # 그 외 속성은 with 안에서 이미 로드된 컬럼). with 블록이 세션을 정상 종료하므로
+        # 별도 session.close() 재호출은 불필요하다.
         return records
 
     # 도달 불가(PG-only). 안전장치.

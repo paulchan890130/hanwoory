@@ -334,7 +334,17 @@ def _row_to_customer(raw: dict):
 
     yeon, rak, cheo = _split_phone(raw.get("_phone", ""))
     data["연"], data["락"], data["처"] = yeon, rak, cheo
-    data["등록증"] = raw.get("등록증", "")
+    from backend.services.customer_identifier_normalize import normalize_reg_front
+    _reg_in = raw.get("등록증", "")
+    _reg_r = normalize_reg_front(_reg_in, source="excel_import", allow_numeric_recovery=True)
+    if _reg_r.valid:
+        data["등록증"] = _reg_r.canonical_value
+        if _reg_r.changed:
+            transforms.append("외국인등록번호 앞자리 선행 0 복구(6자리)")
+    else:
+        data["등록증"] = _reg_in.strip() if isinstance(_reg_in, str) else str(_reg_in).strip()
+        if data["등록증"]:
+            warnings.append("외국인등록번호 앞자리가 6자리 YYMMDD 형식이 아니어서 원문으로 저장합니다.")
     data["번호"] = raw.get("번호", "")  # create_customer 가 암호화
     data["여권"] = raw.get("여권", "")
 

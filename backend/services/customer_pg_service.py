@@ -126,6 +126,17 @@ def _encode_reg_back_into_payload(payload: dict, tenant_id: str) -> None:
         payload["reg_back"] = norm
 
 
+def _normalize_reg_front_in_payload(payload: dict) -> None:
+    """쓰기 payload 의 reg_front 를 canonical 6자리 문자열로 정규화(in-place).
+
+    선행 0 이 사라진 숫자/짧은 문자열('1010', int 1010)을 '001010' 으로 복구해 저장한다.
+    유효 복구 불가 값은 파괴하지 않고 문자열로 보존(라우터가 더 엄격히 검증할 수 있음)."""
+    if "reg_front" not in payload:
+        return
+    from backend.services.customer_identifier_normalize import canonical_reg_front
+    payload["reg_front"] = canonical_reg_front(payload.get("reg_front"))
+
+
 def _row_to_dict(row, *, reveal: bool = False) -> dict:
     """Customer ORM row → 표준(한글 키) dict.
 
@@ -145,6 +156,12 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
 
     for sheet_key in _DATE_SHEET_KEYS:
         out[sheet_key] = normalize_date_only(out.get(sheet_key, "")) or ""
+
+    # 등록증(reg_front, YYMMDD) 읽기 방어 — 레거시 선행 0 손실('1010')을 canonical('001010')로
+    # 복구해 모든 읽기 경로(목록/상세/검색/문서/추출/복사팝업)가 동일 6자리 값을 받게 한다.
+    # DB 원문은 수정하지 않는다(유효 복구 불가 값은 원문 유지). 프론트 개별 padStart 불필요.
+    from backend.services.customer_identifier_normalize import canonical_reg_front
+    out["등록증"] = canonical_reg_front(out.get("등록증", ""))
 
     from backend.services import pii_crypto as _pii
 
@@ -314,6 +331,7 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
     base_payload = {SHEET_TO_PG[k]: v for k, v in data.items() if k in SHEET_TO_PG}
     from backend.services.date_normalize import normalize_date_fields
     normalize_date_fields(base_payload, _DATE_PG_COLUMNS)
+    _normalize_reg_front_in_payload(base_payload)
     _encode_reg_back_into_payload(base_payload, tenant_id)
     _apply_external_accounts_into_payload(base_payload, data)
     last_err: Optional[Exception] = None
@@ -376,6 +394,7 @@ def upsert_customer(tenant_id: str, data: dict) -> dict:
         raise ValueError("고객ID is required")
     from backend.services.date_normalize import normalize_date_fields
     normalize_date_fields(payload, _DATE_PG_COLUMNS)
+    _normalize_reg_front_in_payload(payload)
     _encode_reg_back_into_payload(payload, tenant_id)
     _apply_external_accounts_into_payload(payload, data)
 

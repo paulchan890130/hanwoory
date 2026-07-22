@@ -26,15 +26,36 @@ export function centuryFromArcBack(backFirstDigit: string | null | undefined, yy
   return "19";
 }
 
+const _DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // Feb=29(세기 미상)
+
+/** YYMMDD 6자리 유효성(월 1~12, 일 1~말일). */
+function _validYymmdd(d6: string): boolean {
+  if (d6.length !== 6 || !/^\d{6}$/.test(d6)) return false;
+  const mm = parseInt(d6.slice(2, 4), 10);
+  const dd = parseInt(d6.slice(4, 6), 10);
+  if (mm < 1 || mm > 12) return false;
+  return dd >= 1 && dd <= _DAYS_IN_MONTH[mm - 1];
+}
+
+/** 앞자리를 6자리 YYMMDD 로 복구(선행 0 손실 방어). 실패 시 "". */
+export function canonicalArcFront(front: string | null | undefined): string {
+  const f = _digits(front);
+  if (!f) return "";
+  if (f.length > 6) return "";
+  const padded = f.padStart(6, "0");
+  return _validYymmdd(padded) ? padded : "";
+}
+
 /**
  * 등록번호 앞 6자리(YYMMDD) + 뒷자리(첫 숫자로 세기 판단) → "YYYYMMDD".
- * 앞자리가 6자리 숫자가 아니면 빈 문자열 반환. (원문 로그 출력 금지 — 호출측도 동일)
+ * 선행 0 이 손실된(1~5자리) 앞자리는 좌측 0 채움 후 YYMMDD 검증하여 복구한다.
+ * 복구·검증 실패 시 빈 문자열 반환. (원문 로그 출력 금지 — 호출측도 동일)
  */
 export function deriveBirthDateFromArc(
   front6: string | null | undefined,
   arcBack: string | null | undefined,
 ): string {
-  const f = _digits(front6);
+  const f = canonicalArcFront(front6);
   if (f.length !== 6) return "";
   const century = centuryFromArcBack(arcBack, f.slice(0, 2));
   return century + f; // YYYYMMDD
