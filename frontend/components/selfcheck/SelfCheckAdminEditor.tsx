@@ -1,18 +1,17 @@
 "use client";
-// 관리자 편집기 — 질문 그래프/결과/국가목록/버전/공개여부 설정.
+// 관리자 편집기 — 다중 항목(번들) 관리. 좌: 항목 목록 + 선택 항목 편집, 우: 미리보기.
 // 미리보기는 공개 컴포넌트(CommonCriteriaSelfCheck)를 그대로 재사용(별도 복제 UI 없음).
 // 미리보기 답변/결과도 메모리에만 존재하며 저장/전송하지 않는다.
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { selfCheckApi } from "@/lib/api";
-import type { SelfCheckConfig, SelfCheckQuestion, SelfCheckResult } from "@/lib/selfcheck/types";
-import { DEFAULT_SELF_CHECK_CONFIG } from "@/lib/selfcheck/defaultConfig";
-import { validateConfig, buildFullLogic } from "@/lib/selfcheck/logic";
+import type { SelfCheckConfig, SelfCheckQuestion, SelfCheckResult, SelfCheckItem, SelfCheckBundle } from "@/lib/selfcheck/types";
+import { DEFAULT_SELF_CHECK_BUNDLE } from "@/lib/selfcheck/defaultConfig";
+import { validateConfig, validateBundle, buildFullLogic } from "@/lib/selfcheck/logic";
 import { buildSmsBody } from "@/lib/selfcheck/sms";
 import CommonCriteriaSelfCheck from "./CommonCriteriaSelfCheck";
 
-// 권장 글자 수(한 화면 유지용). 초과 시 경고만 표시(공개 내용 임의 생략 없음).
-const RECO = { item_name: 22, headline: 18, label: 8, question_text: 44, summary: 16, notice: 70 };
+const RECO = { item_name: 22, headline: 18, label: 8, question_text: 44, summary: 16, notice: 90 };
 
 const cell: React.CSSProperties = { border: "1px solid var(--hw-border)", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%", boxSizing: "border-box" };
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--hw-text-sub)", display: "block", marginBottom: 3 };
@@ -22,19 +21,36 @@ function Counter({ v, max }: { v: string; max: number }) {
   return <span style={{ fontSize: 10, color: over ? "#C53030" : "#A0AEC0" }}>{(v || "").length}/{max}{over ? " 초과" : ""}</span>;
 }
 
-export default function SelfCheckAdminEditor({ initial, initialPublished }: { initial?: SelfCheckConfig | null; initialPublished?: boolean }) {
-  const [cfg, setCfg] = useState<SelfCheckConfig>(initial ?? DEFAULT_SELF_CHECK_CONFIG);
-  const [published, setPublished] = useState(!!initialPublished);
+function emptyItem(n: number): SelfCheckItem {
+  return {
+    item_id: `item-${n}`, title: "새 항목", description: null, sort_order: n, is_published: false, popup_enabled: true, placement: [],
+    config: { item_name: "새 항목", logic_version: "V-1.0", start_question_id: "q1",
+      questions: [{ id: "q1", display_number: "①", text: "", summary: "", yes: "", no: "", sort_order: 1 }],
+      results: [{ id: "r_target", headline: "", label: "" }, { id: "r_none", headline: "", label: "" }] },
+  };
+}
+
+export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?: SelfCheckBundle | null }) {
+  const [bundle, setBundle] = useState<SelfCheckBundle>(
+    initialBundle && initialBundle.items?.length ? initialBundle : { schema_version: 2, items: [] },
+  );
+  const [selIdx, setSelIdx] = useState<number>(0);
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const report = useMemo(() => validateConfig(cfg), [cfg]);
-  const targets = useMemo(
-    () => [...cfg.questions.map((q) => ({ id: q.id, label: `질문 ${q.display_number} (${q.id})` })),
-           ...cfg.results.map((r) => ({ id: r.id, label: `결과 ${r.label || r.headline} (${r.id})` }))],
-    [cfg],
-  );
+  const sorted = useMemo(() => bundle.items.map((it, i) => ({ it, i })).sort((a, b) => (a.it.sort_order ?? 0) - (b.it.sort_order ?? 0)), [bundle]);
+  const bundleReport = useMemo(() => validateBundle(bundle), [bundle]);
+  const item: SelfCheckItem | undefined = bundle.items[selIdx];
+  const cfg = item?.config;
+  const report = useMemo(() => (cfg ? validateConfig(cfg) : { errors: ["항목이 선택되지 않았습니다."], warnings: [] }), [cfg]);
+
+  const targets = useMemo(() => (cfg
+    ? [...cfg.questions.map((q) => ({ id: q.id, label: `질문 ${q.display_number} (${q.id})` })),
+       ...cfg.results.map((r) => ({ id: r.id, label: `결과 ${r.label || r.headline} (${r.id})` }))]
+    : []), [cfg]);
+
   const lengthWarnings = useMemo(() => {
+    if (!cfg) return [];
     const w: string[] = [];
     if ((cfg.item_name || "").length > RECO.item_name) w.push("항목명이 권장 길이를 초과");
     for (const q of cfg.questions) {
@@ -49,151 +65,226 @@ export default function SelfCheckAdminEditor({ initial, initialPublished }: { in
     return w;
   }, [cfg]);
 
-  const patch = (p: Partial<SelfCheckConfig>) => setCfg((c) => ({ ...c, ...p }));
-  const patchQ = (i: number, p: Partial<SelfCheckQuestion>) =>
-    setCfg((c) => ({ ...c, questions: c.questions.map((q, j) => (j === i ? { ...q, ...p } : q)) }));
-  const patchR = (i: number, p: Partial<SelfCheckResult>) =>
-    setCfg((c) => ({ ...c, results: c.results.map((r, j) => (j === i ? { ...r, ...p } : r)) }));
-  const addQ = () => setCfg((c) => ({ ...c, questions: [...c.questions, { id: `q${c.questions.length + 1}`, display_number: `${c.questions.length + 1}`, text: "", summary: "", yes: "", no: "", sort_order: c.questions.length + 1 }] }));
-  const addR = () => setCfg((c) => ({ ...c, results: [...c.results, { id: `r${c.results.length + 1}`, headline: "", label: "" }] }));
-  const delQ = (i: number) => setCfg((c) => ({ ...c, questions: c.questions.filter((_, j) => j !== i) }));
-  const delR = (i: number) => setCfg((c) => ({ ...c, results: c.results.filter((_, j) => j !== i) }));
+  // ── 항목/설정 mutation helpers ──
+  const setItem = (i: number, p: Partial<SelfCheckItem>) =>
+    setBundle((b) => ({ ...b, items: b.items.map((it, j) => (j === i ? { ...it, ...p } : it)) }));
+  const patchCfg = (p: Partial<SelfCheckConfig>) =>
+    setBundle((b) => ({ ...b, items: b.items.map((it, j) => (j === selIdx ? { ...it, config: { ...it.config, ...p } } : it)) }));
+  const patchQ = (qi: number, p: Partial<SelfCheckQuestion>) =>
+    setBundle((b) => ({ ...b, items: b.items.map((it, j) => (j === selIdx ? { ...it, config: { ...it.config, questions: it.config.questions.map((q, k) => (k === qi ? { ...q, ...p } : q)) } } : it)) }));
+  const patchR = (ri: number, p: Partial<SelfCheckResult>) =>
+    setBundle((b) => ({ ...b, items: b.items.map((it, j) => (j === selIdx ? { ...it, config: { ...it.config, results: it.config.results.map((r, k) => (k === ri ? { ...r, ...p } : r)) } } : it)) }));
+  const addQ = () => cfg && patchCfg({ questions: [...cfg.questions, { id: `q${cfg.questions.length + 1}`, display_number: `${cfg.questions.length + 1}`, text: "", summary: "", yes: "", no: "", sort_order: cfg.questions.length + 1 }] });
+  const addR = () => cfg && patchCfg({ results: [...cfg.results, { id: `r${cfg.results.length + 1}`, headline: "", label: "" }] });
+  const delQ = (qi: number) => cfg && patchCfg({ questions: cfg.questions.filter((_, k) => k !== qi) });
+  const delR = (ri: number) => cfg && patchCfg({ results: cfg.results.filter((_, k) => k !== ri) });
 
-  const save = async (pub: boolean) => {
-    if (pub && report.errors.length) { toast.error("오류를 먼저 수정해야 게시할 수 있습니다."); return; }
+  const addItem = () => setBundle((b) => { const it = emptyItem(b.items.length + 1); return { ...b, items: [...b.items, it] }; });
+  const delItem = (i: number) => setBundle((b) => {
+    const items = b.items.filter((_, j) => j !== i);
+    setSelIdx((s) => Math.max(0, Math.min(s, items.length - 1)));
+    return { ...b, items };
+  });
+  const moveItem = (i: number, dir: -1 | 1) => setBundle((b) => {
+    const items = [...b.items];
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return b;
+    [items[i], items[j]] = [items[j], items[i]];
+    items.forEach((it, k) => (it.sort_order = k + 1));
+    setSelIdx(j);
+    return { ...b, items };
+  });
+
+  const loadDefaults = () => {
+    if (!window.confirm("현재 편집 중인 임시 설정을 PDF 기준 기본안으로 교체합니다.\nDB에는 저장 버튼을 누르기 전까지 반영되지 않습니다.\n계속하시겠습니까?")) return;
+    setBundle(JSON.parse(JSON.stringify(DEFAULT_SELF_CHECK_BUNDLE)));
+    setSelIdx(0);
+    toast.success("PDF 기준 3개 기본 항목을 불러왔습니다. (미저장)");
+  };
+
+  const save = async () => {
+    // 게시(is_published)로 설정된 항목에 그래프 오류가 있으면 서버가 400. 사전 안내.
+    const blocked = bundle.items.filter((it) => it.is_published && (bundleReport.itemErrors[it.item_id]?.length));
+    if (blocked.length) { toast.error(`게시하려는 항목의 오류를 먼저 수정하세요: ${blocked.map((b) => b.title).join(", ")}`); return; }
+    if (bundleReport.errors.length) { toast.error(bundleReport.errors[0]); return; }
     setSaving(true);
     try {
-      await selfCheckApi.adminSave(cfg, pub);
-      setPublished(pub);
-      toast.success(pub ? "게시되었습니다." : "임시 저장되었습니다.");
+      await selfCheckApi.adminSave(bundle);
+      const pub = bundle.items.filter((it) => it.is_published).length;
+      toast.success(pub ? `저장 완료 · 공개 항목 ${pub}개` : "저장 완료 (모두 비공개)");
     } catch (e) {
       const d = (e as { response?: { data?: { detail?: { message?: string } } } })?.response?.data?.detail;
       toast.error(typeof d === "object" && d?.message ? d.message : "저장 실패");
     } finally { setSaving(false); }
   };
 
-  const smsPreview = buildSmsBody(cfg, cfg.questions.slice(0, 1).map((q) => ({ question_id: q.id, display_number: q.display_number, summary: q.summary, answer: "예" as unknown as "yes" })), cfg.results[0]?.id ?? null);
+  const smsPreview = cfg ? buildSmsBody(cfg, cfg.questions.slice(0, 1).map((q) => ({ question_id: q.id, display_number: q.display_number, summary: q.summary, answer: "예" as unknown as "yes" })), cfg.results[0]?.id ?? null) : "";
+
+  const previewItems = item ? [item] : [];
 
   return (
-    <div className="hw-card" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
-      {/* 편집 */}
-      <div style={{ minWidth: 0 }}>
-        <div className="hw-card-title">공통기준 자가점검 설정</div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <div>
-            <label style={lbl}>점검 항목명 <Counter v={cfg.item_name} max={RECO.item_name} /></label>
-            <input style={cell} value={cfg.item_name} onChange={(e) => patch({ item_name: e.target.value })} />
-          </div>
-          <div>
-            <label style={lbl}>로직 버전</label>
-            <input style={cell} value={cfg.logic_version} onChange={(e) => patch({ logic_version: e.target.value })} placeholder="CR-1.0" />
-          </div>
-          <div>
-            <label style={lbl}>시작 질문</label>
-            <select style={cell} value={cfg.start_question_id} onChange={(e) => patch({ start_question_id: e.target.value })}>
-              {cfg.questions.map((q) => <option key={q.id} value={q.id}>{q.display_number} ({q.id})</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>공통 주의문구 <Counter v={cfg.notice_text || ""} max={RECO.notice} /></label>
-            <input style={cell} value={cfg.notice_text || ""} onChange={(e) => patch({ notice_text: e.target.value })} />
-          </div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+      {/* 편집 pane */}
+      <div className="hw-card" style={{ flex: "1 1 440px", minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div className="hw-card-title" style={{ margin: 0 }}>공통기준 자가점검 설정 (항목 {bundle.items.length}개)</div>
+          <button className="btn-secondary" style={{ fontSize: 12 }} onClick={loadDefaults}>PDF 기준 3개 기본 항목 불러오기</button>
         </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={lbl}>고위험 국가 목록(첫 질문에서 펼침, 한 줄에 하나)</label>
-          <textarea style={{ ...cell, height: 60, resize: "vertical" }}
-            value={(cfg.country_list || []).join("\n")}
-            onChange={(e) => patch({ country_list: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
-        </div>
-
-        {/* 질문 */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>질문</div>
-          <button className="btn-secondary" style={{ fontSize: 12 }} onClick={addQ}>+ 질문 추가</button>
-        </div>
-        {cfg.questions.map((q, i) => (
-          <div key={i} style={{ border: "1px solid var(--hw-border)", borderRadius: 8, padding: 10, margin: "8px 0", background: "#FAFBFC" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "80px 90px 1fr auto", gap: 8, alignItems: "end" }}>
-              <div><label style={lbl}>id</label><input style={cell} value={q.id} onChange={(e) => patchQ(i, { id: e.target.value })} /></div>
-              <div><label style={lbl}>번호</label><input style={cell} value={q.display_number} onChange={(e) => patchQ(i, { display_number: e.target.value })} /></div>
-              <div><label style={lbl}>요약 <Counter v={q.summary} max={RECO.summary} /></label><input style={cell} value={q.summary} onChange={(e) => patchQ(i, { summary: e.target.value })} /></div>
-              <button onClick={() => delQ(i)} style={{ ...cell, width: "auto", color: "#C53030", cursor: "pointer" }}>삭제</button>
+        {/* 항목 목록 */}
+        <div style={{ marginTop: 10, border: "1px solid var(--hw-border)", borderRadius: 8, overflow: "hidden" }}>
+          {sorted.length === 0 && (
+            <div style={{ padding: 12, fontSize: 13, color: "var(--hw-text-sub)" }}>
+              항목이 없습니다. “PDF 기준 3개 기본 항목 불러오기” 또는 아래 “+ 항목 추가”로 시작하세요.
             </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={lbl}>질문 문구 <Counter v={q.text} max={RECO.question_text} /></label>
-              <input style={cell} value={q.text} onChange={(e) => patchQ(i, { text: e.target.value })} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginTop: 8, alignItems: "end" }}>
-              <div><label style={lbl}>예 →</label>
-                <select style={cell} value={q.yes} onChange={(e) => patchQ(i, { yes: e.target.value })}>
-                  <option value="">(선택)</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select></div>
-              <div><label style={lbl}>아니오 →</label>
-                <select style={cell} value={q.no} onChange={(e) => patchQ(i, { no: e.target.value })}>
-                  <option value="">(선택)</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select></div>
-              <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4, paddingBottom: 6 }}>
-                <input type="checkbox" checked={!!q.country_list_ref} onChange={(e) => patchQ(i, { country_list_ref: e.target.checked })} /> 국가목록
+          )}
+          {sorted.map(({ it, i }) => (
+            <div key={it.item_id + i} onClick={() => setSelIdx(i)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", cursor: "pointer",
+                borderBottom: "1px solid var(--hw-border)", background: i === selIdx ? "var(--hw-gold-50)" : "#fff", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", flex: "1 1 140px", minWidth: 0 }}>{it.title || it.config.item_name || "(제목 없음)"}</span>
+              <span style={{ fontSize: 11, color: "#A0AEC0" }}>{it.config.logic_version}</span>
+              <label style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }} onClick={(e) => e.stopPropagation()}>
+                <input type="checkbox" checked={it.is_published} onChange={(e) => setItem(i, { is_published: e.target.checked })} /> 공개
               </label>
+              <label style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }} onClick={(e) => e.stopPropagation()}>
+                <input type="checkbox" checked={it.popup_enabled} onChange={(e) => setItem(i, { popup_enabled: e.target.checked })} /> 팝업
+              </label>
+              <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", gap: 2 }}>
+                <button onClick={() => moveItem(i, -1)} aria-label="위로" style={{ ...cell, width: "auto", padding: "2px 6px", cursor: "pointer" }}>↑</button>
+                <button onClick={() => moveItem(i, 1)} aria-label="아래로" style={{ ...cell, width: "auto", padding: "2px 6px", cursor: "pointer" }}>↓</button>
+                <button onClick={() => delItem(i)} aria-label="삭제" style={{ ...cell, width: "auto", padding: "2px 6px", color: "#C53030", cursor: "pointer" }}>✕</button>
+              </span>
+            </div>
+          ))}
+          <div style={{ padding: 8, textAlign: "right" }}>
+            <button className="btn-secondary" style={{ fontSize: 12 }} onClick={addItem}>+ 항목 추가</button>
+          </div>
+        </div>
+        {bundleReport.errors.length > 0 && (
+          <div style={{ marginTop: 8, background: "#FFF5F5", border: "1px solid #FEB2B2", color: "#C53030", borderRadius: 6, padding: 8, fontSize: 12 }}>
+            {bundleReport.errors.join(" · ")}
+          </div>
+        )}
+
+        {/* 선택 항목 편집 */}
+        {cfg && item && (
+          <div style={{ marginTop: 14, borderTop: "2px solid var(--hw-gold-200)", paddingTop: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>선택 항목 편집</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 12 }}>
+              <div><label style={lbl}>항목 id</label><input style={cell} value={item.item_id} onChange={(e) => setItem(selIdx, { item_id: e.target.value })} /></div>
+              <div><label style={lbl}>제목</label><input style={cell} value={item.title} onChange={(e) => setItem(selIdx, { title: e.target.value })} /></div>
+              <div><label style={lbl}>점검 항목명 <Counter v={cfg.item_name} max={RECO.item_name} /></label><input style={cell} value={cfg.item_name} onChange={(e) => patchCfg({ item_name: e.target.value })} /></div>
+              <div><label style={lbl}>로직 버전</label><input style={cell} value={cfg.logic_version} onChange={(e) => patchCfg({ logic_version: e.target.value })} placeholder="CR-1.0" /></div>
+              <div><label style={lbl}>시작 질문</label>
+                <select style={cell} value={cfg.start_question_id} onChange={(e) => patchCfg({ start_question_id: e.target.value })}>
+                  {cfg.questions.map((q) => <option key={q.id} value={q.id}>{q.display_number} ({q.id})</option>)}
+                </select></div>
+              <div><label style={lbl}>공통 주의문구 <Counter v={cfg.notice_text || ""} max={RECO.notice} /></label><input style={cell} value={cfg.notice_text || ""} onChange={(e) => patchCfg({ notice_text: e.target.value })} /></div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbl}>고위험 국가 목록(첫 질문에서 펼침, 한 줄에 하나 · 결과 화면에는 미출력)</label>
+              <textarea style={{ ...cell, height: 60, resize: "vertical" }}
+                value={(cfg.country_list || []).join("\n")}
+                onChange={(e) => patchCfg({ country_list: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
+            </div>
+
+            {/* 질문 */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>질문</div>
+              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={addQ}>+ 질문 추가</button>
+            </div>
+            {cfg.questions.map((q, i) => (
+              <div key={i} style={{ border: "1px solid var(--hw-border)", borderRadius: 8, padding: 10, margin: "8px 0", background: "#FAFBFC" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+                  <div style={{ flex: "0 0 70px" }}><label style={lbl}>id</label><input style={cell} value={q.id} onChange={(e) => patchQ(i, { id: e.target.value })} /></div>
+                  <div style={{ flex: "0 0 70px" }}><label style={lbl}>번호</label><input style={cell} value={q.display_number} onChange={(e) => patchQ(i, { display_number: e.target.value })} /></div>
+                  <div style={{ flex: "1 1 160px", minWidth: 0 }}><label style={lbl}>요약 <Counter v={q.summary} max={RECO.summary} /></label><input style={cell} value={q.summary} onChange={(e) => patchQ(i, { summary: e.target.value })} /></div>
+                  <button onClick={() => delQ(i)} style={{ ...cell, width: "auto", color: "#C53030", cursor: "pointer" }}>삭제</button>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={lbl}>질문 문구 <Counter v={q.text} max={RECO.question_text} /></label>
+                  <input style={cell} value={q.text} onChange={(e) => patchQ(i, { text: e.target.value })} />
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={lbl}>도움말(선택)</label>
+                  <input style={cell} value={q.help || ""} onChange={(e) => patchQ(i, { help: e.target.value })} />
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8, alignItems: "flex-end" }}>
+                  <div style={{ flex: "1 1 160px", minWidth: 0 }}><label style={lbl}>예 →</label>
+                    <select style={cell} value={q.yes} onChange={(e) => patchQ(i, { yes: e.target.value })}>
+                      <option value="">(선택)</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select></div>
+                  <div style={{ flex: "1 1 160px", minWidth: 0 }}><label style={lbl}>아니오 →</label>
+                    <select style={cell} value={q.no} onChange={(e) => patchQ(i, { no: e.target.value })}>
+                      <option value="">(선택)</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select></div>
+                  <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4, paddingBottom: 6 }}>
+                    <input type="checkbox" checked={!!q.country_list_ref} onChange={(e) => patchQ(i, { country_list_ref: e.target.checked })} /> 국가목록
+                  </label>
+                </div>
+              </div>
+            ))}
+
+            {/* 결과 */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>결과</div>
+              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={addR}>+ 결과 추가</button>
+            </div>
+            {cfg.results.map((r, i) => (
+              <div key={i} style={{ border: "1px solid var(--hw-border)", borderRadius: 8, padding: 10, margin: "8px 0", background: "#FAFBFC" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+                  <div style={{ flex: "0 0 100px" }}><label style={lbl}>id</label><input style={cell} value={r.id} onChange={(e) => patchR(i, { id: e.target.value })} /></div>
+                  <div style={{ flex: "1 1 160px", minWidth: 0 }}><label style={lbl}>판정문 <Counter v={r.headline} max={RECO.headline} /></label><input style={cell} value={r.headline} onChange={(e) => patchR(i, { headline: e.target.value })} /></div>
+                  <div style={{ flex: "0 0 110px" }}><label style={lbl}>라벨 <Counter v={r.label || ""} max={RECO.label} /></label><input style={cell} value={r.label || ""} onChange={(e) => patchR(i, { label: e.target.value })} /></div>
+                  <button onClick={() => delR(i)} style={{ ...cell, width: "auto", color: "#C53030", cursor: "pointer" }}>삭제</button>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <label style={lbl}>결과 주의문구 <Counter v={r.notice_text || ""} max={RECO.notice} /></label>
+                  <input style={cell} value={r.notice_text || ""} onChange={(e) => patchR(i, { notice_text: e.target.value })} />
+                </div>
+              </div>
+            ))}
+
+            {/* 항목 검증 */}
+            <div style={{ marginTop: 12, fontSize: 12 }}>
+              {report.errors.length > 0 && (
+                <div style={{ background: "#FFF5F5", border: "1px solid #FEB2B2", color: "#C53030", borderRadius: 6, padding: 8 }}>
+                  <b>오류(공개 불가):</b><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{report.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+                </div>
+              )}
+              {(report.warnings.length > 0 || lengthWarnings.length > 0) && (
+                <div style={{ background: "#FFFAF0", border: "1px solid #FBD38D", color: "#9C4221", borderRadius: 6, padding: 8, marginTop: 6 }}>
+                  <b>경고:</b><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{[...report.warnings, ...lengthWarnings].map((w, i) => <li key={i}>{w}</li>)}</ul>
+                </div>
+              )}
+              {report.errors.length === 0 && report.warnings.length === 0 && lengthWarnings.length === 0 && (
+                <div style={{ color: "#276749" }}>✓ 구조 검증 통과</div>
+              )}
             </div>
           </div>
-        ))}
+        )}
 
-        {/* 결과 */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>결과</div>
-          <button className="btn-secondary" style={{ fontSize: 12 }} onClick={addR}>+ 결과 추가</button>
-        </div>
-        {cfg.results.map((r, i) => (
-          <div key={i} style={{ border: "1px solid var(--hw-border)", borderRadius: 8, padding: 10, margin: "8px 0", background: "#FAFBFC" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px auto", gap: 8, alignItems: "end" }}>
-              <div><label style={lbl}>id</label><input style={cell} value={r.id} onChange={(e) => patchR(i, { id: e.target.value })} /></div>
-              <div><label style={lbl}>판정문 <Counter v={r.headline} max={RECO.headline} /></label><input style={cell} value={r.headline} onChange={(e) => patchR(i, { headline: e.target.value })} /></div>
-              <div><label style={lbl}>라벨 <Counter v={r.label || ""} max={RECO.label} /></label><input style={cell} value={r.label || ""} onChange={(e) => patchR(i, { label: e.target.value })} /></div>
-              <button onClick={() => delR(i)} style={{ ...cell, width: "auto", color: "#C53030", cursor: "pointer" }}>삭제</button>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={lbl}>결과 주의문구 <Counter v={r.notice_text || ""} max={RECO.notice} /></label>
-              <input style={cell} value={r.notice_text || ""} onChange={(e) => patchR(i, { notice_text: e.target.value })} />
-            </div>
-          </div>
-        ))}
-
-        {/* 검증 */}
-        <div style={{ marginTop: 12, fontSize: 12 }}>
-          {report.errors.length > 0 && (
-            <div style={{ background: "#FFF5F5", border: "1px solid #FEB2B2", color: "#C53030", borderRadius: 6, padding: 8 }}>
-              <b>오류(게시 불가):</b><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{report.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
-            </div>
-          )}
-          {(report.warnings.length > 0 || lengthWarnings.length > 0) && (
-            <div style={{ background: "#FFFAF0", border: "1px solid #FBD38D", color: "#9C4221", borderRadius: 6, padding: 8, marginTop: 6 }}>
-              <b>경고:</b><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{[...report.warnings, ...lengthWarnings].map((w, i) => <li key={i}>{w}</li>)}</ul>
-            </div>
-          )}
-          {report.errors.length === 0 && report.warnings.length === 0 && lengthWarnings.length === 0 && (
-            <div style={{ color: "#276749" }}>✓ 구조 검증 통과</div>
-          )}
-        </div>
-
-        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
-          <button className="btn-secondary" onClick={() => setPreview(true)}>미리보기</button>
-          <button className="btn-secondary" disabled={saving} onClick={() => save(false)}>임시 저장</button>
-          <button className="btn-primary" disabled={saving || report.errors.length > 0} onClick={() => save(true)}>저장 후 공개</button>
-          <span style={{ fontSize: 12, color: published ? "#276749" : "#A0AEC0" }}>{published ? "● 공개 중" : "○ 비공개"}</span>
+        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn-secondary" disabled={!item} onClick={() => setPreview(true)}>미리보기</button>
+          <button className="btn-primary" disabled={saving} onClick={save}>저장(공개 상태 반영)</button>
+          <span style={{ fontSize: 12, color: "var(--hw-text-sub)" }}>공개 항목 {bundle.items.filter((it) => it.is_published).length}개</span>
         </div>
       </div>
 
-      {/* 360×740 미리보기(공개 컴포넌트 재사용) + 문자 본문 미리보기 */}
-      <div style={{ position: "sticky", top: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hw-text-sub)", marginBottom: 6 }}>미리보기 (360×740)</div>
+      {/* 미리보기 pane (공개 컴포넌트 재사용) */}
+      <div style={{ flex: "0 0 360px", maxWidth: "100%", position: "sticky", top: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--hw-text-sub)", marginBottom: 6 }}>
+          미리보기 (360×740){item ? ` — ${item.title || item.config.item_name}` : ""}
+        </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
-          <CommonCriteriaSelfCheck config={cfg} open={preview} onClose={() => setPreview(false)} frame={{ width: 360, height: 740 }} />
+          {item ? (
+            <CommonCriteriaSelfCheck items={previewItems} open={preview} onClose={() => setPreview(false)} frame={{ width: 360, height: 740 }} />
+          ) : null}
           {!preview && (
-            <div style={{ width: 360, height: 740, border: "1px dashed var(--hw-border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#A0AEC0", fontSize: 13 }}>
-              “미리보기”를 눌러 확인
+            <div style={{ width: 360, height: 740, maxWidth: "100%", boxSizing: "border-box", border: "1px dashed var(--hw-border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#A0AEC0", fontSize: 13 }}>
+              {item ? "“미리보기”를 눌러 확인" : "편집할 항목을 선택하세요"}
             </div>
           )}
         </div>

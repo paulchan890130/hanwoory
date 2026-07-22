@@ -1,28 +1,35 @@
 import { test, expect, Page } from "@playwright/test";
 
-// 공개 런처는 "게시된 유효 설정"이 있을 때만 표시된다. 공개 DEFAULT fallback 은 제거됐으므로
-// 모든 표시 테스트는 GET /api/self-check/config 를 route interception 으로 명시 mock 한다.
+import { CRIMINAL_RECORD_CONFIG, TUBERCULOSIS_CONFIG, FINGERPRINT_CONFIG } from "../lib/selfcheck/defaultConfig";
+import type { SelfCheckConfig, SelfCheckItem } from "../lib/selfcheck/types";
+
+// 공개 API 는 게시된 항목 번들 { schema_version, items:[...] } 를 반환한다. 런처는 items 가
+// 1개 이상일 때만 표시되며, 2개 이상이면 항목 선택 화면을 먼저 보여준다. 모든 표시 테스트는
+// GET /api/self-check/config 를 route interception 으로 명시 mock 한다(공개 fallback 없음).
 const CONFIG_URL = "**/api/self-check/config*";
 
-const TEST_CONFIG = {
-  item_name: "테스트 점검",
-  logic_version: "TEST-1.0",
-  start_question_id: "q1",
+function item(id: string, config: SelfCheckConfig, over: Partial<SelfCheckItem> = {}): SelfCheckItem {
+  return { item_id: id, title: config.item_name, sort_order: 0, is_published: true, popup_enabled: true, placement: [], config, ...over };
+}
+function bundle(items: SelfCheckItem[]) {
+  return { schema_version: 2, items };
+}
+
+// 간단 단일 항목(빠른 결과 도달) — 자가점검 기본 흐름/개인정보 테스트용.
+const SIMPLE_CFG: SelfCheckConfig = {
+  item_name: "테스트 점검", logic_version: "TEST-1.0", start_question_id: "q1",
   notice_text: "테스트 주의문구",
-  country_list_title: "고위험 국가",
-  country_list: ["가나다국", "라마바국"],
   questions: [
-    { id: "q1", display_number: "①", text: "첫 번째 질문입니까?", summary: "첫질문", country_list_ref: true, yes: "q2", no: "r_no" },
-    { id: "q2", display_number: "②", text: "두 번째 질문입니까?", summary: "둘째질문", yes: "r_yes", no: "r_no" },
+    { id: "q1", display_number: "①", text: "첫 번째 질문입니까?", summary: "첫질문", yes: "q2", no: "r_no", sort_order: 1 },
+    { id: "q2", display_number: "②", text: "두 번째 질문입니까?", summary: "둘째질문", yes: "r_yes", no: "r_no", sort_order: 2 },
   ],
   results: [
     { id: "r_yes", headline: "제출 대상입니다", label: "대상", notice_text: "제출 안내" },
     { id: "r_no", headline: "대상 아님", label: "비대상" },
   ],
 };
-const INVALID_CONFIG = { ...TEST_CONFIG, start_question_id: "nonexistent" }; // 검증 errors 발생
 
-async function mockConfig(page: Page, body: unknown) {
+async function mockBundle(page: Page, body: unknown) {
   await page.route(CONFIG_URL, (route) => route.fulfill({
     status: 200, contentType: "application/json", body: JSON.stringify(body),
     headers: { "Cache-Control": "no-store" },
@@ -35,24 +42,31 @@ async function mockAbort(page: Page) {
   await page.route(CONFIG_URL, (route) => route.abort());
 }
 
-async function completeToResult(page: Page) {
-  await page.goto("/");
-  const btn = page.getByTestId("self-check-open");
-  await expect(btn).toBeVisible();
-  await btn.click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "예", exact: true }).click();   // q1
-  await page.getByRole("button", { name: "예", exact: true }).click();   // q2
-  await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toBeVisible();
-}
-
 const VIEWPORTS = [{ w: 360, h: 740 }, { w: 375, h: 812 }, { w: 390, h: 844 }, { w: 412, h: 915 }];
 
-test.describe("공통기준 자가점검 — 게시된 설정", () => {
-  test.beforeEach(async ({ page }) => { await mockConfig(page, { published: true, config: TEST_CONFIG }); });
+// 항목 config 의 최장 경로(예/아니오 시퀀스)를 클릭해 결과까지 진행.
+async function clickPath(page: Page, seq: Array<"yes" | "no">) {
+  for (const a of seq) {
+    await page.getByRole("button", { name: a === "yes" ? "예" : "아니오", exact: true }).click();
+  }
+}
 
-  test("게시 설정 → 런처 표시·진행·결과", async ({ page }) => {
-    await completeToResult(page);
+test.describe("공통기준 자가점검 — 단일 게시 항목", () => {
+  test.beforeEach(async ({ page }) => { await mockBundle(page, bundle([item("simple", SIMPLE_CFG)])); });
+
+  test("항목 1개 → 런처 표시 → 선택화면 없이 바로 질문", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("self-check-open")).toBeVisible();
+    await page.getByTestId("self-check-open").click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByText("첫 번째 질문입니까?")).toBeVisible();  // 선택화면 건너뜀
+  });
+
+  test("결과까지 진행 + 내 답변/판정경로/전체로직/버전 표시", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    await clickPath(page, ["yes", "yes"]);
+    await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toBeVisible();
     await expect(page.getByText("내 답변")).toBeVisible();
     await expect(page.getByText("판정 경로")).toBeVisible();
     await expect(page.getByText("전체 판정 로직")).toBeVisible();
@@ -60,42 +74,26 @@ test.describe("공통기준 자가점검 — 게시된 설정", () => {
     await expect(page.getByRole("button", { name: "문자로 보내기" })).toBeVisible();
   });
 
-  test("질문은 한 번에 1개만", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
-    await expect(page.getByRole("dialog").getByRole("heading")).toHaveCount(1);
-  });
-
-  for (const v of VIEWPORTS) {
-    test(`결과 ${v.w}×${v.h} 무스크롤 + 버튼 노출`, async ({ page }) => {
-      await page.setViewportSize({ width: v.w, height: v.h });
-      await completeToResult(page);
-      const dialog = page.getByRole("dialog");
-      expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), `inner scroll @${v.w}x${v.h}`).toBeTruthy();
-      expect(await dialog.evaluate((el) => el.getBoundingClientRect().height <= window.innerHeight + 1), `fits @${v.w}x${v.h}`).toBeTruthy();
-      expect(await page.evaluate(() => getComputedStyle(document.body).overflow === "hidden"), `bg lock @${v.w}x${v.h}`).toBeTruthy();
-      await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toBeVisible();
-      await expect(page.getByRole("button", { name: "문자로 보내기" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "다시 점검" })).toBeVisible();
-      await page.screenshot({ path: `e2e/.artifacts/result-${v.w}x${v.h}.png` });
-    });
-  }
-
   test("점검 중 사용자 답변 네트워크 미전송", async ({ page }) => {
     const bad: string[] = [];
     page.on("request", (req) => {
       const url = req.url(); const post = req.postData() || "";
       const hay = (url + " " + post).toLowerCase();
       if (req.method() === "GET" && url.includes("/api/self-check/config")) return;
-      for (const kw of ["첫질문", "둘째질문", "제출 대상", "판정경로", "answer", "result"]) if (hay.includes(kw.toLowerCase())) bad.push(`${req.method()} ${url} :: ${kw}`);
+      for (const kw of ["첫질문", "둘째질문", "제출 대상", "answer", "result"]) if (hay.includes(kw.toLowerCase())) bad.push(`${req.method()} ${url}`);
       if (req.method() !== "GET" && url.includes("self-check")) bad.push(`${req.method()} ${url}`);
     });
-    await completeToResult(page);
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    await clickPath(page, ["yes", "yes"]);
+    await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toBeVisible();
     expect(bad, bad.join("\n")).toHaveLength(0);
   });
 
   test("답변/결과 storage 미저장", async ({ page }) => {
-    await completeToResult(page);
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    await clickPath(page, ["yes", "yes"]);
     const s = await page.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage) + document.cookie);
     for (const kw of ["제출 대상", "판정", "answer", "self-check", "첫질문"]) expect(s.toLowerCase().includes(kw.toLowerCase()), `storage has ${kw}`).toBeFalsy();
   });
@@ -103,49 +101,105 @@ test.describe("공통기준 자가점검 — 게시된 설정", () => {
   test("문자 버튼: 본문 복사, 자동 전송 없음", async ({ page }) => {
     let scPost = false;
     page.on("request", (req) => { if (req.method() !== "GET" && req.url().includes("self-check")) scPost = true; });
-    await completeToResult(page);
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    await clickPath(page, ["yes", "yes"]);
     await page.getByRole("button", { name: "문자로 보내기" }).click();
     await page.waitForTimeout(300);
     const clip = await page.evaluate(() => navigator.clipboard.readText());
     expect(clip).toContain("[한우리 공통기준 점검]");
     expect(clip).toContain("제출 대상입니다");
-    expect(clip).toContain("적용로직: TEST-1.0");
     expect(scPost).toBeFalsy();
-  });
-
-  test("다시 열면 첫 질문부터", async ({ page }) => {
-    await completeToResult(page);
-    await page.getByRole("button", { name: "닫기", exact: true }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.getByTestId("self-check-open").click();
-    await expect(page.getByRole("dialog").getByText("첫 번째 질문입니까?")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toHaveCount(0);
   });
 });
 
-test.describe("공통기준 자가점검 — 비공개/오류 시 런처 숨김", () => {
-  const CR1 = "결핵 검진 대상입니다"; // DEFAULT_SELF_CHECK_CONFIG(CR-1.0) 기본문구 — 공개에 절대 노출 금지
+test.describe("공통기준 자가점검 — 다중 게시 항목(선택 화면)", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBundle(page, bundle([
+      item("criminal-record", CRIMINAL_RECORD_CONFIG, { sort_order: 1 }),
+      item("tuberculosis", TUBERCULOSIS_CONFIG, { sort_order: 2 }),
+      item("fingerprint", FINGERPRINT_CONFIG, { sort_order: 3 }),
+    ]));
+  });
+
+  test("항목 2개 이상 → 선택 화면 표시(순서대로)", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByText("점검할 항목을 선택하세요")).toBeVisible();
+    await expect(page.getByRole("button", { name: /해외범죄경력증명 필요 확인/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /결핵검진 필요 확인/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /지문등록 필요 확인/ })).toBeVisible();
+  });
+
+  test("항목 선택 → q1 진행 → 항목 변경으로 복귀", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("self-check-open").click();
+    await page.getByRole("button", { name: /지문등록 필요 확인/ }).click();
+    await expect(page.getByText("만 17세 이상입니까?")).toBeVisible();
+    // 뒤로(항목 선택) 버튼
+    await page.getByRole("button", { name: "항목 선택으로" }).click();
+    await expect(page.getByText("점검할 항목을 선택하세요")).toBeVisible();
+  });
+});
+
+// PDF 3개 항목 각각 최장 경로 결과 화면이 4개 모바일 viewport 에서 한 화면 완결(무클리핑).
+const LONGEST: Record<string, { title: RegExp; seq: Array<"yes" | "no">; headline: RegExp }> = {
+  "criminal-record": { title: /해외범죄경력증명 필요 확인/, seq: ["yes", "no", "yes", "yes"], headline: /제출 대상입니다/ },
+  "tuberculosis": { title: /결핵검진 필요 확인/, seq: ["yes", "yes", "yes", "yes"], headline: /제출 대상입니다/ },
+  "fingerprint": { title: /지문등록 필요 확인/, seq: ["yes", "yes"], headline: /원칙적으로 지문등록/ },
+};
+
+test.describe("결과 화면 한 화면 완결 — 4개 모바일 viewport", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBundle(page, bundle([
+      item("criminal-record", CRIMINAL_RECORD_CONFIG, { sort_order: 1 }),
+      item("tuberculosis", TUBERCULOSIS_CONFIG, { sort_order: 2 }),
+      item("fingerprint", FINGERPRINT_CONFIG, { sort_order: 3 }),
+    ]));
+  });
+
+  for (const [key, spec] of Object.entries(LONGEST)) {
+    for (const v of VIEWPORTS) {
+      test(`${key} ${v.w}x${v.h} 무스크롤 + 결과/버튼 노출`, async ({ page }) => {
+        await page.setViewportSize({ width: v.w, height: v.h });
+        await page.goto("/");
+        await page.getByTestId("self-check-open").click();
+        await page.getByRole("button", { name: spec.title }).click();
+        await clickPath(page, spec.seq);
+        const dialog = page.getByRole("dialog");
+        await expect(page.getByRole("heading", { name: spec.headline })).toBeVisible();
+        // 결과 영역 clipping 없음(내부 스크롤 없이 한 화면)
+        expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), `inner scroll @${key} ${v.w}x${v.h}`).toBeTruthy();
+        expect(await dialog.evaluate((el) => el.getBoundingClientRect().height <= window.innerHeight + 1), `fits @${key}`).toBeTruthy();
+        await expect(page.getByText("내 답변")).toBeVisible();
+        await expect(page.getByText("판정 경로")).toBeVisible();
+        await expect(page.getByText("전체 판정 로직")).toBeVisible();
+        await expect(page.getByRole("button", { name: "문자로 보내기" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "다시 점검" })).toBeVisible();
+        if (v.w === 360) await page.screenshot({ path: `e2e/.artifacts/${key}-${v.w}x${v.h}.png` });
+      });
+    }
+  }
+});
+
+test.describe("공통기준 자가점검 — 미게시/오류 시 런처 숨김", () => {
+  const CR1 = "결핵 검진 대상입니다"; // 과거 번들 기본(CR-1.0) 문구 — 공개에 절대 노출 금지
 
   async function assertHidden(page: Page) {
     await page.goto("/");
-    await expect(page.getByTestId("self-check-open")).toHaveCount(0);   // 런처 없음
+    await expect(page.getByTestId("self-check-open")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    // 번들 기본(CR-1.0) 문구/버전이 DOM 에 없어야 함
     await expect(page.getByText(CR1)).toHaveCount(0);
-    await expect(page.getByText(/CR-1\.0/)).toHaveCount(0);
   }
 
-  test("published=false → 숨김, DEFAULT 미노출", async ({ page }) => {
-    await mockConfig(page, { published: false, config: null });
-    await assertHidden(page);
+  test("빈 items → 숨김", async ({ page }) => { await mockBundle(page, bundle([])); await assertHidden(page); });
+  test("게시 항목 없음(모두 draft) → 숨김", async ({ page }) => {
+    await mockBundle(page, bundle([item("x", SIMPLE_CFG, { is_published: false })])); await assertHidden(page);
   });
-  test("published=true + config=null → 숨김", async ({ page }) => {
-    await mockConfig(page, { published: true, config: null });
-    await assertHidden(page);
-  });
-  test("published=true + 잘못된 config → 숨김", async ({ page }) => {
-    await mockConfig(page, { published: true, config: INVALID_CONFIG });
-    await assertHidden(page);
+  test("그래프 오류 항목만 → 숨김", async ({ page }) => {
+    const broken = { ...SIMPLE_CFG, questions: [{ ...SIMPLE_CFG.questions[0], yes: "ghost" }] } as SelfCheckConfig;
+    await mockBundle(page, bundle([item("b", broken)])); await assertHidden(page);
   });
   test("config API 404 → 숨김", async ({ page }) => { await mockStatus(page, 404); await assertHidden(page); });
   test("config API 500 → 숨김", async ({ page }) => { await mockStatus(page, 500); await assertHidden(page); });

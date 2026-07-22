@@ -1,6 +1,6 @@
 // 공통기준 자가점검 — 순수 로직(부작용 없음, 메모리 전용).
 // 그래프 무결성 검증 + 답변요약/경로/전체로직 생성. 네트워크·스토리지 접근 없음.
-import type { SelfCheckConfig, SelfCheckQuestion, SelfCheckResult, SelfCheckAnswer } from "./types";
+import type { SelfCheckConfig, SelfCheckQuestion, SelfCheckResult, SelfCheckAnswer, SelfCheckItem, SelfCheckBundle } from "./types";
 
 export function getQuestion(cfg: SelfCheckConfig, id: string): SelfCheckQuestion | undefined {
   return cfg.questions.find((q) => q.id === id);
@@ -109,6 +109,71 @@ export function buildPathLine(cfg: SelfCheckConfig, answers: SelfCheckAnswer[], 
   const r = resultId ? getResult(cfg, resultId) : null;
   if (r) steps.push(r.label || r.headline);
   return steps.join(" → ");
+}
+
+// ── 다중 항목 번들 helpers ────────────────────────────────────────────────────
+// 저장 content 가 (a) v2 번들 {schema_version:2, items:[...]} 이거나 (b) 레거시 단일
+// SelfCheckConfig 일 수 있다. 어느 쪽이든 안전하게 번들로 정규화한다(파괴적 변경 없음).
+export function normalizeBundle(raw: unknown, legacyPublished = false): SelfCheckBundle {
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.items)) {
+      const items = (obj.items as unknown[])
+        .filter((it): it is SelfCheckItem => !!it && typeof it === "object" && !!(it as SelfCheckItem).config)
+        .map((it, i) => ({
+          ...it,
+          sort_order: typeof it.sort_order === "number" ? it.sort_order : i,
+          placement: Array.isArray(it.placement) ? it.placement : [],
+          is_published: !!it.is_published,
+          popup_enabled: it.popup_enabled !== false,
+        }));
+      return { schema_version: 2, items };
+    }
+    // 레거시 단일 config → item 1개로 감싼다(관리자에게 그대로 표시, DB 자동 변경 없음).
+    if (Array.isArray(obj.questions) && Array.isArray(obj.results)) {
+      const cfg = raw as SelfCheckConfig;
+      return {
+        schema_version: 2,
+        items: [{
+          item_id: "legacy", title: cfg.item_name || "기존 설정", description: null,
+          sort_order: 0, is_published: legacyPublished, popup_enabled: true,
+          placement: [], config: cfg,
+        }],
+      };
+    }
+  }
+  return { schema_version: 2, items: [] };
+}
+
+export interface BundleValidationReport {
+  errors: string[];
+  warnings: string[];
+  itemErrors: Record<string, string[]>; // item_id → errors
+}
+
+// 번들 무결성: item_id 중복/누락, 각 item.config 그래프 검증.
+export function validateBundle(bundle: SelfCheckBundle | null | undefined): BundleValidationReport {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const itemErrors: Record<string, string[]> = {};
+  if (!bundle || !Array.isArray(bundle.items)) return { errors: ["번들이 비어 있습니다."], warnings, itemErrors };
+  const ids = bundle.items.map((it) => it.item_id);
+  const dup = ids.filter((v, i) => ids.indexOf(v) !== i);
+  if (dup.length) errors.push(`중복 item_id: ${Array.from(new Set(dup)).join(", ")}`);
+  for (const it of bundle.items) {
+    if (!it.item_id || !it.item_id.trim()) { errors.push("item_id 가 비어 있는 항목이 있습니다."); continue; }
+    const rep = validateConfig(it.config);
+    if (rep.errors.length) itemErrors[it.item_id] = rep.errors;
+  }
+  return { errors, warnings, itemErrors };
+}
+
+// 공개(런처/공개 API)에 노출할 항목: 게시 + 팝업 + 그래프 유효 + sort_order 정렬.
+export function publishedItems(bundle: SelfCheckBundle | null | undefined): SelfCheckItem[] {
+  if (!bundle || !Array.isArray(bundle.items)) return [];
+  return bundle.items
+    .filter((it) => it.is_published && it.popup_enabled && validateConfig(it.config).errors.length === 0)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
 // 다음 스텝 계산(순수). 반환 target 이 result 면 {result}, question 이면 {question}.

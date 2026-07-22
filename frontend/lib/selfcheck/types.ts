@@ -41,6 +41,25 @@ export interface SelfCheckConfigEnvelope {
   config: SelfCheckConfig | null;
 }
 
+// ── 다중 항목 번들(schema v2) ────────────────────────────────────────────────
+// PDF 기준 3개(해외범죄경력/결핵/지문)를 개별 항목으로 관리한다. 항목별 공개·순서·
+// 팝업표시·노출위치·로직버전을 갖는다. 사용자 답변은 여전히 저장하지 않는다.
+export interface SelfCheckItem {
+  item_id: string;            // criminal-record | tuberculosis | fingerprint ...
+  title: string;              // 항목 제목(런처/선택화면 표시)
+  description?: string | null;
+  sort_order: number;         // 결정적 표시 순서
+  is_published: boolean;      // 항목별 공개 여부
+  popup_enabled: boolean;     // 공개 팝업(런처) 노출 여부
+  placement: string[];        // 노출 위치(예: ["home"]) — 향후 확장, 빈 배열 허용
+  config: SelfCheckConfig;    // 질문 그래프/결과(항목별 로직 버전 포함)
+}
+
+export interface SelfCheckBundle {
+  schema_version: 2;
+  items: SelfCheckItem[];
+}
+
 // 사용자 진행 중 메모리 state (저장 금지 — 참고용 타입).
 export interface SelfCheckAnswer {
   question_id: string;

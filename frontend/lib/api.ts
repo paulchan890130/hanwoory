@@ -1914,8 +1914,10 @@ export const accountSecurityApi = {
 // 공개는 게시된 설정만 GET. 답변 제출/결과 저장 endpoint는 존재하지 않는다.
 const _pubSC = { headers: { "X-Skip-Auth-Redirect": "1" } };
 export const selfCheckApi = {
-  getPublic: () => api.get("/api/self-check/config", _pubSC),   // { published, config }
+  // 공개: 게시된 항목 번들 { schema_version, items:[...] } (답변/결과 제출 endpoint 없음)
+  getPublic: () => api.get("/api/self-check/config", _pubSC),
+  // 관리: 전체 번들 조회/저장
   adminGet: () => api.get("/api/self-check/admin/config"),
-  adminSave: (config: unknown, is_published: boolean) =>
-    api.put("/api/self-check/admin/config", { config, is_published }),
+  adminSave: (bundle: unknown) =>
+    api.put("/api/self-check/admin/config", { bundle }),
 };

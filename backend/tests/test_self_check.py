@@ -137,6 +137,101 @@ def test_admin_endpoints_require_system_admin():
             assert require_system_admin in deps, f"{rt.path} not gated by require_system_admin"
 
 
+# ── 다중 항목 번들(schema v2) ────────────────────────────────────────────────
+from backend.routers.self_check import _normalize_bundle, _public_items  # noqa: E402
+
+
+def _item(item_id, published=True, popup=True, cfg=None):
+    return {
+        "item_id": item_id, "title": item_id, "sort_order": 0,
+        "is_published": published, "popup_enabled": popup,
+        "placement": [], "config": cfg or _valid_cfg(),
+    }
+
+
+def test_normalize_legacy_single_config_wraps_one_item():
+    # 레거시 단일 config → item 1개 번들(파괴적 변경 없음).
+    b = _normalize_bundle(_valid_cfg(), legacy_published=True)
+    assert b["schema_version"] == 2
+    assert len(b["items"]) == 1
+    assert b["items"][0]["item_id"] == "legacy"
+    assert b["items"][0]["is_published"] is True
+    assert b["items"][0]["config"]["logic_version"] == "CR-1.0"
+
+
+def test_normalize_v2_bundle_passthrough():
+    raw = {"schema_version": 2, "items": [_item("a"), _item("b")]}
+    b = _normalize_bundle(raw)
+    assert [it["item_id"] for it in b["items"]] == ["a", "b"]
+
+
+def test_normalize_corrupt_returns_empty():
+    assert _normalize_bundle("not-json-object")["items"] == []
+    assert _normalize_bundle({"foo": "bar"})["items"] == []
+
+
+def test_public_items_only_published_valid_popup_sorted():
+    bad = _valid_cfg()
+    bad["questions"][0]["yes"] = "ghost"  # 그래프 오류 → 공개 제외
+    items = [
+        {**_item("z", published=True), "sort_order": 2},
+        {**_item("a", published=True), "sort_order": 1},
+        _item("hidden", published=False),
+        _item("nopopup", published=True, popup=False),
+        {**_item("broken", published=True), "config": bad},
+    ]
+    out = _public_items({"schema_version": 2, "items": items})
+    ids = [it["item_id"] for it in out]
+    assert ids == ["a", "z"]  # 정렬 + 게시/팝업/유효만
+
+
+def test_save_rejects_duplicate_item_id(monkeypatch):
+    from backend.routers import self_check as sc
+    import backend.db.session as dbs
+    monkeypatch.setattr(dbs, "is_configured", lambda: True)
+    monkeypatch.setattr("backend.services.marketing_pg_service.upsert_post", lambda rec: rec)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_item("dup"), _item("dup")]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+
+
+def test_save_blocks_publishing_item_with_graph_error(monkeypatch):
+    from backend.routers import self_check as sc
+    import backend.db.session as dbs
+    monkeypatch.setattr(dbs, "is_configured", lambda: True)
+    monkeypatch.setattr("backend.services.marketing_pg_service.upsert_post", lambda rec: rec)
+    bad = _valid_cfg(); bad["questions"][0]["yes"] = "ghost"
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_item("x", published=True, cfg=bad)]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+
+
+def test_save_allows_unpublished_draft_with_error(monkeypatch):
+    # 비공개(draft) 항목은 그래프 오류가 있어도 저장 허용(공개만 차단).
+    from backend.routers import self_check as sc
+    import backend.db.session as dbs
+    saved = {}
+    monkeypatch.setattr(dbs, "is_configured", lambda: True)
+    monkeypatch.setattr("backend.services.marketing_pg_service.upsert_post", lambda rec: saved.update(rec) or rec)
+    bad = _valid_cfg(); bad["questions"][0]["yes"] = "ghost"
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_item("x", published=False, cfg=bad)]})
+    res = sc.admin_save_config(body, user={"login_id": "sys"})
+    assert res["ok"] is True and saved["is_published"] == "FALSE"
+
+
+def test_no_answer_submission_endpoint():
+    # 사용자 답변/결과 제출 endpoint 가 존재하지 않는다(개인정보 무저장).
+    from fastapi.routing import APIRoute
+    paths = [(rt.path, tuple(rt.methods or ())) for rt in router.routes if isinstance(rt, APIRoute)]
+    for path, methods in paths:
+        low = path.lower()
+        assert not any(k in low for k in ("answer", "result", "submit", "response")), f"의심 endpoint: {path}"
+        # POST 로 사용자 데이터를 받는 config 저장 외 endpoint 가 없어야 함
+    assert not any("POST" in m and "/admin/config" not in p for p, m in paths)
+
+
 def test_public_config_has_no_auth_dependency():
     from backend.auth import require_system_admin
     from fastapi.routing import APIRoute
@@ -146,66 +241,59 @@ def test_public_config_has_no_auth_dependency():
             assert require_system_admin not in deps
 
 
-# ── 공개 여부(envelope / public GET) ──────────────────────────────────────────
+# ── 공개 GET (번들 shape) ─────────────────────────────────────────────────────
 def _valid_cfg_json():
     import json
     return json.dumps(_valid_cfg(), ensure_ascii=False)
 
 
-def test_envelope_no_row():
-    from backend.routers.self_check import _envelope
-    assert _envelope(None) == {"published": False, "config": None}
+def _bundle_json(items):
+    import json
+    return json.dumps({"schema_version": 2, "items": items}, ensure_ascii=False)
 
 
-def test_envelope_unpublished():
-    from backend.routers.self_check import _envelope
-    env = _envelope({"is_published": "FALSE", "content": _valid_cfg_json()})
-    assert env["published"] is False
-
-
-def test_envelope_published_valid():
-    from backend.routers.self_check import _envelope
-    env = _envelope({"is_published": "TRUE", "content": _valid_cfg_json()})
-    assert env["published"] is True and isinstance(env["config"], dict)
-
-
-def test_envelope_published_corrupt_json():
-    from backend.routers.self_check import _envelope
-    env = _envelope({"is_published": "TRUE", "content": "{ this is not json"})
-    assert env["published"] is True and env["config"] is None
-
-
-def test_public_get_config_hides_when_no_row(monkeypatch):
+def test_public_get_config_empty_when_no_row(monkeypatch):
     from fastapi import Response
     import backend.routers.self_check as sc
     monkeypatch.setattr(sc, "_load_row", lambda: None)
     out = sc.public_get_config(Response())
-    assert out == {"published": False, "config": None}
+    assert out == {"schema_version": 2, "items": []}
 
 
-def test_public_get_config_hides_unpublished(monkeypatch):
+def test_public_get_config_hides_unpublished_legacy(monkeypatch):
+    # 레거시 단일 config + 행 미게시 → item is_published=False → 공개 항목 0.
     from fastapi import Response
     import backend.routers.self_check as sc
     monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "FALSE", "content": _valid_cfg_json()})
-    assert sc.public_get_config(Response()) == {"published": False, "config": None}
+    assert sc.public_get_config(Response())["items"] == []
 
 
-def test_public_get_config_hides_published_corrupt(monkeypatch):
+def test_public_get_config_hides_corrupt(monkeypatch):
     from fastapi import Response
     import backend.routers.self_check as sc
     monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": "{bad"})
-    # 게시됐지만 손상 → 공개로 흘리지 않음(안전 비공개 응답)
-    assert sc.public_get_config(Response()) == {"published": False, "config": None}
+    assert sc.public_get_config(Response())["items"] == []
 
 
-def test_public_get_config_returns_published_valid(monkeypatch):
+def test_public_get_config_returns_published_bundle(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    content = _bundle_json([_item("criminal-record", published=True), _item("hidden", published=False)])
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    r = Response()
+    out = sc.public_get_config(r)
+    assert out["schema_version"] == 2
+    assert [it["item_id"] for it in out["items"]] == ["criminal-record"]  # 게시만
+    assert r.headers.get("Cache-Control") == "no-store"
+
+
+def test_public_get_config_legacy_published_wrapped(monkeypatch):
+    # 레거시 단일 config + 행 게시 → item 1개로 감싸 공개.
     from fastapi import Response
     import backend.routers.self_check as sc
     monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _valid_cfg_json()})
-    r = Response()
-    out = sc.public_get_config(r)
-    assert out["published"] is True and isinstance(out["config"], dict)
-    assert r.headers.get("Cache-Control") == "no-store"  # 캐시 방지
+    out = sc.public_get_config(Response())
+    assert len(out["items"]) == 1 and out["items"][0]["item_id"] == "legacy"
 
 
 def test_router_has_no_answer_or_result_submission_endpoint():
