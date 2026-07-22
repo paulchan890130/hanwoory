@@ -1,6 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 
 import { CRIMINAL_RECORD_CONFIG, TUBERCULOSIS_CONFIG, FINGERPRINT_CONFIG } from "../lib/selfcheck/defaultConfig";
+import { TUBERCULOSIS_HIGH_RISK_COUNTRIES } from "../lib/selfcheck/tuberculosis";
 import type { SelfCheckConfig, SelfCheckItem } from "../lib/selfcheck/types";
 
 // 공개 API 는 게시된 항목 번들 { schema_version, items:[...] } 를 반환한다. 런처는 items 가
@@ -319,5 +320,51 @@ test.describe("공통기준 자가점검 관리자 편집기", () => {
     await expect(page.getByTestId("selfcheck-legacy-banner")).toBeVisible();
     // 배너 안내 + '불러오기' 버튼이 함께 존재(둘 다 같은 문구 → 버튼 role 로 특정).
     await expect(page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" })).toBeVisible();
+  });
+
+  test("결핵 항목 선택 → 공식 35/35 + 출처 metadata 표시", async ({ page }) => {
+    await authAndGoto(page, v2Bundle);
+    await page.getByText("결핵검진 필요 확인").first().click();  // 항목 목록에서 TB 선택
+    await expect(page.getByTestId("tb-status")).toBeVisible();
+    await expect(page.getByTestId("tb-status-count")).toContainText("35/35");
+    await expect(page.getByTestId("tb-status-match")).toContainText("예");
+    await expect(page.getByTestId("tb-status-source")).toContainText("완료");
+    // source metadata 편집칸 노출 + 값 존재
+    await expect(page.getByTestId("tb-source-title")).toBeVisible();
+    await expect(page.getByTestId("tb-source-title")).not.toHaveValue("");
+  });
+
+  test("결핵 국가 목록 부족 → 공개 체크 차단(원상복구)", async ({ page }) => {
+    const shortTb: SelfCheckConfig = { ...TUBERCULOSIS_CONFIG, country_list: TUBERCULOSIS_HIGH_RISK_COUNTRIES.slice(0, 17) };
+    const body = {
+      schema_version: 2,
+      items: [{ item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "", sort_order: 1, is_published: false, popup_enabled: true, placement: ["home"], config: shortTb }],
+    };
+    await authAndGoto(page, body);
+    const cb = page.getByTestId("publish-tuberculosis");
+    await expect(cb).not.toBeChecked();
+    await cb.click();  // 공개 시도 → 검증 미통과 → 안내 후 원상복구
+    await expect(page.getByText("결핵 항목은 공식 35개국 목록과 출처 확인이 완료된 경우에만 공개할 수 있습니다.")).toBeVisible();
+    await expect(cb).not.toBeChecked();
+  });
+
+  test("결핵 35개국 완비 → 공개 체크 허용", async ({ page }) => {
+    const body = {
+      schema_version: 2,
+      items: [{ item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "", sort_order: 1, is_published: false, popup_enabled: true, placement: ["home"], config: TUBERCULOSIS_CONFIG }],
+    };
+    await authAndGoto(page, body);
+    const cb = page.getByTestId("publish-tuberculosis");
+    await cb.click();
+    await expect(cb).toBeChecked();
+  });
+
+  test("obsolete legacy → 경고 배너 + 공개 안내", async ({ page }) => {
+    const body = { schema_version: 2, items: [{ item_id: "legacy", title: "기존 설정", description: null, sort_order: 0, is_published: true, popup_enabled: true, placement: ["home"], config: legacyContent }], obsolete_legacy: true };
+    await authAndGoto(page, body);
+    await expect(page.getByTestId("selfcheck-obsolete-banner")).toBeVisible();
+    await expect(page.getByTestId("selfcheck-obsolete-banner")).toContainText("폐기 대상");
+    // obsolete 일 때는 일반 legacy 배너를 대신 표시하지 않는다.
+    await expect(page.getByTestId("selfcheck-legacy-banner")).toHaveCount(0);
   });
 });

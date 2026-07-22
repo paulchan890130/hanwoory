@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 
 import { CRIMINAL_RECORD_CONFIG, TUBERCULOSIS_CONFIG, FINGERPRINT_CONFIG } from "../lib/selfcheck/defaultConfig";
 import { nextStep, validateConfig } from "../lib/selfcheck/logic";
+import {
+  TUBERCULOSIS_HIGH_RISK_COUNTRIES, TB_CANONICAL_COUNT, verifyTuberculosis, normalizeCountry, isTuberculosisItem,
+} from "../lib/selfcheck/tuberculosis";
 import type { SelfCheckConfig } from "../lib/selfcheck/types";
 
 // PDF 기준 판정 로직 — 순수 그래프 검증(브라우저 불필요). 답변 경로별 종결 결과를 확인한다.
@@ -54,6 +57,69 @@ test.describe("결핵검진 (TB-1.0)", () => {
     const q4 = TUBERCULOSIS_CONFIG.questions.find((q) => q.id === "q4");
     expect(q4?.text).toContain("6개월 이상");
     expect(q4?.text).toContain("이후");
+  });
+});
+
+test.describe("결핵 고위험 국가 공식 35개국 + 게시 검증", () => {
+  const MISSING_18 = [
+    "말레이시아", "스리랑카", "우즈베키스탄", "카자흐스탄", "우크라이나", "아제르바이잔",
+    "벨라루스", "몰도바공화국", "나이지리아", "남아프리카공화국", "에티오피아",
+    "콩고민주공화국", "케냐", "모잠비크", "짐바브웨", "앙골라", "페루", "파푸아뉴기니",
+  ];
+
+  test("공식 목록 정확히 35개 · 중복 0 · 빈 문자열 없음", () => {
+    expect(TUBERCULOSIS_HIGH_RISK_COUNTRIES.length).toBe(35);
+    expect(TB_CANONICAL_COUNT).toBe(35);
+    expect(new Set(TUBERCULOSIS_HIGH_RISK_COUNTRIES).size).toBe(35);
+    expect(TUBERCULOSIS_HIGH_RISK_COUNTRIES.every((c) => c.trim().length > 0)).toBeTruthy();
+  });
+
+  test("기존 누락 18개국 모두 포함", () => {
+    for (const c of MISSING_18) expect(TUBERCULOSIS_HIGH_RISK_COUNTRIES).toContain(c);
+  });
+
+  test("기본 TB config 는 게시 검증 통과(35/35·출처 완료)", () => {
+    const v = verifyTuberculosis(TUBERCULOSIS_CONFIG);
+    expect(v.ok).toBeTruthy();
+    expect(v.count).toBe(35);
+    expect(v.dup).toBe(0);
+    expect(v.matchesCanonical).toBeTruthy();
+    expect(v.hasSource).toBeTruthy();
+    expect(v.banned).toBeFalsy();
+  });
+
+  test("17개 목록 → 게시 검증 실패", () => {
+    const v = verifyTuberculosis({ ...TUBERCULOSIS_CONFIG, country_list: TUBERCULOSIS_HIGH_RISK_COUNTRIES.slice(0, 17) });
+    expect(v.ok).toBeFalsy();
+    expect(v.count).toBe(17);
+  });
+
+  test("잘못된 국가 치환 → 공식 set 불일치", () => {
+    const bad = [...TUBERCULOSIS_HIGH_RISK_COUNTRIES]; bad[0] = "대한민국";
+    const v = verifyTuberculosis({ ...TUBERCULOSIS_CONFIG, country_list: bad });
+    expect(v.matchesCanonical).toBeFalsy();
+    expect(v.ok).toBeFalsy();
+  });
+
+  test("source metadata 누락 → 게시 검증 실패", () => {
+    const v = verifyTuberculosis({
+      ...TUBERCULOSIS_CONFIG,
+      country_list_source_title: "", country_list_source_date: "", country_list_verified_at: "",
+    });
+    expect(v.hasSource).toBeFalsy();
+    expect(v.ok).toBeFalsy();
+  });
+
+  test("키르기스 alias 는 canonical 과 동일", () => {
+    expect(normalizeCountry("키르기스")).toBe("키르기스스탄");
+    const aliased = TUBERCULOSIS_HIGH_RISK_COUNTRIES.map((c) => (c === "키르기스스탄" ? "키르기스" : c));
+    expect(verifyTuberculosis({ ...TUBERCULOSIS_CONFIG, country_list: aliased }).ok).toBeTruthy();
+  });
+
+  test("isTuberculosisItem: item_id 또는 TB-1.0 로 식별", () => {
+    expect(isTuberculosisItem({ item_id: "tuberculosis", config: CRIMINAL_RECORD_CONFIG })).toBeTruthy();
+    expect(isTuberculosisItem({ item_id: "x", config: TUBERCULOSIS_CONFIG })).toBeTruthy();
+    expect(isTuberculosisItem({ item_id: "x", config: FINGERPRINT_CONFIG })).toBeFalsy();
   });
 });
 

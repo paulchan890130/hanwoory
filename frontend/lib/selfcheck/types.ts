@@ -31,6 +31,11 @@ export interface SelfCheckConfig {
   notice_text?: string | null;
   country_list?: string[];   // 결핵 고위험 국가 목록(첫 질문에서만 표시)
   country_list_title?: string | null;
+  // 국가 목록 출처 metadata(관리자 설정 — 사용자 답변과 무관, 원문 URL 은 저장하지 않음).
+  country_list_source_title?: string | null;   // 예: "법무부 … 공식 안내"
+  country_list_source_date?: string | null;    // 예: "2020-04-01 기준 35개국"
+  country_list_verified_at?: string | null;    // 예: "2026-07-23"
+  country_list_source_note?: string | null;    // 대조 기준 설명
   questions: SelfCheckQuestion[];
   results: SelfCheckResult[];
 }

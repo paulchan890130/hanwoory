@@ -9,6 +9,7 @@ import type { SelfCheckConfig, SelfCheckQuestion, SelfCheckResult, SelfCheckItem
 import { DEFAULT_SELF_CHECK_BUNDLE } from "@/lib/selfcheck/defaultConfig";
 import { validateConfig, validateBundle, buildFullLogic } from "@/lib/selfcheck/logic";
 import { buildSmsBody } from "@/lib/selfcheck/sms";
+import { verifyTuberculosis, isTuberculosisItem, TB_SOURCE_META, TB_CANONICAL_COUNT } from "@/lib/selfcheck/tuberculosis";
 import CommonCriteriaSelfCheck from "./CommonCriteriaSelfCheck";
 
 const RECO = { item_name: 22, headline: 18, label: 8, question_text: 44, summary: 16, notice: 90 };
@@ -38,7 +39,7 @@ function emptyItem(n: number): SelfCheckItem {
   };
 }
 
-export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?: SelfCheckBundle | null }) {
+export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = false }: { initialBundle?: SelfCheckBundle | null; obsoleteLegacy?: boolean }) {
   const [bundle, setBundle] = useState<SelfCheckBundle>(
     initialBundle && initialBundle.items?.length ? initialBundle : { schema_version: 2, items: [] },
   );
@@ -53,6 +54,9 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
   const item: SelfCheckItem | undefined = bundle.items[selIdx];
   const cfg = item?.config;
   const report = useMemo(() => (cfg ? validateConfig(cfg) : { errors: ["항목이 선택되지 않았습니다."], warnings: [] }), [cfg]);
+  // 결핵(TB) 항목이면 공식 35개국·출처·폐기문구 검증 상태(공개 조건). 서버가 최종 권위.
+  const isTbItem = !!item && isTuberculosisItem(item);
+  const tbStatus = useMemo(() => (isTbItem && cfg ? verifyTuberculosis(cfg) : null), [isTbItem, cfg]);
 
   const targets = useMemo(() => (cfg
     ? [...cfg.questions.map((q) => ({ id: q.id, label: `질문 ${q.display_number} (${q.id})` })),
@@ -78,6 +82,16 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
   // ── 항목/설정 mutation helpers ──
   const setItem = (i: number, p: Partial<SelfCheckItem>) =>
     setBundle((b) => ({ ...b, items: b.items.map((it, j) => (j === i ? { ...it, ...p } : it)) }));
+  // 공개 토글 가드: 결핵(TB) 항목은 공식 35개국·출처 확인이 완료된 경우에만 공개 가능(프론트 편의 검증).
+  // 조건 미충족 시 즉시 오류 안내 후 원상복구(상태 미변경 → 컨트롤드 체크박스 자동 복귀).
+  const tryTogglePublish = (i: number, checked: boolean) => {
+    const it = bundle.items[i];
+    if (checked && it && isTuberculosisItem(it) && !verifyTuberculosis(it.config).ok) {
+      toast.error("결핵 항목은 공식 35개국 목록과 출처 확인이 완료된 경우에만 공개할 수 있습니다.");
+      return;
+    }
+    setItem(i, { is_published: checked });
+  };
   const patchCfg = (p: Partial<SelfCheckConfig>) =>
     setBundle((b) => ({ ...b, items: b.items.map((it, j) => (j === selIdx ? { ...it, config: { ...it.config, ...p } } : it)) }));
   const patchQ = (qi: number, p: Partial<SelfCheckQuestion>) =>
@@ -117,6 +131,9 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
     const blocked = bundle.items.filter((it) => it.is_published && (bundleReport.itemErrors[it.item_id]?.length));
     if (blocked.length) { toast.error(`게시하려는 항목의 오류를 먼저 수정하세요: ${blocked.map((b) => b.title).join(", ")}`); return; }
     if (bundleReport.errors.length) { toast.error(bundleReport.errors[0]); return; }
+    // 결핵(TB) 항목을 공개하려면 공식 35개국·출처 확인 완료 필수(서버도 TB_COUNTRY_LIST_NOT_VERIFIED 로 400).
+    const tbBlocked = bundle.items.filter((it) => it.is_published && isTuberculosisItem(it) && !verifyTuberculosis(it.config).ok);
+    if (tbBlocked.length) { toast.error("결핵 항목은 공식 35개국 목록과 출처 확인이 완료된 경우에만 공개할 수 있습니다."); return; }
     setSaving(true);
     try {
       await selfCheckApi.adminSave(bundle);
@@ -134,7 +151,14 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
-      {isLegacy && (
+      {obsoleteLegacy && (
+        <div data-testid="selfcheck-obsolete-banner" style={{ flex: "1 1 100%", background: "#FFF5F5", border: "1px solid #FEB2B2",
+          color: "#C53030", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>
+          현재 공개 설정은 <b>폐기 대상인 구형 결핵 판정 로직</b>입니다. 공개 홈페이지에서는 안전을 위해 표시되지 않습니다.
+          ‘PDF 기준 3개 기본 항목 불러오기’ 후 내용을 검토하고 저장하세요. 자동으로 운영 설정을 변경하지 않습니다.
+        </div>
+      )}
+      {isLegacy && !obsoleteLegacy && (
         <div data-testid="selfcheck-legacy-banner" style={{ flex: "1 1 100%", background: "#FFFAF0", border: "1px solid #FBD38D",
           color: "#9C4221", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>
           현재 저장본은 <b>기존 단일 자가점검 설정</b>입니다. PDF 기준 3개 항목을 적용하려면
@@ -163,7 +187,7 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
               <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", flex: "1 1 140px", minWidth: 0 }}>{it.title || it.config.item_name || "(제목 없음)"}</span>
               <span style={{ fontSize: 11, color: "#A0AEC0" }}>{it.config.logic_version}</span>
               <label style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }} onClick={(e) => e.stopPropagation()}>
-                <input type="checkbox" checked={it.is_published} onChange={(e) => setItem(i, { is_published: e.target.checked })} /> 공개
+                <input type="checkbox" data-testid={`publish-${it.item_id}`} checked={it.is_published} onChange={(e) => tryTogglePublish(i, e.target.checked)} /> 공개
               </label>
               <label style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" checked={it.popup_enabled} onChange={(e) => setItem(i, { popup_enabled: e.target.checked })} /> 팝업
@@ -232,6 +256,41 @@ export default function SelfCheckAdminEditor({ initialBundle }: { initialBundle?
                 value={(cfg.country_list || []).join("\n")}
                 onChange={(e) => patchCfg({ country_list: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
             </div>
+
+            {/* 결핵(TB) 항목: 공식 35개국·출처 확인 상태 + 출처 metadata 편집 */}
+            {isTbItem && tbStatus && (
+              <div data-testid="tb-status" style={{ marginBottom: 12, border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: 10, background: "var(--hw-gold-50)" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>결핵 고위험 국가 공식 확인</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 6, fontSize: 12, marginBottom: 8 }}>
+                  <span data-testid="tb-status-count">목록: <b style={{ color: tbStatus.count === TB_CANONICAL_COUNT ? "#276749" : "#C53030" }}>{tbStatus.count}/{TB_CANONICAL_COUNT}</b></span>
+                  <span data-testid="tb-status-dup">중복: <b style={{ color: tbStatus.dup === 0 ? "#276749" : "#C53030" }}>{tbStatus.dup}</b></span>
+                  <span data-testid="tb-status-match">공식 set 일치: <b style={{ color: tbStatus.matchesCanonical ? "#276749" : "#C53030" }}>{tbStatus.matchesCanonical ? "예" : "아니오"}</b></span>
+                  <span data-testid="tb-status-source">출처 정보: <b style={{ color: tbStatus.hasSource ? "#276749" : "#C53030" }}>{tbStatus.hasSource ? "완료" : "미완료"}</b></span>
+                </div>
+                {!tbStatus.ok && (
+                  <div style={{ fontSize: 12, color: "#C53030", marginBottom: 8, lineHeight: 1.5 }}>
+                    공식 35개국 목록과 출처 확인이 완료된 경우에만 공개할 수 있습니다.
+                    {tbStatus.banned && <div>· 폐기된 과거 문구가 포함되어 있습니다(공개 불가).</div>}
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+                  <div><label style={lbl}>출처 제목</label><input data-testid="tb-source-title" style={cell} value={cfg.country_list_source_title || ""} onChange={(e) => patchCfg({ country_list_source_title: e.target.value })} /></div>
+                  <div><label style={lbl}>출처 기준·일자</label><input data-testid="tb-source-date" style={cell} value={cfg.country_list_source_date || ""} onChange={(e) => patchCfg({ country_list_source_date: e.target.value })} /></div>
+                  <div><label style={lbl}>최종 대조일</label><input data-testid="tb-verified-at" style={cell} value={cfg.country_list_verified_at || ""} onChange={(e) => patchCfg({ country_list_verified_at: e.target.value })} /></div>
+                  <div><label style={lbl}>대조 기준 설명</label><input data-testid="tb-source-note" style={cell} value={cfg.country_list_source_note || ""} onChange={(e) => patchCfg({ country_list_source_note: e.target.value })} /></div>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 11, color: "var(--hw-text-sub)", lineHeight: 1.5 }}>
+                  공식 목록 확인: {TB_CANONICAL_COUNT}개국 · 확인 기준: {TB_SOURCE_META.country_list_source_date} · 최종 대조: {cfg.country_list_verified_at || TB_SOURCE_META.country_list_verified_at}
+                </div>
+                <button className="btn-secondary" style={{ fontSize: 11, marginTop: 6 }}
+                  onClick={() => patchCfg({
+                    country_list_source_title: cfg.country_list_source_title || TB_SOURCE_META.country_list_source_title,
+                    country_list_source_date: cfg.country_list_source_date || TB_SOURCE_META.country_list_source_date,
+                    country_list_verified_at: cfg.country_list_verified_at || TB_SOURCE_META.country_list_verified_at,
+                    country_list_source_note: cfg.country_list_source_note || TB_SOURCE_META.country_list_source_note,
+                  })}>출처 기본값 채우기</button>
+              </div>
+            )}
 
             {/* 질문 */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>

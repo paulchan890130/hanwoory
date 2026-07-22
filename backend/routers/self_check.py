@@ -22,6 +22,132 @@ router = APIRouter()
 CONFIG_ID = "common-criteria-self-check"
 CONFIG_CATEGORY = "self_check_config"
 
+# 공개 런처가 실제 배치된(지원되는) 노출 위치. 프론트 SUPPORTED_PLACEMENTS 와 동일.
+SUPPORTED_PLACEMENTS: frozenset[str] = frozenset({"home"})
+
+# ── 결핵검진(TB-1.0) 공식 기준 (source of truth) ──────────────────────────────
+# 법무부 결핵검사 의무화 대상국가(2020.4.1. 확대, 35개국) 및 2025~2026년 재외공관 공식
+# 안내와 대조한 목록. 프론트 lib/selfcheck/tuberculosis.ts 와 동일해야 한다(서버가 최종 권위).
+TB_HIGH_RISK_COUNTRIES: list[str] = [
+    "네팔", "동티모르", "러시아", "말레이시아", "몽골", "미얀마", "방글라데시",
+    "베트남", "스리랑카", "우즈베키스탄", "인도", "인도네시아", "중국", "캄보디아",
+    "키르기스스탄", "태국", "파키스탄", "필리핀", "라오스", "카자흐스탄", "타지키스탄",
+    "우크라이나", "아제르바이잔", "벨라루스", "몰도바공화국", "나이지리아",
+    "남아프리카공화국", "에티오피아", "콩고민주공화국", "케냐", "모잠비크", "짐바브웨",
+    "앙골라", "페루", "파푸아뉴기니",
+]
+# 표기 alias — 검색·비교 시 동일 국가로 취급(화면 표기는 canonical).
+TB_COUNTRY_ALIASES: dict[str, str] = {
+    "키르기스": "키르기스스탄", "키르기즈": "키르기스스탄", "키르기스공화국": "키르기스스탄",
+    "몰도바": "몰도바공화국", "남아공": "남아프리카공화국", "콩고": "콩고민주공화국",
+}
+
+
+def _normalize_country(name: Any) -> str:
+    s = "".join(str(name or "").split())  # 모든 공백 제거
+    return TB_COUNTRY_ALIASES.get(s, s)
+
+
+TB_CANONICAL_SET: frozenset[str] = frozenset(_normalize_country(c) for c in TB_HIGH_RISK_COUNTRIES)
+TB_CANONICAL_COUNT = len(TB_CANONICAL_SET)  # 35
+
+# 폐기된 과거(잘못된) 결핵 판정 문구 — 하나라도 있으면 게시/공개 차단.
+TB_BANNED_PHRASES: tuple[str, ...] = (
+    "90일을 초과하는 장기체류",
+    "최근 6개월 이내 결핵검진",
+    "최근 6개월 이내 결핵검진 확인서 제출 이력",
+    "6개월내 검진 제출이력",
+)
+
+
+def _config_text_blob(cfg: dict) -> str:
+    parts = [str(cfg.get("item_name") or "")]
+    for q in cfg.get("questions") or []:
+        if isinstance(q, dict):
+            parts += [str(q.get("text") or ""), str(q.get("summary") or ""), str(q.get("help") or "")]
+    for r in cfg.get("results") or []:
+        if isinstance(r, dict):
+            parts += [str(r.get("headline") or ""), str(r.get("label") or ""), str(r.get("notice_text") or "")]
+    return "\n".join(parts)
+
+
+def _is_tb_config(cfg: dict) -> bool:
+    """TB(결핵) 성격의 config 인가 — item_name 에 결핵 포함 또는 logic_version 이 TB 계열."""
+    if not isinstance(cfg, dict):
+        return False
+    name = str(cfg.get("item_name") or "")
+    lv = str(cfg.get("logic_version") or "").upper()
+    return "결핵" in name or lv.startswith("TB")
+
+
+def _tb_verification(cfg: dict) -> dict:
+    """TB 항목 게시 가능성 검사. reasons 가 비어야 게시 가능(서버가 최종 권위)."""
+    reasons: list[str] = []
+    if not isinstance(cfg, dict):
+        return {"ok": False, "reasons": ["설정 형식 오류"], "count": 0, "dup": 0,
+                "matches": False, "has_source": False, "banned": False, "version_ok": False}
+    version_ok = str(cfg.get("logic_version") or "") == "TB-1.0"
+    if not version_ok:
+        reasons.append("로직 버전이 TB-1.0 이 아닙니다.")
+
+    raw = [str(c).strip() for c in (cfg.get("country_list") or []) if str(c).strip()]
+    norm = [_normalize_country(c) for c in raw]
+    count = len(norm)
+    uniq = set(norm)
+    dup = len(norm) - len(uniq)
+    matches = uniq == set(TB_CANONICAL_SET)
+    if count != TB_CANONICAL_COUNT:
+        reasons.append(f"국가 목록이 정확히 {TB_CANONICAL_COUNT}개가 아닙니다(현재 {count}개).")
+    if dup:
+        reasons.append("국가 목록에 중복이 있습니다.")
+    if not matches:
+        reasons.append("공식 35개국 목록과 일치하지 않습니다.")
+
+    has_source = all(str(cfg.get(k) or "").strip() for k in
+                     ("country_list_source_title", "country_list_source_date", "country_list_verified_at"))
+    if not has_source:
+        reasons.append("출처 정보(source metadata)가 없습니다.")
+
+    blob = _config_text_blob(cfg)
+    banned = any(b in blob for b in TB_BANNED_PHRASES)
+    if banned:
+        reasons.append("폐기된 과거 문구가 포함되어 있습니다.")
+
+    return {"ok": not reasons, "reasons": reasons, "count": count, "dup": dup,
+            "matches": matches, "has_source": has_source, "banned": banned, "version_ok": version_ok}
+
+
+def _is_obsolete_legacy_selfcheck(raw: Any) -> bool:
+    """운영 DB 의 기존 '단일 설정'이 폐기 대상 구형 결핵 로직인지 판정(자동 삭제·수정 없음).
+
+    v2 번들(items 배열)은 항목별 게시 검증이 담당하므로 여기서 판정하지 않는다.
+    레거시 단일 config(questions/results 최상위)만 대상으로 한다."""
+    if not isinstance(raw, dict):
+        return False
+    if isinstance(raw.get("items"), list):
+        return False  # v2 번들 — 대상 아님
+    if not (isinstance(raw.get("questions"), list) and isinstance(raw.get("results"), list)):
+        return False
+    cfg = raw
+    name = str(cfg.get("item_name") or "")
+    lv = str(cfg.get("logic_version") or "").upper()
+    blob = _config_text_blob(cfg)
+    # ① item_name 에 결핵 + logic_version == CR-1.0 (해외범죄경력 로직을 결핵에 잘못 쓴 흔적)
+    if "결핵" in name and lv == "CR-1.0":
+        return True
+    # ②~④ 폐기 문구
+    if any(b in blob for b in TB_BANNED_PHRASES):
+        return True
+    # ⑤~⑥ 결핵 항목인데 필수 질문 누락
+    if _is_tb_config(cfg):
+        qtexts = [str(q.get("text") or "") for q in (cfg.get("questions") or []) if isinstance(q, dict)]
+        if not any("6세" in t for t in qtexts):
+            return True  # 만 6세 질문 없음
+        has_stay = any(("6개월" in t and ("이상" in t or "계속" in t) and "최근 6개월 이내" not in t) for t in qtexts)
+        if not has_stay:
+            return True  # 제출/발급 이후 별도 6개월 체류 질문 없음
+    return False
+
 
 class ConfigSave(BaseModel):
     # 다중 항목 번들(schema v2). 레거시 단일 config 저장도 계속 허용(하위호환).
@@ -161,12 +287,18 @@ def _normalize_bundle(raw: Any, legacy_published: bool = False) -> dict:
 
 
 def _public_items(bundle: dict, placement: str | None = None) -> list[dict]:
-    """게시 + 팝업 + 그래프 유효 + (placement 지정 시) 노출 위치 포함 항목만, sort_order 정렬."""
+    """게시 + 팝업 + 그래프 유효 + (placement 지정 시) 노출 위치 포함 항목만, sort_order 정렬.
+
+    추가 fail-closed: 게시된 TB(결핵) 항목이 공식 35개국·출처 검증을 통과하지 못하면 공개에서 제외
+    (검증 안 된 구형 결핵 설정이 공개로 흘러가는 것을 막는다 — 서버가 최종 권위)."""
     out = []
     for it in bundle.get("items", []):
         if not it.get("is_published") or it.get("popup_enabled") is False:
             continue
-        if _validate_config_report(it.get("config") or {})["errors"]:
+        cfg = it.get("config") or {}
+        if _validate_config_report(cfg)["errors"]:
+            continue
+        if (it.get("item_id") == "tuberculosis" or _is_tb_config(cfg)) and not _tb_verification(cfg)["ok"]:
             continue
         if placement is not None:
             places = it.get("placement") if isinstance(it.get("placement"), list) else []
@@ -187,15 +319,25 @@ def public_get_config(response: Response, placement: str | None = None):
     raw, row_published = _parse_content(_load_row())
     if not row_published:
         return {"schema_version": 2, "items": []}  # 최상위 row 비공개 → 전면 차단
+    # PART C: 폐기 대상 구형 결핵 legacy 는 게시 상태여도 공개에서 즉시 숨긴다(DB 자동 변경 없음).
+    if _is_obsolete_legacy_selfcheck(raw):
+        return {"schema_version": 2, "items": []}
     bundle = _normalize_bundle(raw, legacy_published=True)
-    return {"schema_version": 2, "items": _public_items(bundle, placement=placement)}
+    # PART D: placement fail-closed — query 없으면 home 으로 해석(위치 필터를 해제하지 않는다).
+    # 지원하지 않는 위치 값은 전면 미노출(우회로 전체 반환되는 것을 막는다).
+    place = placement if (placement is not None and placement != "") else "home"
+    if place not in SUPPORTED_PLACEMENTS:
+        return {"schema_version": 2, "items": []}
+    return {"schema_version": 2, "items": _public_items(bundle, placement=place)}
 
 
 # ── 관리자: 편집용 조회(게시 여부 무관) — 전체 번들 반환 ───────────────────────
+# 폐기 대상 구형 결핵 legacy 는 obsolete_legacy=True 로 표시(원본은 편집·확인을 위해 그대로 반환).
 @router.get("/admin/config")
 def admin_get_config(user: dict = Depends(require_system_admin)):
     raw, published = _parse_content(_load_row())
-    return _normalize_bundle(raw, legacy_published=published)
+    bundle = _normalize_bundle(raw, legacy_published=published)
+    return {**bundle, "obsolete_legacy": _is_obsolete_legacy_selfcheck(raw)}
 
 
 # ── 쓰기 엄격 검증: 잘못된 item 을 조용히 버리지 않는다(하나라도 손상 시 전체 400) ──
@@ -285,6 +427,27 @@ def admin_save_config(body: ConfigSave, user: dict = Depends(require_system_admi
         raise HTTPException(status_code=400, detail={
             "message": "게시하려는 항목의 오류를 먼저 수정하세요.", "item_errors": publish_blocked})
 
+    # ── PART B: TB(결핵) 항목 게시 검증 — 공식 35개국·출처·폐기문구 부재를 강제 ──
+    # 게시하려는 TB 항목은 검증 통과 필수(400). 비공개 draft 는 저장 허용하되 경고를 반환한다.
+    tb_publish_blocked: dict[str, list[str]] = {}
+    tb_warnings: dict[str, list[str]] = {}
+    for it in bundle["items"]:
+        cfg = it.get("config") or {}
+        if not (it.get("item_id") == "tuberculosis" or _is_tb_config(cfg)):
+            continue
+        rep = _tb_verification(cfg)
+        if rep["ok"]:
+            continue
+        if it.get("is_published"):
+            tb_publish_blocked[it["item_id"]] = rep["reasons"]
+        else:
+            tb_warnings[it["item_id"]] = rep["reasons"]
+    if tb_publish_blocked:
+        raise HTTPException(status_code=400, detail={
+            "code": "TB_COUNTRY_LIST_NOT_VERIFIED",
+            "message": "결핵 고위험 국가 공식 35개국 목록과 확인 정보를 먼저 확정하세요.",
+            "item_errors": tb_publish_blocked})
+
     from backend.services import marketing_pg_service as mk
     from backend.db.session import is_configured
     if not is_configured():
@@ -304,4 +467,4 @@ def admin_save_config(body: ConfigSave, user: dict = Depends(require_system_admi
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"저장 실패: {e}")
     return {"ok": True, "published_items": [it["item_id"] for it in bundle["items"] if it.get("is_published")],
-            "item_errors": item_errors}
+            "item_errors": item_errors, "tb_warnings": tb_warnings}

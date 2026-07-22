@@ -10,6 +10,7 @@ import SelfCheckAdminEditor from "@/components/selfcheck/SelfCheckAdminEditor";
 export default function SelfCheckAdminPage() {
   const [state, setState] = useState<"loading" | "ready" | "denied">("loading");
   const [initial, setInitial] = useState<SelfCheckBundle | null>(null);
+  const [obsoleteLegacy, setObsoleteLegacy] = useState(false);
 
   useEffect(() => {
     // 서버가 최종 권위(require_system_admin). 403 → 접근 거부, 200 → 편집기 표시.
@@ -17,6 +18,7 @@ export default function SelfCheckAdminPage() {
     selfCheckApi.adminGet()
       .then((r) => {
         const bundle = normalizeBundle(r.data);
+        setObsoleteLegacy(!!(r.data as { obsolete_legacy?: boolean })?.obsolete_legacy);
         setInitial(bundle.items.length ? bundle : DEFAULT_SELF_CHECK_BUNDLE);
         setState("ready");
       })
@@ -40,7 +42,7 @@ export default function SelfCheckAdminPage() {
           시스템 관리자 전용 화면입니다. 접근 권한이 없습니다.
         </div>
       )}
-      {state === "ready" && <SelfCheckAdminEditor initialBundle={initial} />}
+      {state === "ready" && <SelfCheckAdminEditor initialBundle={initial} obsoleteLegacy={obsoleteLegacy} />}
     </div>
   );
 }

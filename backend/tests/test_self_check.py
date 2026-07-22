@@ -8,8 +8,10 @@ from backend.routers.self_check import _validate_config, _validate_config_report
 
 
 def _valid_cfg():
+    # item_name 에 '결핵' 을 넣지 않는다 — CR-1.0 + '결핵' 조합은 obsolete legacy 로 판정되므로
+    # 그래프 검증 공용 fixture 는 중립 이름을 쓴다(결핵 전용 케이스는 별도 fixture 사용).
     return {
-        "item_name": "결핵 검진",
+        "item_name": "공통 점검",
         "logic_version": "CR-1.0",
         "start_question_id": "q1",
         "questions": [
@@ -278,7 +280,9 @@ def test_public_get_config_hides_corrupt(monkeypatch):
 def test_public_get_config_returns_published_bundle(monkeypatch):
     from fastapi import Response
     import backend.routers.self_check as sc
-    content = _bundle_json([_item("criminal-record", published=True), _item("hidden", published=False)])
+    # PART D: 공개 GET 은 placement 미지정 시 home 으로 해석하므로 노출 항목은 placement=home 필요.
+    cr = _item("criminal-record", published=True); cr["placement"] = ["home"]
+    content = _bundle_json([cr, _item("hidden", published=False)])
     monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
     r = Response()
     out = sc.public_get_config(r)
@@ -411,3 +415,272 @@ def test_save_valid_bundle_preserves_all_items(monkeypatch):
     stored = _json.loads(saved["content"])
     assert [it["item_id"] for it in stored["items"]] == ["a", "b", "c"]  # 손실 없음
     assert res["ok"] is True
+
+
+# ── PART A: 결핵(TB) 공식 국가 목록 35개국 ────────────────────────────────────
+from backend.routers.self_check import (  # noqa: E402
+    TB_HIGH_RISK_COUNTRIES, TB_CANONICAL_COUNT, _tb_verification,
+    _is_obsolete_legacy_selfcheck, _normalize_country,
+)
+
+TB_MISSING_18 = [
+    "말레이시아", "스리랑카", "우즈베키스탄", "카자흐스탄", "우크라이나", "아제르바이잔",
+    "벨라루스", "몰도바공화국", "나이지리아", "남아프리카공화국", "에티오피아",
+    "콩고민주공화국", "케냐", "모잠비크", "짐바브웨", "앙골라", "페루", "파푸아뉴기니",
+]
+
+
+def _tb_cfg(countries=None, with_source=True, **over):
+    cfg = {
+        "item_name": "결핵검진 필요 확인", "logic_version": "TB-1.0", "start_question_id": "q1",
+        "country_list_title": "결핵 고위험 국가",
+        "country_list": list(TB_HIGH_RISK_COUNTRIES if countries is None else countries),
+        "questions": [
+            {"id": "q1", "display_number": "①", "text": "결핵 고위험 국가 국적입니까?", "summary": "고위험국가 국적", "country_list_ref": True, "yes": "q2", "no": "r_none"},
+            {"id": "q2", "display_number": "②", "text": "만 6세 이상입니까?", "summary": "만 6세 이상", "yes": "q3", "no": "r_none"},
+            {"id": "q3", "display_number": "③", "text": "과거 결핵검진서를 제출한 적이 있습니까?", "summary": "과거 제출 이력", "yes": "q4", "no": "r_target"},
+            {"id": "q4", "display_number": "④", "text": "결핵검진서 제출 또는 비자발급 이후 결핵 고위험 국가에서 계속하여 6개월 이상 체류했습니까?", "summary": "제출·발급 후 6개월 이상", "yes": "r_target", "no": "r_none"},
+        ],
+        "results": [
+            {"id": "r_target", "headline": "결핵검진서 제출 대상입니다", "label": "제출 대상"},
+            {"id": "r_none", "headline": "결핵검진서 제출 대상이 아닙니다", "label": "비대상"},
+        ],
+    }
+    if with_source:
+        cfg.update({
+            "country_list_source_title": "법무부 결핵검사 의무화 대상국가 및 재외공관 공식 안내",
+            "country_list_source_date": "2020-04-01 기준 35개국",
+            "country_list_verified_at": "2026-07-23",
+            "country_list_source_note": "법무부 및 2025~2026년 재외공관 공식 안내와 대조",
+        })
+    cfg.update(over)
+    return cfg
+
+
+def _tb_item(cfg, published=True):
+    return {"item_id": "tuberculosis", "title": "결핵검진 필요 확인", "sort_order": 0,
+            "is_published": published, "popup_enabled": True, "placement": ["home"], "config": cfg}
+
+
+def test_tb_official_list_exactly_35_no_dup_no_empty():
+    assert len(TB_HIGH_RISK_COUNTRIES) == 35
+    assert TB_CANONICAL_COUNT == 35
+    assert len(set(TB_HIGH_RISK_COUNTRIES)) == 35   # 중복 없음
+    assert all(str(c).strip() for c in TB_HIGH_RISK_COUNTRIES)  # 빈 문자열 없음
+
+
+def test_tb_official_list_includes_missing_18():
+    for c in TB_MISSING_18:
+        assert c in TB_HIGH_RISK_COUNTRIES, f"누락된 국가: {c}"
+
+
+def test_tb_verification_canonical_match():
+    v = _tb_verification(_tb_cfg())
+    assert v["ok"] is True and v["matches"] is True and v["count"] == 35 and v["dup"] == 0 and v["has_source"] is True
+
+
+def test_tb_alias_kyrgyz_equivalent():
+    assert _normalize_country("키르기스") == "키르기스스탄"
+    lst = ["키르기스" if c == "키르기스스탄" else c for c in TB_HIGH_RISK_COUNTRIES]
+    v = _tb_verification(_tb_cfg(countries=lst))
+    assert v["ok"] is True and v["matches"] is True
+
+
+# ── PART B: TB 게시 검증 ──────────────────────────────────────────────────────
+def _tb_save(monkeypatch):
+    from backend.routers import self_check as sc
+    import backend.db.session as dbs
+    calls = {"n": 0}
+    monkeypatch.setattr(dbs, "is_configured", lambda: True)
+    monkeypatch.setattr("backend.services.marketing_pg_service.upsert_post",
+                        lambda rec: calls.__setitem__("n", calls["n"] + 1) or rec)
+    return sc, calls
+
+
+def test_tb_publish_blocked_17_countries(monkeypatch):
+    sc, calls = _tb_save(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(_tb_cfg(countries=TB_HIGH_RISK_COUNTRIES[:17]))]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert ei.value.detail.get("code") == "TB_COUNTRY_LIST_NOT_VERIFIED"
+    assert calls["n"] == 0
+
+
+def test_tb_publish_blocked_34_countries(monkeypatch):
+    sc, calls = _tb_save(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(_tb_cfg(countries=TB_HIGH_RISK_COUNTRIES[:34]))]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0
+
+
+def test_tb_publish_blocked_wrong_country_substitution(monkeypatch):
+    sc, calls = _tb_save(monkeypatch)
+    lst = list(TB_HIGH_RISK_COUNTRIES); lst[0] = "대한민국"  # 공식 목록에 없는 국가로 치환(수 35 유지)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(_tb_cfg(countries=lst))]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0
+
+
+def test_tb_publish_blocked_missing_source(monkeypatch):
+    sc, calls = _tb_save(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(_tb_cfg(with_source=False))]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0
+
+
+def test_tb_publish_blocked_banned_phrase(monkeypatch):
+    sc, calls = _tb_save(monkeypatch)
+    cfg = _tb_cfg()
+    cfg["questions"][3]["text"] = "최근 6개월 이내 결핵검진 확인서 제출 이력이 있습니까?"  # 폐기 문구
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(cfg)]})
+    with pytest.raises(Exception) as ei:
+        sc.admin_save_config(body, user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 400
+    assert calls["n"] == 0
+
+
+def test_tb_publish_allowed_valid_35(monkeypatch):
+    sc, calls = _tb_save(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(_tb_cfg())]})
+    res = sc.admin_save_config(body, user={"login_id": "sys"})
+    assert res["ok"] is True and calls["n"] == 1
+
+
+def test_tb_draft_saved_with_warning(monkeypatch):
+    # 비공개 draft 인 TB 항목은 검증 미통과여도 저장 허용 + 경고 반환.
+    sc, calls = _tb_save(monkeypatch)
+    body = sc.ConfigSave(bundle={"schema_version": 2, "items": [_tb_item(_tb_cfg(countries=TB_HIGH_RISK_COUNTRIES[:17]), published=False)]})
+    res = sc.admin_save_config(body, user={"login_id": "sys"})
+    assert res["ok"] is True and calls["n"] == 1
+    assert "tuberculosis" in res["tb_warnings"] and res["tb_warnings"]["tuberculosis"]
+
+
+# ── PART C: obsolete legacy 판정 + 공개 차단 + 관리자 표시 ───────────────────────
+def _obsolete_tb_legacy():
+    return {
+        "item_name": "결핵검진 확인", "logic_version": "CR-1.0", "start_question_id": "q1",
+        "questions": [
+            {"id": "q1", "display_number": "①", "text": "90일을 초과하는 장기체류입니까?", "summary": "장기체류", "yes": "q2", "no": "r_none"},
+            {"id": "q2", "display_number": "②", "text": "최근 6개월 이내 결핵검진 확인서 제출 이력이 있습니까?", "summary": "6개월내 제출", "yes": "r_none", "no": "r_target"},
+        ],
+        "results": [
+            {"id": "r_target", "headline": "제출 대상", "label": "대상"},
+            {"id": "r_none", "headline": "비대상", "label": "비대상"},
+        ],
+    }
+
+
+def _normal_legacy():
+    c = _valid_cfg()
+    c["item_name"] = "기존 단일 설정"  # 결핵 무관 + 정상 그래프
+    return c
+
+
+def test_obsolete_legacy_detected():
+    assert _is_obsolete_legacy_selfcheck(_obsolete_tb_legacy()) is True
+
+
+def test_obsolete_legacy_missing_six_year_question():
+    cfg = _tb_cfg()
+    cfg["questions"] = [q for q in cfg["questions"] if "6세" not in q["text"]]  # 만 6세 질문 제거
+    assert _is_obsolete_legacy_selfcheck(cfg) is True
+
+
+def test_normal_legacy_not_obsolete():
+    assert _is_obsolete_legacy_selfcheck(_normal_legacy()) is False
+
+
+def test_v2_bundle_never_obsolete():
+    assert _is_obsolete_legacy_selfcheck({"schema_version": 2, "items": [_item("a")]}) is False
+    assert _is_obsolete_legacy_selfcheck("not-a-dict") is False
+
+
+def test_public_hides_obsolete_legacy_even_when_row_published(monkeypatch):
+    import json
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    content = json.dumps(_obsolete_tb_legacy(), ensure_ascii=False)
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    assert sc.public_get_config(Response())["items"] == []               # home 기본
+    assert sc.public_get_config(Response(), placement="home")["items"] == []
+
+
+def test_public_shows_normal_legacy_when_row_published(monkeypatch):
+    import json
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    content = json.dumps(_normal_legacy(), ensure_ascii=False)
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    out = sc.public_get_config(Response())
+    assert len(out["items"]) == 1 and out["items"][0]["item_id"] == "legacy"
+
+
+def test_admin_flags_obsolete_legacy(monkeypatch):
+    import json
+    import backend.routers.self_check as sc
+    content = json.dumps(_obsolete_tb_legacy(), ensure_ascii=False)
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    out = sc.admin_get_config(user={"login_id": "sys"})
+    assert out["obsolete_legacy"] is True
+    assert len(out["items"]) == 1  # 원본은 편집·확인을 위해 그대로 반환(자동 변경 없음)
+
+
+def test_admin_normal_legacy_not_flagged(monkeypatch):
+    import json
+    import backend.routers.self_check as sc
+    content = json.dumps(_normal_legacy(), ensure_ascii=False)
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    out = sc.admin_get_config(user={"login_id": "sys"})
+    assert out["obsolete_legacy"] is False
+
+
+# ── PART D: placement 공개 API fail-closed ────────────────────────────────────
+def test_public_placement_fail_closed(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    a = _item("a", published=True); a["placement"] = ["home"]
+    b = _item("b", published=True); b["placement"] = ["other"]
+    c = _item("c", published=True); c["placement"] = []
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _bundle_json([a, b, c])})
+    # query 없음 → home 으로 동작
+    assert [x["item_id"] for x in sc.public_get_config(Response())["items"]] == ["a"]
+    # placement=home → home 항목만
+    assert [x["item_id"] for x in sc.public_get_config(Response(), placement="home")["items"]] == ["a"]
+    # 지원하지 않는 위치 → 공개 0(우회 차단)
+    assert sc.public_get_config(Response(), placement="other")["items"] == []
+    # 빈 문자열 → home 으로 해석
+    assert [x["item_id"] for x in sc.public_get_config(Response(), placement="")["items"]] == ["a"]
+
+
+def test_public_placement_empty_array_item_never_shown(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    c = _item("c", published=True); c["placement"] = []  # 신규 v2 item, 위치 미지정
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _bundle_json([c])})
+    assert sc.public_get_config(Response())["items"] == []
+    assert sc.public_get_config(Response(), placement="home")["items"] == []
+
+
+def test_public_unverified_tb_v2_item_hidden(monkeypatch):
+    # 게시된 TB v2 항목이 공식 35개국 검증 미통과면 공개에서 제외(서버 fail-closed).
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    it = _tb_item(_tb_cfg(countries=TB_HIGH_RISK_COUNTRIES[:17]), published=True)
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _bundle_json([it])})
+    assert sc.public_get_config(Response())["items"] == []
+
+
+def test_public_verified_tb_v2_item_shown(monkeypatch):
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    it = _tb_item(_tb_cfg(), published=True)
+    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _bundle_json([it])})
+    out = sc.public_get_config(Response())
+    assert [x["item_id"] for x in out["items"]] == ["tuberculosis"]

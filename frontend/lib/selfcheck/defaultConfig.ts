@@ -1,4 +1,5 @@
 import type { SelfCheckConfig, SelfCheckItem, SelfCheckBundle } from "./types";
+import { TUBERCULOSIS_HIGH_RISK_COUNTRIES, TB_SOURCE_META } from "./tuberculosis";
 
 // 공통기준 자가점검 — PDF 기준 3개 항목의 기본 설정(관리자 "PDF 기준 기본 항목 불러오기" 시드).
 // 이 상수는 관리 설정일 뿐 사용자 답변과 무관하다. 게시(공개)는 관리자가 저장할 때만 반영된다.
@@ -31,19 +32,20 @@ export const CRIMINAL_RECORD_CONFIG: SelfCheckConfig = {
 };
 
 // ── 2) 결핵검진 필요 확인 (TB-1.0) ─────────────────────────────────────────────
-// 국가 목록은 최신 공식 source of truth 대조가 필요하다(미대조 → 비공개 draft 유지).
-// 아래 목록은 기존 저장소 값(placeholder)이며, 관리자 대조·확정 전까지 공개하지 않는다.
+// 국가 목록 = 법무부 결핵검사 의무화 대상국가(2020.4.1. 확대, 35개국) 공식 목록.
+// source of truth 는 lib/selfcheck/tuberculosis.ts(TUBERCULOSIS_HIGH_RISK_COUNTRIES).
+// 게시(공개)는 서버가 공식 35개국·출처 정보를 검증한 뒤에만 허용한다.
 export const TUBERCULOSIS_CONFIG: SelfCheckConfig = {
   item_name: "결핵검진 필요 확인",
   logic_version: "TB-1.0",
   start_question_id: "q1",
   notice_text: SCOPE_NOTICE,
   country_list_title: "결핵 고위험 국가",
-  country_list: [
-    "네팔", "동티모르", "라오스", "러시아", "몽골", "미얀마", "방글라데시",
-    "베트남", "인도", "인도네시아", "중국", "캄보디아", "키르기스스탄",
-    "타지키스탄", "태국", "파키스탄", "필리핀",
-  ],
+  country_list: [...TUBERCULOSIS_HIGH_RISK_COUNTRIES],
+  country_list_source_title: TB_SOURCE_META.country_list_source_title,
+  country_list_source_date: TB_SOURCE_META.country_list_source_date,
+  country_list_verified_at: TB_SOURCE_META.country_list_verified_at,
+  country_list_source_note: TB_SOURCE_META.country_list_source_note,
   questions: [
     { id: "q1", display_number: "①", text: "결핵 고위험 국가 국적입니까?", summary: "고위험국가 국적", country_list_ref: true, yes: "q2", no: "r_none", sort_order: 1 },
     { id: "q2", display_number: "②", text: "만 6세 이상입니까?", summary: "만 6세 이상", yes: "q3", no: "r_none", sort_order: 2 },
@@ -73,11 +75,11 @@ export const FINGERPRINT_CONFIG: SelfCheckConfig = {
   ],
 };
 
-// PDF 기준 기본 항목(관리자 "불러오기" 시드). 공개는 관리자가 저장할 때만.
-// 결핵(TB)은 국가목록 공식 대조 전까지 is_published=false(비공개 draft) 로 둔다.
+// PDF 기준 기본 항목(관리자 "불러오기" 시드). 안전을 위해 모두 비공개(draft)로 불러온다.
+// 공개는 관리자가 내용을 검토하고 저장할 때만 반영된다(운영 반영은 별도 승인 단계).
 export const PDF_DEFAULT_ITEMS: SelfCheckItem[] = [
   { item_id: "criminal-record", title: "해외범죄경력증명 필요 확인", description: SCOPE_NOTICE, sort_order: 1, is_published: false, popup_enabled: true, placement: ["home"], config: CRIMINAL_RECORD_CONFIG },
-  { item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "결핵 고위험 국가 목록은 최신 공식 자료 대조 후 공개하세요.", sort_order: 2, is_published: false, popup_enabled: true, placement: ["home"], config: TUBERCULOSIS_CONFIG },
+  { item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "결핵 고위험 국가 공식 35개국 목록과 출처 확인이 완료된 항목입니다. 내용을 검토한 뒤 공개하세요.", sort_order: 2, is_published: false, popup_enabled: true, placement: ["home"], config: TUBERCULOSIS_CONFIG },
   { item_id: "fingerprint", title: "지문등록 필요 확인", description: SCOPE_NOTICE, sort_order: 3, is_published: false, popup_enabled: true, placement: ["home"], config: FINGERPRINT_CONFIG },
 ];
 
