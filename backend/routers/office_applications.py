@@ -155,6 +155,9 @@ class RelinkRequest(BaseModel):
     target_tenant_id: str
     confirm_login_id: str
     confirm_target_tenant_id: str
+    # 강한 확인(§8) — 확인 문구 + preview 시점 원본 tenant. 서버가 4값 + 원본 불변을 검증.
+    confirmation_phrase: str
+    source_tenant_id: str
 
 
 # ── 공개: 신청 접수 ───────────────────────────────────────────────────────────
@@ -459,7 +462,8 @@ def admin_no_user_tenants(user: dict = Depends(require_system_admin)):
 
 _TENANT_ADMIN_CODE_MAP = {
     "BAD_REQUEST": 400, "NOT_FOUND": 404, "MISSING_USER": 400, "BAD_EMAIL": 400,
-    "EMAIL_IN_USE": 409, "TENANT_TERMINATED": 409, "SEAT_LIMIT": 409, "PROTECTED": 403,
+    "EMAIL_IN_USE": 409, "TENANT_TERMINATED": 409, "TENANT_SUSPENDED": 409,
+    "BAD_TENANT_STATE": 409, "DUPLICATE_ADMIN": 409, "SEAT_LIMIT": 409, "PROTECTED": 403,
     "CONFIRM_MISMATCH": 400, "SAME_TENANT": 409, "BLOCKED": 409,
 }
 
@@ -490,7 +494,9 @@ def admin_account_link_relink(body: RelinkRequest, user: dict = Depends(require_
     from backend.services import tenant_admin_pg_service as svc
     try:
         return svc.relink_account(body.login_id, body.target_tenant_id, user.get("login_id", ""),
-                                  body.confirm_login_id, body.confirm_target_tenant_id)
+                                  body.confirm_login_id, body.confirm_target_tenant_id,
+                                  confirmation_phrase=body.confirmation_phrase,
+                                  source_tenant_id=body.source_tenant_id)
     except svc.TenantAdminError as e:
         raise HTTPException(status_code=_TENANT_ADMIN_CODE_MAP.get(e.code, 400), detail=e.message)
 

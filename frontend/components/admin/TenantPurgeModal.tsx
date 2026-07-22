@@ -12,15 +12,17 @@ interface PurgePreview {
   tenant_id: string; office_name: string; service_status: string; is_active: boolean;
   users: number; customers: number; active_tasks: number; completed_tasks: number;
   work_references: number; board_posts: number; sessions: number; activation_tokens: number;
-  applications: number; counts: Record<string, number>;
-  external_storage: string[]; blocking_reasons: string[]; can_purge: boolean;
+  applications: number; audit_logs: number; counts: Record<string, number>;
+  external_storage: string[];
+  external_storage_refs: Record<string, string>; local_storage_refs: Record<string, string>;
+  blocking_reasons: string[]; can_purge: boolean;
 }
 
 const LABELS: Record<string, string> = {
   users: "계정", customers: "고객", active_tasks: "진행업무", planned_tasks: "예정업무",
   completed_tasks: "완료업무", cert_groups: "공증 분류", work_reference_rows: "업무참고",
   board_posts: "게시글", user_sessions: "세션", activation_tokens: "활성화 토큰",
-  office_applications: "신청서",
+  office_applications: "신청서", audit_logs: "감사 로그(삭제 후 요약만 보존)",
 };
 
 export default function TenantPurgeModal({ tenantId, officeName, onClose, onDone }: {
@@ -79,6 +81,21 @@ export default function TenantPurgeModal({ tenantId, officeName, onClose, onDone
             <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 6 }}>
               상태 {preview.service_status} · 활성 {String(preview.is_active)}
             </div>
+            <div style={{ fontSize: 11.5, color: "var(--hw-text-sub)", marginBottom: 6, lineHeight: 1.6 }}>
+              감사 로그는 삭제되고, 폐기 후 개인정보 없는 요약 감사 1건(사업장 ID 해시 + 삭제 건수)만 남습니다.
+            </div>
+            {Object.keys(preview.local_storage_refs || {}).length > 0 && (
+              <div style={{ fontSize: 11.5, color: "#718096", marginBottom: 6, lineHeight: 1.6 }}>
+                로컬 모의 저장소(폐기 차단 아님):{" "}
+                {Object.entries(preview.local_storage_refs).map(([k, v]) => `${k}=${v}`).join(", ")}
+              </div>
+            )}
+            {Object.keys(preview.external_storage_refs || {}).length > 0 && (
+              <div style={{ fontSize: 11.5, color: "#C53030", marginBottom: 6, lineHeight: 1.6 }}>
+                실제 외부 저장소(폐기 차단):{" "}
+                {Object.entries(preview.external_storage_refs).map(([k, v]) => `${k}=${v}`).join(", ")}
+              </div>
+            )}
             <table className="hw-table" style={{ marginBottom: 10 }}>
               <thead><tr><th>데이터</th><th style={{ textAlign: "right" }}>삭제 건수</th></tr></thead>
               <tbody>

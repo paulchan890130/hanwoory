@@ -293,7 +293,8 @@ export const officeApplicationApi = {
   relinkPreview: (body: { login_id: string; target_tenant_id: string }) =>
     api.post("/api/admin/account-links/preview", body),
   relink: (body: { login_id: string; target_tenant_id: string;
-                   confirm_login_id: string; confirm_target_tenant_id: string }) =>
+                   confirm_login_id: string; confirm_target_tenant_id: string;
+                   confirmation_phrase: string; source_tenant_id: string }) =>
     api.post("/api/admin/account-links/relink", body),
   // 사업장 전체 폐기(고위험).
   purgePreview: (tenantId: string) =>

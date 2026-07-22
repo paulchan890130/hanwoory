@@ -184,6 +184,52 @@ def restore_tenant_block_reason(tenant) -> BlockReason:
     return None
 
 
+def relink_account_block_reason(user) -> BlockReason:
+    """계정 연결 변경(relink) 대상 계정 허용 여부 — **명시적 allowlist**. 허용이면 None.
+
+    is_active=false 라는 이유만으로 허용하던 방식은 정지/교체/레거시 계정까지 통과시켜
+    ``suspended → relink → invited → active`` 우회를 열어준다. 그래서 **invited + 비활성**
+    한 가지만 허용하고 나머지는 상태별로 거부한다(정책 미확정 상태는 fail-closed).
+    """
+    if bool(getattr(user, "is_active", False)):
+        return ("BAD_ACCOUNT_STATE", "활성(로그인 가능) 계정은 연결을 변경할 수 없습니다. 먼저 정지·교체하세요.")
+    st = account_status_of(user)
+    if st == ACCOUNT_INVITED:
+        return None
+    if st == ACCOUNT_ACTIVE:
+        return ("BAD_ACCOUNT_STATE", "활성 계정은 연결을 변경할 수 없습니다.")
+    if st == ACCOUNT_SUSPENDED:
+        return ("SUSPENDED", "정지된 계정은 연결을 변경할 수 없습니다(정지→초대→활성 우회 차단). "
+                             "계정 교체 또는 새 관리자 발급을 사용하세요.")
+    if st == ACCOUNT_REPLACED:
+        return ("REPLACED", "교체된 계정은 연결을 변경할 수 없습니다.")
+    if st == ACCOUNT_DISABLED:
+        return ("LEGACY_DISABLED", "레거시 비활성 계정은 연결을 변경할 수 없습니다(정책 미확정 — fail-closed).")
+    return ("BAD_ACCOUNT_STATE", "연결을 변경할 수 없는 계정 상태입니다.")
+
+
+def relink_source_tenant_block_reason(tenant) -> BlockReason:
+    """relink 원본 사업장 상태 허용 여부 — 허용이면 None.
+
+    active 사업장에서 마지막 계정을 빼내면 무관리자 활성 사업장이 생긴다. 그래서 원본은
+    **정지(suspended)+비활성** 또는 **미활성화(pending_activation)+비활성** 만 허용한다.
+    active/terminated, is_active=true, 상태 불일치는 fail-closed 로 거부한다.
+    """
+    if tenant is None:
+        return ("NOT_FOUND", "원본 사업장을 찾을 수 없습니다.")
+    if bool(getattr(tenant, "is_active", False)):
+        return ("BAD_TENANT_STATE", "활성 상태의 원본 사업장에서는 계정 연결을 변경할 수 없습니다"
+                                    "(마지막 계정 이탈 방지). 먼저 사업장을 정지하세요.")
+    st = tenant_status_of(tenant)
+    if st in (TENANT_SUSPENDED, TENANT_PENDING):
+        return None
+    if st == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 원본 사업장에서는 연결을 변경할 수 없습니다.")
+    if st == TENANT_ACTIVE:
+        return ("BAD_TENANT_STATE", "활성 상태의 원본 사업장에서는 계정 연결을 변경할 수 없습니다.")
+    return ("BAD_TENANT_STATE", "연결을 변경할 수 없는 원본 사업장 상태입니다.")
+
+
 def replace_tenant_block_reason(tenant) -> BlockReason:
     """계정 교체 허용 여부(테넌트 관점). 정지/종료 사무소는 **fail-closed** 로 거부한다.
 

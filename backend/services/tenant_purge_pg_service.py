@@ -51,13 +51,16 @@ PURGE_BY_TENANT_ID: list[str] = [
     "marketing_images",
     "login_events", "account_security", "security_notifications",
     "user_terms_acceptances",
+    # audit_logs: 사업장 전체 폐기 정책상 이 tenant 의 기존 감사 이력을 **삭제**하고, 폐기 완료 후
+    # PII 없는 요약 audit 1건(tenant_id 해시 + 건수)만 새로 남긴다(§9). FK 없음 → 순서 무관.
+    "audit_logs",
     "user_sessions",
     "activation_tokens",
     "users",
 ]
 
-# tenant_id 컬럼이 있으나 **보존**하는 테이블(감사 이력 — FK 없음, 역사 보존).
-PRESERVE_WITH_TENANT_ID: list[str] = ["audit_logs"]
+# tenant_id 컬럼이 있으나 **보존**하는 테이블(현재 없음 — audit_logs 는 폐기 정책상 PURGE 로 이동).
+PRESERVE_WITH_TENANT_ID: list[str] = []
 
 # tenant_id 컬럼을 가진 target 자신(마지막에 삭제).
 TARGET_TABLE = "tenants"
@@ -97,16 +100,46 @@ def unclassified_tenant_tables(session) -> list[str]:
     return sorted(t for t in present if t not in _CLASSIFIED_TENANT_ID_TABLES)
 
 
+def _is_real_external_ref(value) -> bool:
+    """실제 외부 저장소 참조인지 판정. 빈 값·``local-*`` sentinel(로컬 모의 저장소)은 외부가 아니다.
+
+    로컬 개발/테스트는 ``folder_id='local-...'`` / ``customer_sheet_key='local-...'`` 같은 모의
+    값을 쓰는데, 이를 실제 Drive/Sheets 로 오인하면 폐기가 영구 차단된다(§10). 실제 Google
+    Drive folder ID / Sheets key(및 그 외 비-local 식별값)만 외부로 취급한다.
+    """
+    s = (value or "").strip()
+    if not s:
+        return False
+    return not s.lower().startswith("local-")
+
+
+def _external_storage_refs(t) -> dict[str, str]:
+    """tenant 의 저장소 참조를 실제/로컬로 분류. {'external': {col: val}, 'local': {col: val}}."""
+    external: dict[str, str] = {}
+    local: dict[str, str] = {}
+    for col in ("folder_id", "customer_sheet_key", "work_sheet_key"):
+        raw = (getattr(t, col, None) or "").strip()
+        if not raw:
+            continue
+        (external if _is_real_external_ref(raw) else local)[col] = raw
+    return {"external": external, "local": local}
+
+
+_EXT_STORAGE_LABEL = {
+    "folder_id": "연결된 Google Drive 폴더(folder_id)가 있어 외부 파일을 안전하게 삭제할 수 없습니다.",
+    "customer_sheet_key": "연결된 고객 Google Sheets(customer_sheet_key)가 있어 외부 데이터를 안전하게 삭제할 수 없습니다.",
+    "work_sheet_key": "연결된 업무 Google Sheets(work_sheet_key)가 있어 외부 데이터를 안전하게 삭제할 수 없습니다.",
+}
+
+
 def _external_storage_blocking(t) -> list[str]:
-    """외부 저장소(Drive/Sheets) 참조 — 있으면 fail-closed(DB 만 먼저 지우지 않음)."""
-    reasons: list[str] = []
-    if (getattr(t, "folder_id", None) or "").strip():
-        reasons.append("연결된 Google Drive 폴더(folder_id)가 있어 외부 파일을 안전하게 삭제할 수 없습니다.")
-    if (getattr(t, "customer_sheet_key", None) or "").strip():
-        reasons.append("연결된 고객 Google Sheets(customer_sheet_key)가 있어 외부 데이터를 안전하게 삭제할 수 없습니다.")
-    if (getattr(t, "work_sheet_key", None) or "").strip():
-        reasons.append("연결된 업무 Google Sheets(work_sheet_key)가 있어 외부 데이터를 안전하게 삭제할 수 없습니다.")
-    return reasons
+    """**실제** 외부 저장소(Drive/Sheets) 참조 — 있으면 fail-closed(DB 만 먼저 지우지 않음).
+
+    ``local-*`` sentinel/빈 값은 로컬 모의 저장소이므로 차단하지 않는다(§10).
+    """
+    external = _external_storage_refs(t)["external"]
+    return [_EXT_STORAGE_LABEL[col] for col in ("folder_id", "customer_sheet_key", "work_sheet_key")
+            if col in external]
 
 
 def _existing_tables(session) -> set[str]:
@@ -150,6 +183,55 @@ def tenant_has_business_data(session, tenant_id: str) -> bool:
     return any(c.get(k, 0) > 0 for k in
                ("customers", "active_tasks", "planned_tasks", "completed_tasks",
                 "daily_entries", "events", "memos", "categories", "work_references", "board_posts"))
+
+
+# relink 원본에 **남아 있어도 되는** 테이블 = 이동 대상 user 본인의 인프라. 그 외 tenant 관련
+# 행이 하나라도 있으면 relink 를 차단한다(§5). users/user_sessions/activation_tokens 는 이동
+# 대상 user 소유(다른 사용자 없음은 별도 검사)이고, login_attempts(login_id)·office_applications
+# (approved_tenant_id)·audit_logs(이력)는 갓 프로비저닝된 사업장에도 존재하므로 차단에서 제외한다.
+_RELINK_EXEMPT_TENANT_TABLES = {"users", "user_sessions", "activation_tokens", "audit_logs"}
+
+
+def relink_source_data_counts(session, tenant_id: str) -> dict[str, int]:
+    """relink 원본 사업장의 **업무/데이터** 테이블 건수(0 초과만). TENANT_PURGE_PLAN 을 재사용해
+    전수 분류한다 — 대표 몇 개만 보던 방식을 제거(§5). 이동 대상 user 인프라·이력은 제외."""
+    present = _existing_tables(session)
+    out: dict[str, int] = {}
+    for tbl in PURGE_BY_TENANT_ID:
+        if tbl in _RELINK_EXEMPT_TENANT_TABLES or tbl not in present:
+            continue
+        n = _count(session, tbl, "tenant_id", tenant_id)
+        if n:
+            out[tbl] = n
+    # doc_tree cascade 자식(설명용 — 부모가 있으면 이미 doc_tree_nodes 로 잡힌다).
+    for parent, children in CASCADE_CHILDREN.items():
+        if parent not in present:
+            continue
+        for child in children:
+            if child not in present:
+                continue
+            n = int(session.execute(
+                text(f"SELECT count(*) FROM {child} c WHERE EXISTS "
+                     f"(SELECT 1 FROM {parent} p WHERE p.id = c.node_id AND p.tenant_id = :v)"),
+                {"v": tenant_id}).scalar() or 0)
+            if n:
+                out[child] = n
+    return out
+
+
+def relink_source_blocking(session, tenant_id: str) -> tuple[dict[str, int], list[str]]:
+    """(원본 데이터 건수, 차단 사유). 데이터 잔존 또는 미분류 tenant 테이블이면 relink 차단(§5)."""
+    counts = relink_source_data_counts(session, tenant_id)
+    reasons: list[str] = []
+    if counts:
+        summary = ", ".join(f"{k}({v})" for k, v in sorted(counts.items()))
+        reasons.append("원본 사업장에 데이터가 남아 있어 연결을 변경할 수 없습니다: " + summary
+                       + " — 데이터 처리 방침을 먼저 결정하세요.")
+    unclassified = unclassified_tenant_tables(session)
+    if unclassified:
+        reasons.append("분류되지 않은 tenant 테이블이 있어 안전을 위해 연결 변경을 중단합니다: "
+                       + ", ".join(unclassified))
+    return counts, reasons
 
 
 def _tenant_user_login_ids(session, tenant_id: str) -> list[str]:
@@ -247,6 +329,7 @@ def purge_preview(tenant_id: str, actor_login: str = "") -> dict:
         actor_reason = _actor_or_master_in_tenant(session, tid, actor_login)
         if actor_reason:
             blocking.append(actor_reason)
+        storage = _external_storage_refs(t)
         ext = _external_storage_blocking(t)
         blocking.extend(ext)
         unclassified = unclassified_tenant_tables(session)
@@ -270,8 +353,12 @@ def purge_preview(tenant_id: str, actor_login: str = "") -> dict:
             "sessions": counts.get("user_sessions", 0),
             "activation_tokens": counts.get("activation_tokens", 0),
             "applications": counts.get("office_applications", 0),
+            "audit_logs": counts.get("audit_logs", 0),  # 폐기 시 삭제(§9)
             "counts": counts,
             "external_storage": ext,
+            # 실제 외부 저장소 vs 로컬 모의(local-*) 구분(§10) — UI 표시용.
+            "external_storage_refs": storage["external"],
+            "local_storage_refs": storage["local"],
             "unclassified_tables": unclassified,
             "blocking_reasons": blocking,
             "can_purge": len(blocking) == 0,
