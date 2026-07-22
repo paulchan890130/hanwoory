@@ -671,11 +671,15 @@ def approve(application_id: str, reviewer: str,
         raw_tokens: list[dict] = []
         for u in (u1, u2):
             is_admin = (u["role"] == "office_admin")
+            # 대표전화(office_phone)는 대표자(office_admin) 계정 연락처로만 연계한다.
+            # 실무자(office_staff)에는 대표전화를 복제하지 않는다(개인 전화 필드는 신청서에 없음).
+            _contact_tel = (a.office_phone or None) if is_admin else None
             row = AccountUser(
                 login_id=u["email"],
                 tenant_id=tenant_id,
                 password_hash=hash_password(secrets.token_urlsafe(32)),  # 사용 불가 임시값 — activation 전 로그인 불가
                 contact_name=u["name"],
+                contact_tel=_contact_tel,
                 is_admin=is_admin,
                 is_active=False,  # activation 완료 전 로그인 차단
             )

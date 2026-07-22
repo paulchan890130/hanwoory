@@ -87,6 +87,12 @@ test.describe("사무소 이용 신청서", () => {
       .evaluate((el: HTMLButtonElement) => { el.click(); el.click(); });
     await expect(page.getByRole("heading", { name: "신청이 접수되었습니다" })).toBeVisible();
     expect(calls).toBe(1);                                // inflight 가드로 정확히 1회
+    // 완료 화면 로그인 방법 박스 — 이메일=로그인 ID, 대표자/실무자 ID 구분.
+    await expect(page.getByText("로그인 방법")).toBeVisible();
+    await expect(page.getByText(/로그인 ID는 가입신청 때 입력한 이메일 주소/)).toBeVisible();
+    await expect(page.getByText(/대표자 로그인 ID =/)).toBeVisible();
+    await expect(page.getByText(/실무자 로그인 ID =/)).toBeVisible();
+    await expect(page.getByText(/승인 및 활성화 링크 전달 전에는 로그인할 수 없습니다/)).toBeVisible();
   });
 
   test("두 이메일 동일 시 제출 차단", async ({ page }) => {

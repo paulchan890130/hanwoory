@@ -173,11 +173,41 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
             return ("mixed", f"혼합 (local {local_count} + real {real_count})")
 
         # Per-tenant business-data presence — single query each, grouped.
+        from sqlalchemy.orm import undefer
+        from backend.db.models.office_application import OfficeApplication
         with SessionLocal() as session:
-            users = session.scalars(select(AccountUser).order_by(AccountUser.login_id)).all()
+            # 정렬은 API 가 source of truth — 최근 가입순(created_at DESC, NULL 마지막, id DESC).
+            # 방언별 NULLS LAST 차이를 피해 파이썬에서 결정적으로 정렬한다(프론트 재정렬 없음).
+            users = session.scalars(select(AccountUser).options(
+                undefer(AccountUser.account_status), undefer(AccountUser.invited_at),
+                undefer(AccountUser.activated_at))).all()
+            users = sorted(users, key=lambda u: (
+                u.created_at is None,                                    # 비-NULL 먼저(NULL 마지막)
+                -(u.created_at.timestamp() if u.created_at else 0.0),    # 최신 먼저
+                -u.id,                                                   # tie-breaker: id DESC
+            ))
+            # source_application_id 는 deferred → 여기서 undefer 해 fallback 계산 시 N+1 을 피한다.
             tenants_by_id = {
-                t.tenant_id: t for t in session.scalars(select(Tenant)).all()
+                t.tenant_id: t for t in session.scalars(
+                    select(Tenant).options(undefer(Tenant.source_application_id))).all()
             }
+            # 대표전화 fallback 후보(대표 관리자 + contact_tel 공백 + source_application_id 존재)의
+            # 원본 신청 office_phone 을 **한 번의 쿼리**로 조회한다.
+            _need_appids = {
+                (tenants_by_id.get(u.tenant_id).source_application_id)
+                for u in users
+                if u.is_admin and not (u.contact_tel or "").strip()
+                and tenants_by_id.get(u.tenant_id)
+                and getattr(tenants_by_id.get(u.tenant_id), "source_application_id", None)
+            }
+            _need_appids.discard(None)
+            source_phone_by_appid = {}
+            if _need_appids:
+                source_phone_by_appid = {
+                    aid: (ph or "") for aid, ph in session.execute(
+                        select(OfficeApplication.application_id, OfficeApplication.office_phone)
+                        .where(OfficeApplication.application_id.in_(_need_appids))).all()
+                }
             # Counts per tenant for the most user-visible domains.
             cust_counts = dict(session.execute(
                 select(Customer.tenant_id, func.count(Customer.id))
@@ -225,6 +255,19 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
             file_status, file_label = _classify_file_storage(folder, ckey, wkey)
             _role = _user_role(session, u)
 
+            # 계정 상태(invited/active/suspended/replaced/disabled) — is_active 만으로 구분하지 않는다.
+            from backend.services import account_state as _acct_state
+            _status = _acct_state.account_status_of(u)
+            # 대표전화 표시 — 실계정 값 우선. 대표 관리자인데 비었고 원본 신청 대표전화가 있으면
+            # 읽기전용 fallback(운영 DB 미수정). 실무자/비대표/신청없는 계정에는 적용하지 않는다.
+            _tel = (u.contact_tel or "").strip()
+            _tel_source = "account" if _tel else "none"
+            if not _tel and u.is_admin and t and getattr(t, "source_application_id", None):
+                _ph = source_phone_by_appid.get(t.source_application_id, "")
+                if _ph:
+                    _tel = _ph
+                    _tel_source = "application"
+
             records.append({
                 "login_id": u.login_id,
                 "tenant_id": u.tenant_id,
@@ -235,9 +278,15 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
                 "has_agent_rrn": bool(t and t.agent_rrn_encrypted),
                 "agent_rrn_last4": (t.agent_rrn_last4 if t else "") or "",
                 "contact_name": u.contact_name or "",
-                "contact_tel": u.contact_tel or "",
+                "contact_tel": _tel,
+                "contact_tel_source": _tel_source,
                 "is_admin": "TRUE" if u.is_admin else "FALSE",
                 "is_active": "TRUE" if u.is_active else "FALSE",
+                # 계정 lifecycle 상태 + 시각(계정관리 UI 가 invited/active/suspended 를 구분).
+                "account_status": _status,
+                "invited_at": u.invited_at.isoformat() if getattr(u, "invited_at", None) else "",
+                "activated_at": u.activated_at.isoformat() if getattr(u, "activated_at", None) else "",
+                "suspended_at": None,  # 모델에 별도 컬럼 없음 — 상태는 account_status 로 판단.
                 "is_master": is_master_login(u.login_id),
                 "role": _role,
                 # 표시용 권한 라벨: master / admin / sub_admin / user.
@@ -262,6 +311,9 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
                 "file_storage_status": file_status,
                 "file_storage_label": file_label,
             })
+        # 루프에서 _user_role(session, u) 가 with 종료 이후 session 을 재사용해 새 트랜잭션을 열어
+        # 두므로(idle-in-transaction), 명시적으로 닫아 커넥션 누수·ACCESS SHARE 잠금 잔존을 막는다.
+        session.close()
         return records
 
     # 도달 불가(PG-only). 안전장치.

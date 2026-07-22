@@ -3,6 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { officeApplicationApi, errText } from "@/lib/api";
 import TenantPurgeModal from "@/components/admin/TenantPurgeModal";
+import ActivationLinkResult, { type ActivationLinkInfo } from "@/components/admin/ActivationLinkResult";
+
+interface TenantAccount {
+  login_id: string; name: string; role?: string; is_admin: boolean;
+  account_status: string; is_active: boolean; activated_at?: string | null;
+}
 
 // 시스템 관리자 — 사업장 관리: 모든 사업장 조회(상태 필터·검색), 사업장 정지·복구,
 // 기존 사업장에 새 관리자 발급, 계정 연결 변경(relink — 데이터 이동 없음), 사업장 전체 폐기.
@@ -58,6 +64,11 @@ export default function TenantAdminPanel() {
   const [issueEmail, setIssueEmail] = useState("");
   const [issued, setIssued] = useState<{ login: string; token: string } | null>(null);
   const [purgeFor, setPurgeFor] = useState<TenantRow | null>(null);
+  // 계정 활성화 관리 모달
+  const [actTenant, setActTenant] = useState<TenantRow | null>(null);
+  const [actAccounts, setActAccounts] = useState<TenantAccount[] | null>(null);
+  const [actResult, setActResult] = useState<ActivationLinkInfo | null>(null);
+  const [actBusyId, setActBusyId] = useState<string | null>(null);
   // relink
   const [relinkLogin, setRelinkLogin] = useState("");
   const [relinkTarget, setRelinkTarget] = useState("");
@@ -87,6 +98,25 @@ export default function TenantAdminPanel() {
   };
   const doRestore = (t: TenantRow) =>
     withBusy(() => officeApplicationApi.restoreTenant(t.tenant_id), "사업장이 복구되었습니다.");
+
+  // 계정 활성화 관리 — tenant summary 조회 후 invited 계정별 활성화 링크 발급.
+  const openActivation = async (t: TenantRow) => {
+    setActTenant(t); setActAccounts(null); setActResult(null);
+    try {
+      const r = await officeApplicationApi.tenantSummary(t.tenant_id);
+      setActAccounts(((r.data as { accounts?: TenantAccount[] }).accounts) || []);
+    } catch (e) { toast.error(errMsg(e)); setActTenant(null); }
+  };
+  const issueActivation = async (loginId: string, acc: TenantAccount) => {
+    if (!confirm("이 계정의 활성화 링크를 새로 발급합니다.\n기존 활성화 링크가 있다면 즉시 사용할 수 없게 됩니다.\n계속하시겠습니까?")) return;
+    setActBusyId(loginId);
+    try {
+      const r = await officeApplicationApi.reissueActivation(loginId);
+      setActResult({ login_id: loginId, name: acc.name || "", role: acc.role || (acc.is_admin ? "office_admin" : "office_staff"),
+        token: (r.data as { activation_token: string }).activation_token });
+      toast.success("활성화 링크가 발급되었습니다.");
+    } catch (e) { toast.error(errMsg(e)); } finally { setActBusyId(null); }
+  };
 
   const doIssue = async () => {
     if (!issueFor || !issueName.trim() || !issueEmail.trim()) { toast.error("이름과 이메일을 입력하세요."); return; }
@@ -195,6 +225,10 @@ export default function TenantAdminPanel() {
                               <button className="hw-filter-btn" disabled={busy}
                                 onClick={() => { setIssueFor(t); setIssued(null); }}>새 관리자 발급</button>
                             )}
+                            {(t.service_status === "pending_activation" || t.invited_admins > 0) && (
+                              <button className="hw-filter-btn" disabled={busy}
+                                onClick={() => openActivation(t)}>계정 활성화 관리</button>
+                            )}
                             {!terminated && (
                               <button className="hw-filter-btn" style={{ color: "#C53030", borderColor: "#FEB2B2" }}
                                 disabled={busy || !t.can_purge}
@@ -287,6 +321,47 @@ export default function TenantAdminPanel() {
       {purgeFor && (
         <TenantPurgeModal tenantId={purgeFor.tenant_id} officeName={purgeFor.office_name}
           onClose={() => setPurgeFor(null)} onDone={() => { setPurgeFor(null); load(); }} />
+      )}
+
+      {/* 계정 활성화 관리 모달 — invited 계정별 활성화 링크 발급(직접 active 전환 아님) */}
+      {actTenant && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => { setActTenant(null); setActResult(null); }}>
+          <div onClick={(e) => e.stopPropagation()} className="hw-card"
+            style={{ width: 600, maxWidth: "95vw", maxHeight: "88vh", overflowY: "auto", background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div className="hw-card-title" style={{ marginBottom: 0 }}>계정 활성화 관리 — {actTenant.office_name}</div>
+              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => { setActTenant(null); setActResult(null); }}>닫기</button>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 8 }}>
+              사업장 ID <code>{actTenant.tenant_id}</code> · 상태 {STATUS_KO[actTenant.service_status] || actTenant.service_status}.
+              초대 계정에 활성화 링크를 발급합니다. 사업장은 사용자가 활성화를 완료해야 활성 상태가 됩니다(버튼으로 직접 전환하지 않음).
+            </div>
+            {actAccounts === null ? <p style={{ fontSize: 13, color: "var(--hw-text-sub)" }}>불러오는 중...</p> : (
+              <table className="hw-table">
+                <thead><tr><th>구분</th><th>이름</th><th>로그인 ID</th><th>상태</th><th>관리</th></tr></thead>
+                <tbody>
+                  {actAccounts.map((a) => (
+                    <tr key={a.login_id}>
+                      <td>{a.is_admin ? "대표자" : "실무자"}</td>
+                      <td>{a.name || "—"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.login_id}</td>
+                      <td>{a.account_status}{a.activated_at ? " · 활성화 완료" : ""}</td>
+                      <td>
+                        {a.account_status === "invited" ? (
+                          <button className="hw-filter-btn" disabled={actBusyId === a.login_id}
+                            onClick={() => issueActivation(a.login_id, a)}>활성화 링크 발급</button>
+                        ) : <span style={{ fontSize: 11, color: "#A0AEC0" }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {actResult && <ActivationLinkResult info={actResult} onClose={() => setActResult(null)} />}
+          </div>
+        </div>
       )}
     </div>
   );

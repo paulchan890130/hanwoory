@@ -292,8 +292,10 @@ export default function OfficeApplicationsTab() {
           {approveResult && (
             <div style={{ marginTop: 14, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "12px 14px" }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>✅ 계정 2개 생성됨 — 활성화 링크 전달 필요</div>
-              <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 4 }}>
-                각 계정에 <strong>서로 다른</strong> 활성화 링크를 전달하세요. 이 링크에서 최초 비밀번호를 설정한 후 로그인합니다. (자동 이메일 발송 없음)
+              <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 4, lineHeight: 1.6 }}>
+                각 계정에 <strong>서로 다른</strong> 활성화 링크를 전달하세요. <strong>로그인 ID는 아래 표시된 이메일 주소</strong>이며,
+                사용자는 링크에서 최초 비밀번호를 설정한 뒤 이메일+비밀번호로 로그인합니다. 링크를 전달하지 않으면 로그인할 수 없습니다.
+                자동 이메일은 발송되지 않습니다.
               </div>
               <div style={{ fontSize: 12, color: "#9C4221", marginBottom: 10, lineHeight: 1.6 }}>
                 ⚠️ 활성화 링크 원문은 보안을 위해 <strong>다시 조회할 수 없습니다.</strong> 지금 복사하거나, 이후 계정별

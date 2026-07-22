@@ -330,11 +330,11 @@ export default function LoginPage() {
                 </div>
               )}
               <div>
-                <label style={labelStyle}>로그인 ID</label>
+                <label style={labelStyle}>{applyState === "enabled" ? "로그인 ID(가입신청 이메일)" : "로그인 ID"}</label>
                 <input
                   {...loginForm.register("login_id", { required: true })}
                   style={inputStyle}
-                  placeholder="ID 입력"
+                  placeholder={applyState === "enabled" ? "가입신청 때 입력한 이메일" : "ID 입력"}
                   autoComplete="username"
                   onFocus={(e) => {
                     e.currentTarget.style.borderColor = GOLD;
@@ -386,14 +386,20 @@ export default function LoginPage() {
               >
                 {loading ? "로그인 중..." : "로그인"}
               </button>
-              {/* 신규 승인 계정 안내 — 활성화 링크에서 최초 비밀번호를 먼저 설정해야 로그인 가능 */}
-              <div style={{ fontSize: 12, color: "#718096", lineHeight: 1.7, background: "#F7F8FA",
-                border: `1px solid ${BORDER}`, borderRadius: 8, padding: "11px 14px" }}>
-                <strong style={{ color: "#4A5568" }}>신규 승인 계정 안내</strong><br />
-                관리자가 전달한 <strong>활성화 링크</strong>에서 최초 비밀번호를 먼저 설정해야 로그인할 수 있습니다.
-                가입신청 때 입력한 <strong>이메일이 로그인 ID</strong>이며, 신청 단계에서는 비밀번호를 만들지 않습니다.
-                링크가 없거나 만료된 경우 관리자에게 재발급을 요청하세요.
-              </div>
+              {/* 신규 승인 계정 안내 — 승인형 SaaS ON 에서만 표시(레거시 가입 문구와 충돌 방지) */}
+              {applyState === "enabled" && (
+                <div style={{ fontSize: 12, color: "#718096", lineHeight: 1.7, background: "#F7F8FA",
+                  border: `1px solid ${BORDER}`, borderRadius: 8, padding: "11px 14px" }}>
+                  <strong style={{ color: "#4A5568" }}>신규 승인 계정 안내</strong>
+                  <ol style={{ paddingLeft: 18, margin: "4px 0 0" }}>
+                    <li>가입신청 단계에서는 비밀번호를 만들지 않습니다.</li>
+                    <li>관리자가 전달한 <strong>활성화 링크</strong>에서 최초 비밀번호를 설정합니다.</li>
+                    <li>가입신청 이메일이 <strong>로그인 ID</strong>입니다.</li>
+                    <li>이메일과 설정한 비밀번호로 로그인합니다.</li>
+                  </ol>
+                  <div style={{ marginTop: 4 }}>링크가 없거나 만료된 경우 관리자에게 재발급을 요청하세요.</div>
+                </div>
+              )}
             </form>
           )}
 

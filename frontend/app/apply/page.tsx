@@ -175,13 +175,33 @@ export default function ApplyPage() {
             </ol>
             <div style={{ marginTop: 8 }}>{DOCS_NOTICE}</div>
           </div>
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20 }}>
+
+          {/* 로그인 방법 — 이메일이 로그인 ID, 신청 단계 비밀번호 없음 */}
+          <div style={{ textAlign: "left", fontSize: 12.5, color: "#234E52", lineHeight: 1.8,
+            background: "#E6FFFA", border: "1px solid #81E6D9", borderRadius: 8, padding: "12px 16px", marginTop: 14 }}>
+            <div style={{ fontWeight: 800, color: "#1A202C", marginBottom: 6 }}>로그인 방법</div>
+            <ul style={{ paddingLeft: 18, margin: 0 }}>
+              <li><strong>로그인 ID는 가입신청 때 입력한 이메일 주소</strong>입니다.</li>
+              <li>가입신청 단계에서는 <strong>비밀번호를 입력하지 않습니다.</strong></li>
+              <li>관리자가 승인하면 대표자와 실무자에게 <strong>각각 다른 활성화 링크</strong>를 전달합니다.</li>
+              <li>각 사용자는 자신의 활성화 링크에서 <strong>최초 비밀번호를 설정</strong>해야 합니다.</li>
+              <li>설정 후 로그인 화면에서 <strong>이메일 + 설정한 비밀번호</strong>로 로그인합니다.</li>
+              <li>활성화 링크는 자동 이메일로 발송되지 않으며, 관리자가 별도로 전달합니다.</li>
+            </ul>
+            <div style={{ marginTop: 8, background: "#fff", border: "1px dashed #81E6D9", borderRadius: 6, padding: "8px 12px" }}>
+              <div>대표자 로그인 ID = <strong>{(form["representative_email"] || "대표자 이메일").trim()}</strong></div>
+              <div>실무자 로그인 ID = <strong>{(form["staff_email"] || "실무자 이메일").trim()}</strong></div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20, alignItems: "center", flexWrap: "wrap" }}>
             <button className="btn-secondary" onClick={() => { navigator.clipboard?.writeText(receipt); }}>
               접수번호 복사
             </button>
             <Link href="/login" className="btn-secondary" style={{ textDecoration: "none" }}>
               로그인 화면으로
             </Link>
+            <span style={{ fontSize: 11.5, color: "var(--hw-text-sub)" }}>승인 및 활성화 링크 전달 전에는 로그인할 수 없습니다.</span>
           </div>
         </div>
       </div>

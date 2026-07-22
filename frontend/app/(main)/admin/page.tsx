@@ -14,6 +14,19 @@ import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
 import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
+import ActivationLinkResult, { type ActivationLinkInfo } from "@/components/admin/ActivationLinkResult";
+
+// 가입일 표시 — Asia/Seoul 기준 "YYYY-MM-DD HH:mm"(정렬은 서버 timestamp 가 source of truth).
+function fmtSeoul(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const p = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(d).reduce((a, x) => (a[x.type] = x.value, a), {} as Record<string, string>);
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
 import OfficeApplicationsTab from "@/components/admin/OfficeApplicationsTab";
 import TenantAdminPanel from "@/components/admin/TenantAdminPanel";
 import { ManualUpdatePgView, type PgStateResp } from "@/components/admin/ManualReviewView";
@@ -1575,6 +1588,23 @@ export default function AdminPage() {
   const [wsDetail, setWsDetail] = useState<WsResult | null>(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<Record<string, string> | null>(null);
   const [hardDeleteTarget, setHardDeleteTarget] = useState<Record<string, string> | null>(null);
+  const [activationResult, setActivationResult] = useState<ActivationLinkInfo | null>(null);
+  const [issuingId, setIssuingId] = useState<string | null>(null);
+
+  // invited 계정 활성화 링크 발급/재발급 — is_active 직접 변경이 아니라 기존 activation 재발급 API 사용.
+  const issueActivation = async (acc: Record<string, string>) => {
+    if (!confirm("이 계정의 활성화 링크를 새로 발급합니다.\n기존 활성화 링크가 있다면 즉시 사용할 수 없게 됩니다.\n계속하시겠습니까?")) return;
+    setIssuingId(acc.login_id);
+    try {
+      const r = await officeApplicationApi.reissueActivation(acc.login_id);
+      setActivationResult({
+        login_id: acc.login_id, name: acc.contact_name || "", role: acc.is_admin === "TRUE" ? "office_admin" : "office_staff",
+        token: (r.data as { activation_token: string }).activation_token,
+      });
+      toast.success("활성화 링크가 발급되었습니다.");
+    } catch (e) { toast.error(errText(e, "활성화 링크 발급 실패")); }
+    finally { setIssuingId(null); }
+  };
 
 
   // 레거시 /admin(시스템 전체 관리) 접근 가드.
@@ -1947,7 +1977,7 @@ export default function AdminPage() {
                           ? `등록됨 ***${acc.agent_rrn_last4 || ""}`
                           : "—"}
                       </td>
-                      <td className="text-xs" style={{ color: "#A0AEC0" }}>{acc.created_at}</td>
+                      <td className="text-xs whitespace-nowrap" style={{ color: "#A0AEC0" }}>{fmtSeoul(acc.created_at)}</td>
                       <td>
                         {saasState !== "disabled" ? (
                           // 승인형 SaaS(또는 상태 확인 전/실패): 직접 is_active 토글 금지(백엔드도 거부). 상태만 표시하고
@@ -2121,29 +2151,9 @@ export default function AdminPage() {
                         </button>
                       </td>
                       <td>
-                        {isActive ? (
-                          // 활성 계정: 비활성화만(완전삭제 숨김)
-                          <button
-                            onClick={() => setConfirmDeleteTarget(acc)}
-                            disabled={acc.login_id === user?.login_id || isMaster}
-                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            style={{ borderColor: "#FEB2B2", color: "#C53030", background: "#FFF5F5" }}
-                            title={isMaster ? "마스터 계정은 비활성화할 수 없습니다" : acc.login_id === user?.login_id ? "자신의 계정은 비활성화할 수 없습니다" : "계정 비활성화"}
-                          >
-                            <XCircle size={11} /> 비활성화
-                          </button>
-                        ) : (
-                          // 비활성 계정: 복구 + 완전삭제
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => restoreMut.mutate(acc.login_id)}
-                              disabled={restoreMut.isPending}
-                              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
-                              style={{ borderColor: "#9AE6B4", color: "#276749", background: "#F0FFF4" }}
-                              title="계정 복구(활성화)"
-                            >
-                              <RefreshCw size={11} /> 복구
-                            </button>
+                        {(() => {
+                          const st = String(acc.account_status || "");
+                          const hardDeleteBtn = (
                             <button
                               onClick={() => setHardDeleteTarget(acc)}
                               disabled={acc.login_id === user?.login_id
@@ -2154,11 +2164,58 @@ export default function AdminPage() {
                                 : (!user?.is_master && (acc.tenant_id || acc.login_id) !== user?.tenant_id)
                                   ? "다른 사업장의 계정입니다 — 전체 마스터만 완전 삭제할 수 있습니다"
                                   : "완전 삭제(복구 불가)"}
-                            >
-                              <Trash2 size={11} /> 완전삭제
-                            </button>
-                          </div>
-                        )}
+                            ><Trash2 size={11} /> 완전삭제</button>
+                          );
+                          // invited: 활성화 링크 발급 + 완전삭제 (복구 버튼 금지 — 활성화는 링크로만)
+                          if (st === "invited") {
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => issueActivation(acc)}
+                                  disabled={issuingId === acc.login_id}
+                                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                                  style={{ borderColor: "var(--hw-gold-300, #E8C877)", color: "#8A6D1B", background: "var(--hw-gold-50, #FFF8E6)" }}
+                                  title="활성화 링크 발급/재발급 — 기존 링크는 무효화됩니다.">
+                                  {issuingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} 활성화 링크 발급
+                                </button>
+                                {hardDeleteBtn}
+                              </div>
+                            );
+                          }
+                          // replaced: 조작 불가(복구 금지) + 완전삭제만
+                          if (st === "replaced") {
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs" style={{ color: "#A0AEC0" }}>교체됨</span>
+                                {hardDeleteBtn}
+                              </div>
+                            );
+                          }
+                          if (isActive) {
+                            return (
+                              <button
+                                onClick={() => setConfirmDeleteTarget(acc)}
+                                disabled={acc.login_id === user?.login_id || isMaster}
+                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                style={{ borderColor: "#FEB2B2", color: "#C53030", background: "#FFF5F5" }}
+                                title={isMaster ? "마스터 계정은 비활성화할 수 없습니다" : acc.login_id === user?.login_id ? "자신의 계정은 비활성화할 수 없습니다" : "계정 비활성화"}
+                              ><XCircle size={11} /> 비활성화</button>
+                            );
+                          }
+                          // suspended / disabled(레거시): 복구 + 완전삭제
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => restoreMut.mutate(acc.login_id)}
+                                disabled={restoreMut.isPending}
+                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-50"
+                                style={{ borderColor: "#9AE6B4", color: "#276749", background: "#F0FFF4" }}
+                                title="계정 복구(활성화)"
+                              ><RefreshCw size={11} /> 복구</button>
+                              {hardDeleteBtn}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -2218,6 +2275,18 @@ export default function AdminPage() {
           onClose={() => setHardDeleteTarget(null)}
           isDeleting={hardDeleteMut.isPending}
         />
+      )}
+
+      {/* 활성화 링크 발급 결과 — 1회 표시(공통 컴포넌트) */}
+      {activationResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setActivationResult(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="hw-card"
+            style={{ width: 560, maxWidth: "94vw", background: "#fff" }}>
+            <ActivationLinkResult info={activationResult} onClose={() => setActivationResult(null)} />
+          </div>
+        </div>
       )}
     </div>
   );

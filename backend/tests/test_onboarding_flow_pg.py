@@ -565,6 +565,87 @@ def test_inconsistent_legacy_row_fail_closed(db):
         assert r[0] == "pending" and r[1] == "of-legacy"
 
 
+# ── 대표전화 계정 연계(승인 시 저장 + 목록 fallback) ──────────────────────────
+def test_approve_sets_rep_phone_only(db):
+    from backend.services import office_application_pg_service as svc
+    from backend.db.models.user import AccountUser
+    svc.approve(svc.create_application(_app(office_phone="01012345678"))["application_id"], "wkdwhfl", seat_limit=2)
+    with db() as s:
+        rep = s.scalar(select(AccountUser).where(AccountUser.login_id == "rep@hanbit.kr"))
+        staff = s.scalar(select(AccountUser).where(AccountUser.login_id == "staff@hanbit.kr"))
+        assert rep.contact_tel == "01012345678"   # 대표자에만 대표전화 연계
+        assert (staff.contact_tel or "") == ""      # 실무자에는 복제하지 않음
+
+
+def test_approve_no_phone_ok(db):
+    from backend.services import office_application_pg_service as svc
+    from backend.db.models.user import AccountUser
+    r = svc.create_application(_app(office_name="무전화", representative_email="np@x.kr",
+                                    staff_email="nps@x.kr", office_phone=""))
+    svc.approve(r["application_id"], "wkdwhfl", seat_limit=2)   # 전화 없어도 오류 없이 생성
+    with db() as s:
+        assert (s.scalar(select(AccountUser).where(AccountUser.login_id == "np@x.kr")).contact_tel or "") == ""
+
+
+def test_accounts_list_sort_and_status_fields(db):
+    from backend.routers.admin import list_accounts
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from datetime import datetime, timezone, timedelta
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with db() as s:
+        s.add(Tenant(tenant_id="t1", office_name="t1", is_active=True)); s.flush()
+        # 오래된 → 최신 순으로 생성시각 부여 + NULL created_at 레거시 1건.
+        s.add(AccountUser(login_id="old@x.kr", tenant_id="t1", password_hash="x", is_admin=False,
+                          is_active=True, account_status="active", created_at=base))
+        s.add(AccountUser(login_id="mid@x.kr", tenant_id="t1", password_hash="x", is_admin=False,
+                          is_active=False, account_status="invited", created_at=base + timedelta(days=1)))
+        s.add(AccountUser(login_id="new@x.kr", tenant_id="t1", password_hash="x", is_admin=True,
+                          is_active=False, account_status="suspended", created_at=base + timedelta(days=2)))
+        s.commit()
+    rows = list_accounts(user={"login_id": "sys", "is_admin": True, "is_master": True})
+    ids = [r["login_id"] for r in rows]
+    assert ids[0] == "new@x.kr" and ids[1] == "mid@x.kr" and ids[2] == "old@x.kr"  # 최신 가입순
+    by = {r["login_id"]: r for r in rows}
+    assert by["mid@x.kr"]["account_status"] == "invited" and by["mid@x.kr"]["invited_at"] is not None
+    assert by["new@x.kr"]["account_status"] == "suspended"
+    assert by["old@x.kr"]["account_status"] == "active"
+    assert "suspended_at" in by["old@x.kr"]
+
+
+def test_accounts_contact_tel_fallback(db):
+    from backend.services import office_application_pg_service as svc
+    from backend.routers.admin import list_accounts
+    from backend.db.models.user import AccountUser
+    # 승인 후 대표자 contact_tel 을 강제로 비워 레거시(비어있는) 상태 모사.
+    r = svc.create_application(_app(office_phone="0212345678"))
+    svc.approve(r["application_id"], "wkdwhfl", seat_limit=2)
+    with db() as s:
+        rep = s.scalar(select(AccountUser).where(AccountUser.login_id == "rep@hanbit.kr"))
+        rep.contact_tel = None; s.commit()
+    rows = {x["login_id"]: x for x in list_accounts(user={"login_id": "sys", "is_admin": True, "is_master": True})}
+    # 대표자: 비었지만 원본 신청 office_phone 으로 fallback.
+    assert rows["rep@hanbit.kr"]["contact_tel"] == "0212345678"
+    assert rows["rep@hanbit.kr"]["contact_tel_source"] == "application"
+    # 실무자: fallback 미적용(대표전화 복제 안 함).
+    assert (rows["staff@hanbit.kr"]["contact_tel"] or "") == ""
+    assert rows["staff@hanbit.kr"]["contact_tel_source"] == "none"
+
+
+def test_accounts_no_fallback_without_source_app(db):
+    from backend.routers.admin import list_accounts
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        t = Tenant(tenant_id="t9", office_name="t9", is_active=True); s.add(t); s.flush()
+        # source_application_id 없음 → fallback 대상 아님(대표자여도).
+        s.add(AccountUser(login_id="a@t9.kr", tenant_id="t9", password_hash="x", is_admin=True,
+                          is_active=True, account_status="active"))
+        s.commit()
+    row = {x["login_id"]: x for x in list_accounts(user={"login_id": "sys", "is_master": True})}["a@t9.kr"]
+    assert (row["contact_tel"] or "") == "" and row["contact_tel_source"] == "none"
+
+
 def test_tenant_list_external_and_local_storage(db):
     from backend.services import tenant_admin_pg_service as ta
     from backend.db.models.tenant import Tenant
