@@ -334,17 +334,19 @@ def _row_to_customer(raw: dict):
 
     yeon, rak, cheo = _split_phone(raw.get("_phone", ""))
     data["연"], data["락"], data["처"] = yeon, rak, cheo
-    from backend.services.customer_identifier_normalize import normalize_reg_front
+    from backend.services.customer_identifier_normalize import normalize_reg_front_from_excel
     _reg_in = raw.get("등록증", "")
-    _reg_r = normalize_reg_front(_reg_in, source="excel_import", allow_numeric_recovery=True)
+    _reg_r = normalize_reg_front_from_excel(_reg_in)
     if _reg_r.valid:
         data["등록증"] = _reg_r.canonical_value
         if _reg_r.changed:
             transforms.append("외국인등록번호 앞자리 선행 0 복구(6자리)")
     else:
-        data["등록증"] = _reg_in.strip() if isinstance(_reg_in, str) else str(_reg_in).strip()
-        if data["등록증"]:
-            warnings.append("외국인등록번호 앞자리가 6자리 YYMMDD 형식이 아니어서 원문으로 저장합니다.")
+        # 잘못된 앞자리는 경고로 저장하지 않고 **오류로 행 등록 차단**(원문 값 미노출).
+        data["등록증"] = ""
+        _reg_orig = _reg_in.strip() if isinstance(_reg_in, str) else str(_reg_in).strip()
+        if _reg_orig:
+            msgs.append("외국인등록번호 앞자리는 생년월일 6자리(YYMMDD)여야 합니다. 예: 001010")
     data["번호"] = raw.get("번호", "")  # create_customer 가 암호화
     data["여권"] = raw.get("여권", "")
 
@@ -477,6 +479,7 @@ def commit(file_bytes: bytes, tenant_id: str, include_duplicates: bool) -> dict:
     from backend.services.customer_pg_service import (
         create_customer, CustomerIdConflict, TenantNotProvisioned,
     )
+    from backend.services.customer_identifier_normalize import RegFrontValidationError
     from backend.services.pii_crypto import PiiKeyMissing
 
     rows = _read_rows(file_bytes)
@@ -507,7 +510,9 @@ def commit(file_bytes: bytes, tenant_id: str, include_duplicates: bool) -> dict:
                 passport = str(data.get("여권", "")).strip()
                 if passport:
                     by_passport.setdefault(passport, cid)
-        except (CustomerIdConflict, TenantNotProvisioned, PiiKeyMissing):
+        except (CustomerIdConflict, TenantNotProvisioned, PiiKeyMissing,
+                RegFrontValidationError):
+            # RegFrontValidationError 는 _row_to_customer 에서 이미 차단되지만(방어적 이중).
             failed += 1
             fail_rows.append(raw.get("_row_no"))
         except Exception:

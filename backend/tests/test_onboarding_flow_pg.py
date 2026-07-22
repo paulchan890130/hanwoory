@@ -646,6 +646,62 @@ def test_accounts_no_fallback_without_source_app(db):
     assert (row["contact_tel"] or "") == "" and row["contact_tel_source"] == "none"
 
 
+def test_list_accounts_repeat_no_leak_no_nplus1(db, engine):
+    """role preload 로 세션 재사용(idle-in-transaction) 및 role N+1 이 제거됐는지 검증.
+
+    - 20회 이상 반복 호출 성공(정렬/상태/전화 fallback 회귀 없음).
+    - 단일 호출의 users SELECT 수 ≤ 2(목록 1 + role preload 1) → N+1 아님.
+    - 종료 후 idle-in-transaction 커넥션 0, 후속 TRUNCATE hang 없음.
+    """
+    from sqlalchemy import event
+
+    from backend.routers.admin import list_accounts
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+
+    with db() as s:
+        s.add(Tenant(tenant_id="tL", office_name="L", is_active=True)); s.flush()
+        for i in range(3):  # 대표1 + 실무2(비관리자 → 과거엔 role N+1)
+            s.add(AccountUser(login_id=f"l{i}@x.kr", tenant_id="tL", password_hash="x",
+                              is_admin=(i == 0), is_active=True, account_status="active"))
+        s.commit()
+
+    user_selects: list[str] = []
+
+    def _count_users_select(conn, cursor, statement, params, ctx, many):
+        st = statement.lower().lstrip()
+        if st.startswith("select") and " users" in (" " + st):
+            user_selects.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _count_users_select)
+    try:
+        rows = list_accounts(user={"login_id": "sys", "is_master": True})
+    finally:
+        event.remove(engine, "before_cursor_execute", _count_users_select)
+    assert len(rows) == 3
+    # 목록 1 + role preload 1. N+1 이면 비관리자 수(2)만큼 늘어 3+ 가 된다.
+    assert len(user_selects) <= 2, user_selects
+
+    # 20회 이상 반복 — 정렬/상태/전화 fallback 회귀 없이 성공.
+    for _ in range(25):
+        rs = list_accounts(user={"login_id": "sys", "is_master": True})
+        assert len(rs) == 3
+
+    # idle-in-transaction 커넥션 잔존 없음(누수 회귀 방지).
+    with engine.connect() as c:
+        idle_in_tx = c.execute(text(
+            "SELECT count(*) FROM pg_stat_activity "
+            "WHERE datname = current_database() AND state = 'idle in transaction'"
+        )).scalar()
+    assert idle_in_tx == 0, f"idle-in-transaction 잔존={idle_in_tx}"
+
+    # 후속 TRUNCATE 가 ACCESS SHARE 잠금에 걸리지 않고 즉시 수행됨.
+    from backend.db.base import Base
+    names = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    with engine.begin() as c:
+        c.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
+
+
 def test_tenant_list_external_and_local_storage(db):
     from backend.services import tenant_admin_pg_service as ta
     from backend.db.models.tenant import Tenant

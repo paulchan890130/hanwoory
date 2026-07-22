@@ -95,10 +95,54 @@ def normalize_reg_front(value, *, source: str = "unknown",
     return RegFrontResult(candidate, changed, True, reason)
 
 
+class RegFrontValidationError(ValueError):
+    """웹/API 신규·수정 입력이 reg_front 정책(빈 값 또는 정확한 6자리 YYMMDD)을 위반.
+
+    라우터가 구조화된 400/422 로 변환한다. 원문 값은 담지 않는다(PII 로그 방지)."""
+
+    code = "INVALID_REG_FRONT"
+
+    def __init__(self, reason: str = "invalid"):
+        self.reason = reason
+        super().__init__(
+            "외국인등록번호 앞자리는 생년월일 6자리로 입력하세요. "
+            "예: 2000년 10월 10일 → 001010"
+        )
+
+
+# ── 경계 A: 레거시 DB 읽기 방어(느슨 — 복구 가능하면 복구, 불가하면 원문 보존) ──────
+def canonical_reg_front_for_legacy_read(value) -> str:
+    """레거시 읽기 전용. 1~5자리/숫자형은 좌측 0 채움 복구, 실패 시 원문 보존(비파괴).
+
+    **쓰기 검증에 사용하지 말 것** — 잘못된 값을 그대로 통과시킨다."""
+    r = normalize_reg_front(value, source="legacy_read", allow_numeric_recovery=True)
+    return r.canonical_value if r.valid else ("" if value is None else str(value).strip())
+
+
+# 하위호환 alias(기존 호출부) — 의미는 레거시 읽기 복구.
 def canonical_reg_front(value, *, allow_numeric_recovery: bool = True) -> str:
-    """정규화 성공 시 canonical 6자리, 실패 시 원문 문자열(파괴적 변경 없음)."""
     r = normalize_reg_front(value, allow_numeric_recovery=allow_numeric_recovery)
     return r.canonical_value if r.valid else ("" if value is None else str(value).strip())
+
+
+# ── 경계 C: 웹/API 신규·수정 엄격 검증(복구 금지 — 빈 값 또는 정확한 6자리만) ──────
+def validate_reg_front_for_write(value) -> str:
+    """신규 등록/사용자 직접 수정용. 빈 값 또는 정확한 6자리 유효 YYMMDD만 허용.
+
+    반환: canonical 문자열('' 포함). 그 외(1~5자리·7자리+·범위위반·소수·문자) →
+    :class:`RegFrontValidationError`. **4자리 '1010' 을 조용히 '001010' 으로 바꾸지 않는다.**"""
+    r = normalize_reg_front(value, source="write", allow_numeric_recovery=False)
+    if not r.valid:
+        raise RegFrontValidationError(r.reason)
+    return r.canonical_value
+
+
+# ── 경계 B: Excel 숫자 셀/이관 입력(복구 허용, 유효성은 호출부가 오류로 처리) ──────
+def normalize_reg_front_from_excel(value) -> RegFrontResult:
+    """Excel 숫자 셀(1010/1010.0)·문자열('001010')을 복구 시도. 결과 객체 반환.
+
+    valid=False 이면 호출부(_row_to_customer)가 **경고가 아닌 오류**로 행을 차단한다."""
+    return normalize_reg_front(value, source="excel_import", allow_numeric_recovery=True)
 
 
 # ── 세기 판정(등록번호 뒷자리 첫 숫자) — 프론트 birth.ts 와 동일 규칙 ────────────
@@ -118,10 +162,21 @@ def century_prefix_from_reg_back(reg_back, yy: Optional[str] = None) -> str:
 
 
 def derive_birth_date(front, reg_back) -> str:
-    """canonical(또는 복구 가능한) 앞자리 + 뒷자리 → 'YYYY-MM-DD'. 불가하면 ''."""
+    """canonical(또는 복구 가능한) 앞자리 + 뒷자리 세기코드 → 'YYYY-MM-DD'.
+
+    구조적 YYMMDD 검증(세기 미상, Feb29 후보 허용)을 통과해도 **세기 결합 후 실제
+    그레고리력 날짜가 존재하지 않으면 빈 값**을 반환한다(예: 1900-02-29, 1999-02-29).
+    복구 불가/무효 → ''."""
+    from datetime import date
+
     r = normalize_reg_front(front, allow_numeric_recovery=True)
     if not r.valid or not r.canonical_value:
         return ""
     f = r.canonical_value
     cen = century_prefix_from_reg_back(reg_back, f[:2])
-    return f"{cen}{f[:2]}-{f[2:4]}-{f[4:6]}"
+    yyyy, mm, dd = int(cen + f[:2]), int(f[2:4]), int(f[4:6])
+    try:
+        date(yyyy, mm, dd)  # 실제 존재하는 날짜인지(윤년 포함) 검증
+    except ValueError:
+        return ""
+    return f"{yyyy:04d}-{mm:02d}-{dd:02d}"

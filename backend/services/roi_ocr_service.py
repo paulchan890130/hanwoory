@@ -522,9 +522,12 @@ def extract_arc_field(img: Image.Image, field: str, roi: Dict[str, float], rotat
 
     if field == "등록증":
         txt = _digits_ocr(crop, 7) + "\n" + _digits_ocr(crop, 6)
-        from backend.services.customer_identifier_normalize import canonical_reg_front
-        # clean_reg_front 는 6자리 문자열을 반환하나(선행 0 보존), int 변환 없이 문자열 정규화만.
-        value = canonical_reg_front(clean_reg_front(txt))
+        from backend.services.customer_identifier_normalize import normalize_reg_front
+        # 선행 0 보존(문자열 정규화만, int 변환 없음). 유효한 6자리 YYMMDD 로 복구되지
+        # 않으면 자동저장 가능한 값으로 반환하지 않고 빈 값 + 실패 사유(원문 미로그).
+        raw6 = clean_reg_front(txt)
+        _r = normalize_reg_front(raw6, source="ocr", allow_numeric_recovery=True)
+        value = _r.canonical_value if _r.valid else ""
         reason = (
             "" if value
             else ("OCR returned no digits" if not txt.strip()

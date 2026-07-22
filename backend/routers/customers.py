@@ -368,9 +368,13 @@ def add_customer(data: dict, user: dict = Depends(get_current_user)):
     from backend.services.customer_pg_service import (
         create_customer, CustomerIdConflict, TenantNotProvisioned,
     )
+    from backend.services.customer_identifier_normalize import RegFrontValidationError
     from backend.services.pii_crypto import PiiKeyMissing
     try:
         result = create_customer(tenant_id, data)
+    except RegFrontValidationError as e:
+        # 웹/API 신규 등록 = 엄격: 잘못된 앞자리는 조용히 복구하지 않고 구조화 오류(422).
+        raise HTTPException(status_code=422, detail={"code": e.code, "message": str(e)})
     except TenantNotProvisioned as e:
         raise HTTPException(status_code=409, detail=str(e))
     except CustomerIdConflict as e:
@@ -397,6 +401,17 @@ def update_customer(customer_id: str, data: dict, user: dict = Depends(get_curre
     existing.pop("번호_last4", None)
     merged = {**existing, **{k: str(v) for k, v in data.items()}}
     merged["고객ID"] = customer_id
+    # 사용자가 등록증(앞자리)을 **직접 수정한 경우에만** 엄격 검증한다(웹 입력 = 엄격).
+    # 미전송(다른 필드만 수정) 시엔 화면 canonical/레거시 값을 grandfather 로 통과시켜
+    # 복구 불가한 레거시 앞자리 때문에 다른 필드 저장이 막히지 않게 한다.
+    if "등록증" in data:
+        from backend.services.customer_identifier_normalize import (
+            RegFrontValidationError, validate_reg_front_for_write,
+        )
+        try:
+            merged["등록증"] = validate_reg_front_for_write(merged.get("등록증"))
+        except RegFrontValidationError as e:
+            raise HTTPException(status_code=422, detail={"code": e.code, "message": str(e)})
     from backend.services.pii_crypto import PiiKeyMissing
     try:
         upsert_customer(tenant_id, merged)

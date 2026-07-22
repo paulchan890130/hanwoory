@@ -126,15 +126,30 @@ def _encode_reg_back_into_payload(payload: dict, tenant_id: str) -> None:
         payload["reg_back"] = norm
 
 
-def _normalize_reg_front_in_payload(payload: dict) -> None:
-    """쓰기 payload 의 reg_front 를 canonical 6자리 문자열로 정규화(in-place).
+def _validate_reg_front_in_payload(payload: dict) -> None:
+    """신규 등록(create) 쓰기 payload 의 reg_front 엄격 검증(in-place).
 
-    선행 0 이 사라진 숫자/짧은 문자열('1010', int 1010)을 '001010' 으로 복구해 저장한다.
-    유효 복구 불가 값은 파괴하지 않고 문자열로 보존(라우터가 더 엄격히 검증할 수 있음)."""
+    빈 값 또는 정확한 6자리 유효 YYMMDD만 허용. 1~5자리 '1010'·7자리+·범위위반 등은
+    **조용히 복구하지 않고** :class:`RegFrontValidationError` 를 던진다(라우터가 400/422).
+    Excel 경로는 _row_to_customer 가 먼저 복구·차단하므로, 여기 도달하는 값은 canonical."""
     if "reg_front" not in payload:
         return
-    from backend.services.customer_identifier_normalize import canonical_reg_front
-    payload["reg_front"] = canonical_reg_front(payload.get("reg_front"))
+    from backend.services.customer_identifier_normalize import validate_reg_front_for_write
+    payload["reg_front"] = validate_reg_front_for_write(payload.get("reg_front"))
+
+
+def _legacy_canonicalize_reg_front_in_payload(payload: dict) -> None:
+    """수정/복원(upsert) 쓰기 payload 의 reg_front 를 레거시 읽기 복구로 정규화(in-place).
+
+    update 라우터가 사용자가 직접 보낸 reg_front 를 이미 엄격 검증하므로, 여기서는
+    화면에서 되돌아온 canonical 값·grandfather 된 레거시 값을 비파괴로 통과시킨다
+    (복구 가능하면 6자리, 불가하면 원문 보존). 직접 upsert 호출(스캔/이관)도 안전."""
+    if "reg_front" not in payload:
+        return
+    from backend.services.customer_identifier_normalize import (
+        canonical_reg_front_for_legacy_read,
+    )
+    payload["reg_front"] = canonical_reg_front_for_legacy_read(payload.get("reg_front"))
 
 
 def _row_to_dict(row, *, reveal: bool = False) -> dict:
@@ -160,8 +175,10 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
     # 등록증(reg_front, YYMMDD) 읽기 방어 — 레거시 선행 0 손실('1010')을 canonical('001010')로
     # 복구해 모든 읽기 경로(목록/상세/검색/문서/추출/복사팝업)가 동일 6자리 값을 받게 한다.
     # DB 원문은 수정하지 않는다(유효 복구 불가 값은 원문 유지). 프론트 개별 padStart 불필요.
-    from backend.services.customer_identifier_normalize import canonical_reg_front
-    out["등록증"] = canonical_reg_front(out.get("등록증", ""))
+    from backend.services.customer_identifier_normalize import (
+        canonical_reg_front_for_legacy_read,
+    )
+    out["등록증"] = canonical_reg_front_for_legacy_read(out.get("등록증", ""))
 
     from backend.services import pii_crypto as _pii
 
@@ -331,7 +348,7 @@ def create_customer(tenant_id: str, data: dict, *, max_retries: int = 5) -> dict
     base_payload = {SHEET_TO_PG[k]: v for k, v in data.items() if k in SHEET_TO_PG}
     from backend.services.date_normalize import normalize_date_fields
     normalize_date_fields(base_payload, _DATE_PG_COLUMNS)
-    _normalize_reg_front_in_payload(base_payload)
+    _validate_reg_front_in_payload(base_payload)  # 신규 등록 = 엄격(복구 금지)
     _encode_reg_back_into_payload(base_payload, tenant_id)
     _apply_external_accounts_into_payload(base_payload, data)
     last_err: Optional[Exception] = None
@@ -394,7 +411,7 @@ def upsert_customer(tenant_id: str, data: dict) -> dict:
         raise ValueError("고객ID is required")
     from backend.services.date_normalize import normalize_date_fields
     normalize_date_fields(payload, _DATE_PG_COLUMNS)
-    _normalize_reg_front_in_payload(payload)
+    _legacy_canonicalize_reg_front_in_payload(payload)  # 수정/복원 = grandfather(비파괴)
     _encode_reg_back_into_payload(payload, tenant_id)
     _apply_external_accounts_into_payload(payload, data)
 

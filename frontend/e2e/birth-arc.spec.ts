@@ -33,6 +33,15 @@ test.describe("birth.ts — reg_front 선행 0 방어", () => {
     expect(deriveBirthDateFromArc("bad", "1")).toBe(""); // 복구 불가
   });
 
+  test("deriveBirthDateFromArc: 세기 결합 실제 그레고리력 검증(백엔드와 동일 벡터)", () => {
+    expect(deriveBirthDateFromArc("001010", "7020304")).toBe("20001010"); // 정상
+    expect(deriveBirthDateFromArc("001010", "1020304")).toBe("19001010"); // 정상
+    expect(deriveBirthDateFromArc("000229", "3020304")).toBe("20000229"); // 2000 윤년
+    expect(deriveBirthDateFromArc("000229", "1020304")).toBe("");         // 1900 평년 → 없음
+    expect(deriveBirthDateFromArc("990229", "1020304")).toBe("");         // 1999 평년 → 없음
+    expect(deriveBirthDateFromArc("040229", "3020304")).toBe("20040229"); // 2004 윤년
+  });
+
   test("centuryFromArcBack: 뒷자리 첫 숫자 규칙", () => {
     expect(centuryFromArcBack("1")).toBe("19");
     expect(centuryFromArcBack("3")).toBe("20");

@@ -46,10 +46,17 @@ export function canonicalArcFront(front: string | null | undefined): string {
   return _validYymmdd(padded) ? padded : "";
 }
 
+/** "YYYY","MM","DD" 가 실제 존재하는 그레고리력 날짜인지(윤년 포함) 검증. */
+function _isRealDate(yyyy: number, mm: number, dd: number): boolean {
+  const d = new Date(yyyy, mm - 1, dd);
+  return d.getFullYear() === yyyy && d.getMonth() === mm - 1 && d.getDate() === dd;
+}
+
 /**
  * 등록번호 앞 6자리(YYMMDD) + 뒷자리(첫 숫자로 세기 판단) → "YYYYMMDD".
  * 선행 0 이 손실된(1~5자리) 앞자리는 좌측 0 채움 후 YYMMDD 검증하여 복구한다.
- * 복구·검증 실패 시 빈 문자열 반환. (원문 로그 출력 금지 — 호출측도 동일)
+ * 세기 결합 후 **실제 존재하지 않는 날짜(예: 1900-02-29, 1999-02-29)면 빈 값**을 반환한다.
+ * 복구·검증 실패 시에도 빈 문자열. (원문 로그 출력 금지 — 호출측도 동일)
  */
 export function deriveBirthDateFromArc(
   front6: string | null | undefined,
@@ -58,6 +65,10 @@ export function deriveBirthDateFromArc(
   const f = canonicalArcFront(front6);
   if (f.length !== 6) return "";
   const century = centuryFromArcBack(arcBack, f.slice(0, 2));
+  const yyyy = parseInt(century + f.slice(0, 2), 10);
+  const mm = parseInt(f.slice(2, 4), 10);
+  const dd = parseInt(f.slice(4, 6), 10);
+  if (!_isRealDate(yyyy, mm, dd)) return "";
   return century + f; // YYYYMMDD
 }
 

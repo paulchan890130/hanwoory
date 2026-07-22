@@ -25,10 +25,12 @@ _GUARANTOR_FIELDS = (
 
 def _canonicalize_reg_front_fields(d: dict) -> None:
     """provider_reg_front / guarantor_reg_front 의 선행 0 손실을 비파괴적으로 복구(in-place)."""
-    from backend.services.customer_identifier_normalize import canonical_reg_front
+    from backend.services.customer_identifier_normalize import (
+        canonical_reg_front_for_legacy_read,
+    )
     for f in ("provider_reg_front", "guarantor_reg_front"):
         if f in d and str(d.get(f, "")).strip():
-            d[f] = canonical_reg_front(d.get(f, ""))
+            d[f] = canonical_reg_front_for_legacy_read(d.get(f, ""))
 
 
 def _row_to_dict(row, fields) -> dict:

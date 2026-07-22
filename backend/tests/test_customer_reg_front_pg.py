@@ -77,15 +77,27 @@ def _raw_reg_front(db, customer_id):
                         .bindparams(c=customer_id))
 
 
-@pytest.mark.parametrize("value", ["001010", "1010"])
-def test_new_write_stores_canonical_six_digits(db, value):
+def test_new_write_stores_valid_six_digits(db):
     from backend.services.customer_pg_service import create_customer
 
-    out = create_customer("t-regfront", {"한글": "김합성", "등록증": value})
+    out = create_customer("t-regfront", {"한글": "김합성", "등록증": "001010"})
     cid = out["고객ID"]
     assert out["등록증"] == "001010"
-    # DB raw 컬럼 자체가 6자리로 저장됐는지(쓰기 정규화).
-    assert _raw_reg_front(db, cid) == "001010"
+    assert _raw_reg_front(db, cid) == "001010"  # DB raw 6자리 저장
+
+
+@pytest.mark.parametrize("bad", ["1010", "12345678", "991332", "abcdef"])
+def test_new_write_rejects_invalid_reg_front(db, bad):
+    # 웹/API 신규 등록 = 엄격: 잘못된 앞자리는 조용히 001010 으로 바꾸지 않고 거부.
+    from backend.services.customer_pg_service import create_customer
+    from backend.services.customer_identifier_normalize import RegFrontValidationError
+
+    with pytest.raises(RegFrontValidationError):
+        create_customer("t-regfront", {"한글": "불량", "등록증": bad})
+    # 저장 자체가 일어나지 않음.
+    with db() as s:
+        cnt = s.scalar(text("SELECT count(*) FROM customers WHERE tenant_id='t-regfront'"))
+    assert cnt == 0
 
 
 def test_legacy_row_read_defense_non_destructive(db):
@@ -102,3 +114,95 @@ def test_legacy_row_read_defense_non_destructive(db):
     got = find_customer("t-regfront", "9001")
     assert got["등록증"] == "001010"          # 읽기 방어선으로 복구
     assert _raw_reg_front(db, "9001") == "1010"  # DB 원문은 불변(비파괴)
+
+
+# ── Excel 실제 왕복: import 양식 workbook → _read_rows → _row_to_customer → create → PG raw ──
+def _import_workbook_bytes(reg_value, *, number_format=None):
+    """import 양식(고객 시트, DATA_START_ROW=4, STD_KEYS 위치)으로 1행 workbook 생성.
+    한글=col1(STD_KEYS[0]), 등록증=col6(STD_KEYS[5])."""
+    import io as _io
+
+    from openpyxl import Workbook
+
+    from backend.services.customer_bulk_service import (
+        DATA_START_ROW, SHEET_NAME, STD_KEYS,
+    )
+    wb = Workbook()
+    ws = wb.active
+    ws.title = SHEET_NAME
+    name_col = STD_KEYS.index("한글") + 1
+    reg_col = STD_KEYS.index("등록증") + 1
+    ws.cell(row=DATA_START_ROW, column=name_col, value="엑셀합성")
+    c = ws.cell(row=DATA_START_ROW, column=reg_col, value=reg_value)
+    if number_format:
+        c.number_format = number_format
+    buf = _io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("reg_value,number_format", [
+    ("001010", None),        # Text 문자열
+    (1010, None),            # 숫자 셀(선행 0 손실) → 복구
+    (1010.0, None),          # float 셀 → 복구
+    ("001010", "@"),         # Text(@) 서식
+    (1010, "000000"),        # custom number format
+])
+def test_excel_roundtrip_recovers_to_canonical(db, reg_value, number_format):
+    from backend.services import customer_bulk_service as bulk
+
+    blob = _import_workbook_bytes(reg_value, number_format=number_format)
+    res = bulk.commit(blob, "t-regfront", include_duplicates=True)
+    assert res["registered"] == 1, res
+    cid = res["new_customer_ids"][0]
+    assert _raw_reg_front(db, cid) == "001010"          # PG raw 6자리
+    from backend.services.customer_pg_service import find_customer
+    assert find_customer("t-regfront", cid)["등록증"] == "001010"  # API 값
+
+
+@pytest.mark.parametrize("bad", [12345678, "991332", "abcdef"])
+def test_excel_roundtrip_blocks_invalid_row(db, bad):
+    from backend.services import customer_bulk_service as bulk
+
+    blob = _import_workbook_bytes(bad)
+    res = bulk.commit(blob, "t-regfront", include_duplicates=True)
+    assert res["registered"] == 0
+    assert res["skipped_error"] >= 1
+    with db() as s:
+        cnt = s.scalar(text("SELECT count(*) FROM customers WHERE tenant_id='t-regfront'"))
+    assert cnt == 0
+
+
+# ── 검색: 레거시 '1010' 행을 canonical '001010' / '1010' 둘 다로 찾음 ──────────
+def test_search_finds_legacy_reg_front(db):
+    from backend.routers.search import _search_customers
+
+    with db() as s:
+        s.execute(text(
+            "INSERT INTO customers (tenant_id, customer_id, korean_name, reg_front) "
+            "VALUES ('t-regfront','7001','검색합성',:r)").bindparams(r="1010"))
+        s.commit()
+    ids_canon = [r.id for r in _search_customers("001010", "t-regfront")]
+    ids_short = [r.id for r in _search_customers("1010", "t-regfront")]
+    assert "7001" in ids_canon      # canonical 로 검색됨
+    assert "7001" in ids_short      # substring(레거시 입력)으로도 검색됨
+
+
+# ── 만기알림 생년월일: 레거시 '1010' + 뒷자리 세기코드 → 2000-10-10 ───────────
+def test_expiry_alert_birth_from_legacy_reg_front(db):
+    import datetime
+
+    from backend.routers.customers import _CACHE_EXPIRY, get_expiry_alerts
+    from backend.services.cache_service import cache_invalidate
+
+    exp = (datetime.date.today() + datetime.timedelta(days=60)).isoformat()
+    with db() as s:
+        s.execute(text(
+            "INSERT INTO customers (tenant_id, customer_id, korean_name, reg_front, "
+            "reg_back, card_expiry_date) VALUES ('t-regfront','7100','만기합성',:r,:b,:e)"
+        ).bindparams(r="1010", b="7020304", e=exp))
+        s.commit()
+    cache_invalidate("t-regfront", _CACHE_EXPIRY)
+    res = get_expiry_alerts(user={"tenant_id": "t-regfront", "sub": "x"})
+    births = [row["생년월일"] for row in res["card_alerts"] if row["고객ID"] == "7100"]
+    assert births and births[0] == "2000-10-10"  # 뒷자리 7 → 2000, 앞자리 복구
