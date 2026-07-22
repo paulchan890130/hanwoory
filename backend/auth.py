@@ -86,6 +86,19 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
                             "message": "계정이 비활성화되었습니다. 관리자에게 문의하십시오."},
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            # ── JWT tenant binding(1차 방어선) ────────────────────────────────
+            # 세션 revoke 만으로는 부족하다(SINGLE_SESSION off / revoke 실패 시 기존 토큰이
+            # 이전 tenant_id 를 계속 가리킬 수 있음). DB 조회가 **성공**했고(여기 도달) 현재 소속
+            # tenant 가 JWT 의 tenant 와 다르면 fail-closed 로 재로그인시킨다. flag(SINGLE_SESSION/
+            # APPROVED_SAAS)와 무관. JWT tenant 를 조용히 덮어쓰지 않는다. 마스터는 예외(escape hatch).
+            db_tid = info.get("tenant_id")
+            if (not is_master_login(login_id)) and tenant_id and db_tid and str(db_tid) != str(tenant_id):
+                raise HTTPException(
+                    status_code=401,
+                    detail={"code": "TENANT_MEMBERSHIP_CHANGED",
+                            "message": "계정의 소속 사업장이 변경되었습니다. 다시 로그인해 주세요."},
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             # PG 가 권한의 source of truth — 강등/승격이 즉시 반영되도록 PG 값으로 덮어쓴다.
             is_admin = bool(info["is_admin"])
             role = str(info["role"] or role)

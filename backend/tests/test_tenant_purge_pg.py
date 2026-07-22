@@ -477,14 +477,10 @@ def test_relink_strong_confirmation(db):
 
 
 # ── §9 기존 audit_logs 삭제 + PII 없는 요약만 보존 ────────────────────────────
-def test_purge_deletes_audit_logs_pii_free(db, monkeypatch):
+def test_purge_deletes_audit_logs_pii_free(db):
     from backend.services import tenant_purge_pg_service as p
-    from backend.services import audit_service as _audit_svc
     from backend.db.models.audit import AuditLog
-    # audit_service 는 pg_audit_enabled/is_configured 를 import-time 바인딩하므로 직접 패치해
-    # 요약 audit 기록 경로가 테스트 sessionmaker 로 확실히 실행되게 한다(실행 순서 무관).
-    monkeypatch.setattr(_audit_svc, "pg_audit_enabled", lambda: True)
-    monkeypatch.setattr(_audit_svc, "is_configured", lambda: True)
+    # 요약 audit 은 이제 폐기 트랜잭션 내부에서 직접 기록되므로 FEATURE_PG_AUDIT 와 무관하게 남는다(§6).
     _seed_tenant(db, "of-a")
     _seed_tenant(db, "of-b")
     with db() as s:
@@ -589,3 +585,293 @@ def test_relink_master_and_actor_blocked(db):
         s.commit()
     pv = ta.relink_preview("wkdwhfl", "tgt", actor_login="sys")
     assert pv["can_relink"] is False   # 마스터 차단
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 라운드2 하드닝 — target 상태/강한확인/JWT binding/좌석예약/세션·감사 원자성
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── §1 relink 대상 tenant 상태 검증 ───────────────────────────────────────────
+@pytest.mark.parametrize("tgt_status,tgt_active,ok", [
+    ("pending_activation", False, True),
+    ("active", True, True),
+    ("suspended", False, False),
+    ("terminated", False, False),
+    ("active", False, False),            # service_status↔is_active 불일치 → fail-closed
+    ("pending_activation", True, False),  # 불일치 → fail-closed
+])
+def test_relink_target_tenant_state(db, tgt_status, tgt_active, ok):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.services import activation_pg_service as act
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        src = Tenant(tenant_id="src", office_name="src", is_active=False)
+        src.service_status = "suspended"; src.seat_limit = 2
+        tgt = Tenant(tenant_id="tgt", office_name="tgt", is_active=tgt_active)
+        tgt.service_status = tgt_status; tgt.seat_limit = 5
+        s.add(src); s.add(tgt); s.flush()
+        s.add(AccountUser(login_id="m@x.kr", tenant_id="src", password_hash="x",
+                          is_admin=False, is_active=False, account_status="invited"))
+        s.commit()
+    pv = ta.relink_preview("m@x.kr", "tgt", actor_login="sys")
+    assert pv["can_relink"] is ok
+    if ok:
+        r = ta.relink_account("m@x.kr", "tgt", "sys", "m@x.kr", "tgt",
+                              confirmation_phrase=_PHRASE_RELINK, source_tenant_id="src")
+        # 발급된 token 이 실제 활성화 가능(처음부터 사용 불가 토큰이 아님, §5-7).
+        res = act.complete_activation(r["activation_token"], "pw12345")
+        assert res["login_id"] == "m@x.kr"
+    else:
+        with pytest.raises(ta.TenantAdminError) as ei:
+            ta.relink_account("m@x.kr", "tgt", "sys", "m@x.kr", "tgt",
+                              confirmation_phrase=_PHRASE_RELINK, source_tenant_id="src")
+        assert ei.value.code == "BLOCKED"
+        # 차단 시 user/token/session 무변경.
+        with db() as s:
+            u = s.scalar(select(AccountUser).where(AccountUser.login_id == "m@x.kr"))
+            assert u.tenant_id == "src" and u.account_status == "invited" and u.is_active is False
+        assert _count(db, "activation_tokens", "tenant_id", "tgt") == 0
+
+
+# ── §2 source_tenant_id 강한 확인 우회 차단 ───────────────────────────────────
+def test_relink_source_tenant_id_required(db):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.user import AccountUser
+    acct, src, tgt = _seed_relink_pair(db)
+    # 빈 문자열 / 공백만 → CONFIRM_MISMATCH(우회 불가).
+    for bad in ("", "   "):
+        with pytest.raises(ta.TenantAdminError) as ei:
+            ta.relink_account(acct, tgt, "sys", acct, tgt,
+                              confirmation_phrase=_PHRASE_RELINK, source_tenant_id=bad)
+        assert ei.value.code == "CONFIRM_MISMATCH"
+    # 잘못된 값 → CONFIRM_MISMATCH.
+    with pytest.raises(ta.TenantAdminError) as ei:
+        ta.relink_account(acct, tgt, "sys", acct, tgt,
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id="wrong")
+    assert ei.value.code == "CONFIRM_MISMATCH"
+    # 우회 실패 시 무변경.
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == acct))
+        assert u.tenant_id == src
+    # 정확한 값 → 성공.
+    r = ta.relink_account(acct, tgt, "sys", acct, tgt,
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+    assert r["to_tenant_id"] == tgt
+
+
+def test_relink_request_model_requires_source_tenant_id():
+    # 프론트 검증과 무관하게 직접 API 호출에서도 source_tenant_id 누락은 422(pydantic 필수).
+    import pydantic
+    from backend.routers.office_applications import RelinkRequest
+    with pytest.raises(pydantic.ValidationError):
+        RelinkRequest(login_id="a", target_tenant_id="t",
+                      confirm_login_id="a", confirm_target_tenant_id="t",
+                      confirmation_phrase="계정 사업장 연결 변경")  # source_tenant_id 누락
+
+
+# ── §3 JWT tenant binding ─────────────────────────────────────────────────────
+def _seed_active_user(db, login, tid):
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        if not s.scalar(select(Tenant).where(Tenant.tenant_id == tid)):
+            t = Tenant(tenant_id=tid, office_name=tid, is_active=True)
+            t.service_status = "active"; t.seat_limit = 5
+            s.add(t); s.flush()
+        s.add(AccountUser(login_id=login, tenant_id=tid, password_hash="x",
+                          is_admin=False, is_active=True, account_status="active"))
+        s.commit()
+
+
+def test_jwt_tenant_binding_blocks_stale_tenant(db, monkeypatch):
+    from fastapi import HTTPException
+    from backend.auth import get_current_user, create_access_token
+    monkeypatch.setenv("FEATURE_SINGLE_SESSION", "0")
+    monkeypatch.setenv("FEATURE_APPROVED_SAAS", "0")
+    # 계정은 현재 target 소속(활성) — relink 후 target 에서 활성화된 상태를 모사.
+    _seed_active_user(db, "user@x.kr", "tgt")
+    # 이전(source) tenant 를 가리키는 기존 JWT → 불일치 → 401 TENANT_MEMBERSHIP_CHANGED.
+    stale = create_access_token({"sub": "user@x.kr", "tenant_id": "src", "is_admin": False, "role": "user"})
+    with pytest.raises(HTTPException) as ei:
+        get_current_user(stale)
+    assert ei.value.status_code == 401
+    assert (ei.value.detail or {}).get("code") == "TENANT_MEMBERSHIP_CHANGED"
+    # FEATURE_SINGLE_SESSION=1 에서도 동일(무관하게 적용).
+    monkeypatch.setenv("FEATURE_SINGLE_SESSION", "1")
+    with pytest.raises(HTTPException) as ei2:
+        get_current_user(stale)
+    assert (ei2.value.detail or {}).get("code") == "TENANT_MEMBERSHIP_CHANGED"
+    monkeypatch.setenv("FEATURE_SINGLE_SESSION", "0")
+    # 새 JWT(target) → 정상 접근, tenant_id=target.
+    fresh = create_access_token({"sub": "user@x.kr", "tenant_id": "tgt", "is_admin": True, "role": "admin"})
+    cu = get_current_user(fresh)
+    assert cu["tenant_id"] == "tgt"
+    assert cu["is_admin"] is False  # 권한은 DB 가 source of truth(강등 반영), tenant 는 일치 → 통과
+
+
+def test_jwt_same_tenant_role_change_ok(db, monkeypatch):
+    from backend.auth import get_current_user, create_access_token
+    monkeypatch.setenv("FEATURE_SINGLE_SESSION", "0")
+    monkeypatch.setenv("FEATURE_APPROVED_SAAS", "0")
+    _seed_active_user(db, "same@x.kr", "tgt")
+    # tenant 동일 + JWT 권한만 stale(admin) → 401 아님, DB 권한으로 정규화.
+    tok = create_access_token({"sub": "same@x.kr", "tenant_id": "tgt", "is_admin": True, "role": "admin"})
+    cu = get_current_user(tok)
+    assert cu["tenant_id"] == "tgt" and cu["is_admin"] is False
+
+
+# ── §5 초대 좌석 예약(active + invited) ───────────────────────────────────────
+def test_invitation_capacity_counts_invited(db):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    # target: seat_limit=2, 활성 1명 → reserved=1.
+    with db() as s:
+        t = Tenant(tenant_id="tgt", office_name="tgt", is_active=True); t.service_status = "active"; t.seat_limit = 2
+        s.add(t); s.flush()
+        s.add(AccountUser(login_id="act@tgt.kr", tenant_id="tgt", password_hash="x",
+                          is_admin=True, is_active=True, account_status="active"))
+        # 두 개의 source(각각 invited 계정 1명, 정지+비활성 사업장).
+        for i in (1, 2):
+            src = Tenant(tenant_id=f"s{i}", office_name=f"s{i}", is_active=False)
+            src.service_status = "suspended"; src.seat_limit = 2
+            s.add(src); s.flush()
+            s.add(AccountUser(login_id=f"inv{i}@x.kr", tenant_id=f"s{i}", password_hash="x",
+                              is_admin=False, is_active=False, account_status="invited"))
+        s.commit()
+    # 첫 relink → reserved 1+1=2 <= 2 → 성공. 이후 target reserved=2(활성1+초대1).
+    r = ta.relink_account("inv1@x.kr", "tgt", "sys", "inv1@x.kr", "tgt",
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id="s1")
+    assert r["to_tenant_id"] == "tgt"
+    # 둘째 relink → reserved 2+1=3 > 2 → 좌석 없음(초대 계정도 예약으로 계산).
+    pv = ta.relink_preview("inv2@x.kr", "tgt", actor_login="sys")
+    assert pv["can_relink"] is False
+    with pytest.raises(ta.TenantAdminError) as ei:
+        ta.relink_account("inv2@x.kr", "tgt", "sys", "inv2@x.kr", "tgt",
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id="s2")
+    assert ei.value.code in ("BLOCKED", "SEAT_LIMIT")
+
+
+def test_issue_admin_blocked_when_invited_reserves_seat(db):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    # active 1 + invited 1, seat_limit=2 → 추가 관리자 발급 차단(활성만 세면 통과됐을 상황).
+    with db() as s:
+        t = Tenant(tenant_id="of-x", office_name="of-x", is_active=True); t.service_status = "active"; t.seat_limit = 2
+        s.add(t); s.flush()
+        s.add(AccountUser(login_id="staff@of-x.kr", tenant_id="of-x", password_hash="x",
+                          is_admin=False, is_active=True, account_status="active"))
+        s.add(AccountUser(login_id="inv@of-x.kr", tenant_id="of-x", password_hash="x",
+                          is_admin=False, is_active=False, account_status="invited"))
+        s.commit()
+    with pytest.raises(ta.TenantAdminError) as ei:
+        ta.issue_admin_account("of-x", "새관리자", "boss@of-x.kr", actor="sys", confirm_tenant_id="of-x")
+    assert ei.value.code == "SEAT_LIMIT"
+    assert _count(db, "users", "login_id", "boss@of-x.kr") == 0
+
+
+def test_invitation_capacity_excludes_suspended_replaced(db):
+    from backend.services.account_lifecycle_pg_service import reserved_seat_count
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        t = Tenant(tenant_id="of-r", office_name="of-r", is_active=True); t.service_status = "active"; t.seat_limit = 5
+        s.add(t); s.flush()
+        s.add(AccountUser(login_id="a@of-r.kr", tenant_id="of-r", password_hash="x", is_admin=True, is_active=True, account_status="active"))
+        s.add(AccountUser(login_id="i@of-r.kr", tenant_id="of-r", password_hash="x", is_admin=False, is_active=False, account_status="invited"))
+        s.add(AccountUser(login_id="s@of-r.kr", tenant_id="of-r", password_hash="x", is_admin=False, is_active=False, account_status="suspended"))
+        s.add(AccountUser(login_id="r@of-r.kr", tenant_id="of-r", password_hash="x", is_admin=False, is_active=False, account_status="replaced"))
+        s.commit()
+    with db() as s:
+        assert reserved_seat_count(s, "of-r") == 2  # active + invited 만(suspended/replaced 제외)
+
+
+def test_invitation_capacity_concurrent_relink_one_wins(db):
+    import threading
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    # target seat_limit=2, 활성 1명 → 남은 예약 1자리. 두 계정이 동시에 relink 시도.
+    with db() as s:
+        t = Tenant(tenant_id="tgt", office_name="tgt", is_active=True); t.service_status = "active"; t.seat_limit = 2
+        s.add(t); s.flush()
+        s.add(AccountUser(login_id="act@tgt.kr", tenant_id="tgt", password_hash="x", is_admin=True, is_active=True, account_status="active"))
+        for i in (1, 2):
+            src = Tenant(tenant_id=f"s{i}", office_name=f"s{i}", is_active=False)
+            src.service_status = "suspended"; src.seat_limit = 2
+            s.add(src); s.flush()
+            s.add(AccountUser(login_id=f"c{i}@x.kr", tenant_id=f"s{i}", password_hash="x",
+                              is_admin=False, is_active=False, account_status="invited"))
+        s.commit()
+    results: list = []
+    def _try(login, src):
+        try:
+            ta.relink_account(login, "tgt", "sys", login, "tgt",
+                              confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+            results.append(("ok", login))
+        except Exception as e:  # noqa: BLE001
+            results.append(("err", getattr(e, "code", type(e).__name__)))
+    threads = [threading.Thread(target=_try, args=(f"c{i}@x.kr", f"s{i}")) for i in (1, 2)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    oks = [r for r in results if r[0] == "ok"]
+    errs = [r for r in results if r[0] == "err"]
+    assert len(oks) == 1 and len(errs) == 1, results  # 정확히 한 건만 성공(FOR UPDATE 직렬화)
+
+
+# ── §4 relink 세션 revoke 원자성(같은 트랜잭션·실패 시 롤백) ──────────────────
+def test_relink_session_revoke_failure_rolls_back(db, monkeypatch):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.services import session_pg_service as sps
+    from backend.db.models.user import AccountUser
+    acct, src, tgt = _seed_relink_pair(db)
+    def _boom(*a, **k):
+        raise RuntimeError("revoke failed")
+    monkeypatch.setattr(sps, "revoke_active_sessions_in_session", _boom)
+    with pytest.raises(Exception):
+        ta.relink_account(acct, tgt, "sys", acct, tgt,
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+    # 전체 롤백 — tenant_id·상태 무변경, 새 토큰 없음.
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == acct))
+        assert u.tenant_id == src and u.account_status == "invited" and u.is_active is False
+    assert _count(db, "activation_tokens", "tenant_id", tgt) == 0
+
+
+# ── §6 purge 감사 요약 원자성(같은 트랜잭션·실패 시 폐기 롤백) ────────────────
+def test_purge_summary_failure_rolls_back(db, monkeypatch):
+    from backend.services import tenant_purge_pg_service as p
+    from backend.db.models.audit import AuditLog
+    _seed_tenant(db, "of-a")
+    with db() as s:
+        s.add(AuditLog(tenant_id="of-a", action="login")); s.commit()
+    def _boom(*a, **k):
+        raise RuntimeError("summary insert failed")
+    monkeypatch.setattr(p, "_write_purge_summary", _boom)
+    with pytest.raises(Exception):
+        p.purge_tenant("of-a", "sys", "of-a", "사무소-of-a", "사업장 전체 폐기")
+    # 폐기 전체 롤백 — tenant·고객·사용자·기존 audit 모두 유지, 요약 미기록.
+    assert _count(db, "customers", "tenant_id", "of-a") == 1
+    assert _count(db, "users", "tenant_id", "of-a") == 2
+    assert _count(db, "audit_logs", "tenant_id", "of-a") == 1
+    with db() as s:
+        assert s.scalars(select(AuditLog).where(AuditLog.action == "tenant_purged")).all() == []
+        from backend.db.models.tenant import Tenant
+        assert s.scalar(select(Tenant).where(Tenant.tenant_id == "of-a")) is not None
+
+
+def test_purge_summary_actor_preserved_no_pii(db):
+    from backend.services import tenant_purge_pg_service as p
+    from backend.db.models.audit import AuditLog
+    import json
+    _seed_tenant(db, "of-a")
+    p.purge_tenant("of-a", "sysop@admin.kr", "of-a", "사무소-of-a", "사업장 전체 폐기")
+    with db() as s:
+        row = s.scalars(select(AuditLog).where(AuditLog.action == "tenant_purged")).one()
+        assert row.actor_login_id == "sysop@admin.kr"     # 운영자 식별자는 보존
+        assert row.tenant_id is None and row.target_id == p._hash_tid("of-a")
+        # 대상 tenant/고객 PII 없음.
+        assert "of-a" not in json.dumps(row.payload or {})
+        assert "admin@of-a.kr" not in json.dumps(row.payload or {})

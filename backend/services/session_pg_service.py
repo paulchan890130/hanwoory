@@ -46,6 +46,25 @@ def revoke_active_sessions(login_id: str, reason: str, only_non_kiosk: bool = Tr
         return result.rowcount or 0
 
 
+def revoke_active_sessions_in_session(session, login_id: str, reason: str,
+                                      only_non_kiosk: bool = False) -> int:
+    """**열린 트랜잭션 내부**에서 세션 revoke — 호출측이 commit/rollback 을 소유한다.
+
+    relink 등 소속 변경 시 세션 revoke 를 같은 트랜잭션에 포함해, revoke DB 작업이 실패하면
+    변경 전체가 롤백되게 한다(commit 후 best-effort 의 원자성 공백 제거). 반환: revoke 건수.
+    """
+    from backend.db.models.user_session import UserSession
+
+    stmt = (
+        update(UserSession)
+        .where(UserSession.login_id == login_id, UserSession.revoked_at.is_(None))
+    )
+    if only_non_kiosk:
+        stmt = stmt.where(UserSession.is_kiosk.is_(False))
+    stmt = stmt.values(revoked_at=datetime.now(timezone.utc), revoked_reason=reason)
+    return int(session.execute(stmt).rowcount or 0)
+
+
 def create_session(login_id: str, tenant_id: str, session_id: str,
                    device_label: Optional[str] = None, user_agent: Optional[str] = None,
                    ip: Optional[str] = None, is_kiosk: bool = False) -> dict:

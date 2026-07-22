@@ -563,6 +563,16 @@ def approve(application_id: str, reviewer: str,
             audit_events.append(("user_role_assigned", reviewer, u["email"], tenant_id,
                                  {"role": u["role"], "is_admin": is_admin}))
 
+        # 초대 좌석 예약 원자 검증(§5) — 방금 flush 한 초대 계정 2개가 reserved 에 포함되므로 +0.
+        # tenant 는 신규(reserved==발급 계정 수)라 위 `2 > effective_seat` 가드와 동치지만, 초대
+        # 계정 생성 경로 전반에서 동일 규칙을 강제하기 위해 여기서도 확인한다(회귀 방어).
+        from backend.services.account_lifecycle_pg_service import (
+            assert_invitation_capacity, LifecycleError as _LcErr)
+        try:
+            assert_invitation_capacity(session, tenant_id, additional_invites=0)
+        except _LcErr as e:
+            raise ApplicationError("SEAT_LIMIT", e.message)
+
         # 신청 승인 처리.
         a.status = ST_APPROVED
         a.reviewed_at = now

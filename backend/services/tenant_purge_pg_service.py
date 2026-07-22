@@ -372,6 +372,29 @@ def _tenant_status(t) -> str:
     return "active" if bool(getattr(t, "is_active", False)) else "pending_activation"
 
 
+# ── 감사 요약(트랜잭션 내부 기록) ─────────────────────────────────────────────
+def _write_purge_summary(session, actor_login: str, tenant_id: str, deleted: dict) -> None:
+    """열린 트랜잭션 내부에서 폐기 요약 AuditLog 1행을 직접 add + flush.
+
+    - ``tenant_id=None`` (삭제된 tenant 를 FK/식별로 남기지 않음), ``target_id`` = tenant_id 해시.
+    - payload = ``{tenant_id_hash, deleted_total, deleted_counts}`` — 고객명/사업자번호/전화/
+      사용자 이메일/원문 tenant_id 없음. 운영자 식별자(actor_login_id)만 책임추적용으로 보존.
+    - flush 로 이 트랜잭션에서 insert 를 즉시 시행 → 실패 시 예외 전파(호출측 롤백).
+    """
+    from backend.db.models.audit import AuditLog
+
+    session.add(AuditLog(
+        action="tenant_purged",
+        actor_login_id=actor_login or None,
+        tenant_id=None,
+        target_type="tenant",
+        target_id=_hash_tid(tenant_id),
+        payload={"tenant_id_hash": _hash_tid(tenant_id),
+                 "deleted_total": sum(deleted.values()), "deleted_counts": deleted},
+    ))
+    session.flush()
+
+
 # ── 실행 ─────────────────────────────────────────────────────────────────────
 def purge_tenant(tenant_id: str, actor_login: str,
                  confirm_tenant_id: str, confirm_office_name: str,
@@ -460,23 +483,11 @@ def purge_tenant(tenant_id: str, actor_login: str,
         r = session.execute(text("DELETE FROM tenants WHERE tenant_id = :v"), {"v": tid})
         deleted["tenants"] = int(r.rowcount or 0)
 
-        session.commit()
+        # 9) 감사 요약을 **같은 트랜잭션**에서 기록(§6) — 요약 insert 실패 시 폐기 전체가 롤백된다
+        #    (commit 후 best-effort 의 원자성 공백 제거). 대상 tenant/고객 PII 미포함.
+        _write_purge_summary(session, actor_login, tid, deleted)
 
-    # 감사(커밋 후, PII 없음 — actor + tenant_id 해시 + 건수 요약만).
-    try:
-        from backend.services import audit_service
-        total = sum(deleted.values())
-        audit_service.log_event(
-            action="tenant_purged",
-            actor_login_id=actor_login or None,
-            tenant_id=None,  # 삭제된 tenant 를 FK/식별로 남기지 않는다.
-            target_type="tenant",
-            target_id=_hash_tid(tid),  # tenant_id 해시(원문 미기록)
-            payload={"tenant_id_hash": _hash_tid(tid), "deleted_total": total,
-                     "deleted_counts": deleted},
-        )
-    except Exception:
-        pass
+        session.commit()
 
     return {
         "ok": True,

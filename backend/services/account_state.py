@@ -208,6 +208,32 @@ def relink_account_block_reason(user) -> BlockReason:
     return ("BAD_ACCOUNT_STATE", "연결을 변경할 수 없는 계정 상태입니다.")
 
 
+def relink_target_tenant_block_reason(tenant) -> BlockReason:
+    """relink **대상** 사업장 상태 허용 여부 — 허용이면 None.
+
+    대상 계정은 relink 후 invited 로 들어가 activation 을 거쳐야 하므로, 대상 사업장은
+    **activation 이 가능한 상태**여야 한다(안 그러면 사용 불가 토큰만 발급됨):
+    - pending_activation + is_active=False
+    - active + is_active=True
+    suspended/terminated, service_status↔is_active 불일치, 알 수 없는 상태, tenant 없음은
+    모두 fail-closed 로 거부한다.
+    """
+    if tenant is None:
+        return ("NOT_FOUND", "대상 사업장을 찾을 수 없습니다.")
+    st = tenant_status_of(tenant)
+    active = bool(getattr(tenant, "is_active", False))
+    if st == TENANT_PENDING and not active:
+        return None
+    if st == TENANT_ACTIVE and active:
+        return None
+    if st == TENANT_SUSPENDED:
+        return ("TENANT_SUSPENDED", "정지된 사업장으로는 연결할 수 없습니다. 사업장을 먼저 복구하세요.")
+    if st == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사업장으로는 연결할 수 없습니다.")
+    # active/pending 이지만 is_active 와 불일치, 또는 알 수 없는 상태 → fail-closed.
+    return ("BAD_TENANT_STATE", "대상 사업장 상태가 올바르지 않아 연결할 수 없습니다.")
+
+
 def relink_source_tenant_block_reason(tenant) -> BlockReason:
     """relink 원본 사업장 상태 허용 여부 — 허용이면 None.
 

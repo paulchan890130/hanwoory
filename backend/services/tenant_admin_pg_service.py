@@ -122,7 +122,8 @@ def issue_admin_account(tenant_id: str, name: str, email: str, actor: str,
     from backend.services.accounts_service import hash_password
     from backend.services import account_state as _st
     from backend.services import activation_pg_service as _act
-    from backend.services.account_lifecycle_pg_service import assert_seat_within_limit, LifecycleError
+    from backend.services.account_lifecycle_pg_service import (
+        assert_seat_within_limit, assert_invitation_capacity, LifecycleError)
 
     tid = (tenant_id or "").strip()
     name = (name or "").strip()
@@ -184,9 +185,11 @@ def issue_admin_account(tenant_id: str, name: str, email: str, actor: str,
         row.invited_at = datetime.now(timezone.utc)
         session.add(row)
         session.flush()
-        # 좌석 원자 검증(invited 는 좌석 미소비지만 tenant 잠금·한도 확인).
+        # 좌석 원자 검증(invited 는 활성 좌석 미소비지만 tenant 잠금·한도 확인).
+        # + 초대 좌석 예약 검증(§5) — 방금 flush 한 invited 행이 reserved 에 포함되므로 +0.
         try:
             assert_seat_within_limit(session, tid, activating_login_id=None)
+            assert_invitation_capacity(session, tid, additional_invites=0)
         except LifecycleError as e:
             if getattr(e, "code", "") == "SEAT_LIMIT":
                 raise TenantAdminError("SEAT_LIMIT", e.message)
@@ -239,19 +242,19 @@ def _relink_blocking(session, u, source_t, target_t, actor_login: str) -> list[s
     acct_block = _st.relink_account_block_reason(u)
     if acct_block is not None:
         reasons.append(acct_block[1])
-    # 대상 사업장.
-    if target_t is None:
-        reasons.append("대상 사업장을 찾을 수 없습니다.")
-    else:
-        if _tenant_status(target_t) == "terminated":
-            reasons.append("종료된 사업장으로는 연결할 수 없습니다.")
+    # 대상 사업장 상태(§1) — activation 가능 상태만(pending+inactive / active+active).
+    # suspended 대상으로 relink 하면 사용 불가 activation token 만 발급되므로 차단한다.
+    tgt_block = _st.relink_target_tenant_block_reason(target_t)
+    if tgt_block is not None:
+        reasons.append(tgt_block[1])
+    if target_t is not None:
+        # 초대 좌석 예약 검사(§5) — 활성 계정만 세던 방식은 초대 계정 과다 발급을 허용한다.
+        # relink 후 대상에 초대 1개가 추가되므로 reserved(활성+초대) + 1 <= seat_limit 이어야 한다.
+        from backend.services.account_lifecycle_pg_service import reserved_seat_count
         seat_limit = int(getattr(target_t, "seat_limit", 2) or 2)
-        active_cnt = session.scalar(select(func.count()).select_from(AccountUser).where(
-            AccountUser.tenant_id == target_t.tenant_id, AccountUser.is_active.is_(True))) or 0
-        # relink 후 invited(비활성)로 들어가므로 즉시 좌석을 소비하진 않지만, 활성 계정 수가
-        # 이미 한도 이상이면 활성화 단계에서 막히므로 미리 차단(여유 필요).
-        if int(active_cnt) >= seat_limit:
-            reasons.append(f"대상 사업장의 좌석 여유가 없습니다(활성 {active_cnt}/{seat_limit}).")
+        reserved = reserved_seat_count(session, target_t.tenant_id)
+        if reserved + 1 > seat_limit:
+            reasons.append(f"대상 사업장의 좌석 여유가 없습니다(예약 {reserved}/{seat_limit}).")
     # 원본 사업장 상태 제한(§4) — active 원본에서 마지막 계정 이탈 금지. suspended/pending + 비활성만.
     src_block = _st.relink_source_tenant_block_reason(source_t)
     if src_block is not None:
@@ -354,7 +357,9 @@ def relink_account(login_id: str, target_tenant_id: str, actor_login: str,
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
     from backend.services import activation_pg_service as _act
-    from backend.services.account_lifecycle_pg_service import _revoke_unused_tokens, _revoke_sessions
+    from backend.services.account_lifecycle_pg_service import (
+        _revoke_unused_tokens, assert_invitation_capacity, LifecycleError)
+    from backend.services.session_pg_service import revoke_active_sessions_in_session
 
     lid = (login_id or "").strip()
     ttid = (target_tenant_id or "").strip()
@@ -366,6 +371,9 @@ def relink_account(login_id: str, target_tenant_id: str, actor_login: str,
         raise TenantAdminError(
             "CONFIRM_MISMATCH",
             f"확인 문구가 일치하지 않습니다. '{RELINK_CONFIRMATION_PHRASE}' 를 정확히 입력하세요.")
+    # source_tenant_id 는 필수 강한 확인값(§8) — 빈 값이면 우회 불가로 거부(조건부 검사 제거).
+    if not (source_tenant_id or "").strip():
+        raise TenantAdminError("CONFIRM_MISMATCH", "확인용 원본 사업장 ID가 필요합니다.")
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
@@ -374,8 +382,8 @@ def relink_account(login_id: str, target_tenant_id: str, actor_login: str,
         if u is None:
             raise TenantAdminError("NOT_FOUND", "대상 계정을 찾을 수 없습니다.")
         source_tid = u.tenant_id
-        # preview 이후 원본이 바뀌었으면 실행 거부(§8) — source_tenant_id 는 preview 값과 대조.
-        if (source_tenant_id or "").strip() and (source_tenant_id or "").strip() != (source_tid or ""):
+        # preview 이후 원본이 바뀌었으면 실행 거부(§8) — 빈 값은 위에서 이미 거부, 값이 실제와 다르면 거부.
+        if (source_tenant_id or "").strip() != (source_tid or ""):
             raise TenantAdminError("CONFIRM_MISMATCH",
                                    "원본 사업장이 preview 시점과 달라 실행을 거부했습니다. 다시 확인하세요.")
         if source_tid == ttid:
@@ -390,8 +398,16 @@ def relink_account(login_id: str, target_tenant_id: str, actor_login: str,
         reasons = _relink_blocking(session, u, source_t, target_t, actor_login)
         if reasons:
             raise TenantAdminError("BLOCKED", " / ".join(reasons))
-        # 5~6) 기존 세션·미사용 토큰 폐기.
+        # 5) 초대 좌석 예약 원자 검증(§5) — 대상 tenant FOR UPDATE 후 reserved+1<=limit(동시성 직렬화).
+        try:
+            assert_invitation_capacity(session, ttid, additional_invites=1)
+        except LifecycleError as e:
+            if getattr(e, "code", "") == "SEAT_LIMIT":
+                raise TenantAdminError("SEAT_LIMIT", e.message)
+            raise
+        # 6) 미사용 초대 토큰 폐기 + 세션 revoke 를 **같은 트랜잭션**에서 수행(§4) — revoke 실패 시 전체 롤백.
         _revoke_unused_tokens(session, lid)
+        revoke_active_sessions_in_session(session, lid, reason="account_relinked", only_non_kiosk=False)
         # 7~9) 소속 변경 + invited/비활성 + 역할 서버 강제(office_staff).
         u.tenant_id = ttid
         u.is_active = False
@@ -401,7 +417,7 @@ def relink_account(login_id: str, target_tenant_id: str, actor_login: str,
         # 10) 새 activation 토큰.
         raw = _act.issue_activation_token(session, lid, ttid)
         session.commit()
-    _revoke_sessions(lid, reason="account_relinked")
+    # 세션 revoke 는 위 트랜잭션에 포함(commit 시 확정). JWT tenant binding(auth.get_current_user)이 1차 방어선.
     _audit("account_relinked", actor_login, lid, ttid,
            {"from_tenant": source_tid, "to_tenant": ttid,
             "role_before": role_before, "role_after": RELINK_ROLE_AFTER})

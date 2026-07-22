@@ -48,7 +48,9 @@ def account_active_status(login_id: str) -> str:
 def account_auth_status(login_id: str) -> dict:
     """매 요청 인증용 — 상태 + 권한을 1회 조회.
 
-    반환: ``{"status": "active"|"disabled"|"missing", "is_admin": bool, "role": str}``.
+    반환: ``{"status": "active"|"disabled"|"missing", "is_admin": bool, "role": str,
+    "tenant_id": str|None}``. ``tenant_id`` 는 **현재 DB 상의 소속 tenant** — 호출측(auth)이
+    JWT 발급 시점의 tenant_id 와 비교해 relink 등으로 소속이 바뀐 기존 토큰을 차단한다.
     role 컬럼(migration 0024)이 아직 없는 DB 에서도 깨지지 않도록 role 은 별도 가드 조회로
     읽고, 실패하면 is_admin 기반 기본값('admin'/'user')으로 폴백한다(가용성 우선).
     조회 실패(연결 오류 등)는 호출측에서 가용성 우선 처리하도록 예외를 전파한다.
@@ -60,12 +62,12 @@ def account_auth_status(login_id: str) -> dict:
     with SessionLocal() as session:
         # 0024 이전에도 존재가 보장된 컬럼만 먼저 조회(role 미포함 → full-row select 회피).
         row = session.execute(
-            select(AccountUser.is_active, AccountUser.is_admin)
+            select(AccountUser.is_active, AccountUser.is_admin, AccountUser.tenant_id)
             .where(AccountUser.login_id == login_id)
         ).first()
         if row is None:
-            return {"status": "missing", "is_admin": False, "role": "user"}
-        is_active, is_admin = bool(row[0]), bool(row[1])
+            return {"status": "missing", "is_admin": False, "role": "user", "tenant_id": None}
+        is_active, is_admin, tenant_id = bool(row[0]), bool(row[1]), row[2]
         role = "admin" if is_admin else "user"
         try:
             r = session.scalar(
@@ -80,6 +82,7 @@ def account_auth_status(login_id: str) -> dict:
             "status": "active" if is_active else "disabled",
             "is_admin": is_admin,
             "role": role,
+            "tenant_id": tenant_id,
         }
 
 

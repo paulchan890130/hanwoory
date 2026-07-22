@@ -64,6 +64,53 @@ def assert_seat_within_limit(session, tenant_id: Optional[str],
             f"좌석 한도({seat_limit})를 초과합니다. 좌석을 늘리거나 기존 계정을 정지/교체하세요.")
 
 
+def reserved_seat_count(session, tenant_id: str) -> int:
+    """좌석을 **예약**하는 계정 수 = 활성(is_active) OR account_status in (active, invited).
+
+    - 활성 계정: 좌석 소비.
+    - invited 계정: 활성화되면 좌석을 소비 → 예약으로 계산(과다 초대 방지).
+    - replaced/suspended/legacy-disabled: 제외.
+    - is_active↔account_status 불일치(예: status=active·비활성)는 위 OR 조건상 예약으로 계산 → fail-closed.
+    """
+    from backend.db.models.user import AccountUser
+    from sqlalchemy import or_
+
+    if not tenant_id:
+        return 0
+    return int(session.scalar(
+        select(func.count()).select_from(AccountUser).where(
+            AccountUser.tenant_id == tenant_id,
+            or_(AccountUser.is_active.is_(True),
+                AccountUser.account_status.in_(("active", "invited"))),
+        )) or 0)
+
+
+def assert_invitation_capacity(session, tenant_id: Optional[str],
+                               additional_invites: int = 1) -> None:
+    """초대 좌석 예약 원자 검증 — **열린 트랜잭션 내부에서만** 호출한다.
+
+    tenant 행을 ``FOR UPDATE`` 로 잠가 동시 초대/활성화를 직렬화한 뒤, 예약 좌석 수
+    (reserved_seat_count)에 ``additional_invites`` 를 더한 값이 ``seat_limit`` 을 넘으면
+    ``SEAT_LIMIT`` 로 거부한다(호출측 롤백). 이미 존재하는(플러시된) 초대 계정은 reserved 에
+    이미 포함되므로 그 경우 ``additional_invites=0`` 으로 호출한다. tenant 행이 없으면 skip.
+    """
+    from backend.db.models.tenant import Tenant
+
+    if not tenant_id:
+        return
+    t = session.scalar(
+        select(Tenant).where(Tenant.tenant_id == tenant_id).with_for_update())
+    if t is None:
+        return
+    seat_limit = int(getattr(t, "seat_limit", 2) or 2)
+    reserved = reserved_seat_count(session, tenant_id)
+    if reserved + int(additional_invites or 0) > seat_limit:
+        raise LifecycleError(
+            "SEAT_LIMIT",
+            f"좌석 한도({seat_limit})를 초과합니다(예약 {reserved} + 신규 {additional_invites}). "
+            f"좌석을 늘리거나 기존 계정을 정지/교체하세요.")
+
+
 def _revoke_sessions(login_id: str, reason: str) -> None:
     try:
         from backend.services.session_pg_service import revoke_active_sessions
