@@ -1015,3 +1015,178 @@ def test_strict_tenant_status_helper():
     assert st.activation_capable_tenant_block_reason(_T("suspended", False))[0] == "TENANT_SUSPENDED"
     assert st.activation_capable_tenant_block_reason(_T("terminated", False))[0] == "TENANT_TERMINATED"
     assert st.activation_capable_tenant_block_reason(None)[0] == "NOT_FOUND"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 라운드4 — 계정 교체(replace) + relink 원본 tenant 엄격 상태
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _seed_replace_target(db, tid, status, active, *, old="old",
+                         is_admin=False, old_active=True, old_status="active"):
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    login = f"{old}@{tid}.kr"
+    with db() as s:
+        t = Tenant(tenant_id=tid, office_name=tid, is_active=active)
+        t.service_status = status; t.seat_limit = 3
+        s.add(t); s.flush()
+        s.add(AccountUser(login_id=login, tenant_id=tid, password_hash="x",
+                          is_admin=is_admin, is_active=old_active, account_status=old_status))
+        s.commit()
+    return login
+
+
+# ── §2 replace_user(시스템 관리자): tenant 엄격 상태 ──────────────────────────
+@pytest.mark.parametrize("status,active,code", [
+    ("maintenance", True, "BAD_TENANT_STATE"),
+    ("maintenance", False, "BAD_TENANT_STATE"),
+    ("", True, "BAD_TENANT_STATE"),
+    ("   ", False, "BAD_TENANT_STATE"),
+    ("unknown", False, "BAD_TENANT_STATE"),
+    ("active", False, "BAD_TENANT_STATE"),
+    ("pending_activation", True, "BAD_TENANT_STATE"),
+    ("suspended", False, "TENANT_SUSPENDED"),
+    ("terminated", False, "TENANT_TERMINATED"),
+])
+def test_replace_user_invalid_tenant_state_blocked(db, status, active, code):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.user import AccountUser
+    old = _seed_replace_target(db, "of-rep", status, active)
+    with pytest.raises(life.LifecycleError) as ei:
+        life.replace_user(old, "새이름", "new@of-rep.kr", actor="sys", new_role="office_staff")
+    assert ei.value.code == code
+    with db() as s:  # 기존 계정 무변경 + 신규 계정/토큰 없음
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == old))
+        assert u.account_status == "active" and u.is_active is True and u.replaced_by_user_id is None
+        assert s.scalar(select(AccountUser).where(AccountUser.login_id == "new@of-rep.kr")) is None
+    assert _count(db, "activation_tokens", "tenant_id", "of-rep") == 0
+
+
+def test_replace_user_active_tenant_ok(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.services import activation_pg_service as act
+    from backend.db.models.user import AccountUser
+    old = _seed_replace_target(db, "of-ok", "active", True)
+    rep = life.replace_user(old, "새직원", "new@of-ok.kr", actor="sys", new_role="office_staff")
+    assert rep["new_login_id"] == "new@of-ok.kr"
+    with db() as s:
+        o = s.scalar(select(AccountUser).where(AccountUser.login_id == old))
+        n = s.scalar(select(AccountUser).where(AccountUser.login_id == "new@of-ok.kr"))
+        assert o.account_status == "replaced" and o.is_active is False
+        assert n.account_status == "invited" and n.is_active is False
+        assert o.replaced_by_user_id == n.id
+    assert act.complete_activation(rep["activation_token"], "pw12345")["login_id"] == "new@of-ok.kr"
+
+
+def test_replace_user_pending_tenant_ok(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.services import activation_pg_service as act
+    from backend.db.models.tenant import Tenant
+    # pending+비활성 사무소의 invited 계정 교체 → activation 후 tenant active+is_active=True.
+    old = _seed_replace_target(db, "of-pd", "pending_activation", False,
+                               old_active=False, old_status="invited")
+    rep = life.replace_user(old, "새직원", "new@of-pd.kr", actor="sys", new_role="office_staff")
+    assert act.complete_activation(rep["activation_token"], "pw12345")["login_id"] == "new@of-pd.kr"
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-pd"))
+        assert t.service_status == "active" and t.is_active is True
+
+
+# ── §3 office_replace_sub(사무소 관리자): tenant 엄격 상태 + 권한 유지 ────────
+def _seed_office(db, tid, status, active):
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        t = Tenant(tenant_id=tid, office_name=tid, is_active=active)
+        t.service_status = status; t.seat_limit = 3
+        s.add(t); s.flush()
+        s.add(AccountUser(login_id=f"boss@{tid}.kr", tenant_id=tid, password_hash="x",
+                          is_admin=True, is_active=True, account_status="active"))
+        s.add(AccountUser(login_id=f"staff@{tid}.kr", tenant_id=tid, password_hash="x",
+                          is_admin=False, is_active=True, account_status="active"))
+        s.commit()
+
+
+@pytest.mark.parametrize("status,active,code", [
+    ("maintenance", True, "BAD_TENANT_STATE"),
+    ("unknown", False, "BAD_TENANT_STATE"),
+    ("", True, "BAD_TENANT_STATE"),
+    ("active", False, "BAD_TENANT_STATE"),
+    ("pending_activation", True, "BAD_TENANT_STATE"),
+    ("suspended", False, "TENANT_SUSPENDED"),
+    ("terminated", False, "TENANT_TERMINATED"),
+])
+def test_office_replace_sub_invalid_tenant_state_blocked(db, status, active, code):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.db.models.user import AccountUser
+    _seed_office(db, "of-of", "active", True)
+    _set_tenant_status(db, "of-of", status, active)
+    with pytest.raises(life.LifecycleError) as ei:
+        life.office_replace_sub("of-of", "boss@of-of.kr", "staff@of-of.kr", "새직원", "new@of-of.kr")
+    assert ei.value.code == code
+    with db() as s:  # 기존 서브계정 무변경 + 신규/토큰 없음
+        st = s.scalar(select(AccountUser).where(AccountUser.login_id == "staff@of-of.kr"))
+        assert st.account_status == "active" and st.replaced_by_user_id is None
+        assert s.scalar(select(AccountUser).where(AccountUser.login_id == "new@of-of.kr")) is None
+    assert _count(db, "activation_tokens", "tenant_id", "of-of") == 0
+
+
+def test_office_replace_sub_active_ok_and_scope_preserved(db):
+    from backend.services import account_lifecycle_pg_service as life
+    from backend.services import activation_pg_service as act
+    from backend.db.models.user import AccountUser
+    _seed_office(db, "of-o2", "active", True)
+    r = life.office_replace_sub("of-o2", "boss@of-o2.kr", "staff@of-o2.kr", "새직원", "new@of-o2.kr")
+    assert r["role"] == "office_staff"
+    with db() as s:
+        n = s.scalar(select(AccountUser).where(AccountUser.login_id == "new@of-o2.kr"))
+        assert n.is_admin is False and n.account_status == "invited"
+    assert act.complete_activation(r["activation_token"], "pw12345")["login_id"] == "new@of-o2.kr"
+    # 기존 권한 검증 유지: 다른 tenant/자기자신/office_admin/마스터 교체 금지.
+    _seed_office(db, "of-o3", "active", True)
+    with pytest.raises(life.LifecycleError) as ei:  # 크로스 테넌트
+        life.office_replace_sub("of-o2", "boss@of-o2.kr", "staff@of-o3.kr", "x", "z@of-o2.kr")
+    assert ei.value.code == "CROSS_TENANT"
+    with pytest.raises(life.LifecycleError) as ei:  # 자기 자신
+        life.office_replace_sub("of-o2", "boss@of-o2.kr", "boss@of-o2.kr", "x", "z2@of-o2.kr")
+    assert ei.value.code == "SELF_FORBIDDEN"
+    with pytest.raises(life.LifecycleError) as ei:  # office_admin(주계정) 대상 — actor 는 staff 가 아니지만
+        life.office_replace_sub("of-o3", "staff@of-o3.kr", "boss@of-o3.kr", "x", "z3@of-o3.kr")
+    assert ei.value.code == "NOT_SUB_ACCOUNT"
+
+
+# ── §6 relink 원본 tenant 엄격 상태(미상/빈/공백/불일치 fail-closed) ──────────
+@pytest.mark.parametrize("status,active,ok", [
+    ("suspended", False, True),
+    ("pending_activation", False, True),
+    ("maintenance", False, False),
+    ("maintenance", True, False),
+    ("unknown", False, False),
+    ("", False, False),
+    ("   ", False, False),
+    ("active", True, False),
+    ("active", False, False),
+    ("pending_activation", True, False),
+    ("suspended", True, False),
+    ("terminated", False, False),
+])
+def test_relink_source_invalid_status_fail_closed(db, status, active, ok):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.user import AccountUser
+    acct, src, tgt = _seed_relink_pair(db)  # src 기본 suspended+False, tgt active+True
+    _set_tenant_status(db, src, status, active)
+    pv = ta.relink_preview(acct, tgt, actor_login="sys")
+    assert pv["can_relink"] is ok
+    if not ok:
+        with pytest.raises(ta.TenantAdminError) as ei:
+            ta.relink_account(acct, tgt, "sys", acct, tgt,
+                              confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+        assert ei.value.code == "BLOCKED"
+        with db() as s:  # 계정·token·session 무변경
+            u = s.scalar(select(AccountUser).where(AccountUser.login_id == acct))
+            assert u.tenant_id == src and u.account_status == "invited" and u.is_active is False
+        assert _count(db, "activation_tokens", "tenant_id", tgt) == 0
+    else:
+        r = ta.relink_account(acct, tgt, "sys", acct, tgt,
+                              confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+        assert r["to_tenant_id"] == tgt

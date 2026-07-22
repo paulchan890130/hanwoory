@@ -272,32 +272,34 @@ def relink_source_tenant_block_reason(tenant) -> BlockReason:
     active 사업장에서 마지막 계정을 빼내면 무관리자 활성 사업장이 생긴다. 그래서 원본은
     **정지(suspended)+비활성** 또는 **미활성화(pending_activation)+비활성** 만 허용한다.
     active/terminated, is_active=true, 상태 불일치는 fail-closed 로 거부한다.
+
+    **엄격 raw 판정**(strict_tenant_status_of) — 미상/빈/공백 service_status 를 is_active=false
+    라는 이유로 pending 으로 추론해 통과시키던 우회를 제거한다(레거시 tenant_status_of 미사용).
     """
     if tenant is None:
         return ("NOT_FOUND", "원본 사업장을 찾을 수 없습니다.")
-    if bool(getattr(tenant, "is_active", False)):
+    raw = strict_tenant_status_of(tenant)
+    active = bool(getattr(tenant, "is_active", False))
+    if raw is None:
+        return ("BAD_TENANT_STATE", "원본 사업장 상태가 올바르지 않아 연결을 변경할 수 없습니다.")
+    if active:
         return ("BAD_TENANT_STATE", "활성 상태의 원본 사업장에서는 계정 연결을 변경할 수 없습니다"
                                     "(마지막 계정 이탈 방지). 먼저 사업장을 정지하세요.")
-    st = tenant_status_of(tenant)
-    if st in (TENANT_SUSPENDED, TENANT_PENDING):
+    if raw in (TENANT_SUSPENDED, TENANT_PENDING):
         return None
-    if st == TENANT_TERMINATED:
+    if raw == TENANT_TERMINATED:
         return ("TENANT_TERMINATED", "종료된 원본 사업장에서는 연결을 변경할 수 없습니다.")
-    if st == TENANT_ACTIVE:
-        return ("BAD_TENANT_STATE", "활성 상태의 원본 사업장에서는 계정 연결을 변경할 수 없습니다.")
     return ("BAD_TENANT_STATE", "연결을 변경할 수 없는 원본 사업장 상태입니다.")
 
 
 def replace_tenant_block_reason(tenant) -> BlockReason:
-    """계정 교체 허용 여부(테넌트 관점). 정지/종료 사무소는 **fail-closed** 로 거부한다.
+    """계정 교체 허용 여부(테넌트 관점) — **activation 가능한 사무소만** 허용.
 
-    active/pending 만 허용(교체 대상은 invited 또는 active 계정일 수 있으므로 pending 도 허용).
-    정지 사무소에서의 교체 정책이 모호하므로 명시적으로 TENANT_SUSPENDED(409) 로 막는다 —
-    복구 후 교체하도록 유도한다.
+    교체는 기존 계정을 replaced 처리하고 신규 invited 계정 + activation token 을 발급하므로,
+    activation 이 실제 가능한 상태(pending_activation+비활성 / active+활성)가 아니면 신규 token 이
+    strict activation 검사에서 실패해 **로그인 가능한 계정이 사라질 수 있다**. 그래서 엄격 raw
+    판정(activation_capable_tenant_block_reason)을 그대로 재사용한다 — tenant 없음/NULL/빈/공백/
+    미상/suspended/terminated/상태↔is_active 불일치는 전부 fail-closed. 레거시 tenant_status_of
+    (미상 상태를 is_active 로 추론)는 쓰지 않는다.
     """
-    tstatus = tenant_status_of(tenant)
-    if tstatus == TENANT_SUSPENDED:
-        return ("TENANT_SUSPENDED", "정지된 사무소에서는 계정을 교체할 수 없습니다. 사무소를 먼저 복구하세요.")
-    if tstatus == TENANT_TERMINATED:
-        return ("TENANT_TERMINATED", "종료된 사무소에서는 계정을 교체할 수 없습니다.")
-    return None
+    return activation_capable_tenant_block_reason(tenant)
