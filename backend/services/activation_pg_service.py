@@ -230,8 +230,8 @@ def complete_activation(raw: str, new_password: str) -> dict:
         row.used_at = now
 
         # 첫 활성화 시에만 pending_activation → active 승격. 이미 active 면 유지.
-        # (suspended/terminated 는 위 block 에서 이미 거부되었으므로 여기 도달하지 않음.)
-        if _st.tenant_status_of(t) == _st.TENANT_PENDING:
+        # (suspended/terminated/미상 상태는 위 activation_block_reason(엄격 판정)에서 이미 거부됨.)
+        if _st.strict_tenant_status_of(t) == _st.TENANT_PENDING:
             t.service_status = _st.TENANT_ACTIVE
             t.is_active = True
         login_id = u.login_id

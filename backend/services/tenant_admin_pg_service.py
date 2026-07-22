@@ -145,16 +145,18 @@ def issue_admin_account(tenant_id: str, name: str, email: str, actor: str,
         t = session.scalar(select(Tenant).where(Tenant.tenant_id == tid).with_for_update())
         if t is None:
             raise TenantAdminError("NOT_FOUND", "사업장을 찾을 수 없습니다.")
-        # unusable activation token 발급 금지 — 활성화 서비스는 정지/종료 사무소를 거부하므로
-        # 발급 허용 사무소 상태를 pending_activation/active 로 제한한다(§1).
-        tstatus = _st.tenant_status_of(t)
-        if tstatus == _st.TENANT_TERMINATED:
-            raise TenantAdminError("TENANT_TERMINATED", "종료된 사업장에는 계정을 발급할 수 없습니다.")
-        if tstatus == _st.TENANT_SUSPENDED:
-            raise TenantAdminError(
-                "TENANT_SUSPENDED",
-                "정지된 사업장입니다. 사업장을 먼저 복구한 뒤 새 관리자 계정을 발급하세요.")
-        if tstatus not in _st.TENANT_ACTIVATABLE:
+        # unusable activation token 발급 금지 — activation 이 실제 가능한 사무소만 허용한다.
+        # **엄격 raw 판정**(activation_capable_tenant_block_reason): pending+비활성 / active+활성만
+        # 통과, 미상/빈/불일치 service_status 는 is_active 로 추론하지 않고 fail-closed(§strict).
+        tblock = _st.activation_capable_tenant_block_reason(t)
+        if tblock is not None:
+            code = tblock[0]
+            if code == "TENANT_TERMINATED":
+                raise TenantAdminError("TENANT_TERMINATED", "종료된 사업장에는 계정을 발급할 수 없습니다.")
+            if code == "TENANT_SUSPENDED":
+                raise TenantAdminError(
+                    "TENANT_SUSPENDED",
+                    "정지된 사업장입니다. 사업장을 먼저 복구한 뒤 새 관리자 계정을 발급하세요.")
             raise TenantAdminError("BAD_TENANT_STATE", "새 관리자를 발급할 수 없는 사업장 상태입니다.")
         # 중복 관리자 초대 방지(§11) — 이미 활성/초대 상태의 office_admin 이 있으면 차단.
         # (사용자 없는 사업장 복구가 목적이므로 무제한 invited admin 생성을 막는다.)

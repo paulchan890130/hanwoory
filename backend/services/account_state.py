@@ -36,6 +36,7 @@ TENANT_ACTIVATABLE = (TENANT_PENDING, TENANT_ACTIVE)
 
 # (code, http_status) 매핑 — 라우터가 그대로 쓸 수 있게 노출한다.
 STATE_ERROR_HTTP = {
+    "NOT_FOUND": 404,
     "BAD_ACCOUNT_STATE": 409,
     "BAD_TENANT_STATE": 409,
     "TENANT_SUSPENDED": 409,
@@ -72,6 +73,47 @@ def tenant_status_of(tenant) -> str:
     return TENANT_ACTIVE if bool(getattr(tenant, "is_active", False)) else TENANT_PENDING
 
 
+def strict_tenant_status_of(tenant) -> Optional[str]:
+    """**엄격 판정** — raw service_status 가 정의된 4상태 중 하나일 때만 그 값을, 아니면 None.
+
+    ``tenant_status_of`` 와 달리 **is_active 로 미상 상태를 추론하지 않는다**. NULL/빈값/공백/
+    미상/신규 미정의 값은 모두 None(=INVALID). 고위험 lifecycle 경로가 이 함수를 써서, 새로
+    생긴(또는 오염된) service_status 를 active/pending 으로 자동 해석하는 우회를 막는다.
+    레거시/표시용 폴백이 필요한 경로는 기존 ``tenant_status_of`` 를 계속 쓴다(전역 변경 아님).
+    """
+    if tenant is None:
+        return None
+    raw = getattr(tenant, "service_status", None)
+    raw = raw.strip() if isinstance(raw, str) else ""
+    return raw if raw in _TENANT_STATES else None
+
+
+def activation_capable_tenant_block_reason(tenant) -> BlockReason:
+    """activation/초대/토큰 발급이 **실제로 가능한** 사무소 상태만 허용(엄격). 허용이면 None.
+
+    허용은 정확히 두 조합뿐이다:
+      1. raw service_status == 'pending_activation' AND is_active == False
+      2. raw service_status == 'active'             AND is_active == True
+    그 외(tenant 없음/NULL/빈값/공백/미상/suspended/terminated/상태↔is_active 불일치)는 모두
+    fail-closed. ``is_active`` 로 미상 상태를 추론하지 않는다.
+    """
+    if tenant is None:
+        return ("NOT_FOUND", "사무소를 찾을 수 없습니다.")
+    raw = getattr(tenant, "service_status", None)
+    raw = raw.strip() if isinstance(raw, str) else ""
+    active = bool(getattr(tenant, "is_active", False))
+    if raw == TENANT_PENDING and not active:
+        return None
+    if raw == TENANT_ACTIVE and active:
+        return None
+    if raw == TENANT_SUSPENDED:
+        return ("TENANT_SUSPENDED", "정지된 사무소입니다. 사무소를 먼저 복구하세요.")
+    if raw == TENANT_TERMINATED:
+        return ("TENANT_TERMINATED", "종료된 사무소입니다.")
+    # NULL/빈값/공백/미상/불일치(active+비활성·pending+활성 등) → fail-closed.
+    return ("BAD_TENANT_STATE", "사무소 상태가 올바르지 않아 처리할 수 없습니다.")
+
+
 def _tenant_block(tenant) -> BlockReason:
     """activation/restore/reissue 공통 — 테넌트가 진행 불가 상태면 차단 사유 반환."""
     tstatus = tenant_status_of(tenant)
@@ -92,7 +134,8 @@ def activation_block_reason(user, tenant) -> BlockReason:
     """
     if account_status_of(user) != ACCOUNT_INVITED or bool(getattr(user, "is_active", False)):
         return ("BAD_ACCOUNT_STATE", "이미 처리되었거나 활성화할 수 없는 계정입니다.")
-    return _tenant_block(tenant)
+    # 엄격 판정 — 미상/빈 service_status 를 is_active 로 추론해 통과시키지 않는다.
+    return activation_capable_tenant_block_reason(tenant)
 
 
 def reissue_block_reason(user, tenant) -> BlockReason:
@@ -108,7 +151,8 @@ def reissue_block_reason(user, tenant) -> BlockReason:
         if st == ACCOUNT_DISABLED:
             return ("LEGACY_DISABLED", "레거시 비활성 계정입니다. 레거시 정책으로 처리하세요.")
         return ("BAD_ACCOUNT_STATE", "재발급할 수 없는 계정 상태입니다.")
-    return _tenant_block(tenant)
+    # 엄격 판정 — 미상/빈 service_status 를 통과시키지 않는다(토큰 재발급 우회 차단).
+    return activation_capable_tenant_block_reason(tenant)
 
 
 def restore_block_reason(user, tenant) -> BlockReason:
@@ -216,22 +260,10 @@ def relink_target_tenant_block_reason(tenant) -> BlockReason:
     - pending_activation + is_active=False
     - active + is_active=True
     suspended/terminated, service_status↔is_active 불일치, 알 수 없는 상태, tenant 없음은
-    모두 fail-closed 로 거부한다.
+    모두 fail-closed 로 거부한다. 엄격 raw 판정(activation_capable_tenant_block_reason)을 재사용해
+    미상/빈 service_status 가 is_active 로 active/pending 으로 추론되어 통과하는 우회를 막는다.
     """
-    if tenant is None:
-        return ("NOT_FOUND", "대상 사업장을 찾을 수 없습니다.")
-    st = tenant_status_of(tenant)
-    active = bool(getattr(tenant, "is_active", False))
-    if st == TENANT_PENDING and not active:
-        return None
-    if st == TENANT_ACTIVE and active:
-        return None
-    if st == TENANT_SUSPENDED:
-        return ("TENANT_SUSPENDED", "정지된 사업장으로는 연결할 수 없습니다. 사업장을 먼저 복구하세요.")
-    if st == TENANT_TERMINATED:
-        return ("TENANT_TERMINATED", "종료된 사업장으로는 연결할 수 없습니다.")
-    # active/pending 이지만 is_active 와 불일치, 또는 알 수 없는 상태 → fail-closed.
-    return ("BAD_TENANT_STATE", "대상 사업장 상태가 올바르지 않아 연결할 수 없습니다.")
+    return activation_capable_tenant_block_reason(tenant)
 
 
 def relink_source_tenant_block_reason(tenant) -> BlockReason:

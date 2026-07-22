@@ -518,13 +518,16 @@ def approve(application_id: str, reviewer: str,
         tenant_id = _gen_tenant_id(session)
         now = _now()
 
-        # tenant 생성.
+        # tenant 생성. lifecycle 불변식 = (is_active True ⟺ service_status 'active').
+        # 승인 직후는 pending_activation 이므로 is_active=False 로 두고, 최초 activation 완료
+        # (complete_activation)에서 active + is_active=True 로 승격한다. 이로써 엄격 상태 판정
+        # (activation_capable_tenant_block_reason: pending+비활성 / active+활성만 허용)과 일치한다.
         t = Tenant(
             tenant_id=tenant_id,
             office_name=a.office_name,
             office_adr=a.office_address,
             biz_reg_no=a.business_registration_number,
-            is_active=True,
+            is_active=False,
         )
         t.service_tier = SERVICE_TIER_DEFAULT
         t.seat_limit = int(seat_limit or SEAT_LIMIT_DEFAULT)

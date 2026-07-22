@@ -875,3 +875,143 @@ def test_purge_summary_actor_preserved_no_pii(db):
         # 대상 tenant/고객 PII 없음.
         assert "of-a" not in json.dumps(row.payload or {})
         assert "admin@of-a.kr" not in json.dumps(row.payload or {})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 라운드3 — tenant service_status 엄격 판정(미상/빈 값 fail-closed)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _set_tenant_status(db, tid, status, is_active):
+    from backend.db.models.tenant import Tenant
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == tid))
+        t.service_status = status
+        t.is_active = is_active
+        s.commit()
+
+
+# ── relink 대상: 미상/빈/공백/불일치 상태 fail-closed ─────────────────────────
+@pytest.mark.parametrize("status,active", [
+    ("maintenance", True),          # 미상 + 활성 → (레거시 폴백이면 active 로 통과했을 값)
+    ("maintenance", False),         # 미상 + 비활성 → (폴백이면 pending 로 통과했을 값)
+    ("", False),                    # 빈 값
+    ("   ", True),                  # 공백만
+    ("unknown", False),             # 신규 미정의 값
+    ("active", False),              # 상태↔is_active 불일치
+    ("pending_activation", True),   # 불일치
+])
+def test_relink_target_invalid_status_fail_closed(db, status, active):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.user import AccountUser
+    acct, src, tgt = _seed_relink_pair(db)
+    _set_tenant_status(db, tgt, status, active)
+    pv = ta.relink_preview(acct, tgt, actor_login="sys")
+    assert pv["can_relink"] is False
+    with pytest.raises(ta.TenantAdminError) as ei:
+        ta.relink_account(acct, tgt, "sys", acct, tgt,
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+    assert ei.value.code == "BLOCKED"
+    with db() as s:  # 차단 시 user/token/session 무변경
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == acct))
+        assert u.tenant_id == src and u.account_status == "invited" and u.is_active is False
+    assert _count(db, "activation_tokens", "tenant_id", tgt) == 0
+
+
+def test_relink_target_valid_status_ok(db):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.services import activation_pg_service as act
+    # active+활성 허용.
+    acct, src, tgt = _seed_relink_pair(db)
+    _set_tenant_status(db, tgt, "active", True)
+    r = ta.relink_account(acct, tgt, "sys", acct, tgt,
+                          confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src)
+    assert act.complete_activation(r["activation_token"], "pw12345")["login_id"] == acct
+    # pending_activation+비활성 허용.
+    acct2, src2, tgt2 = _seed_relink_pair(db, src="s9", tgt="t9", acct="m9@x.kr")
+    _set_tenant_status(db, tgt2, "pending_activation", False)
+    r2 = ta.relink_account(acct2, tgt2, "sys", acct2, tgt2,
+                           confirmation_phrase=_PHRASE_RELINK, source_tenant_id=src2)
+    assert act.complete_activation(r2["activation_token"], "pw12345")["login_id"] == acct2
+
+
+# ── issue_admin: 미상/빈 상태 발급 차단 ───────────────────────────────────────
+@pytest.mark.parametrize("status", ["maintenance", "", "   ", "unknown"])
+def test_issue_admin_invalid_status_blocked(db, status):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.db.models.tenant import Tenant
+    with db() as s:
+        t = Tenant(tenant_id="of-u", office_name="of-u", is_active=True)
+        t.service_status = status; t.seat_limit = 2
+        s.add(t); s.commit()
+    with pytest.raises(ta.TenantAdminError) as ei:
+        ta.issue_admin_account("of-u", "관리자", "u@x.kr", actor="sys", confirm_tenant_id="of-u")
+    assert ei.value.code == "BAD_TENANT_STATE"
+    assert _count(db, "users", "login_id", "u@x.kr") == 0        # user 무변경
+    assert _count(db, "activation_tokens", "tenant_id", "of-u") == 0  # token 미발급
+
+
+# ── activation verify/complete: 초대 후 상태 오염 시 fail-closed ──────────────
+def test_activation_invalid_tenant_status_fail_closed(db):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.services import activation_pg_service as act
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        t = Tenant(tenant_id="of-p", office_name="of-p", is_active=False)
+        t.service_status = "pending_activation"; t.seat_limit = 2
+        s.add(t); s.commit()
+    token = ta.issue_admin_account("of-p", "관리자", "p@x.kr", actor="sys",
+                                   confirm_tenant_id="of-p")["activation_token"]
+    _set_tenant_status(db, "of-p", "maintenance", True)  # 초대 후 미상 값으로 오염
+    assert act.verify_activation_token(token) is None    # verify 무효
+    with pytest.raises(act.ActivationError) as ei:
+        act.complete_activation(token, "pw12345")
+    assert ei.value.code == "BAD_TENANT_STATE"
+    with db() as s:  # user invited·inactive 유지 + 토큰 미소비
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "p@x.kr"))
+        assert u.is_active is False and u.account_status == "invited"
+        tok = s.execute(text("SELECT used_at FROM activation_tokens WHERE login_id='p@x.kr'")).first()
+        assert tok is not None and tok[0] is None
+
+
+# ── reissue: 미상 상태에서 재발급 차단 + 기존 토큰 무변경 ─────────────────────
+def test_reissue_invalid_tenant_status_blocked(db):
+    from backend.services import tenant_admin_pg_service as ta
+    from backend.services import activation_pg_service as act
+    from backend.db.models.tenant import Tenant
+    with db() as s:
+        t = Tenant(tenant_id="of-p2", office_name="of-p2", is_active=False)
+        t.service_status = "pending_activation"; t.seat_limit = 2
+        s.add(t); s.commit()
+    ta.issue_admin_account("of-p2", "관리자", "p2@x.kr", actor="sys", confirm_tenant_id="of-p2")
+    _set_tenant_status(db, "of-p2", "unknown", False)
+    with pytest.raises(act.ActivationError) as ei:
+        act.reissue_activation_token("p2@x.kr", actor="sys")
+    assert ei.value.code == "BAD_TENANT_STATE"
+    with db() as s:  # 기존 미사용 토큰 1개·미소비 유지
+        rows = s.execute(text("SELECT used_at FROM activation_tokens WHERE login_id='p2@x.kr'")).fetchall()
+        assert len(rows) == 1 and rows[0][0] is None
+
+
+# ── 엄격 helper 단위 검증 ─────────────────────────────────────────────────────
+def test_strict_tenant_status_helper():
+    from backend.services import account_state as st
+
+    class _T:
+        def __init__(self, s, a): self.service_status = s; self.is_active = a
+    # 정의된 상태만 그대로, 미상/빈/공백/None → None.
+    assert st.strict_tenant_status_of(_T("active", True)) == "active"
+    assert st.strict_tenant_status_of(_T("pending_activation", False)) == "pending_activation"
+    assert st.strict_tenant_status_of(_T("maintenance", True)) is None
+    assert st.strict_tenant_status_of(_T("", False)) is None
+    assert st.strict_tenant_status_of(_T("   ", False)) is None
+    assert st.strict_tenant_status_of(_T(None, True)) is None
+    assert st.strict_tenant_status_of(None) is None
+    # activation 가능 = pending+비활성 / active+활성만.
+    assert st.activation_capable_tenant_block_reason(_T("pending_activation", False)) is None
+    assert st.activation_capable_tenant_block_reason(_T("active", True)) is None
+    assert st.activation_capable_tenant_block_reason(_T("active", False))[0] == "BAD_TENANT_STATE"
+    assert st.activation_capable_tenant_block_reason(_T("maintenance", True))[0] == "BAD_TENANT_STATE"
+    assert st.activation_capable_tenant_block_reason(_T("suspended", False))[0] == "TENANT_SUSPENDED"
+    assert st.activation_capable_tenant_block_reason(_T("terminated", False))[0] == "TENANT_TERMINATED"
+    assert st.activation_capable_tenant_block_reason(None)[0] == "NOT_FOUND"
