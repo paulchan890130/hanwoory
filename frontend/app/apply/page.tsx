@@ -1,7 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { officeApplicationApi } from "@/lib/api";
+
+// 무자격 업장·택배대행 회원 가입 방지 — 서류 이메일 제출 안내(운영 정책 문구).
+const DOCS_NOTICE =
+  "무자격 업장 및 택배대행 회원의 가입을 방지하기 위해, 이용신청 후 사업자등록증과 사업장 사진 3장을 " +
+  "chan@hanwory.com으로 보내주시기 바랍니다. 제출 자료를 확인한 후 승인하며, 자료가 제출되지 않거나 " +
+  "실제 사업장 확인이 어려운 경우 승인되지 않습니다.";
+const DOCS_CONFIRM_LABEL =
+  "사업자등록증과 사업장 사진 3장을 이메일로 제출해야 승인된다는 내용을 확인했습니다.";
 
 // 가용성 4-state: 확인 중 / 신청 가능 / 신청 마감(비활성) / 확인 실패.
 // disabled·error 상태에서는 신청 폼을 렌더링하지 않고 POST 도 하지 않는다(fail-closed).
@@ -67,10 +75,13 @@ export default function ApplyPage() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeDocs, setAgreeDocs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Availability>("loading");
+  // 동기식 inflight guard — React 재렌더 이전에도 두 번째 제출을 즉시 차단(더블클릭·Enter+클릭 중복 방지).
+  const inflightRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -98,6 +109,8 @@ export default function ApplyPage() {
     .map((f) => f.label);
 
   const submit = async () => {
+    // 동기식 중복 제출 차단 — state 재렌더보다 먼저 실행되므로 빠른 더블클릭·Enter 겹침을 잡는다.
+    if (inflightRef.current) return;
     setError("");
     if (availability !== "enabled") { setError("현재 신청을 받을 수 없습니다."); return; }
     if (missing.length) { setError(`필수 항목을 입력해 주세요: ${missing.join(", ")}`); return; }
@@ -108,7 +121,9 @@ export default function ApplyPage() {
     if (repEmail && staffEmail && repEmail === staffEmail) {
       setError("대표자와 실무자의 이메일은 서로 달라야 합니다."); return;
     }
+    if (!agreeDocs) { setError("서류 제출 확인에 동의해 주세요."); return; }
     if (!agreePrivacy || !agreeTerms) { setError("개인정보 및 이용약관에 동의해 주세요."); return; }
+    inflightRef.current = true;
     setSubmitting(true);
     try {
       const res = await officeApplicationApi.submit({
@@ -121,12 +136,14 @@ export default function ApplyPage() {
         staff_name: form["staff_name"],
         staff_email: staffEmail,
         agree_privacy: agreePrivacy, agree_terms: agreeTerms,
+        agree_supporting_docs: agreeDocs,
       });
       setReceipt((res.data as { application_id: string }).application_id);
     } catch (e) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(detail || "신청 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setError(typeof detail === "string" ? detail : "신청 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
+      inflightRef.current = false;
       setSubmitting(false);
     }
   };
@@ -144,6 +161,20 @@ export default function ApplyPage() {
             관리자 심사 후 별도로 안내드립니다. 승인 전에는 로그인할 수 없습니다.
             <br />자동 이메일 발송은 없으며, 승인 시 관리자가 활성화 링크를 직접 안내합니다.
           </p>
+          <div style={{ textAlign: "left", fontSize: 12.5, color: "var(--hw-text-sub)", lineHeight: 1.75,
+            background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8,
+            padding: "12px 16px", marginTop: 16 }}>
+            <div style={{ fontWeight: 700, color: "var(--hw-text)", marginBottom: 6 }}>다음 절차로 진행됩니다</div>
+            <ol style={{ paddingLeft: 18, margin: 0 }}>
+              <li>신청서 접수 완료</li>
+              <li><strong>사업자등록증과 사업장 사진 3장</strong>을 <strong>chan@hanwory.com</strong>으로 발송</li>
+              <li>관리자가 제출 자료 확인</li>
+              <li>승인 후 대표자·실무자 활성화 링크 전달 (자동 이메일 없음)</li>
+              <li>각 사용자가 활성화 링크에서 최초 비밀번호 설정</li>
+              <li>이메일(로그인 ID)과 설정한 비밀번호로 로그인</li>
+            </ol>
+            <div style={{ marginTop: 8 }}>{DOCS_NOTICE}</div>
+          </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20 }}>
             <button className="btn-secondary" onClick={() => { navigator.clipboard?.writeText(receipt); }}>
               접수번호 복사
@@ -221,18 +252,29 @@ export default function ApplyPage() {
         신청서를 제출하면 관리자 심사 후 사무소 업무공간과 <strong>대표자 관리자 계정 1개, 실무자 계정 1개</strong>가
         발급됩니다. 신청 즉시 계정이 생성되지는 않습니다.
       </p>
-      <ol style={{ fontSize: 12.5, color: "var(--hw-text-sub)", lineHeight: 1.7, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "12px 16px 12px 30px", marginBottom: 20 }}>
+      <ol style={{ fontSize: 12.5, color: "var(--hw-text-sub)", lineHeight: 1.7, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "12px 16px 12px 30px", marginBottom: 16 }}>
         <li>신청서 접수</li>
-        <li>관리자 심사</li>
-        <li>사무소 승인</li>
+        <li>사업자등록증·사업장 사진 3장 이메일 제출</li>
+        <li>관리자 심사·사무소 승인</li>
         <li>대표자 관리자 계정·실무자 계정 발급</li>
         <li>활성화 링크로 각자 비밀번호 설정 (자동 이메일 없음 — 관리자가 직접 안내)</li>
       </ol>
+
+      {/* 서류 제출 안내(폼 상단) */}
+      <div style={{ fontSize: 12.5, color: "#7B341E", lineHeight: 1.75, background: "#FFFAF0",
+        border: "1px solid #F6AD55", borderRadius: 8, padding: "12px 16px", marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>제출 서류 안내</div>
+        {DOCS_NOTICE}
+      </div>
 
       {renderGroup("사무소 정보", OFFICE_FIELDS)}
       {renderGroup("실무자용 계정 발급 정보", STAFF_FIELDS)}
 
       <div className="hw-card" style={{ marginBottom: 16 }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
+          <input type="checkbox" checked={agreeDocs} onChange={(e) => setAgreeDocs(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>{DOCS_CONFIRM_LABEL}</span>
+        </label>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
           <input type="checkbox" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} />
           <span>개인정보 수집·이용에 동의합니다. (신청 심사 목적)</span>
@@ -243,6 +285,12 @@ export default function ApplyPage() {
         </label>
       </div>
 
+      {/* 제출 버튼 바로 위 서류 제출 재안내 */}
+      <div style={{ fontSize: 12, color: "var(--hw-text-sub)", lineHeight: 1.7, marginBottom: 8 }}>
+        신청 제출 후 <strong>사업자등록증과 사업장 사진 3장</strong>을 <strong>chan@hanwory.com</strong>으로 보내주세요.
+        자료 확인 후 승인됩니다.
+      </div>
+
       {error && (
         <div style={{ background: "#FFF5F5", border: "1px solid #FEB2B2", color: "#C53030",
           borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 12 }}>
@@ -251,7 +299,8 @@ export default function ApplyPage() {
       )}
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button className="btn-primary" onClick={submit} disabled={submitting}>
+        <button className="btn-primary" onClick={submit}
+          disabled={submitting || !agreeDocs || !agreePrivacy || !agreeTerms}>
           {submitting ? "접수 중..." : "이용 신청 제출"}
         </button>
         <Link href="/login" className="btn-secondary" style={{ textDecoration: "none" }}>취소</Link>

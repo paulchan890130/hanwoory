@@ -107,9 +107,11 @@ export default function LoginPage() {
       toast.success(`${res.data.office_name || data.login_id}님, 환영합니다!`);
       router.replace("/dashboard");
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "로그인 실패";
+      // detail 은 문자열 또는 구조화 객체({code,message}) — ACCOUNT_NOT_ACTIVATED 등 구분.
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      let msg = "로그인 실패";
+      if (typeof detail === "string") msg = detail;
+      else if (detail && typeof detail === "object") msg = String((detail as { message?: string }).message || msg);
       toast.error(msg);
     } finally {
       inflightRef.current = false;
@@ -384,6 +386,14 @@ export default function LoginPage() {
               >
                 {loading ? "로그인 중..." : "로그인"}
               </button>
+              {/* 신규 승인 계정 안내 — 활성화 링크에서 최초 비밀번호를 먼저 설정해야 로그인 가능 */}
+              <div style={{ fontSize: 12, color: "#718096", lineHeight: 1.7, background: "#F7F8FA",
+                border: `1px solid ${BORDER}`, borderRadius: 8, padding: "11px 14px" }}>
+                <strong style={{ color: "#4A5568" }}>신규 승인 계정 안내</strong><br />
+                관리자가 전달한 <strong>활성화 링크</strong>에서 최초 비밀번호를 먼저 설정해야 로그인할 수 있습니다.
+                가입신청 때 입력한 <strong>이메일이 로그인 ID</strong>이며, 신청 단계에서는 비밀번호를 만들지 않습니다.
+                링크가 없거나 만료된 경우 관리자에게 재발급을 요청하세요.
+              </div>
             </form>
           )}
 

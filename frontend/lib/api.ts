@@ -234,6 +234,8 @@ export interface OfficeApplication {
   review_note_internal?: string | null;
   approved_tenant_id?: string | null;
   duplicate_flags?: Record<string, unknown>;
+  duplicate_pending_count?: number;
+  duplicate_pending_ids?: string[];
   created_at?: string | null;
 }
 
@@ -286,6 +288,9 @@ export const officeApplicationApi = {
   connectionSummary: (tenantId: string) =>
     api.get(`/api/admin/tenants/${encodeURIComponent(tenantId)}/connection-summary`),
   noUserTenants: () => api.get("/api/admin/no-user-tenants"),
+  // 모든 사업장 조회(상태 필터·검색) — 사업장 관리 화면.
+  listTenants: (params?: { status?: string; q?: string }) =>
+    api.get("/api/admin/tenants", { params: params || {} }),
   // 기존 사업장에 새 관리자 발급.
   issueAdmin: (tenantId: string, body: { name: string; email: string; confirm_tenant_id: string }) =>
     api.post(`/api/admin/tenants/${encodeURIComponent(tenantId)}/issue-admin-account`, body),

@@ -98,6 +98,8 @@ class OfficeApplicationCreate(BaseModel):
     requested_user_2_email: Optional[str] = None
     agree_privacy: bool = False
     agree_terms: bool = False
+    # 서류(사업자등록증 + 사업장 사진 3장) 이메일 제출 확인 — 서버 강제(프론트 검사만으로 대체 금지).
+    agree_supporting_docs: bool = False
 
 
 class ReviewPatch(BaseModel):
@@ -166,13 +168,18 @@ def submit_application(body: OfficeApplicationCreate, request: Request = None):
     _require_saas()
     if not body.agree_privacy or not body.agree_terms:
         raise HTTPException(status_code=400, detail="개인정보 및 이용약관에 동의해야 신청할 수 있습니다.")
+    # 서류 제출 확인 — 백엔드 강제(프론트 체크박스만으로 대체하지 않는다).
+    if not body.agree_supporting_docs:
+        raise HTTPException(status_code=400,
+                            detail="사업자등록증과 사업장 사진 3장을 이메일로 제출해야 승인된다는 내용에 동의해야 신청할 수 있습니다.")
     ip = _client_ip(request)
     _rate_limit(ip or "?")
     from backend.services import office_application_pg_service as svc
     from backend.services.session_pg_service import short_hash
     try:
-        result = svc.create_application(body.model_dump(exclude={"agree_privacy", "agree_terms"}),
-                                        ip_hash=short_hash(ip))
+        result = svc.create_application(
+            body.model_dump(exclude={"agree_privacy", "agree_terms", "agree_supporting_docs"}),
+            ip_hash=short_hash(ip))
     except svc.ApplicationError as e:
         code_map = {"DUPLICATE_PENDING": 409, "DUPLICATE_USER_EMAIL": 409,
                     "MISSING_OFFICE_NAME": 400, "MISSING_FIELD": 400, "BAD_EMAIL": 400,
@@ -458,6 +465,15 @@ def admin_no_user_tenants(user: dict = Depends(require_system_admin)):
     _require_saas()
     from backend.services import tenant_admin_pg_service as svc
     return {"tenants": svc.list_no_user_tenants()}
+
+
+@router.get("/admin/tenants")
+def admin_list_tenants(status: Optional[str] = None, q: Optional[str] = None,
+                       user: dict = Depends(require_system_admin)):
+    """모든 사업장 조회(상태 필터·검색). 사업장 관리 화면의 전체 목록·정지·폐기 진입점."""
+    _require_saas()
+    from backend.services import tenant_admin_pg_service as svc
+    return {"tenants": svc.list_tenants_for_actor(status, q, user.get("login_id", ""))}
 
 
 _TENANT_ADMIN_CODE_MAP = {

@@ -1922,24 +1922,36 @@ export default function AdminPage() {
                       </td>
                       <td className="text-xs" style={{ color: "#A0AEC0" }}>{acc.created_at}</td>
                       <td>
-                        <button
-                          onClick={() => {
-                            const newVal = !(acc.is_active?.toLowerCase() === "true" || acc.is_active === "1");
-                            const hasWorkspace = !!(acc.folder_id && acc.customer_sheet_key && acc.work_sheet_key);
-                            if (newVal && !hasWorkspace) {
-                              handleRowWorkspace(acc);
-                            } else {
-                              toggle(acc.login_id, "is_active", acc.is_active || "");
-                            }
-                          }}
-                          disabled={togglingId === acc.login_id || isMaster}
-                          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
-                          style={{ opacity: togglingId === acc.login_id ? 0.5 : 1, cursor: isMaster ? "not-allowed" : undefined }}
-                          title={isMaster ? "마스터 계정은 비활성화할 수 없습니다" : undefined}
-                        >
-                          {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
-                          {isActive ? "활성" : "비활성"}
-                        </button>
+                        {saasEnabled ? (
+                          // 승인형 SaaS: 직접 is_active 토글 금지(백엔드도 거부). 상태만 표시하고
+                          // 활성화/정지/복구는 '사무소 신청'(승인 상세)·'사업장 관리' lifecycle 로 처리.
+                          <span
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                            title="승인형 SaaS: 계정 활성화·정지·복구는 사무소 신청/사업장 관리 화면에서 처리합니다."
+                          >
+                            {isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                            {isActive ? "활성" : "미활성"}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const newVal = !(acc.is_active?.toLowerCase() === "true" || acc.is_active === "1");
+                              const hasWorkspace = !!(acc.folder_id && acc.customer_sheet_key && acc.work_sheet_key);
+                              if (newVal && !hasWorkspace) {
+                                handleRowWorkspace(acc);
+                              } else {
+                                toggle(acc.login_id, "is_active", acc.is_active || "");
+                              }
+                            }}
+                            disabled={togglingId === acc.login_id || isMaster}
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
+                            style={{ opacity: togglingId === acc.login_id ? 0.5 : 1, cursor: isMaster ? "not-allowed" : undefined }}
+                            title={isMaster ? "마스터 계정은 비활성화할 수 없습니다" : undefined}
+                          >
+                            {togglingId === acc.login_id ? <Loader2 size={11} className="animate-spin" /> : isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                            {isActive ? "활성" : "비활성"}
+                          </button>
+                        )}
                       </td>
                       <td>
                         {isMaster ? (
@@ -1949,6 +1961,15 @@ export default function AdminPage() {
                             title="마스터 계정 — 비활성화/삭제/강등 불가"
                           >
                             <Shield size={11} /> 마스터
+                          </span>
+                        ) : saasEnabled ? (
+                          // 승인형 SaaS: 직접 is_admin/준관리자 토글 금지(권한 상승 방지·백엔드도 거부).
+                          // 역할은 표시만 하고 변경은 lifecycle(교체 등)로 처리한다.
+                          <span
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isAdm ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}
+                            title="승인형 SaaS: 역할 변경은 사무소 관리(교체) 화면에서 처리합니다."
+                          >
+                            <Shield size={11} /> {isAdm ? "관리자" : "직원"}
                           </span>
                         ) : (
                           <div className="flex flex-col gap-1 items-start">

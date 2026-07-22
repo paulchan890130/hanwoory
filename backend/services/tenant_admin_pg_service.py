@@ -91,6 +91,152 @@ def tenant_connection_summary(tenant_id: str) -> Optional[dict]:
         }
 
 
+def list_tenants(status: Optional[str] = None, query: Optional[str] = None) -> list[dict]:
+    """**모든** 사업장을 상태 필터·검색과 함께 조회(시스템 관리자용). N+1 회피 — tenant 수와
+    무관하게 상수 개의 집계 쿼리로 사용자/데이터 건수를 계산한다.
+
+    status: all|active|pending_activation|suspended|terminated|needs_cleanup(정리 대상).
+    query: 사무소명 또는 tenant_id 부분 일치(대소문자 무시).
+    각 행에 상태·계정/관리자 수·고객/업무 수·외부 저장소 여부·간단 폐기 가능성/차단 사유 포함.
+    """
+    from sqlalchemy import case
+    from backend.auth import is_master_login
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    from backend.services import account_state as _st
+    from backend.services import tenant_purge_pg_service as _purge
+
+    q = (query or "").strip().lower()
+    want = (status or "all").strip().lower()
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        tstmt = select(Tenant)
+        if q:
+            like = f"%{q}%"
+            tstmt = tstmt.where(func.lower(Tenant.office_name).like(like)
+                                | func.lower(Tenant.tenant_id).like(like))
+        tenants = list(session.scalars(tstmt.order_by(Tenant.created_at.desc())).all())
+        if not tenants:
+            return []
+        tids = [t.tenant_id for t in tenants]
+
+        # 사용자 집계(1 쿼리) — 총/활성/로그인가능/활성관리자/초대관리자.
+        active_c = case((AccountUser.is_active.is_(True), 1), else_=0)
+        loginable_c = case(((AccountUser.is_active.is_(True)) & (AccountUser.account_status == _st.ACCOUNT_ACTIVE), 1), else_=0)
+        adm_active_c = case(((AccountUser.is_admin.is_(True)) & (AccountUser.account_status == _st.ACCOUNT_ACTIVE), 1), else_=0)
+        adm_invited_c = case(((AccountUser.is_admin.is_(True)) & (AccountUser.account_status == _st.ACCOUNT_INVITED), 1), else_=0)
+        urows = session.execute(
+            select(AccountUser.tenant_id, func.count(), func.sum(active_c),
+                   func.sum(loginable_c), func.sum(adm_active_c), func.sum(adm_invited_c))
+            .where(AccountUser.tenant_id.in_(tids))
+            .group_by(AccountUser.tenant_id)
+        ).all()
+        umap = {r[0]: {"total": int(r[1] or 0), "active": int(r[2] or 0), "loginable": int(r[3] or 0),
+                       "active_admins": int(r[4] or 0), "invited_admins": int(r[5] or 0)} for r in urows}
+
+        def _count_by_tid(table_attr):
+            rows = session.execute(
+                select(table_attr, func.count()).where(table_attr.in_(tids)).group_by(table_attr)).all()
+            return {r[0]: int(r[1] or 0) for r in rows}
+
+        present = _purge._existing_tables(session)
+        from backend.db.models.customer import Customer
+        cust_map = _count_by_tid(Customer.tenant_id) if "customers" in present else {}
+        task_map: dict[str, int] = {}
+        for tbl in ("active_tasks", "completed_tasks"):
+            if tbl not in present:
+                continue
+            mdl = {"active_tasks": "ActiveTask", "completed_tasks": "CompletedTask"}[tbl]
+            from backend.db.models import task as _task_mod
+            attr = getattr(_task_mod, mdl).tenant_id
+            for tid, n in _count_by_tid(attr).items():
+                task_map[tid] = task_map.get(tid, 0) + n
+
+        # 보호 대상 tenant(마스터/현재 actor 소속) — 1 쿼리.
+        protected_logins = [x for x in {"wkdwhfl"} if x]  # 마스터 id(is_master_login 기준)
+        prot_rows = session.execute(
+            select(AccountUser.tenant_id, AccountUser.login_id)
+            .where(AccountUser.tenant_id.in_(tids))).all()
+        master_tids, actor_tids = set(), set()
+        for tid, lid in prot_rows:
+            if is_master_login(lid):
+                master_tids.add(tid)
+        # 미분류 tenant 테이블(스키마 전역 — 1회 계산).
+        unclassified = _purge.unclassified_tenant_tables(session)
+
+        out: list[dict] = []
+        for t in tenants:
+            tid = t.tenant_id
+            u = umap.get(tid, {"total": 0, "active": 0, "loginable": 0, "active_admins": 0, "invited_admins": 0})
+            tstatus = _tenant_status(t)
+            is_active = bool(getattr(t, "is_active", False))
+            storage = _purge._external_storage_refs(t)
+            needs_cleanup = u["total"] == 0 or u["loginable"] == 0
+            # status 필터.
+            if want == "needs_cleanup":
+                if not needs_cleanup:
+                    continue
+            elif want in ("active", "pending_activation", "suspended", "terminated"):
+                if tstatus != want:
+                    continue
+            # 간단 폐기 차단 사유(정확한 실행 차단은 purge_preview 가 최종 판정).
+            blocking: list[str] = []
+            if tstatus != "suspended" or is_active:
+                blocking.append("먼저 사업장을 정지하세요.")
+            if "folder_id" in storage["external"]:
+                blocking.append("실제 Google Drive 폴더가 연결돼 있습니다.")
+            if "customer_sheet_key" in storage["external"] or "work_sheet_key" in storage["external"]:
+                blocking.append("실제 Google Sheets 키가 연결돼 있습니다.")
+            if tid in master_tids:
+                blocking.append("마스터 계정이 속한 사업장입니다.")
+            if tid in actor_tids:
+                blocking.append("현재 시스템 관리자 본인의 사업장입니다.")
+            if unclassified:
+                blocking.append("폐기 계획에 분류되지 않은 테이블이 있습니다.")
+            out.append({
+                "tenant_id": tid,
+                "office_name": t.office_name or "",
+                "service_status": tstatus,
+                "is_active": is_active,
+                "seat_limit": int(getattr(t, "seat_limit", 2) or 2),
+                "total_users": u["total"],
+                "active_users": u["active"],
+                "loginable_users": u["loginable"],
+                "active_admins": u["active_admins"],
+                "invited_admins": u["invited_admins"],
+                "customers": cust_map.get(tid, 0),
+                "tasks": task_map.get(tid, 0),
+                "needs_cleanup": needs_cleanup,
+                "external_storage_refs": storage["external"],
+                "local_storage_refs": storage["local"],
+                "can_purge": len(blocking) == 0,
+                "blocking_reasons": blocking,
+            })
+        return out
+
+
+def list_tenants_for_actor(status: Optional[str], query: Optional[str], actor_login: str) -> list[dict]:
+    """list_tenants + 현재 actor 소속 사업장 보호표시. actor tenant 도 blocking 에 반영."""
+    from backend.auth import is_master_login
+    result = list_tenants(status, query)
+    lid = (actor_login or "").strip()
+    if not lid:
+        return result
+    # actor 가 속한 tenant 를 별도 조회해 blocking 에 표시(list_tenants 는 actor 를 모름).
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        actor_tid = session.scalar(select(AccountUser.tenant_id).where(AccountUser.login_id == lid))
+    for row in result:
+        if actor_tid and row["tenant_id"] == actor_tid and not is_master_login(lid):
+            if "현재 시스템 관리자 본인의 사업장입니다." not in row["blocking_reasons"]:
+                row["blocking_reasons"].append("현재 시스템 관리자 본인의 사업장입니다.")
+                row["can_purge"] = False
+    return result
+
+
 def list_no_user_tenants() -> list[dict]:
     """연결 계정이 0명이거나 로그인 가능한 계정이 0명인 사업장 목록(정리 대상)."""
     from backend.db.models.tenant import Tenant

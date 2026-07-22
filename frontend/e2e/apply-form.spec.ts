@@ -55,9 +55,39 @@ test.describe("사무소 이용 신청서", () => {
     await i.nth(3).fill(biz);
     await i.nth(6).fill("실무자");
     await i.nth(7).fill(staffEmail);
+    // 체크박스 3개: 0 서류제출 확인 · 1 개인정보 · 2 이용약관.
     await page.getByRole("checkbox").nth(0).check();
     await page.getByRole("checkbox").nth(1).check();
+    await page.getByRole("checkbox").nth(2).check();
   }
+
+  test("서류 제출 안내 + 필수 확인 체크박스 게이팅", async ({ page }) => {
+    await expect(page.getByText("chan@hanwory.com").first()).toBeVisible();
+    await expect(page.getByText("사업장 사진 3장").first()).toBeVisible();
+    await expect(page.getByText(/사업자등록증과 사업장 사진 3장을 이메일로 제출해야 승인된다는 내용을 확인했습니다/)).toBeVisible();
+    const submitBtn = page.getByRole("button", { name: "이용 신청 제출" });
+    await expect(submitBtn).toBeDisabled();               // 체크 전 제출 불가
+    await page.getByRole("checkbox").nth(0).check();
+    await page.getByRole("checkbox").nth(1).check();
+    await page.getByRole("checkbox").nth(2).check();
+    await expect(submitBtn).toBeEnabled();                // 3개 모두 체크 시 활성
+  });
+
+  test("빠른 더블클릭 → 신청 1회만 접수", async ({ page }) => {
+    let calls = 0;
+    await page.route("**/api/public/office-applications", async (route) => {
+      calls += 1;
+      await new Promise((r) => setTimeout(r, 250));       // 응답 지연 중 재클릭 유도
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ application_id: "APP-TEST01", status: "pending" }) });
+    });
+    await fillForm(page, { biz: "2131237464", repEmail: "rep@x.kr", staffEmail: "staff@x.kr" });
+    // 재렌더 이전에 동기적으로 두 번 클릭 → useRef inflight 가드가 두 번째를 즉시 무시해야 한다.
+    await page.locator('button:has-text("이용 신청 제출")')
+      .evaluate((el: HTMLButtonElement) => { el.click(); el.click(); });
+    await expect(page.getByRole("heading", { name: "신청이 접수되었습니다" })).toBeVisible();
+    expect(calls).toBe(1);                                // inflight 가드로 정확히 1회
+  });
 
   test("두 이메일 동일 시 제출 차단", async ({ page }) => {
     await fillForm(page, { biz: "2131237464", repEmail: "same@x.kr", staffEmail: "same@x.kr" });

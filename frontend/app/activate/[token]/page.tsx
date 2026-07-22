@@ -37,8 +37,10 @@ export default function ActivatePage() {
       setState("done");
       setTimeout(() => router.push("/login"), 2500);
     } catch (e) {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(detail || "활성화에 실패했습니다.");
+      const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail
+        : (detail && typeof detail === "object" ? String((detail as { message?: string }).message || "") : "");
+      setError(msg || "활성화에 실패했습니다.");
     } finally {
       setBusy(false);
     }
@@ -87,7 +89,8 @@ export default function ActivatePage() {
 
         {state === "done" && (
           <p style={{ fontSize: 14, color: "#276749", lineHeight: 1.7 }}>
-            ✅ 계정이 활성화되었습니다. 로그인 화면으로 이동합니다...
+            ✅ 계정이 활성화되었습니다. 이제 <strong>{loginId}</strong>(이메일)과 방금 설정한 비밀번호로
+            로그인할 수 있습니다. 로그인 화면으로 이동합니다...
           </p>
         )}
       </div>

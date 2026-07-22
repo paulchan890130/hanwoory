@@ -70,6 +70,28 @@ def login(req: LoginRequest, request: Request = None):
     is_active = str(acc.get("is_active", "")).strip().lower() in ("true", "1", "y")
     if not is_active:
         # 승인 대기/비활성은 별도 안내(UX). 잠금 카운트에는 포함하지 않음.
+        # 승인 후 '초대(invited)' 상태(최초 비밀번호 미설정)면 구조화 오류로 구분해 사용자가
+        # 활성화 링크를 요청하도록 안내한다(invited 계정은 사용 가능한 비밀번호가 없어 비밀번호
+        # 검증 이전 단계에서만 구분 가능 — 기존에도 비활성 존재는 노출되므로 노출 범위 동일).
+        _not_activated = False
+        try:
+            from backend.db.session import is_configured as _cfg2
+            if _cfg2():
+                from sqlalchemy import select as _sel
+                from backend.db.models.user import AccountUser as _AU
+                from backend.db.session import get_sessionmaker as _gsm
+                from backend.services import account_state as _st2
+                with _gsm()() as _s:
+                    _u = _s.scalar(_sel(_AU).where(_AU.login_id == req.login_id))
+                    _not_activated = _u is not None and _st2.account_status_of(_u) == _st2.ACCOUNT_INVITED
+        except Exception:
+            _not_activated = False
+        if _not_activated:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "ACCOUNT_NOT_ACTIVATED",
+                        "message": "아직 최초 비밀번호가 설정되지 않은 계정입니다. "
+                                   "관리자가 전달한 활성화 링크에서 비밀번호를 먼저 설정하거나, 관리자에게 재발급을 요청하세요."})
         raise HTTPException(status_code=403, detail="관리자 승인 전이거나 비활성화된 계정입니다.")
 
     hashed = str(acc.get("password_hash", "")).strip()

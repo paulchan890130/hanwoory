@@ -41,7 +41,7 @@ export default function OfficeApplicationsTab() {
   const [sel, setSel] = useState<OfficeApplication | null>(null);
   const [note, setNote] = useState("");
   const [rejectReason, setRejectReason] = useState("");
-  const [approveResult, setApproveResult] = useState<{ tenant_id: string; users: { login_id: string; name: string; role: string; activation_token: string }[] } | null>(null);
+  const [approveResult, setApproveResult] = useState<{ tenant_id: string; cancelled_duplicate_count?: number; users: { login_id: string; name: string; role: string; activation_token: string }[] } | null>(null);
   const [summary, setSummary] = useState<TenantSummary | null>(null);
   const [reissued, setReissued] = useState<{ login: string; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -129,7 +129,7 @@ export default function OfficeApplicationsTab() {
     setBusy(true);
     try {
       const r = await officeApplicationApi.approve(sel.application_id, { seat_limit: 2 });
-      const data = r.data as { already_approved: boolean; tenant_id: string; users: { login_id: string; name: string; role: string; activation_token: string }[] };
+      const data = r.data as { already_approved: boolean; tenant_id: string; cancelled_duplicate_count?: number; users: { login_id: string; name: string; role: string; activation_token: string }[] };
       if (data.already_approved) toast.info("이미 승인된 신청입니다.");
       else { toast.success("승인 완료 — 계정 2개가 생성되었습니다."); setApproveResult(data); }
       load();
@@ -201,7 +201,13 @@ export default function OfficeApplicationsTab() {
                   {visibleApps.map((a) => (
                     <tr key={a.application_id} style={{ cursor: "pointer" }} onClick={() => openDetail(a)}>
                       <td><span style={{ fontWeight: 700, color: STATUS_COLOR[a.status] || "#4A5568" }}>{STATUS_KO[a.status] || a.status}</span></td>
-                      <td style={{ fontWeight: 600 }}>{a.office_name}</td>
+                      <td style={{ fontWeight: 600 }}>{a.office_name}
+                        {(a.duplicate_pending_count || 0) > 0 && (
+                          <span title="동일 내용의 중복 접수" style={{ marginLeft: 6, fontSize: 11, color: "#B7791F" }}>
+                            중복 {a.duplicate_pending_count! + 1}건
+                          </span>
+                        )}
+                      </td>
                       <td>{a.representative_name || "—"}</td>
                       <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.representative_email || "—"}</td>
                       <td>{a.staff_name || "—"}</td>
@@ -255,6 +261,14 @@ export default function OfficeApplicationsTab() {
           <textarea className="hw-input" style={{ height: 60, resize: "vertical", padding: "8px 12px", lineHeight: 1.6 }}
             value={note} onChange={(e) => setNote(e.target.value)} placeholder="심사 내부 메모" />
 
+          {(sel.status === "pending" || sel.status === "reviewing") && (sel.duplicate_pending_count || 0) > 0 && (
+            <div style={{ marginTop: 12, background: "#FFF8E6", border: "1px solid var(--hw-gold-300, #E8C877)",
+              borderRadius: 8, padding: "10px 14px", fontSize: 12.5, color: "#7B341E", lineHeight: 1.6 }}>
+              동일 내용의 중복 접수 {sel.duplicate_pending_count}건이 감지되었습니다. 이 신청을 승인하면
+              나머지 미처리 중복 접수는 자동 취소됩니다.
+            </div>
+          )}
+
           {(sel.status === "pending" || sel.status === "reviewing") && (
             <>
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -278,15 +292,35 @@ export default function OfficeApplicationsTab() {
           {approveResult && (
             <div style={{ marginTop: 14, background: "var(--hw-gold-50)", border: "1px solid var(--hw-gold-200)", borderRadius: 8, padding: "12px 14px" }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>✅ 계정 2개 생성됨 — 활성화 링크 전달 필요</div>
-              <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 8 }}>
-                아래 활성화 링크를 각 사용자에게 전달하세요. 링크는 1회성이며 만료됩니다. (자동 이메일 발송 없음)
+              <div style={{ fontSize: 12, color: "var(--hw-text-sub)", marginBottom: 4 }}>
+                각 계정에 <strong>서로 다른</strong> 활성화 링크를 전달하세요. 이 링크에서 최초 비밀번호를 설정한 후 로그인합니다. (자동 이메일 발송 없음)
               </div>
-              {approveResult.users.map((u) => (
-                <div key={u.login_id} style={{ fontSize: 12, marginBottom: 8, wordBreak: "break-all" }}>
-                  <div><strong>{u.name}</strong> ({u.login_id}) — {u.role}</div>
-                  <code style={{ fontSize: 11 }}>{`${typeof window !== "undefined" ? window.location.origin : ""}/activate/${u.activation_token}`}</code>
+              <div style={{ fontSize: 12, color: "#9C4221", marginBottom: 10, lineHeight: 1.6 }}>
+                ⚠️ 활성화 링크 원문은 보안을 위해 <strong>다시 조회할 수 없습니다.</strong> 지금 복사하거나, 이후 계정별
+                “활성화 링크 재발급”을 사용하세요.
+              </div>
+              {approveResult.cancelled_duplicate_count ? (
+                <div style={{ fontSize: 12, color: "#276749", marginBottom: 8 }}>
+                  동일 내용의 중복 접수 {approveResult.cancelled_duplicate_count}건이 자동 취소되었습니다.
                 </div>
-              ))}
+              ) : null}
+              {approveResult.users.map((u) => {
+                const roleKo = u.role === "office_admin" ? "대표자 관리자" : "실무자 직원";
+                const url = `${origin}/activate/${u.activation_token}`;
+                return (
+                  <div key={u.login_id} style={{ fontSize: 12, marginBottom: 10, wordBreak: "break-all",
+                    borderTop: "1px solid var(--hw-gold-200)", paddingTop: 8 }}>
+                    <div style={{ marginBottom: 3 }}><strong>{roleKo}</strong> · {u.name} ({u.login_id})</div>
+                    <code style={{ fontSize: 11 }}>{url}</code>
+                    <div style={{ marginTop: 5 }}>
+                      <button className="btn-secondary" style={{ fontSize: 11 }}
+                        onClick={() => { navigator.clipboard?.writeText(url); toast.success(`${roleKo} 활성화 링크를 복사했습니다.`); }}>
+                        {roleKo} 링크 복사
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
