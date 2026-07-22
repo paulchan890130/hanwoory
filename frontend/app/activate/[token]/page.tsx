@@ -66,7 +66,7 @@ export default function ActivatePage() {
 
         {state === "ready" && (
           <>
-            <p style={{ fontSize: 13, color: "var(--hw-text-sub)", marginBottom: 16, lineHeight: 1.7 }}>
+            <p style={{ fontSize: 13, color: "var(--hw-text-sub)", marginBottom: 16, lineHeight: 1.7, overflowWrap: "anywhere" }}>
               <strong style={{ color: "var(--hw-text)" }}>{loginId}</strong> 계정의 최초 비밀번호를 설정합니다.
             </p>
             <div className="hw-field">
@@ -88,7 +88,7 @@ export default function ActivatePage() {
         )}
 
         {state === "done" && (
-          <p style={{ fontSize: 14, color: "#276749", lineHeight: 1.7 }}>
+          <p style={{ fontSize: 14, color: "#276749", lineHeight: 1.7, overflowWrap: "anywhere" }}>
             ✅ 계정이 활성화되었습니다. 이제 <strong>{loginId}</strong>(이메일)과 방금 설정한 비밀번호로
             로그인할 수 있습니다. 로그인 화면으로 이동합니다...
           </p>

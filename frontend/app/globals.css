@@ -136,6 +136,8 @@
   border: 1px solid var(--hw-border);
   box-shadow: 0 1px 2px rgba(0,0,0,0.03);
   padding: 16px 20px;
+  box-sizing: border-box;   /* preflight 전역 box-sizing 부재 → padding 이 카드 폭을 넘기지 않게 명시 */
+  min-width: 0;
 }
 
 .hw-card-title {
@@ -206,6 +208,14 @@
    인풋
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .hw-input {
+  /* Tailwind preflight 의 전역 box-sizing 규칙이 이 빌드 CSS 에 존재하지 않아
+     기본값 content-box 로 계산된다 → width:100% + padding(24px) + border(2px) 가
+     부모 content box 를 26px 넘겨 카드 밖으로 삐져나온다. 크기 계약을 명시해 방지. */
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;    /* flex/grid child 의 min-width:auto 로 인한 overflow 방지 */
   height: 38px;
   border: 1px solid #CBD5E0;
   border-radius: 8px;
@@ -215,7 +225,6 @@
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   background: #FFFFFF;
-  width: 100%;
 }
 .hw-input:focus {
   border-color: var(--hw-gold);
@@ -637,7 +646,7 @@
   color: var(--hw-text-sub);
   margin-bottom: 4px;
 }
-.hw-field { margin-bottom: 14px; }
+.hw-field { margin-bottom: 14px; width: 100%; min-width: 0; }
 .hw-section-divider {
   font-size: 12px;
   font-weight: 600;
