@@ -427,6 +427,144 @@ def test_create_approve_cross(db):
         assert int(s.execute(text("SELECT count(*) FROM office_applications WHERE status='pending'")).scalar()) == 0
 
 
+# ── 상태 전이 동시성(approve vs reject/start_review) ──────────────────────────
+def _status_tid(db, app_id):
+    with db() as s:
+        r = s.execute(text("SELECT status, approved_tenant_id FROM office_applications WHERE application_id=:a"),
+                      {"a": app_id}).first()
+        return (r[0], r[1]) if r else (None, None)
+
+
+def _run2(fn_a, fn_b):
+    """두 콜러블을 barrier 로 동시에 실행. 반환 {"a":(kind,val),"b":(...)}, kind∈ok/app_err/ERR."""
+    from backend.services.office_application_pg_service import ApplicationError
+    results: dict = {}
+    barrier = threading.Barrier(2)
+
+    def _wrap(key, fn):
+        barrier.wait()
+        try:
+            results[key] = ("ok", fn())
+        except ApplicationError as e:
+            results[key] = ("app_err", e.code)
+        except Exception as e:  # noqa: BLE001 — 500성 예외 감지
+            results[key] = ("ERR", f"{type(e).__name__}:{e}")
+
+    ta = threading.Thread(target=_wrap, args=("a", fn_a))
+    tb = threading.Thread(target=_wrap, args=("b", fn_b))
+    ta.start(); tb.start(); ta.join(timeout=30); tb.join(timeout=30)
+    assert not ta.is_alive() and not tb.is_alive(), f"thread hang/deadlock: {results}"
+    assert all(v[0] != "ERR" for v in results.values()), results   # 500/DBAPIError/deadlock 없음
+    return results
+
+
+@pytest.mark.parametrize("rep", list(range(10)))
+def test_concurrent_approve_vs_reject(db, rep):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    aid = a["application_id"]
+    res = _run2(lambda: svc.approve(aid, "wkdwhfl", seat_limit=2),
+                lambda: svc.reject(aid, "wkdwhfl", "요건 미충족"))
+    assert sum(1 for v in res.values() if v[0] == "ok") == 1, res   # 정확히 한 건 성공
+    status, tid = _status_tid(db, aid)
+    t, u, tok = _counts(db)
+    if status == "approved":                                        # approve 승리
+        assert tid and (t, u, tok) == (1, 2, 2)
+    elif status == "rejected":                                      # reject 승리
+        assert tid is None and (t, u, tok) == (0, 0, 0)
+    else:
+        raise AssertionError(f"unexpected final status {status}")
+    # 모순 금지: rejected/reviewing 인데 tenant 존재 안 됨.
+    assert not (status in ("rejected", "reviewing") and t > 0)
+
+
+@pytest.mark.parametrize("rep", list(range(10)))
+def test_concurrent_approve_vs_start_review(db, rep):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    aid = a["application_id"]
+    _run2(lambda: svc.approve(aid, "wkdwhfl", seat_limit=2),
+          lambda: svc.start_review(aid, "wkdwhfl"))
+    status, tid = _status_tid(db, aid)
+    assert status == "approved" and tid                             # 최종 approved(reviewing 로 안 돌아감)
+    assert _counts(db) == (1, 2, 2)
+
+
+@pytest.mark.parametrize("rep", list(range(10)))
+def test_concurrent_reject_vs_start_review(db, rep):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    aid = a["application_id"]
+    _run2(lambda: svc.reject(aid, "wkdwhfl", "요건 미충족"),
+          lambda: svc.start_review(aid, "wkdwhfl"))
+    status, tid = _status_tid(db, aid)
+    assert status == "rejected" and tid is None                     # reject 는 항상 최종 성공
+    assert _counts(db) == (0, 0, 0)                                 # tenant/user/token 미생성
+
+
+@pytest.mark.parametrize("rep", list(range(10)))
+def test_concurrent_reject_A_approve_B_duplicates(db, rep):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    _insert_pending(db, "APP-B", "한빛행정사")                       # 정확 중복
+    _run2(lambda: svc.reject(a["application_id"], "wkdwhfl", "요건 미충족"),
+          lambda: svc.approve("APP-B", "wkdwhfl", seat_limit=2))
+    sa, ta_ = _status_tid(db, a["application_id"])
+    sb, tb_ = _status_tid(db, "APP-B")
+    # B 승인, A 는 rejected(먼저 반려) 또는 cancelled(approve B 가 먼저 정리) — 정확히 하나만 approved.
+    assert sb == "approved" and tb_
+    assert sa in ("rejected", "cancelled")
+    assert [sa, sb].count("approved") == 1
+    assert _counts(db) == (1, 2, 2)
+
+
+def test_reject_approved_blocked(db):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    svc.approve(a["application_id"], "wkdwhfl", seat_limit=2)
+    with pytest.raises(svc.ApplicationError) as ei:
+        svc.reject(a["application_id"], "wkdwhfl", "반려사유")
+    assert ei.value.code == "ALREADY_APPROVED"
+    status, tid = _status_tid(db, a["application_id"])
+    assert status == "approved" and tid and _counts(db) == (1, 2, 2)
+    with db() as s:  # 반려 사유가 기록되지 않음
+        assert s.execute(text("SELECT rejection_reason_public FROM office_applications WHERE application_id=:a"),
+                         {"a": a["application_id"]}).scalar() is None
+
+
+def test_start_review_approved_blocked(db):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    svc.approve(a["application_id"], "wkdwhfl", seat_limit=2)
+    with pytest.raises(svc.ApplicationError) as ei:
+        svc.start_review(a["application_id"], "wkdwhfl")
+    assert ei.value.code in ("ALREADY_APPROVED", "BAD_STATE")
+    status, tid = _status_tid(db, a["application_id"])
+    assert status == "approved" and tid and _counts(db) == (1, 2, 2)
+
+
+def test_inconsistent_legacy_row_fail_closed(db):
+    from backend.services import office_application_pg_service as svc
+    from backend.db.models.office_application import OfficeApplication
+    from datetime import datetime, timezone
+    # status=pending 인데 approved_tenant_id 존재하는 모순 레거시 행.
+    with db() as s:
+        s.add(OfficeApplication(application_id="APP-BAD", status="pending", office_name="모순사무소",
+            business_registration_number="2131237464", approved_tenant_id="of-legacy",
+            requested_user_1_email="rep@hanbit.kr", requested_user_2_email="staff@hanbit.kr",
+            submitted_at=datetime.now(timezone.utc)))
+        s.commit()
+    with pytest.raises(svc.ApplicationError) as ei:
+        svc.reject("APP-BAD", "wkdwhfl", "반려")
+    assert ei.value.code == "ALREADY_APPROVED"
+    with pytest.raises(svc.ApplicationError) as ei2:
+        svc.start_review("APP-BAD", "wkdwhfl")
+    assert ei2.value.code == "ALREADY_APPROVED"
+    with db() as s:  # 상태·tenant_id 무변경
+        r = s.execute(text("SELECT status, approved_tenant_id FROM office_applications WHERE application_id='APP-BAD'")).first()
+        assert r[0] == "pending" and r[1] == "of-legacy"
+
+
 def test_tenant_list_external_and_local_storage(db):
     from backend.services import tenant_admin_pg_service as ta
     from backend.db.models.tenant import Tenant

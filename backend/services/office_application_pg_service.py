@@ -473,10 +473,15 @@ def start_review(application_id: str, reviewer: str) -> dict:
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
+        # 행을 FOR UPDATE 로 잠근 뒤 최신 상태를 재검증한다(§2). advisory lock 은 잡지 않는다
+        # — 단일 행 상태 전이라 approve(advisory→row) 와 순환 대기가 생기지 않는다.
         a = session.scalar(select(OfficeApplication).where(
-            OfficeApplication.application_id == application_id))
+            OfficeApplication.application_id == application_id).with_for_update())
         if a is None:
             raise ApplicationError("NOT_FOUND", "신청을 찾을 수 없습니다.")
+        # approved(또는 approved_tenant_id 존재하는 레거시 모순 행)는 fail-closed — 되돌리지 않는다.
+        if a.status == ST_APPROVED or a.approved_tenant_id:
+            raise ApplicationError("ALREADY_APPROVED", "이미 승인된 신청입니다.")
         if a.status not in (ST_PENDING, ST_REVIEWING):
             raise ApplicationError("BAD_STATE", "이미 처리된 신청입니다.")
         a.status = ST_REVIEWING
@@ -514,14 +519,20 @@ def reject(application_id: str, reviewer: str, reason_public: str,
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
+        # 행을 FOR UPDATE 로 잠근 뒤 최신 상태를 재검증한다(§3) — approve 가 커밋한 승인 결과를
+        # 뒤늦게 rejected 로 덮는 경쟁을 막는다. advisory lock 은 잡지 않는다(단일 행 전이).
         a = session.scalar(select(OfficeApplication).where(
-            OfficeApplication.application_id == application_id))
+            OfficeApplication.application_id == application_id).with_for_update())
         if a is None:
             raise ApplicationError("NOT_FOUND", "신청을 찾을 수 없습니다.")
-        if a.status == ST_APPROVED:
+        # 승인 완료 행(status approved 또는 approved_tenant_id 존재)은 반려 불가 — fail-closed.
+        # approved_tenant_id 만 있고 status 가 pending/reviewing 인 레거시 모순 행도 자동 반려하지 않는다.
+        if a.status == ST_APPROVED or a.approved_tenant_id:
             raise ApplicationError("ALREADY_APPROVED", "이미 승인된 신청은 반려할 수 없습니다.")
         if a.status in (ST_REJECTED, ST_CANCELLED):
             raise ApplicationError("BAD_STATE", "이미 종료된 신청입니다.")
+        if a.status not in (ST_PENDING, ST_REVIEWING):
+            raise ApplicationError("BAD_STATE", "반려할 수 없는 신청 상태입니다.")
         a.status = ST_REJECTED
         a.reviewed_at = _now()
         a.reviewed_by = reviewer
@@ -575,10 +586,14 @@ def approve(application_id: str, reviewer: str,
         # 3) 같은 fingerprint 후보 전체를 id 오름차순 FOR UPDATE(결정적 행잠금 순서).
         group = _matching_pending_candidates(session, _c_appr, for_update=True)
         # 4) 요청 신청 행을 잠금 확보 후 상태 재검증(그룹에 있으면 이미 잠김·noop). 잠금 전 상태 불신.
+        #    populate_existing=True — 1) 단계의 unlocked 조회로 identity-map 에 올라온 stale 객체를
+        #    잠긴 최신 행으로 **덮어써서** 재검증한다(없으면 stale pending 을 읽어 rejected/cancelled 를
+        #    놓치고 승인이 진행되는 경쟁 발생).
         a = session.scalar(
             select(OfficeApplication)
             .where(OfficeApplication.application_id == application_id)
-            .with_for_update())
+            .with_for_update()
+            .execution_options(populate_existing=True))
         if a is None:
             raise ApplicationError("NOT_FOUND", "신청을 찾을 수 없습니다.")
         # 멱등: 이미 승인됨 → 재생성하지 않고 기존 결과 반환.

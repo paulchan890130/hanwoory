@@ -255,7 +255,7 @@ def admin_review(application_id: str, body: ReviewPatch, user: dict = Depends(re
                                           body.review_note_internal)
         raise HTTPException(status_code=400, detail="알 수 없는 action 입니다.")
     except svc.ApplicationError as e:
-        code_map = {"NOT_FOUND": 404, "BAD_STATE": 409}
+        code_map = {"NOT_FOUND": 404, "BAD_STATE": 409, "ALREADY_APPROVED": 409}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 
 
