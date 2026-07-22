@@ -178,13 +178,20 @@ def _acquire_fingerprint_lock(session, fp: str) -> None:
         session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _advisory_key(fp)})
 
 
-def _find_pending_by_fingerprint(session, c: dict, exclude_id: Optional[int] = None):
-    """동일 fingerprint(정확 일치)의 pending/reviewing 신청 행들(id 오름차순)."""
+def _matching_pending_candidates(session, c: dict, *, exclude_id: Optional[int] = None,
+                                 for_update: bool = False) -> list:
+    """정확 일치 중복 후보(pending/reviewing, id 오름차순).
+
+    **후보 범위는 사업자번호 + 대표자/실무자 이메일 + 상태로 SQL 에서 좁힌 뒤**, 사무소명은
+    Python ``_norm_office_name`` 으로 비교한다(내부 연속 공백·탭·줄바꿈까지 정규화). SQL 의
+    ``lower(trim())`` 은 내부 공백을 축약하지 못해 advisory lock key(Python 정규화)와 불일치가
+    생기므로 쓰지 않는다 — create/approve/목록 grouping 이 **동일 정규화 의미**를 공유한다.
+    후보는 세 필드로 충분히 좁혀지므로 전체 신청을 메모리에 읽지 않는다.
+    """
     from backend.db.models.office_application import OfficeApplication
     stmt = (
         select(OfficeApplication)
         .where(
-            func.lower(func.trim(OfficeApplication.office_name)) == _norm_office_name(c.get("office_name")),
             OfficeApplication.business_registration_number == (c.get("business_registration_number") or None),
             OfficeApplication.requested_user_1_email == (c.get("representative_email") or None),
             OfficeApplication.requested_user_2_email == (c.get("staff_email") or None),
@@ -194,7 +201,15 @@ def _find_pending_by_fingerprint(session, c: dict, exclude_id: Optional[int] = N
     )
     if exclude_id is not None:
         stmt = stmt.where(OfficeApplication.id != exclude_id)
-    return list(session.scalars(stmt).all())
+    if for_update:
+        stmt = stmt.with_for_update()
+    target = _norm_office_name(c.get("office_name"))
+    return [r for r in session.scalars(stmt).all() if _norm_office_name(r.office_name) == target]
+
+
+def _find_pending_by_fingerprint(session, c: dict, exclude_id: Optional[int] = None):
+    """동일 fingerprint(정확 일치)의 pending/reviewing 신청 행들(id 오름차순)."""
+    return _matching_pending_candidates(session, c, exclude_id=exclude_id)
 
 
 # ── 신청 생성 ────────────────────────────────────────────────────────────────
@@ -247,6 +262,16 @@ def create_application(data: dict, ip_hash: Optional[str] = None) -> dict:
             raise ApplicationError(
                 "DUPLICATE_PENDING",
                 f"이미 같은 내용의 신청이 접수되어 심사 중입니다. 기존 접수번호: {dup[0].application_id}")
+
+        # 이미 발급(승인 완료)된 계정 이메일이면 새 pending 중복을 만들지 않고 명시적 차단(§6-5).
+        # login_id 는 전역 유일 → 그 이메일은 새 계정으로 다시 발급될 수 없다. (승인 후 재신청 방지.)
+        from backend.db.models.user import AccountUser
+        existing = session.scalar(select(AccountUser.login_id).where(
+            AccountUser.login_id.in_([c["representative_email"], c["staff_email"]])))
+        if existing is not None:
+            raise ApplicationError(
+                "EMAIL_IN_USE",
+                "이미 계정으로 발급된 이메일입니다. 로그인하거나 관리자에게 문의하세요.")
 
         flags = _compute_duplicate_flags(session, c, ip_hash)
         app = OfficeApplication(
@@ -533,12 +558,27 @@ def approve(application_id: str, reviewer: str,
     result: dict
 
     with SessionLocal() as session:
-        # 트랜잭션 시작 — 신청 행 잠금(중복 승인 차단).
+        # 1) **잠금 없이** 1차 조회 — 어떤 fingerprint 를 잠글지 결정용(신뢰하지 않음).
+        a0 = session.scalar(select(OfficeApplication).where(
+            OfficeApplication.application_id == application_id))
+        if a0 is None:
+            raise ApplicationError("NOT_FOUND", "신청을 찾을 수 없습니다.")
+        _c_appr = {
+            "office_name": a0.office_name,
+            "business_registration_number": a0.business_registration_number,
+            "representative_email": _norm_email(a0.requested_user_1_email or a0.applicant_email),
+            "staff_email": _norm_email(a0.requested_user_2_email),
+        }
+        # 2) advisory lock 을 **행 잠금보다 먼저** 획득(§2-1) — 같은 fingerprint 의 create/approve
+        #    를 직렬화해, 두 중복 신청 동시 승인 시의 순환 대기(교착)를 원천 제거한다.
+        _acquire_fingerprint_lock(session, _application_fingerprint(_c_appr))
+        # 3) 같은 fingerprint 후보 전체를 id 오름차순 FOR UPDATE(결정적 행잠금 순서).
+        group = _matching_pending_candidates(session, _c_appr, for_update=True)
+        # 4) 요청 신청 행을 잠금 확보 후 상태 재검증(그룹에 있으면 이미 잠김·noop). 잠금 전 상태 불신.
         a = session.scalar(
             select(OfficeApplication)
             .where(OfficeApplication.application_id == application_id)
-            .with_for_update()
-        )
+            .with_for_update())
         if a is None:
             raise ApplicationError("NOT_FOUND", "신청을 찾을 수 없습니다.")
         # 멱등: 이미 승인됨 → 재생성하지 않고 기존 결과 반환.
@@ -552,29 +592,8 @@ def approve(application_id: str, reviewer: str,
         if a.status in (ST_REJECTED, ST_CANCELLED):
             raise ApplicationError("BAD_STATE", "반려/취소된 신청은 승인할 수 없습니다.")
 
-        # 정확 일치 중복 신청 정리 준비(§3-3) — canonical fingerprint 로 advisory lock 을 잡아
-        # 동시 create/approve 와 직렬화하고, 같은 fingerprint 의 다른 pending/reviewing 행을
-        # deterministic order(id 오름차순)로 FOR UPDATE 잠근다. 승인 확정 후 cancelled 처리한다.
-        _c_appr = {
-            "office_name": a.office_name,
-            "business_registration_number": a.business_registration_number,
-            "representative_email": _norm_email(a.requested_user_1_email or a.applicant_email),
-            "staff_email": _norm_email(a.requested_user_2_email),
-        }
-        _acquire_fingerprint_lock(session, _application_fingerprint(_c_appr))
-        dup_rows = session.scalars(
-            select(OfficeApplication)
-            .where(
-                func.lower(func.trim(OfficeApplication.office_name)) == _norm_office_name(a.office_name),
-                OfficeApplication.business_registration_number == a.business_registration_number,
-                OfficeApplication.requested_user_1_email == a.requested_user_1_email,
-                OfficeApplication.requested_user_2_email == a.requested_user_2_email,
-                OfficeApplication.status.in_([ST_PENDING, ST_REVIEWING]),
-                OfficeApplication.id != a.id,
-            )
-            .order_by(OfficeApplication.id.asc())
-            .with_for_update()
-        ).all()
+        # 정확 일치 중복 = 잠긴 그룹에서 자기 자신 제외(모두 pending/reviewing·잠금 완료). 승인 확정 후 cancelled.
+        dup_rows = [r for r in group if r.id != a.id]
 
         # 계정 2명 정보 확정(요청 override > 신청서 값). 이름·이메일 오탈자만 정정 가능.
         # **역할은 서버가 고정한다** — user1=대표자=office_admin, user2=실무자=office_staff.

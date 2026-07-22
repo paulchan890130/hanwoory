@@ -181,7 +181,7 @@ def submit_application(body: OfficeApplicationCreate, request: Request = None):
             body.model_dump(exclude={"agree_privacy", "agree_terms", "agree_supporting_docs"}),
             ip_hash=short_hash(ip))
     except svc.ApplicationError as e:
-        code_map = {"DUPLICATE_PENDING": 409, "DUPLICATE_USER_EMAIL": 409,
+        code_map = {"DUPLICATE_PENDING": 409, "DUPLICATE_USER_EMAIL": 409, "EMAIL_IN_USE": 409,
                     "MISSING_OFFICE_NAME": 400, "MISSING_FIELD": 400, "BAD_EMAIL": 400,
                     "BAD_BIZ_REG_NO": 400, "BAD_PHONE": 400}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)

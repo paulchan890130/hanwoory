@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { officeApplicationApi, type OfficeApplication, type TenantSummary, type OfficeAccount } from "@/lib/api";
+import { officeApplicationApi, errText, type OfficeApplication, type TenantSummary, type OfficeAccount } from "@/lib/api";
 import TenantPurgeModal from "@/components/admin/TenantPurgeModal";
 
 // 승인형 SaaS 관리자 화면 — 사무소 이용신청 목록/상세/심사/승인/반려.
@@ -88,7 +88,7 @@ export default function OfficeApplicationsTab() {
     loadSummary(a.status === "approved" ? a.approved_tenant_id : null);  // 승인건은 계정 요약 상시 표시
   };
 
-  const err = (e: unknown) => toast.error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "실패");
+  const err = (e: unknown) => toast.error(errText(e, "실패"));
   const withBusy = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try { await fn(); toast.success(ok); if (sel?.approved_tenant_id) loadSummary(sel.approved_tenant_id); }
@@ -119,7 +119,7 @@ export default function OfficeApplicationsTab() {
       load();
       const r = await officeApplicationApi.get(sel.application_id);
       setSel(r.data as OfficeApplication);
-    } catch (e) { toast.error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "실패"); }
+    } catch (e) { toast.error(errText(e, "실패")); }
     finally { setBusy(false); }
   };
 
@@ -136,7 +136,7 @@ export default function OfficeApplicationsTab() {
       const g = await officeApplicationApi.get(sel.application_id);
       setSel(g.data as OfficeApplication);
       loadSummary((g.data as OfficeApplication).approved_tenant_id || data.tenant_id);
-    } catch (e) { toast.error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "승인 실패"); }
+    } catch (e) { toast.error(errText(e, "승인 실패")); }
     finally { setBusy(false); }
   };
 
@@ -151,7 +151,7 @@ export default function OfficeApplicationsTab() {
       load();
       const g = await officeApplicationApi.get(sel.application_id);
       setSel(g.data as OfficeApplication);
-    } catch (e) { toast.error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "반려 실패"); }
+    } catch (e) { toast.error(errText(e, "반려 실패")); }
     finally { setBusy(false); }
   };
 

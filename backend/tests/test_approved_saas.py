@@ -183,14 +183,31 @@ def test_approve_blocks_duplicate_email(db):
     from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     SessionLocal = db
-    with SessionLocal() as s:  # 기존 계정이 같은 이메일을 login_id 로 사용 중
+    # 신청은 이메일이 아직 계정이 아닐 때 접수된다(접수 시점엔 통과).
+    r = svc.create_application(_base_app_data())
+    # 접수 후 같은 이메일이 다른 경로로 계정이 됨 → 승인 시점 충돌.
+    with SessionLocal() as s:
         s.add(Tenant(tenant_id="t-x", office_name="X", is_active=True))
         s.add(AccountUser(login_id="admin@hanbit.kr", tenant_id="t-x",
                           password_hash="x", is_admin=False, is_active=True))
         s.commit()
-    r = svc.create_application(_base_app_data())
     with pytest.raises(svc.ApplicationError) as ei:
         svc.approve(r["application_id"], "wkdwhfl")
+    assert ei.value.code == "EMAIL_IN_USE"
+
+
+def test_create_blocks_email_already_account(db):
+    # §6-5: 이미 계정으로 발급된 이메일이면 신청 접수 단계에서 차단(승인 후 재신청 방지).
+    from backend.services import office_application_pg_service as svc
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        s.add(Tenant(tenant_id="t-x", office_name="X", is_active=True))
+        s.add(AccountUser(login_id="admin@hanbit.kr", tenant_id="t-x",
+                          password_hash="x", is_admin=False, is_active=True))
+        s.commit()
+    with pytest.raises(svc.ApplicationError) as ei:
+        svc.create_application(_base_app_data())
     assert ei.value.code == "EMAIL_IN_USE"
 
 

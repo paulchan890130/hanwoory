@@ -286,6 +286,147 @@ def test_tenant_list_filter_suspend_restore_purge(db):
     assert row2["service_status"] == "active"
 
 
+# ── 사무소명 정규화(내부 공백/탭/줄바꿈) 중복 차단 ────────────────────────────
+@pytest.mark.parametrize("variant", [
+    "Hanwoori 행정사 사무소",
+    "  Hanwoori 행정사 사무소  ",
+    "hanwoori 행정사 사무소",
+    "Hanwoori  행정사   사무소",
+    "Hanwoori\t행정사 사무소",
+    "Hanwoori\n행정사 사무소",
+    "Hanwoori \t\n 행정사  사무소",
+])
+def test_office_name_whitespace_dedup(db, variant):
+    from backend.services import office_application_pg_service as svc
+    svc.create_application(_app(office_name="Hanwoori 행정사 사무소"))
+    with pytest.raises(svc.ApplicationError) as ei:
+        svc.create_application(_app(office_name=variant))
+    assert ei.value.code == "DUPLICATE_PENDING"
+    assert _count(db, "office_applications", "status", "pending") == 1
+
+
+def _insert_pending(db, aid, office, *, biz="2131237464", rep="rep@hanbit.kr", staff="staff@hanbit.kr"):
+    from backend.db.models.office_application import OfficeApplication
+    from datetime import datetime, timezone
+    with db() as s:
+        s.add(OfficeApplication(
+            application_id=aid, status="pending", office_name=office,
+            business_registration_number=biz,
+            requested_user_1_name="대표", requested_user_1_email=rep,
+            requested_user_2_name="직원", requested_user_2_email=staff,
+            submitted_at=datetime.now(timezone.utc)))
+        s.commit()
+
+
+def test_approve_cancels_whitespace_duplicates(db):
+    from backend.services import office_application_pg_service as svc
+    base = svc.create_application(_app(office_name="Hanwoori 행정사 사무소"))
+    _insert_pending(db, "APP-W1", "Hanwoori  행정사   사무소")   # 내부 공백 변형 → 정확 중복
+    _insert_pending(db, "APP-W2", "Hanwoori\t행정사 사무소")      # 탭 변형 → 정확 중복
+    _insert_pending(db, "APP-DIFF", "Hanwoori 행정사 사무소", biz="9998887776")  # 사업자번호 다름 → 유지
+    res = svc.approve(base["application_id"], "wkdwhfl", seat_limit=2)
+    assert res["cancelled_duplicate_count"] == 2
+    with db() as s:
+        cancelled = set(s.execute(text("SELECT application_id FROM office_applications WHERE status='cancelled'")).scalars())
+        assert cancelled == {"APP-W1", "APP-W2"}
+        assert s.execute(text("SELECT status FROM office_applications WHERE application_id='APP-DIFF'")).scalar() == "pending"
+        assert int(s.execute(text("SELECT count(*) FROM tenants")).scalar()) == 1
+        assert int(s.execute(text("SELECT count(*) FROM users")).scalar()) == 2
+
+
+# ── 동시 승인/교차 — 교착·500 없음 ─────────────────────────────────────────────
+def _counts(db):
+    with db() as s:
+        return (int(s.execute(text("SELECT count(*) FROM tenants")).scalar()),
+                int(s.execute(text("SELECT count(*) FROM users")).scalar()),
+                int(s.execute(text("SELECT count(*) FROM activation_tokens")).scalar()))
+
+
+@pytest.mark.parametrize("rep", list(range(5)))  # 비결정적 deadlock 확인 — 5회 반복
+def test_concurrent_approve_duplicates_no_deadlock(db, rep):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    _insert_pending(db, "APP-B", "한빛행정사")  # 정확 중복(같은 나머지 필드)
+    results: list = []
+    barrier = threading.Barrier(2)
+
+    def _go(app_id):
+        barrier.wait()
+        try:
+            results.append(("ok", svc.approve(app_id, "wkdwhfl", seat_limit=2)))
+        except svc.ApplicationError as e:
+            results.append(("app_err", e.code))
+        except Exception as e:  # noqa: BLE001 — 500성 예외 감지
+            results.append(("ERR", f"{type(e).__name__}:{e}"))
+
+    ts = [threading.Thread(target=_go, args=(x,)) for x in (a["application_id"], "APP-B")]
+    for t in ts: t.start()
+    for t in ts: t.join(timeout=30)
+    assert all(not t.is_alive() for t in ts), f"thread hang/deadlock: {results}"
+    assert all(r[0] != "ERR" for r in results), results          # 500/DBAPIError 없음
+    real_ok = [r for r in results if r[0] == "ok" and not r[1].get("already_approved")]
+    assert len(real_ok) == 1, results                            # 정확히 한 건 성공
+    assert _counts(db) == (1, 2, 2)                              # tenant1/user2/token2
+
+
+def test_concurrent_same_application(db):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    results: list = []
+    barrier = threading.Barrier(2)
+
+    def _go():
+        barrier.wait()
+        try:
+            results.append(("ok", svc.approve(a["application_id"], "wkdwhfl", seat_limit=2)))
+        except svc.ApplicationError as e:
+            results.append(("err", e.code))
+        except Exception as e:  # noqa: BLE001
+            results.append(("ERR", str(e)))
+
+    ts = [threading.Thread(target=_go) for _ in range(2)]
+    for t in ts: t.start()
+    for t in ts: t.join(timeout=30)
+    assert all(not t.is_alive() for t in ts), results
+    assert all(r[0] != "ERR" for r in results), results
+    assert any(r[0] == "ok" for r in results)                    # 최소 1건 성공(다른 건 멱등)
+    assert _counts(db) == (1, 2, 2)
+
+
+def test_create_approve_cross(db):
+    from backend.services import office_application_pg_service as svc
+    a = svc.create_application(_app())
+    results: list = []
+    barrier = threading.Barrier(2)
+
+    def _approve():
+        barrier.wait()
+        try:
+            svc.approve(a["application_id"], "wkdwhfl", seat_limit=2); results.append(("approve_ok", None))
+        except svc.ApplicationError as e:
+            results.append(("approve_err", e.code))
+        except Exception as e:  # noqa: BLE001
+            results.append(("ERR", str(e)))
+
+    def _create():
+        barrier.wait()
+        try:
+            svc.create_application(_app()); results.append(("create_ok", None))
+        except svc.ApplicationError as e:
+            results.append(("create_err", e.code))
+        except Exception as e:  # noqa: BLE001
+            results.append(("ERR", str(e)))
+
+    ts = [threading.Thread(target=_approve), threading.Thread(target=_create)]
+    for t in ts: t.start()
+    for t in ts: t.join(timeout=30)
+    assert all(not t.is_alive() for t in ts), results
+    assert all(r[0] != "ERR" for r in results), results
+    assert _counts(db) == (1, 2, 2)                              # tenant1/user2/token2
+    with db() as s:  # 신규 pending duplicate 없음(create 는 DUPLICATE_PENDING 또는 EMAIL_IN_USE)
+        assert int(s.execute(text("SELECT count(*) FROM office_applications WHERE status='pending'")).scalar()) == 0
+
+
 def test_tenant_list_external_and_local_storage(db):
     from backend.services import tenant_admin_pg_service as ta
     from backend.db.models.tenant import Tenant

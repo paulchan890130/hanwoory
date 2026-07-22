@@ -248,6 +248,17 @@ export interface TenantSummary {
   seat_limit: number; active_count: number; accounts: OfficeAccount[];
 }
 
+// 서버 오류 detail 을 사람이 읽을 문자열로 — string 이면 그대로, {code,message} 객체면 message,
+// 그 외 fallback. 구조화 오류(ACCOUNT_NOT_ACTIVATED 등)가 "[object Object]"로 표시되는 것 방지.
+export function errText(e: unknown, fallback = "요청을 처리하지 못했습니다"): string {
+  const d = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  if (typeof d === "string" && d.trim()) return d;
+  if (d && typeof d === "object" && typeof (d as { message?: unknown }).message === "string") {
+    return (d as { message: string }).message;
+  }
+  return fallback;
+}
+
 export const officeApplicationApi = {
   // 공개
   availability: () => api.get<{ enabled: boolean }>("/api/public/availability", _pub),

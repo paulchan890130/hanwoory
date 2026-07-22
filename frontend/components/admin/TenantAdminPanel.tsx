@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { officeApplicationApi } from "@/lib/api";
+import { officeApplicationApi, errText } from "@/lib/api";
 import TenantPurgeModal from "@/components/admin/TenantPurgeModal";
 
 // 시스템 관리자 — 사업장 관리: 모든 사업장 조회(상태 필터·검색), 사업장 정지·복구,
@@ -75,7 +75,7 @@ export default function TenantAdminPanel() {
   }, [statusFilter, query]);
   useEffect(() => { load(); }, [load]);
 
-  const errMsg = (e: unknown) => (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "실패";
+  const errMsg = (e: unknown) => errText(e, "실패");
   const withBusy = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try { await fn(); toast.success(ok); load(); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }

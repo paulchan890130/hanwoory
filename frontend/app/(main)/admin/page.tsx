@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { adminApi, api, officeApplicationApi } from "@/lib/api";
+import { adminApi, api, officeApplicationApi, errText } from "@/lib/api";
 import { getUser, isSystemAdmin } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import {
@@ -1581,27 +1581,40 @@ export default function AdminPage() {
   //  - SaaS OFF(레거시): 기존처럼 full admin 허용.
   //  - SaaS ON: 시스템 운영 관리자만 허용 → office_admin 은 서버 API 가 403 이며 화면에서도 차단.
   // (서버가 최종 권위 — API 는 require_admin_or_system 으로 강제. 이 가드는 화면 진입 UX.)
-  const [saasEnabled, setSaasEnabled] = useState<boolean | null>(null);
-  useEffect(() => {
-    let alive = true;
+  // 승인형 SaaS 상태 4-state (fail-closed): 조회 실패를 '비활성'으로 오해하지 않는다.
+  // error/loading 에서는 레거시 직접 토글·위험 mutation 을 노출/실행하지 않는다.
+  type SaasState = "loading" | "enabled" | "disabled" | "error";
+  const [saasState, setSaasState] = useState<SaasState>("loading");
+  const loadAvailability = useCallback(() => {
+    setSaasState("loading");
     officeApplicationApi.availability()
-      .then((r) => { if (alive) setSaasEnabled(!!(r.data as { enabled?: boolean })?.enabled); })
-      .catch(() => { if (alive) setSaasEnabled(false); });
-    return () => { alive = false; };
+      .then((r) => setSaasState((r.data as { enabled?: boolean })?.enabled ? "enabled" : "disabled"))
+      .catch(() => setSaasState("error"));
   }, []);
   useEffect(() => {
-    if (saasEnabled === null) return;  // 판정 전 리다이렉트 보류
-    if (saasEnabled) {
-      if (!isSystemAdmin(user)) router.replace("/dashboard");
-    } else if (!user?.is_admin) {
-      router.replace("/dashboard");
-    }
-  }, [user, router, saasEnabled]);
+    let alive = true;
+    setSaasState("loading");
+    officeApplicationApi.availability()
+      .then((r) => { if (alive) setSaasState((r.data as { enabled?: boolean })?.enabled ? "enabled" : "disabled"); })
+      .catch(() => { if (alive) setSaasState("error"); });
+    return () => { alive = false; };
+  }, []);
+
+  // 접근 판정 단일화 — enabled: 시스템 관리자만 / disabled: 레거시 full admin / loading·error: 판정 보류.
+  const canAccessAdmin =
+    saasState === "enabled" ? isSystemAdmin(user)
+    : saasState === "disabled" ? !!user?.is_admin
+    : false;
+
+  useEffect(() => {
+    if (saasState === "loading" || saasState === "error") return;  // 판정 전/실패 시 리다이렉트 보류
+    if (!canAccessAdmin) router.replace("/dashboard");
+  }, [router, saasState, canAccessAdmin]);
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["admin", "accounts"],
     queryFn: () => adminApi.listAccounts().then((r) => r.data as Record<string, string>[]),
-    enabled: !!user?.is_admin,
+    enabled: canAccessAdmin,
   });
 
   // Detected from backend response. When ``storage_mode`` starts with ``pg+``
@@ -1617,7 +1630,7 @@ export default function AdminPage() {
     mutationFn: ({ loginId, data }: { loginId: string; data: Record<string, unknown> }) =>
       adminApi.updateAccount(loginId, data),
     onSuccess: () => { toast.success("계정 업데이트됨"); qc.invalidateQueries({ queryKey: ["admin"] }); },
-    onError: () => toast.error("업데이트 실패"),
+    onError: (e) => toast.error(errText(e, "업데이트 실패")),
     onSettled: () => setTogglingId(null),
   });
 
@@ -1705,7 +1718,21 @@ export default function AdminPage() {
     }
   };
 
-  if (!user?.is_admin) return null;
+  // loading/error 는 즉시 null 대신 상태 안내(레거시 조작 노출 금지·fail-closed).
+  if (saasState === "loading") {
+    return <div className="hw-card" style={{ margin: 24, fontSize: 14, color: "#4A5568" }}>
+      승인형 SaaS 상태 확인 중…
+    </div>;
+  }
+  if (saasState === "error") {
+    return <div className="hw-card" style={{ margin: 24, fontSize: 14, color: "#9B2C2C", lineHeight: 1.7 }}>
+      승인형 SaaS 상태를 확인하지 못했습니다. 안전을 위해 계정 상태·권한 조작을 표시하지 않습니다.
+      <div style={{ marginTop: 12 }}>
+        <button className="btn-secondary" onClick={loadAvailability}>다시 시도</button>
+      </div>
+    </div>;
+  }
+  if (!canAccessAdmin) return null;
 
   return (
     <div className="space-y-5">
@@ -1922,8 +1949,8 @@ export default function AdminPage() {
                       </td>
                       <td className="text-xs" style={{ color: "#A0AEC0" }}>{acc.created_at}</td>
                       <td>
-                        {saasEnabled ? (
-                          // 승인형 SaaS: 직접 is_active 토글 금지(백엔드도 거부). 상태만 표시하고
+                        {saasState !== "disabled" ? (
+                          // 승인형 SaaS(또는 상태 확인 전/실패): 직접 is_active 토글 금지(백엔드도 거부). 상태만 표시하고
                           // 활성화/정지/복구는 '사무소 신청'(승인 상세)·'사업장 관리' lifecycle 로 처리.
                           <span
                             className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
@@ -1962,8 +1989,8 @@ export default function AdminPage() {
                           >
                             <Shield size={11} /> 마스터
                           </span>
-                        ) : saasEnabled ? (
-                          // 승인형 SaaS: 직접 is_admin/준관리자 토글 금지(권한 상승 방지·백엔드도 거부).
+                        ) : saasState !== "disabled" ? (
+                          // 승인형 SaaS(또는 상태 확인 전/실패): 직접 is_admin/준관리자 토글 금지(권한 상승 방지·백엔드도 거부).
                           // 역할은 표시만 하고 변경은 lifecycle(교체 등)로 처리한다.
                           <span
                             className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isAdm ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"}`}
