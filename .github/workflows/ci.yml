@@ -40,9 +40,10 @@ jobs:
           python -m pip install --upgrade pip
           # 테스트 수집/실행이 transitively 필요로 하는 것만(무거운 OCR paddle* 은 lazy → 제외).
           # httpx: starlette TestClient(fastapi) 필수. Pillow: ocr/roi_ocr 서비스 top-import.
+          # openpyxl: 고객 Excel export/import 테스트 및 서비스 의존성(requirements.txt 에도 존재).
           pip install fastapi "uvicorn[standard]" python-multipart "python-jose[cryptography]" \
                       "SQLAlchemy>=2.0,<2.1" "psycopg[binary]>=3.1" "alembic>=1.13" \
-                      "pydantic-settings>=2.0" pytest requests Pillow httpx
+                      "pydantic-settings>=2.0" pytest requests Pillow openpyxl httpx
       - name: Compile check
         run: python -m compileall backend -q
       - name: Alembic single head
