@@ -169,6 +169,7 @@ def test_resolve_template_abs_path_rules():
 def test_doc_templates_resolve_and_open_real_pdfs():
     """실제 저장소 DOC_TEMPLATES PDF 들이 올바른 절대경로로 resolve + fitz open 되는지(우회 없음)."""
     import os
+    pytest.importorskip("fitz", reason="PyMuPDF 미설치 — 실제 PDF 계약 테스트 skip")
     import backend.routers.quick_doc as qd
     opened = 0
     agent_docs = {}
