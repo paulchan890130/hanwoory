@@ -340,28 +340,119 @@ def signup(req: SignupRequest):
 # ─────────────────────────────────────────────────────────────────────────────
 # /me
 # ─────────────────────────────────────────────────────────────────────────────
+# 현재 온보딩(사용법 안내) 버전. 신규 초대 사용자만 미완료로 시작(migration backfill).
+ONBOARDING_VERSION = 1
+
+# 문서 자동작성 필수정보 — 역할별 required 필드. staff 는 tenant 공통정보를 요구하지 않는다.
+_PROFILE_REQUIRED = {
+    "office_admin": ["office_name", "office_adr", "contact_name", "contact_tel", "biz_reg_no", "agent_rrn"],
+    "office_staff": ["contact_name", "contact_tel"],
+}
+
+
+def _is_system_admin(current_user: dict) -> bool:
+    return bool(current_user.get("is_system_admin") or current_user.get("is_master"))
+
+
+def _compute_profile(role: str, *, office_name, office_adr, contact_name,
+                     contact_tel_effective, biz_reg_no, agent_rrn_registered) -> tuple[bool, list[str]]:
+    """역할별 문서 자동작성 필수정보 완성도. (complete, missing_keys). 비-office 역할은 완성 처리(경고 억제)."""
+    from backend.services.korean_identifier_format import validate_biz_reg_no, validate_phone
+    required = _PROFILE_REQUIRED.get(role)
+    if not required:
+        return True, []
+    present = {
+        "office_name": bool((office_name or "").strip()),
+        "office_adr": bool((office_adr or "").strip()),
+        "contact_name": bool((contact_name or "").strip()),
+        "contact_tel": validate_phone(contact_tel_effective),
+        "biz_reg_no": validate_biz_reg_no(biz_reg_no),
+        "agent_rrn": bool(agent_rrn_registered),
+    }
+    missing = [k for k in required if not present.get(k, False)]
+    return (len(missing) == 0), missing
+
+
+def _read_onboarding_version(login_id: str) -> Optional[int]:
+    """users.onboarding_completed_version 안전 조회 — 컬럼 미적용(migration 전)이면 None(경고 억제)."""
+    try:
+        from sqlalchemy import select
+        from backend.db.models.user import AccountUser
+        from backend.db.session import get_sessionmaker, is_configured
+        if not is_configured():
+            return ONBOARDING_VERSION  # DB 미구성 → 강제 팝업 없음
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+            if u is None:
+                return ONBOARDING_VERSION
+            return getattr(u, "onboarding_completed_version", None)
+    except Exception:
+        return ONBOARDING_VERSION  # 조회 실패 → fail-safe(강제 팝업 없음)
+
+
 @router.get("/me")
 def get_me(current_user: dict = Depends(get_current_user)):
-    """현재 사용자 정보 — JWT 기본 + Accounts 시트 상세 정보."""
+    """현재 사용자 정보 — JWT 기본 + 사무소/문서 자동작성 필수정보 상태.
+
+    주민등록번호 평문/복호값은 반환하지 않는다(등록 여부 + 끝 4자리만). GET 은 DB 를 수정하지 않는다."""
     from backend.services.accounts_service import find_account
+    from backend.services.korean_identifier_format import format_phone, format_biz_reg_no, normalize_phone
+
     login_id = current_user.get("login_id", "")
     acc = find_account(login_id) or {}
+    role = acc.get("role", "") or ""
+
+    contact_tel = acc.get("contact_tel", "") or ""
+    contact_tel_source = "stored"
+    # 대표자(office_admin) 연락처 미기입 + 승인 신청서에 유효한 office_phone → 표시용 fallback(GET 은 DB 미수정).
+    if role == "office_admin" and not normalize_phone(contact_tel):
+        app_id = acc.get("source_application_id", "") or ""
+        if app_id:
+            try:
+                from backend.services.office_application_pg_service import get_application_office_phone
+                app_phone = get_application_office_phone(app_id)
+            except Exception:
+                app_phone = ""
+            from backend.services.korean_identifier_format import validate_phone
+            if validate_phone(app_phone):
+                contact_tel = app_phone
+                contact_tel_source = "application_fallback"
+
+    biz_reg_no = acc.get("biz_reg_no", "") or ""
+    agent_rrn_registered = bool(acc.get("agent_rrn_registered"))
+    agent_rrn_last4 = acc.get("agent_rrn_last4", "") or ""
+
+    complete, missing = _compute_profile(
+        role,
+        office_name=acc.get("office_name", ""), office_adr=acc.get("office_adr", ""),
+        contact_name=acc.get("contact_name", ""), contact_tel_effective=contact_tel,
+        biz_reg_no=biz_reg_no, agent_rrn_registered=agent_rrn_registered,
+    )
+
+    done_ver = _read_onboarding_version(login_id)
+    # 시스템 관리자는 신규 tenant 용 tour 를 강제하지 않는다.
+    onboarding_required = (not _is_system_admin(current_user)) and (
+        role in _PROFILE_REQUIRED) and (done_ver is None or int(done_ver) < ONBOARDING_VERSION)
+
     return {
         **current_user,
-        "office_adr":   acc.get("office_adr",   ""),
-        "contact_tel":  acc.get("contact_tel",  ""),
-        "biz_reg_no":   acc.get("biz_reg_no",   ""),
-        # 주민등록번호는 뒷 8자리 마스킹
-        "agent_rrn":    _mask_rrn(acc.get("agent_rrn", "")),
+        "role":                 role or current_user.get("role", ""),
+        "office_name":          acc.get("office_name", "") or current_user.get("office_name", ""),
+        "office_adr":           acc.get("office_adr", ""),
+        "contact_name":         acc.get("contact_name", "") or current_user.get("contact_name", ""),
+        "contact_tel":          contact_tel,
+        "contact_tel_formatted": format_phone(contact_tel),
+        "contact_tel_source":   contact_tel_source,
+        "biz_reg_no":           biz_reg_no,
+        "biz_reg_no_formatted": format_biz_reg_no(biz_reg_no),
+        "agent_rrn_registered": agent_rrn_registered,
+        "agent_rrn_last4":      agent_rrn_last4,
+        "profile_complete":     complete,
+        "missing_profile_fields": missing,
+        "onboarding_required":  bool(onboarding_required),
+        "onboarding_version":   ONBOARDING_VERSION,
     }
-
-
-def _mask_rrn(rrn: str) -> str:
-    """주민등록번호 뒷 8자리 마스킹: 880101-1****** → 880101-1******"""
-    clean = rrn.replace("-", "")
-    if len(clean) < 7:
-        return rrn
-    return clean[:7] + "*" * (len(clean) - 7)
 
 
 class MeUpdateRequest(BaseModel):
@@ -369,6 +460,7 @@ class MeUpdateRequest(BaseModel):
     office_adr:   Optional[str] = None
     contact_name: Optional[str] = None
     contact_tel:  Optional[str] = None
+    biz_reg_no:   Optional[str] = None
 
 
 class PasswordChangeRequest(BaseModel):
@@ -376,34 +468,65 @@ class PasswordChangeRequest(BaseModel):
     new_password:     str
 
 
+class AgentRrnMeRequest(BaseModel):
+    agent_rrn: str = ""
+
+
+class OnboardingCompleteRequest(BaseModel):
+    version: int = ONBOARDING_VERSION
+    action:  str = "completed"   # "completed" | "skipped"
+
+
 @router.patch("/me")
 def update_me(body: MeUpdateRequest, current_user: dict = Depends(get_current_user)):
-    """사무소 정보 수정 — PG-only(tenants.office_name/office_adr + users.contact_name/contact_tel)."""
+    """사무소/문서 필수정보 수정. 본인 연락처는 누구나, tenant 공통정보(사무소명·주소·사업자번호)는
+    office_admin(또는 전체 관리자)만. 서버에서 숫자 정규화·유효성 검증 후 저장."""
     from sqlalchemy import select
     from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
+    from backend.services.korean_identifier_format import (
+        normalize_phone, validate_phone, normalize_biz_reg_no, validate_biz_reg_no,
+    )
 
     login_id = current_user.get("login_id", "")
     fields = body.model_dump(exclude_none=True)
+    role = ""
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
         if u is None:
             raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        role = (getattr(u, "role", "") or "")
+        can_edit_tenant = (role == "office_admin") or bool(current_user.get("is_admin")) or bool(current_user.get("is_master"))
+
+        # 본인 연락처
         if "contact_name" in fields:
-            u.contact_name = fields["contact_name"]
+            u.contact_name = (fields["contact_name"] or "").strip()
         if "contact_tel" in fields:
-            u.contact_tel = fields["contact_tel"]
-        t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
-        if t is not None:
-            if "office_name" in fields:
-                t.office_name = fields["office_name"]
-            if "office_adr" in fields:
-                t.office_adr = fields["office_adr"]
+            tel = normalize_phone(fields["contact_tel"])
+            if tel and not validate_phone(tel):
+                raise HTTPException(status_code=400, detail="전화번호 형식이 올바르지 않습니다.")
+            u.contact_tel = tel
+
+        # tenant 공통정보 — 권한 필요
+        tenant_fields = [k for k in ("office_name", "office_adr", "biz_reg_no") if k in fields]
+        if tenant_fields and not can_edit_tenant:
+            raise HTTPException(status_code=403, detail="사무소 공통정보는 대표자(사무소 관리자)만 수정할 수 있습니다.")
+        if tenant_fields:
+            t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
+            if t is not None:
+                if "office_name" in fields:
+                    t.office_name = (fields["office_name"] or "").strip()
+                if "office_adr" in fields:
+                    t.office_adr = (fields["office_adr"] or "").strip()
+                if "biz_reg_no" in fields:
+                    biz = normalize_biz_reg_no(fields["biz_reg_no"])
+                    if biz and not validate_biz_reg_no(biz):
+                        raise HTTPException(status_code=400, detail="사업자등록번호는 숫자 10자리여야 합니다.")
+                    t.biz_reg_no = biz
         session.commit()
 
-    # 테넌트 맵 캐시 초기화
     try:
         import backend.services.tenant_service as _ts
         _ts._TENANT_MAP_CACHE = {}
@@ -412,6 +535,61 @@ def update_me(body: MeUpdateRequest, current_user: dict = Depends(get_current_us
         pass
 
     return {"ok": True}
+
+
+@router.patch("/me/agent-rrn")
+def update_my_agent_rrn(body: AgentRrnMeRequest, current_user: dict = Depends(get_current_user)):
+    """행정사 주민등록번호 등록/변경 — office_admin(또는 전체 관리자)만. 암호화 저장, 원문 미반환.
+    키 미설정 시 503(fail-closed). 평문은 로그/응답/예외에 남기지 않는다."""
+    from sqlalchemy import select
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    login_id = current_user.get("login_id", "")
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        role = (getattr(u, "role", "") or "")
+        allowed = (role == "office_admin") or bool(current_user.get("is_admin")) or bool(current_user.get("is_master"))
+        if not allowed:
+            raise HTTPException(status_code=403, detail="행정사 주민등록번호는 대표자(사무소 관리자)만 변경할 수 있습니다.")
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
+        if t is None:
+            raise HTTPException(status_code=404, detail="사무소 정보를 찾을 수 없습니다.")
+        raw = (body.agent_rrn or "").strip()
+        if not raw:
+            raise HTTPException(status_code=400, detail="행정사 주민등록번호를 입력하세요.")
+        prepared = _prepare_agent_rrn_fields(raw)  # 형식오류 400 / 키없음 503 (평문 미노출)
+        t.agent_rrn_encrypted = prepared["agent_rrn_encrypted"]
+        t.agent_rrn_last4 = prepared["agent_rrn_last4"]
+        t.agent_rrn_updated_at = prepared["agent_rrn_updated_at"]
+        last4 = prepared["agent_rrn_last4"]
+        session.commit()
+    return {"ok": True, "registered": True, "agent_rrn_last4": last4}
+
+
+@router.post("/me/onboarding/complete")
+def complete_my_onboarding(body: OnboardingCompleteRequest, current_user: dict = Depends(get_current_user)):
+    """최초 로그인 온보딩 완료/건너뛰기 기록 — 현재 사용자에게만. 다른 tenant/user 미수정."""
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    login_id = current_user.get("login_id", "")
+    ver = int(body.version or ONBOARDING_VERSION)
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
+        if u is None:
+            raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+        u.onboarding_completed_version = ver
+        u.onboarding_completed_at = datetime.now(timezone.utc)
+        session.commit()
+    return {"ok": True, "onboarding_version": ver, "action": body.action}
 
 
 @router.patch("/me/password")

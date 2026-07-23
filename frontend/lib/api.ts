@@ -202,6 +202,12 @@ export const authApi = {
   logout: () => api.post("/api/auth/logout", null, { headers: { "X-Skip-Auth-Redirect": "1" } }),
   // 현재 계정 상태 재확인용 — 비활성/삭제 시 401(ACCOUNT_DISABLED) → 인터셉터가 강제 로그아웃.
   me: () => api.get("/api/auth/me"),
+  updateMe: (data: Record<string, string>) => api.patch("/api/auth/me", data),
+  // 행정사 주민등록번호 등록/변경 — 원문 미반환({registered,agent_rrn_last4}). office_admin 만.
+  updateAgentRrn: (agent_rrn: string) => api.patch("/api/auth/me/agent-rrn", { agent_rrn }),
+  // 최초 로그인 온보딩 완료/건너뛰기 기록.
+  completeOnboarding: (version: number, action: "completed" | "skipped") =>
+    api.post("/api/auth/me/onboarding/complete", { version, action }),
 };
 
 // ── 승인형 SaaS (사무소 이용신청 / 활성화 / 관리자 심사·계정 lifecycle) ──────────

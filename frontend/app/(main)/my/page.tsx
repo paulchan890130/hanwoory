@@ -20,13 +20,41 @@ const LOGO_ACCEPT = LOGO_ALLOWED_MIME.join(",");
 
 interface MyInfo {
   login_id: string;
+  role?: string;
+  is_admin?: boolean;
+  is_master?: boolean;
   office_name: string;
   office_adr: string;
   contact_name: string;
   contact_tel: string;
+  contact_tel_source?: string;
   biz_reg_no: string;
-  agent_rrn: string;
+  agent_rrn_registered?: boolean;
+  agent_rrn_last4?: string;
+  profile_complete?: boolean;
+  missing_profile_fields?: string[];
 }
+
+// 화면 표시용 하이픈 형식(백엔드 korean_identifier_format 와 동일 규칙 — 저장은 서버가 숫자 정규화).
+function fmtPhoneKR(v: string): string {
+  const d = (v || "").replace(/[^0-9]/g, "");
+  if (d.startsWith("02")) {
+    if (d.length === 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`;
+    if (d.length === 10) return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`;
+  } else {
+    if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+    if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  }
+  return d;
+}
+function fmtBizKR(v: string): string {
+  const d = (v || "").replace(/[^0-9]/g, "");
+  return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d;
+}
+const PROFILE_FIELD_LABELS: Record<string, string> = {
+  office_name: "사무소명", office_adr: "사무소 주소", contact_name: "담당자명",
+  contact_tel: "대표 전화번호", biz_reg_no: "사업자등록번호", agent_rrn: "행정사 주민등록번호",
+};
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -374,9 +402,14 @@ export default function MyPage() {
   // ── 사무소 정보 ──
   const [info, setInfo] = useState<MyInfo>({
     login_id: "", office_name: "", office_adr: "",
-    contact_name: "", contact_tel: "", biz_reg_no: "", agent_rrn: "",
+    contact_name: "", contact_tel: "", biz_reg_no: "",
   });
   const { submit: submitInfo, isSubmitting: infoSaving } = useSubmit();
+
+  // ── 행정사 주민등록번호(등록/변경) ──
+  const [rrnEditing, setRrnEditing] = useState(false);
+  const [rrnForm, setRrnForm] = useState({ value: "", confirm: "" });
+  const { submit: submitRrn, isSubmitting: rrnSaving } = useSubmit();
 
   // ── 비밀번호 ──
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
@@ -386,26 +419,51 @@ export default function MyPage() {
   const [signData, setSignData] = useState<string | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
 
+  const reloadMe = () => api.get<MyInfo>("/api/auth/me").then((r) => setInfo(r.data)).catch(() => {});
+
   useEffect(() => {
-    api.get<MyInfo>("/api/auth/me")
-      .then((r) => setInfo(r.data))
-      .catch(() => {});
+    reloadMe();
     api.get<{ data: string | null }>("/api/signature/agent")
       .then((r) => setSignData(r.data.data ?? null))
       .catch(() => {});
   }, []);
 
+  // 대표자(사무소 관리자) 또는 전체 관리자만 tenant 공통정보(사무소명·주소·사업자번호·주민번호) 편집.
+  const canEditTenant = info.role === "office_admin" || !!info.is_admin || !!info.is_master;
+
   const handleInfoSave = () => {
     submitInfo(
       async () => {
-        await api.patch("/api/auth/me", {
-          office_name:  info.office_name,
-          office_adr:   info.office_adr,
+        const payload: Record<string, string> = {
           contact_name: info.contact_name,
           contact_tel:  info.contact_tel,
-        });
+        };
+        if (canEditTenant) {
+          payload.office_name = info.office_name;
+          payload.office_adr = info.office_adr;
+          payload.biz_reg_no = info.biz_reg_no;
+        }
+        await api.patch("/api/auth/me", payload);
+        await reloadMe();
       },
-      { successMessage: "사무소 정보가 저장되었습니다.", errorMessage: "저장 실패" }
+      { successMessage: "문서 자동작성 필수정보가 저장되었습니다.", errorMessage: "저장 실패" }
+    );
+  };
+
+  const handleRrnSave = () => {
+    const v = rrnForm.value.trim();
+    const c = rrnForm.confirm.trim();
+    if (!v) { toast.error("행정사 주민등록번호를 입력하세요."); return; }
+    if (v !== c) { toast.error("행정사 주민등록번호 확인이 일치하지 않습니다."); return; }
+    submitRrn(
+      async () => {
+        const { authApi } = await import("@/lib/api");
+        await authApi.updateAgentRrn(v);   // 원문은 서버에서 암호화, 응답에 원문 없음
+        setRrnForm({ value: "", confirm: "" });  // 저장 후 원문 input 즉시 제거
+        setRrnEditing(false);
+        await reloadMe();
+      },
+      { successMessage: "행정사 주민등록번호가 저장되었습니다.", errorMessage: "저장 실패(형식 또는 보안 설정 확인)" }
     );
   };
 
@@ -439,25 +497,84 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 사무소 정보 */}
-      <Section title="사무소 정보">
+      {/* 문서 자동작성 필수정보 */}
+      <Section title="문서 자동작성 필수정보">
+        <div data-tour-id="profile-required-info">
+        {info.profile_complete === false && (
+          <div style={{ background: "#FFF5F5", border: "1px solid #FEB2B2", color: "#C53030",
+            borderRadius: 8, padding: "8px 12px", fontSize: 12, marginBottom: 14, lineHeight: 1.6 }}>
+            문서 자동작성 필수정보가 아직 완료되지 않았습니다.
+            {info.missing_profile_fields?.length ? (
+              <> 누락: {info.missing_profile_fields.map((k) => PROFILE_FIELD_LABELS[k] || k).join(", ")}.</>
+            ) : null}
+            {" "}이 정보가 없으면 문서 자동작성 결과에 필수정보가 누락될 수 있습니다.
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
           <div style={{ gridColumn: "1 / -1" }}>
             <Field label="사무소명" value={info.office_name}
-              onChange={(v) => setInfo((p) => ({ ...p, office_name: v }))} />
+              onChange={canEditTenant ? (v) => setInfo((p) => ({ ...p, office_name: v })) : () => {}} />
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="주소" value={info.office_adr}
-              onChange={(v) => setInfo((p) => ({ ...p, office_adr: v }))}
+            <Field label="사무소 주소" value={info.office_adr}
+              onChange={canEditTenant ? (v) => setInfo((p) => ({ ...p, office_adr: v })) : () => {}}
               placeholder="사무소 주소" />
           </div>
-          <Field label="담당자" value={info.contact_name}
+          <Field label="담당자명" value={info.contact_name}
             onChange={(v) => setInfo((p) => ({ ...p, contact_name: v }))} />
-          <Field label="연락처" value={info.contact_tel}
-            onChange={(v) => setInfo((p) => ({ ...p, contact_tel: v }))}
-            placeholder="010-0000-0000" />
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4, fontWeight: 600 }}>대표 전화번호</label>
+            <input className="hw-input" style={{ width: "100%", boxSizing: "border-box" }}
+              value={fmtPhoneKR(info.contact_tel)}
+              placeholder="010-0000-0000"
+              onChange={(e) => setInfo((p) => ({ ...p, contact_tel: e.target.value.replace(/[^0-9]/g, "") }))} />
+            {info.contact_tel_source === "application_fallback" && (
+              <div style={{ fontSize: 10.5, color: "#B7791F", marginTop: 3 }}>가입신청서의 대표전화입니다. 저장하면 정식 반영됩니다.</div>
+            )}
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4, fontWeight: 600 }}>사업자등록번호</label>
+            <input className="hw-input" style={{ width: "100%", boxSizing: "border-box", background: canEditTenant ? "#fff" : "#F7FAFC" }}
+              value={fmtBizKR(info.biz_reg_no)} placeholder="000-00-00000" readOnly={!canEditTenant}
+              onChange={(e) => setInfo((p) => ({ ...p, biz_reg_no: e.target.value.replace(/[^0-9]/g, "") }))} />
+            {!canEditTenant && <div style={{ fontSize: 10.5, color: "#A0AEC0", marginTop: 3 }}>대표자(사무소 관리자)만 수정할 수 있습니다.</div>}
+          </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+
+        {/* 행정사 주민등록번호 — office_admin 만 입력·변경, 원문 미표시 */}
+        <div style={{ marginTop: 6, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
+          <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 6, fontWeight: 600 }}>행정사 주민등록번호</label>
+          {!canEditTenant ? (
+            <div style={{ fontSize: 12, color: "#A0AEC0" }}>대표자(사무소 관리자)만 확인·변경할 수 있습니다.</div>
+          ) : !rrnEditing ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: info.agent_rrn_registered ? "#276749" : "#C53030" }}>
+                {info.agent_rrn_registered ? `등록됨 · 끝 4자리 ${info.agent_rrn_last4 || "****"}` : "미등록"}
+              </span>
+              <button type="button" className="btn-secondary" style={{ fontSize: 12, padding: "5px 10px" }}
+                onClick={() => { setRrnForm({ value: "", confirm: "" }); setRrnEditing(true); }}>
+                {info.agent_rrn_registered ? "변경" : "입력"}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <Field label="행정사 주민등록번호" value={rrnForm.value}
+                onChange={(v) => setRrnForm((p) => ({ ...p, value: v }))} placeholder="000000-0000000" />
+              <Field label="행정사 주민등록번호 확인" value={rrnForm.confirm}
+                onChange={(v) => setRrnForm((p) => ({ ...p, confirm: v }))} placeholder="000000-0000000" />
+              <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" style={{ fontSize: 12, padding: "5px 10px" }}
+                  onClick={() => { setRrnForm({ value: "", confirm: "" }); setRrnEditing(false); }}>취소</button>
+                <SubmitButton isSubmitting={rrnSaving} onClick={handleRrnSave} loadingText="저장 중..."
+                  className="text-xs" style={{ padding: "6px 12px", fontSize: 12 }}>
+                  <><Save size={12} /> 주민번호 저장</>
+                </SubmitButton>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }} data-tour-id="profile-save">
           <SubmitButton
             isSubmitting={infoSaving}
             onClick={handleInfoSave}
@@ -467,6 +584,7 @@ export default function MyPage() {
           >
             <><Save size={12} /> 저장</>
           </SubmitButton>
+        </div>
         </div>
       </Section>
 

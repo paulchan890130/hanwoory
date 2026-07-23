@@ -64,45 +64,11 @@ def _norm_email(v: Optional[str]) -> str:
 
 
 # ── 사업자등록번호 / 전화번호 정규화·형식화 (프론트/백엔드 공통 규칙) ──────────────
-def normalize_biz_reg_no(v: Optional[str]) -> str:
-    """구분자 제거 후 숫자만 남긴다(digits-only 저장/비교용)."""
-    return re.sub(r"[^0-9]", "", v or "")
-
-
-def is_valid_biz_reg_no(digits: str) -> bool:
-    return len(digits or "") == 10 and (digits or "").isdigit()
-
-
-def format_biz_reg_no(v: Optional[str]) -> str:
-    """관리자 표시용 하이픈 형식(213-12-37464). 10자리가 아니면 원본 digits 반환."""
-    d = normalize_biz_reg_no(v)
-    return f"{d[:3]}-{d[3:5]}-{d[5:]}" if len(d) == 10 else d
-
-
-def normalize_phone(v: Optional[str]) -> str:
-    return re.sub(r"[^0-9]", "", v or "")
-
-
-def is_valid_phone(digits: str) -> bool:
-    """한국 전화 digits — 9~11자리, 0으로 시작."""
-    d = digits or ""
-    return 9 <= len(d) <= 11 and d.isdigit() and d[:1] == "0"
-
-
-def format_phone(v: Optional[str]) -> str:
-    """관리자 표시용 하이픈 형식. 규칙 밖이면 digits 원본."""
-    d = normalize_phone(v)
-    if d.startswith("02"):
-        if len(d) == 9:
-            return f"{d[:2]}-{d[2:5]}-{d[5:]}"      # 02-123-4567
-        if len(d) == 10:
-            return f"{d[:2]}-{d[2:6]}-{d[6:]}"      # 02-1234-5678
-    else:
-        if len(d) == 10:
-            return f"{d[:3]}-{d[3:6]}-{d[6:]}"      # 010-123-4567 / 031-123-4567
-        if len(d) == 11:
-            return f"{d[:3]}-{d[3:7]}-{d[7:]}"      # 010-1234-5678
-    return d
+# 공통 helper 모듈로 통합 — 여기서는 하위호환을 위해 재노출한다(기존 호출부 유지).
+from backend.services.korean_identifier_format import (  # noqa: E402
+    normalize_biz_reg_no, is_valid_biz_reg_no, format_biz_reg_no,
+    normalize_phone, is_valid_phone, format_phone,
+)
 
 
 def _biz_match_forms(v: Optional[str]) -> list[str]:
@@ -464,6 +430,25 @@ def get_application(application_id: str) -> Optional[dict]:
         a = session.scalar(select(OfficeApplication).where(
             OfficeApplication.application_id == application_id))
         return _to_dict(a) if a else None
+
+
+def get_application_office_phone(application_id: str) -> str:
+    """승인 신청서의 대표전화(office_phone, digits-only). 없거나 오류면 빈 문자열.
+    마이페이지 대표 연락처 표시용 fallback — 읽기 전용(DB 미수정)."""
+    if not application_id:
+        return ""
+    try:
+        from backend.db.models.office_application import OfficeApplication
+        from backend.db.session import get_sessionmaker, is_configured
+        if not is_configured():
+            return ""
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as session:
+            a = session.scalar(select(OfficeApplication).where(
+                OfficeApplication.application_id == application_id))
+            return normalize_phone(getattr(a, "office_phone", "") if a else "")
+    except Exception:
+        return ""
 
 
 # ── 심사 전환 ────────────────────────────────────────────────────────────────

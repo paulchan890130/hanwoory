@@ -271,6 +271,32 @@ def _load_account(tenant_id: str) -> Optional[dict]:
         return None
 
 
+def _office_profile_missing(account: Optional[dict]) -> list[str]:
+    """사무소 문서 필수정보 중 비어 있는 핵심 항목(사무소명·대표연락처·행정사 주민번호)."""
+    if not account:
+        return []
+    from backend.services.korean_identifier_format import validate_phone
+    checks = {
+        "office_name": bool(str(account.get("office_name", "") or "").strip()),
+        "contact_tel": validate_phone(str(account.get("contact_tel", "") or "")),
+        "agent_rrn":   bool(str(account.get("agent_rrn", "") or "").strip()),
+    }
+    return [k for k, ok in checks.items() if not ok]
+
+
+def _require_office_profile(account: Optional[dict]) -> None:
+    """사무소 필수정보가 **전부** 미기입이면 조용히 빈 문서를 만들지 않고 409.
+    보수적 게이트 — 셋 중 하나라도 있으면 통과(부분정보 문서까지 일괄 차단하지 않는다)."""
+    miss = _office_profile_missing(account)
+    if account is not None and len(miss) == 3:
+        raise HTTPException(status_code=409, detail={
+            "code": "OFFICE_PROFILE_INCOMPLETE",
+            "message": "문서 자동작성에 필요한 사무소 정보가 없습니다. "
+                       "마이페이지에서 행정사 주민등록번호와 연락처를 입력하세요.",
+            "missing": miss,
+        })
+
+
 def _name_or_english(korean, surname="", given="") -> str:
     """사람 이름 필드 공통 fallback — 한글명이 **완전히 비어 있을 때만** 영문(성+명)으로 대체.
 
@@ -752,12 +778,17 @@ def build_field_values(
         # 별도 저장 필드 없음: 이미 _load_account 가 복호화해 둔 agent_rrn 하나로 충분
         # (기존 신청인/보증인 등 다른 역할과 동일하게 _parse_birth 재사용 — 새 로직 아님).
         agent_yyyy, agent_mm, agent_dd = _parse_birth(str(account.get("agent_rrn", "") or ""))
+        # 문서 출력 형식: 사업자번호 000-00-00000, 전화 한국 표준 하이픈, 주민번호 000000-0000000.
+        from backend.services.korean_identifier_format import (
+            format_biz_reg_no as _fmt_biz, format_phone as _fmt_tel, format_rrn as _fmt_rrn,
+        )
+        _agent_rrn_raw = str(account.get("agent_rrn", "") or "").strip()
         field_values.update({
             "agency_name":  str(account.get("office_name", "") or "").strip(),
             "agent_name":   str(account.get("contact_name", "") or "").strip(),
-            "agent_rrn":    str(account.get("agent_rrn", "") or "").strip(),
-            "agent_biz_no": str(account.get("biz_reg_no", "") or "").strip(),
-            "agent_tel":    str(account.get("contact_tel", "") or "").strip(),
+            "agent_rrn":    _fmt_rrn(_agent_rrn_raw) if _agent_rrn_raw else "",
+            "agent_biz_no": _fmt_biz(str(account.get("biz_reg_no", "") or "")),
+            "agent_tel":    _fmt_tel(str(account.get("contact_tel", "") or "")),
             "office_adr":   str(account.get("office_adr", "") or "").strip(),
             "ayyyy":        agent_yyyy,
             "amm":          agent_mm,
@@ -1712,6 +1743,7 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
 
     # ── 행정사(account) 정보 조회 ──
     account = _load_account(tenant_id)
+    _require_office_profile(account)
 
     # ── 미성년 판별 ──
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
@@ -2116,6 +2148,7 @@ def _collect_full_field_values(req: "FullDocGenRequest", user: dict) -> dict:
     aggregator = find_customer(req.aggregator_id)
 
     account = _load_account(tenant_id)
+    _require_office_profile(account)
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
 
     kind   = req.kind   if req.kind   and req.kind   != "x" else ""
@@ -2767,6 +2800,7 @@ def _quick_poa_impl(req: QuickPoaRequest, user: dict):
     # 행정사 계정 정보 조회
     tenant_id = user.get("tenant_id") or user.get("sub", "")
     account = _load_account(tenant_id)
+    _require_office_profile(account)
 
     row = {
         "한글": req.kor_name.strip(),

@@ -73,17 +73,23 @@ def _bool_str(v) -> str:
 
 def _row_from_pg(u, t) -> dict:
     """AccountUser(u) + Tenant(t, 없을 수 있음) → 과거 Accounts 시트와 같은 키의 dict.
-    agent_rrn 원본은 PG 미보관 → 빈 문자열(PDF 는 수동입력)."""
+    agent_rrn **원본/복호값은 절대 노출하지 않는다**(빈 문자열). 등록 상태는 last4/registered 로만 표시.
+    문서 생성 시 복호화는 quick_doc._load_account 에서만 수행."""
+    _enc = (getattr(t, "agent_rrn_encrypted", None) if t else None)
     return {
         "login_id":           u.login_id,
         "password_hash":      u.password_hash,
         "tenant_id":          u.tenant_id,
+        "role":               (getattr(u, "role", "") or ""),
         "office_name":        (t.office_name if t else "") or "",
         "office_adr":         (t.office_adr if t else "") or "",
         "contact_name":       u.contact_name or "",
         "contact_tel":        u.contact_tel or "",
         "biz_reg_no":         (t.biz_reg_no if t else "") or "",
         "agent_rrn":          "",
+        "agent_rrn_registered": bool(_enc),
+        "agent_rrn_last4":    (getattr(t, "agent_rrn_last4", "") if t else "") or "",
+        "source_application_id": (getattr(t, "source_application_id", "") if t else "") or "",
         "is_admin":           _bool_str(u.is_admin),
         "is_active":          _bool_str(u.is_active),
         "folder_id":          (t.folder_id if t else "") or "",
