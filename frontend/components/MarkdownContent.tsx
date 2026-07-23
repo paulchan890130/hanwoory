@@ -7,9 +7,13 @@
  * AI·크롤러 친화: 모든 블록이 실제 시맨틱 HTML 태그로 출력됨.
  */
 import React from "react";
+import SelfCheckPostBlock from "@/components/selfcheck/SelfCheckPostBlock";
 
 const GOLD = "#8B6914";
 const GOLD_BORDER = "#C8A84B";
+
+// 게시글 본문 shortcode: 독립된 한 줄 `[[self-check:ID]]` (ID = criminal-record|tuberculosis|fingerprint|all|...)
+const SELF_CHECK_SHORTCODE = /^\[\[self-check:([a-z0-9-]+)\]\]$/;
 
 // ── 인라인 파서 ──────────────────────────────────────────────────────────────
 function parseInline(text: string, prefix: string): React.ReactNode[] {
@@ -260,6 +264,14 @@ export function MarkdownContent({ content }: { content: string }) {
       continue;
     }
 
+    // ── 자가점검 shortcode 줄 [[self-check:ID]] (독립 한 줄에서만 인식)
+    const scMatch = SELF_CHECK_SHORTCODE.exec(trimmed);
+    if (scMatch) {
+      elements.push(<SelfCheckPostBlock key={key++} itemId={scMatch[1]} />);
+      i++;
+      continue;
+    }
+
     // ── 일반 단락 — 연속된 비블록 줄을 하나의 <p>로 묶음
     const pLines: string[] = [];
     while (i < lines.length) {
@@ -271,7 +283,8 @@ export function MarkdownContent({ content }: { content: string }) {
         /^\d+\.\s/.test(lt) ||
         lt.startsWith("> ") ||
         /^-{3,}$/.test(lt) ||
-        /^!\[([^\]]*)\]\(([^)]+)\)$/.test(lt)
+        /^!\[([^\]]*)\]\(([^)]+)\)$/.test(lt) ||
+        SELF_CHECK_SHORTCODE.test(lt)
       )
         break;
       pLines.push(lines[i]);

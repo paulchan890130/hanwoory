@@ -221,6 +221,21 @@ export function RichEditor({
         />
         <Divider />
         <Btn label="구분선" onClick={() => insert("\n---\n")} title="수평 구분선" />
+        <Divider />
+        {/* 자가점검 도구 삽입 — 커서 위치에 [[self-check:ID]] shortcode 한 줄 삽입 */}
+        <select
+          aria-label="자가점검 삽입"
+          title="게시글에 자가점검 도구를 삽입합니다. 본문에 [[self-check:ID]] 한 줄로 저장됩니다."
+          value=""
+          onChange={(e) => { if (e.target.value) { insert(`\n[[self-check:${e.target.value}]]\n`); e.currentTarget.selectedIndex = 0; } }}
+          style={{ ...BTN_BASE, background: "#fff", color: "#374151", borderColor: "#D1D5DB", cursor: "pointer" }}
+        >
+          <option value="">🩺 자가점검 삽입</option>
+          <option value="criminal-record">해외범죄경력증명</option>
+          <option value="tuberculosis">결핵검진</option>
+          <option value="fingerprint">지문등록</option>
+          <option value="all">전체 자가점검</option>
+        </select>
         {/* Spacer */}
         <span style={{ flex: 1 }} />
         <button
@@ -405,6 +420,8 @@ export function RichEditor({
         <code style={{ fontSize: 10 }}>- 목록</code> &nbsp;
         <code style={{ fontSize: 10 }}>&gt; 인용</code> &nbsp;
         <code style={{ fontSize: 10 }}>![alt](URL)</code>
+        <br />
+        자가점검 삽입: 독립된 한 줄에 <code style={{ fontSize: 10 }}>[[self-check:tuberculosis]]</code> (또는 criminal-record · fingerprint · all) — 게시·노출위치(게시글)로 설정된 항목만 공개됩니다.
       </div>
     </div>
   );

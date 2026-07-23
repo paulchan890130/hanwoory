@@ -30,7 +30,8 @@ CONFIG_ID = "common-criteria-self-check"
 CONFIG_CATEGORY = "self_check_config"
 
 # 공개 런처가 실제 배치된(지원되는) 노출 위치. 프론트 SUPPORTED_PLACEMENTS 와 동일.
-SUPPORTED_PLACEMENTS: frozenset[str] = frozenset({"home"})
+# home = 홈페이지 hero(현재 제거됨, 하위호환 유지), post = 마케팅 게시글 본문 shortcode.
+SUPPORTED_PLACEMENTS: frozenset[str] = frozenset({"home", "post"})
 
 # ── 결핵검진(TB-1.0) 공식 기준 (source of truth) ──────────────────────────────
 # 법무부 결핵검사 의무화 대상국가(2020.4.1. 확대, 35개국) 및 2025~2026년 재외공관 공식

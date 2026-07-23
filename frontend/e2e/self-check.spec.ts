@@ -10,11 +10,46 @@ import type { SelfCheckConfig, SelfCheckItem } from "../lib/selfcheck/types";
 const CONFIG_URL = "**/api/self-check/config*";
 
 function item(id: string, config: SelfCheckConfig, over: Partial<SelfCheckItem> = {}): SelfCheckItem {
-  // 기본 placement=["home"] — 홈 런처 표시 테스트가 대부분. 위치 필터 테스트는 over 로 재정의.
-  return { item_id: id, title: config.item_name, sort_order: 0, is_published: true, popup_enabled: true, placement: ["home"], config, ...over };
+  // 자가점검은 이제 마케팅 게시글 shortcode(placement=post)로만 노출된다(홈 런처 제거).
+  return { item_id: id, title: config.item_name, sort_order: 0, is_published: true, popup_enabled: true, placement: ["post"], config, ...over };
 }
 function bundle(items: SelfCheckItem[]) {
   return { schema_version: 2, items };
+}
+
+// 게시글 shortcode 팝업 진입 — RichEditor 미리보기에서 SelfCheckPostBlock 이 client-side 로
+// /api/self-check/config?placement=post 를 조회하므로 route interception 으로 mock 할 수 있다
+// (board 상세는 SSR 이라 mock 불가 → 관리자 편집기 미리보기 경로로 동일 컴포넌트를 검증).
+const POST_ME = {
+  login_id: "admin@test", tenant_id: "t1", role: "admin", is_admin: true, is_master: true,
+  office_name: "테스트", onboarding_required: false, onboarding_version: 1, profile_complete: true,
+};
+async function mountPostEditor(page: Page, body: unknown) {
+  const json = (b: unknown) => (route: import("@playwright/test").Route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(b) });
+  // catch-all(리스트 endpoint 빈 배열) 먼저 → 특정 endpoint override.
+  await page.route("**/api/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("**/api/auth/me", json(POST_ME));
+  await page.route("**/api/manual/alerts/active", json({ alerts: [], is_admin: true }));
+  await page.route("**/api/customers/expiry-alerts", json({ card_alerts: [], passport_alerts: [] }));
+  await mockBundle(page, body);   // CONFIG_URL — 가장 나중 등록 → config 요청에서 우선.
+  await page.goto("/");
+  await page.evaluate((u) => {
+    localStorage.setItem("access_token", "e2e-token");
+    localStorage.setItem("user_info", JSON.stringify(u));
+    document.cookie = "kid_auth=1; path=/; SameSite=Lax";
+  }, POST_ME);
+  await page.goto("/marketing/new");
+}
+async function typeShortcode(page: Page, itemId: string) {
+  const ta = page.locator("textarea").first();
+  await ta.fill(`[[self-check:${itemId}]]`);
+  await page.getByRole("button", { name: /미리보기/ }).click();
+}
+async function openPost(page: Page, itemId: string) {
+  await typeShortcode(page, itemId);
+  await page.getByTestId(`selfcheck-post-open-${itemId}`).click();
 }
 
 // 간단 단일 항목(빠른 결과 도달) — 자가점검 기본 흐름/개인정보 테스트용.
@@ -53,20 +88,17 @@ async function clickPath(page: Page, seq: Array<"yes" | "no">) {
   }
 }
 
-test.describe("공통기준 자가점검 — 단일 게시 항목", () => {
-  test.beforeEach(async ({ page }) => { await mockBundle(page, bundle([item("simple", SIMPLE_CFG)])); });
-
-  test("항목 1개 → 런처 표시 → 선택화면 없이 바로 질문", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByTestId("self-check-open")).toBeVisible();
-    await page.getByTestId("self-check-open").click();
+test.describe("공통기준 자가점검 — 게시글 단일 항목 shortcode", () => {
+  test("shortcode → 버튼 → 선택화면 없이 바로 질문", async ({ page }) => {
+    await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)]));
+    await openPost(page, "simple");
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByText("첫 번째 질문입니까?")).toBeVisible();  // 선택화면 건너뜀
   });
 
   test("결과까지 진행 + 내 답변/판정경로/전체로직/버전 표시", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
+    await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)]));
+    await openPost(page, "simple");
     await clickPath(page, ["yes", "yes"]);
     await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toBeVisible();
     await expect(page.getByText("내 답변")).toBeVisible();
@@ -82,29 +114,29 @@ test.describe("공통기준 자가점검 — 단일 게시 항목", () => {
       const url = req.url(); const post = req.postData() || "";
       const hay = (url + " " + post).toLowerCase();
       if (req.method() === "GET" && url.includes("/api/self-check/config")) return;
-      for (const kw of ["첫질문", "둘째질문", "제출 대상", "answer", "result"]) if (hay.includes(kw.toLowerCase())) bad.push(`${req.method()} ${url}`);
+      for (const kw of ["첫질문", "둘째질문", "제출 대상"]) if (hay.includes(kw.toLowerCase())) bad.push(`${req.method()} ${url}`);
       if (req.method() !== "GET" && url.includes("self-check")) bad.push(`${req.method()} ${url}`);
     });
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
+    await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)]));
+    await openPost(page, "simple");
     await clickPath(page, ["yes", "yes"]);
     await expect(page.getByRole("heading", { name: /제출 대상입니다/ })).toBeVisible();
     expect(bad, bad.join("\n")).toHaveLength(0);
   });
 
   test("답변/결과 storage 미저장", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
+    await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)]));
+    await openPost(page, "simple");
     await clickPath(page, ["yes", "yes"]);
-    const s = await page.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage) + document.cookie);
-    for (const kw of ["제출 대상", "판정", "answer", "self-check", "첫질문"]) expect(s.toLowerCase().includes(kw.toLowerCase()), `storage has ${kw}`).toBeFalsy();
+    const s = await page.evaluate(() => JSON.stringify(localStorage) + JSON.stringify(sessionStorage));
+    for (const kw of ["제출 대상", "첫질문", "둘째질문"]) expect(s.toLowerCase().includes(kw.toLowerCase()), `storage has ${kw}`).toBeFalsy();
   });
 
   test("문자 버튼: 본문 복사, 자동 전송 없음", async ({ page }) => {
     let scPost = false;
     page.on("request", (req) => { if (req.method() !== "GET" && req.url().includes("self-check")) scPost = true; });
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
+    await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)]));
+    await openPost(page, "simple");
     await clickPath(page, ["yes", "yes"]);
     await page.getByRole("button", { name: "문자로 보내기" }).click();
     await page.waitForTimeout(300);
@@ -115,18 +147,28 @@ test.describe("공통기준 자가점검 — 단일 게시 항목", () => {
   });
 });
 
-test.describe("공통기준 자가점검 — 다중 게시 항목(선택 화면)", () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBundle(page, bundle([
-      item("criminal-record", CRIMINAL_RECORD_CONFIG, { sort_order: 1 }),
-      item("tuberculosis", TUBERCULOSIS_CONFIG, { sort_order: 2 }),
-      item("fingerprint", FINGERPRINT_CONFIG, { sort_order: 3 }),
-    ]));
-  });
-
-  test("항목 2개 이상 → 선택 화면 표시(순서대로)", async ({ page }) => {
+test.describe("메인 홈 — 자가점검 제거", () => {
+  test("자가점검 버튼 없음 + self-check config 요청 없음", async ({ page }) => {
+    let scReq = 0;
+    page.on("request", (r) => { if (r.url().includes("/api/self-check/config")) scReq++; });
     await page.goto("/");
-    await page.getByTestId("self-check-open").click();
+    await expect(page.getByRole("link", { name: "기존 사용자 로그인" })).toBeVisible();  // hero 유지 확인
+    await expect(page.getByTestId("self-check-open")).toHaveCount(0);
+    await page.waitForTimeout(400);
+    expect(scReq, "메인에서 self-check config 요청 발생").toBe(0);
+  });
+});
+
+test.describe("공통기준 자가점검 — 게시글 전체(all) 선택 화면", () => {
+  const allBundle = () => bundle([
+    item("criminal-record", CRIMINAL_RECORD_CONFIG, { sort_order: 1 }),
+    item("tuberculosis", TUBERCULOSIS_CONFIG, { sort_order: 2 }),
+    item("fingerprint", FINGERPRINT_CONFIG, { sort_order: 3 }),
+  ]);
+
+  test("all shortcode → 선택 화면 표시(순서대로)", async ({ page }) => {
+    await mountPostEditor(page, allBundle());
+    await openPost(page, "all");
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByText("점검할 항목을 선택하세요")).toBeVisible();
     await expect(page.getByRole("button", { name: /해외범죄경력증명 필요 확인/ })).toBeVisible();
@@ -135,13 +177,18 @@ test.describe("공통기준 자가점검 — 다중 게시 항목(선택 화면)
   });
 
   test("항목 선택 → q1 진행 → 항목 변경으로 복귀", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
+    await mountPostEditor(page, allBundle());
+    await openPost(page, "all");
     await page.getByRole("button", { name: /지문등록 필요 확인/ }).click();
     await expect(page.getByText("만 17세 이상입니까?")).toBeVisible();
-    // 뒤로(항목 선택) 버튼
     await page.getByRole("button", { name: "항목 선택으로" }).click();
     await expect(page.getByText("점검할 항목을 선택하세요")).toBeVisible();
+  });
+
+  test("특정 항목 shortcode(tuberculosis) → 해당 항목만 바로 진행", async ({ page }) => {
+    await mountPostEditor(page, allBundle());
+    await openPost(page, "tuberculosis");
+    await expect(page.getByText("결핵 고위험 국가 국적입니까?")).toBeVisible();  // 선택화면 없이 바로 결핵 q1
   });
 });
 
@@ -153,20 +200,18 @@ const LONGEST: Record<string, { title: RegExp; seq: Array<"yes" | "no">; headlin
 };
 
 test.describe("결과 화면 한 화면 완결 — 4개 모바일 viewport", () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBundle(page, bundle([
-      item("criminal-record", CRIMINAL_RECORD_CONFIG, { sort_order: 1 }),
-      item("tuberculosis", TUBERCULOSIS_CONFIG, { sort_order: 2 }),
-      item("fingerprint", FINGERPRINT_CONFIG, { sort_order: 3 }),
-    ]));
-  });
+  const allBundle = () => bundle([
+    item("criminal-record", CRIMINAL_RECORD_CONFIG, { sort_order: 1 }),
+    item("tuberculosis", TUBERCULOSIS_CONFIG, { sort_order: 2 }),
+    item("fingerprint", FINGERPRINT_CONFIG, { sort_order: 3 }),
+  ]);
 
   for (const [key, spec] of Object.entries(LONGEST)) {
     for (const v of VIEWPORTS) {
       test(`${key} ${v.w}x${v.h} 무스크롤 + 결과/버튼 노출`, async ({ page }) => {
         await page.setViewportSize({ width: v.w, height: v.h });
-        await page.goto("/");
-        await page.getByTestId("self-check-open").click();
+        await mountPostEditor(page, allBundle());
+        await openPost(page, "all");
         await page.getByRole("button", { name: spec.title }).click();
         await clickPath(page, spec.seq);
         const dialog = page.getByRole("dialog");
@@ -214,49 +259,48 @@ test.describe("결과 화면 한 화면 완결 — 4개 모바일 viewport", () 
   }
 });
 
-test.describe("공통기준 자가점검 — 미게시/오류 시 런처 숨김", () => {
-  const CR1 = "결핵 검진 대상입니다"; // 과거 번들 기본(CR-1.0) 문구 — 공개에 절대 노출 금지
-
-  async function assertHidden(page: Page) {
-    await page.goto("/");
-    await expect(page.getByTestId("self-check-open")).toHaveCount(0);
+test.describe("공통기준 자가점검 — 게시글 미게시/오류/불일치 시 미노출", () => {
+  async function assertHidden(page: Page, itemId = "all") {
+    await typeShortcode(page, itemId);
+    await expect(page.getByTestId(`selfcheck-post-open-${itemId}`)).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByText(CR1)).toHaveCount(0);
   }
 
-  test("빈 items → 숨김", async ({ page }) => { await mockBundle(page, bundle([])); await assertHidden(page); });
-  test("게시 항목 없음(모두 draft) → 숨김", async ({ page }) => {
-    await mockBundle(page, bundle([item("x", SIMPLE_CFG, { is_published: false })])); await assertHidden(page);
+  test("빈 items → 미노출", async ({ page }) => { await mountPostEditor(page, bundle([])); await assertHidden(page); });
+  test("게시 항목 없음(모두 draft) → 미노출", async ({ page }) => {
+    await mountPostEditor(page, bundle([item("x", SIMPLE_CFG, { is_published: false })])); await assertHidden(page);
   });
-  test("그래프 오류 항목만 → 숨김", async ({ page }) => {
+  test("그래프 오류 항목만 → 미노출", async ({ page }) => {
     const broken = { ...SIMPLE_CFG, questions: [{ ...SIMPLE_CFG.questions[0], yes: "ghost" }] } as SelfCheckConfig;
-    await mockBundle(page, bundle([item("b", broken)])); await assertHidden(page);
+    await mountPostEditor(page, bundle([item("b", broken)])); await assertHidden(page);
   });
-  test("config API 404 → 숨김", async ({ page }) => { await mockStatus(page, 404); await assertHidden(page); });
-  test("config API 500 → 숨김", async ({ page }) => { await mockStatus(page, 500); await assertHidden(page); });
-  test("네트워크 실패 → 숨김", async ({ page }) => { await mockAbort(page); await assertHidden(page); });
+  test("알 수 없는 item_id shortcode → 미노출(오류 문구 없음)", async ({ page }) => {
+    await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)])); await assertHidden(page, "does-not-exist");
+  });
+  test("config API 404 → 미노출", async ({ page }) => { await mountPostEditor(page, bundle([])); await mockStatus(page, 404); await assertHidden(page); });
+  test("config API 500 → 미노출", async ({ page }) => { await mountPostEditor(page, bundle([])); await mockStatus(page, 500); await assertHidden(page); });
+  test("네트워크 실패 → 미노출", async ({ page }) => { await mountPostEditor(page, bundle([])); await mockAbort(page); await assertHidden(page); });
 });
 
-test.describe("공통기준 자가점검 — placement 필터(런처)", () => {
-  test("home 항목만 노출(other/빈 placement 제외)", async ({ page }) => {
-    await mockBundle(page, bundle([
-      item("home-a", CRIMINAL_RECORD_CONFIG, { placement: ["home"], sort_order: 1 }),
-      item("other-b", TUBERCULOSIS_CONFIG, { placement: ["other"], sort_order: 2 }),
+test.describe("공통기준 자가점검 — 게시글 placement 필터", () => {
+  test("post 항목만 노출(home/other/빈 placement 제외)", async ({ page }) => {
+    await mountPostEditor(page, bundle([
+      item("post-a", CRIMINAL_RECORD_CONFIG, { placement: ["post"], sort_order: 1 }),
+      item("home-b", TUBERCULOSIS_CONFIG, { placement: ["home"], sort_order: 2 }),
       item("none-c", FINGERPRINT_CONFIG, { placement: [], sort_order: 3 }),
     ]));
-    await page.goto("/");
-    await page.getByTestId("self-check-open").click();
-    // home 항목이 1개 → 선택화면 없이 바로 진행(해외범죄 q1)
+    await openPost(page, "all");
+    // post 항목이 1개 → 선택화면 없이 바로 진행(해외범죄 q1)
     await expect(page.getByText("만 14세 이상입니까?")).toBeVisible();
   });
 
-  test("home 에 지정된 항목이 없으면 런처 숨김", async ({ page }) => {
-    await mockBundle(page, bundle([
-      item("other-b", TUBERCULOSIS_CONFIG, { placement: ["other"] }),
+  test("post 에 지정된 항목이 없으면 미노출", async ({ page }) => {
+    await mountPostEditor(page, bundle([
+      item("home-b", TUBERCULOSIS_CONFIG, { placement: ["home"] }),
       item("none-c", FINGERPRINT_CONFIG, { placement: [] }),
     ]));
-    await page.goto("/");
-    await expect(page.getByTestId("self-check-open")).toHaveCount(0);
+    await typeShortcode(page, "all");
+    await expect(page.getByTestId("selfcheck-post-open-all")).toHaveCount(0);
   });
 });
 

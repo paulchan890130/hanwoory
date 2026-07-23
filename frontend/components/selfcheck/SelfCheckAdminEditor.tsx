@@ -15,7 +15,10 @@ import CommonCriteriaSelfCheck from "./CommonCriteriaSelfCheck";
 const RECO = { item_name: 22, headline: 18, label: 8, question_text: 44, summary: 16, notice: 90 };
 
 // 저장소가 현재 실제 지원하는 공개 진입 위치(런처가 배치된 곳). 존재하지 않는 위치를 만들지 않는다.
-const SUPPORTED_PLACEMENTS: { id: string; label: string }[] = [{ id: "home", label: "홈페이지" }];
+const SUPPORTED_PLACEMENTS: { id: string; label: string }[] = [
+  { id: "home", label: "홈페이지" },
+  { id: "post", label: "게시글" },
+];
 
 // 관리자 미리보기 viewport(모바일 4종).
 const PREVIEW_VIEWPORTS = [
