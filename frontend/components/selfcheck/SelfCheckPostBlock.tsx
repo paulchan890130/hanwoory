@@ -9,20 +9,18 @@ import type { SelfCheckItem } from "@/lib/selfcheck/types";
 import { normalizeBundle, publishedItems } from "@/lib/selfcheck/logic";
 import CommonCriteriaSelfCheck from "./CommonCriteriaSelfCheck";
 
-// 한 게시글에 shortcode 가 여러 개 있어도 self-check config 요청은 1회만 — placement 별 promise 캐시.
-const _postItemsCache = new Map<string, Promise<SelfCheckItem[]>>();
+// **in-flight 전용** 합침 — 한 게시글에 shortcode 가 여러 개 동시에 마운트되면 config 요청을 1회로
+// 합치되, 요청이 끝나면(성공/실패) 캐시를 즉시 비운다. 따라서 재진입·재마운트 시 새로 GET 하고,
+// 최초 실패가 세션 내내 빈 결과로 굳지 않으며, 비공개 전환도 새 진입에서 반영된다.
+let _inflight: Promise<SelfCheckItem[]> | null = null;
 function loadPostItems(): Promise<SelfCheckItem[]> {
-  const key = "post";
-  if (!_postItemsCache.has(key)) {
-    _postItemsCache.set(
-      key,
-      selfCheckApi
-        .getPublic("post")
-        .then((r) => publishedItems(normalizeBundle(r.data), "post"))
-        .catch(() => [] as SelfCheckItem[]),
-    );
-  }
-  return _postItemsCache.get(key)!;
+  if (_inflight) return _inflight;
+  _inflight = selfCheckApi
+    .getPublic("post")
+    .then((r) => publishedItems(normalizeBundle(r.data), "post"))
+    .catch(() => [] as SelfCheckItem[])
+    .finally(() => { _inflight = null; });   // 완료/실패 즉시 캐시 제거(영구 보관 금지)
+  return _inflight;
 }
 
 export default function SelfCheckPostBlock({ itemId }: { itemId: string }) {

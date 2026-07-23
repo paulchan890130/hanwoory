@@ -244,6 +244,9 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
 
         is_mock_mode = local_drive_mock_enabled()
         storage_mode = "pg+local-mock" if is_mock_mode else "pg+google-drive"
+        from backend.services.korean_identifier_format import (
+            format_phone as _fmt_tel, format_biz_reg_no as _fmt_biz,
+        )
         records = []
         for u in users:
             t = tenants_by_id.get(u.tenant_id)
@@ -285,11 +288,13 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
                 "office_name": (t.office_name if t else "") or "",
                 "office_adr": (t.office_adr if t else "") or "",
                 "biz_reg_no": (t.biz_reg_no if t else "") or "",
+                "biz_reg_no_formatted": _fmt_biz((t.biz_reg_no if t else "") or ""),
                 "agent_rrn": "",  # 원문 절대 미반환(암호문/평문 노출 금지)
                 "has_agent_rrn": bool(t and t.agent_rrn_encrypted),
                 "agent_rrn_last4": (t.agent_rrn_last4 if t else "") or "",
                 "contact_name": u.contact_name or "",
                 "contact_tel": _tel,
+                "contact_tel_formatted": _fmt_tel(_tel),
                 "contact_tel_source": _tel_source,
                 "is_admin": "TRUE" if u.is_admin else "FALSE",
                 "is_active": "TRUE" if u.is_active else "FALSE",
@@ -383,15 +388,25 @@ def update_account(
                 u.is_admin = bool(update.is_admin)
             if update.tenant_id:
                 u.tenant_id = update.tenant_id
+            from backend.services.korean_identifier_format import (
+                normalize_phone, validate_phone, normalize_biz_reg_no, validate_biz_reg_no,
+            )
             if update.contact_name is not None:
                 u.contact_name = update.contact_name
             if update.contact_tel is not None:
-                u.contact_tel = update.contact_tel
+                _tel = normalize_phone(update.contact_tel)   # digits-only 저장
+                if _tel and not validate_phone(_tel):
+                    raise HTTPException(status_code=400, detail="전화번호 형식이 올바르지 않습니다.")
+                u.contact_tel = _tel                          # 공백 입력 → "" (명시적 삭제)
             t = session.scalar(select(Tenant).where(Tenant.tenant_id == u.tenant_id))
             if t is not None:
                 if update.office_name is not None: t.office_name = update.office_name
                 if update.office_adr is not None: t.office_adr = update.office_adr
-                if update.biz_reg_no is not None: t.biz_reg_no = update.biz_reg_no
+                if update.biz_reg_no is not None:
+                    _biz = normalize_biz_reg_no(update.biz_reg_no)   # digits-only 저장
+                    if _biz and not validate_biz_reg_no(_biz):
+                        raise HTTPException(status_code=400, detail="사업자등록번호는 숫자 10자리여야 합니다.")
+                    t.biz_reg_no = _biz
                 if update.folder_id is not None: t.folder_id = update.folder_id
                 if update.work_sheet_key is not None: t.work_sheet_key = update.work_sheet_key
                 if update.customer_sheet_key is not None: t.customer_sheet_key = update.customer_sheet_key
@@ -861,6 +876,20 @@ def create_account(
     # 중복 체크 (accounts_service → 서비스 계정 사용)
     if find_account(body.login_id.strip()):
         raise HTTPException(status_code=409, detail="이미 존재하는 login_id입니다.")
+
+    # 식별번호 정규화·검증 — 신규 계정 생성에도 동일 적용(digits-only 저장, 무효 400).
+    from backend.services.korean_identifier_format import (
+        normalize_phone as _nph, validate_phone as _vph,
+        normalize_biz_reg_no as _nbz, validate_biz_reg_no as _vbz,
+    )
+    _tel0 = _nph(body.contact_tel or "")
+    if _tel0 and not _vph(_tel0):
+        raise HTTPException(status_code=400, detail="전화번호 형식이 올바르지 않습니다.")
+    _biz0 = _nbz(body.biz_reg_no or "")
+    if _biz0 and not _vbz(_biz0):
+        raise HTTPException(status_code=400, detail="사업자등록번호는 숫자 10자리여야 합니다.")
+    body.contact_tel = _tel0
+    body.biz_reg_no = _biz0
 
     # folder_id / customer_sheet_key / work_sheet_key가 이미 제공된 경우에만 즉시 활성화.
     # 미제공 시 is_active=FALSE → 워크스페이스 생성 후 자동으로 TRUE가 됨.
