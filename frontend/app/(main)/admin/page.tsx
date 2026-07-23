@@ -13,6 +13,7 @@ import {
 import { useSubmit } from "@/lib/useSubmit";
 import { SubmitButton } from "@/components/SubmitButton";
 import DocConfigTab from "@/components/admin/DocConfigTab";
+import { formatPhoneKR, normalizePhoneInput, formatBizKR, normalizeBizInput } from "@/lib/koreanFormat";
 import AccountSecurityPanel from "@/components/admin/AccountSecurityPanel";
 import ActivationLinkResult, { type ActivationLinkInfo } from "@/components/admin/ActivationLinkResult";
 
@@ -282,6 +283,20 @@ function CreateAccountModal({
     </div>
   );
 
+  // 전화·사업자번호 — 입력 중 하이픈 표시, state 는 digits-only.
+  const FFmt = (name: string, label: string, placeholder: string,
+                fmt: (v: string) => string, norm: (v: string) => string) => (
+    <div key={name}>
+      <label className="block text-[11px] font-medium mb-1" style={{ color: "#718096" }}>{label}</label>
+      <input
+        className="hw-input w-full text-xs"
+        value={fmt(((form as Record<string, string | boolean>)[name] as string) || "")}
+        onChange={(e) => setForm((p) => ({ ...p, [name]: norm(e.target.value) }))}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.login_id.trim() || !form.password.trim() || !form.office_name.trim()) {
@@ -389,7 +404,7 @@ function CreateAccountModal({
               사업자 / 행정사 정보
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {F("biz_reg_no", "사업자등록번호", "000-00-00000")}
+              {FFmt("biz_reg_no", "사업자등록번호", "000-00-00000", formatBizKR, normalizeBizInput)}
               <div>
                 <label className="block text-[11px] font-medium mb-1" style={{ color: "#718096" }}>행정사 주민등록번호</label>
                 <div className="text-[11px] px-2 py-2 rounded" style={{ color: "#A0AEC0", background: "#F7FAFC" }}>
@@ -397,7 +412,7 @@ function CreateAccountModal({
                 </div>
               </div>
               {F("contact_name", "담당자명", "")}
-              {F("contact_tel", "연락처", "010-0000-0000")}
+              {FFmt("contact_tel", "연락처", "010-0000-0000", formatPhoneKR, normalizePhoneInput)}
             </div>
           </div>
 
@@ -582,16 +597,29 @@ function AccountDetailPanel({
     </div>
   );
 
+  // 전화·사업자번호 — 입력 중 하이픈 표시, state 는 digits-only 저장.
+  const FFmt = (key: string, label: string, fmt: (v: string) => string, norm: (v: string) => string) => (
+    <div key={key}>
+      <label className="block text-[11px] font-medium mb-1" style={{ color: "#718096" }}>{label}</label>
+      <input
+        className="hw-input w-full text-xs"
+        value={fmt(form[key] || "")}
+        onChange={(e) => setForm((p) => ({ ...p, [key]: norm(e.target.value) }))}
+      />
+    </div>
+  );
+
   const handleSave = () => {
     submitSave(
       async () => {
-        const {
-          login_id, password_hash, is_admin, is_active, created_at,
-          // eslint-disable-next-line no-unused-vars
-          ...editable
-        } = form;
-        void login_id; void password_hash; void is_admin; void is_active; void created_at;
-        onUpdate(acc.login_id, editable);
+        // 화이트리스트 — 연락처/표시정보 5개만 전송(tenant_id·권한·상태·메타·formatted 미전송).
+        onUpdate(acc.login_id, {
+          office_name: form.office_name ?? "",
+          office_adr: form.office_adr ?? "",
+          contact_name: form.contact_name ?? "",
+          contact_tel: form.contact_tel ?? "",   // digits-only
+          biz_reg_no: form.biz_reg_no ?? "",     // digits-only
+        });
         onClose();
       },
       { successMessage: "" }
@@ -616,8 +644,8 @@ function AccountDetailPanel({
             {F("tenant_id", "테넌트 ID", true)}
             <div className="col-span-2">{F("office_adr", "사무실 주소")}</div>
             {F("contact_name", "담당자명")}
-            {F("contact_tel", "연락처")}
-            {F("biz_reg_no", "사업자등록번호")}
+            {FFmt("contact_tel", "연락처", formatPhoneKR, normalizePhoneInput)}
+            {FFmt("biz_reg_no", "사업자등록번호", formatBizKR, normalizeBizInput)}
             <AgentRrnField loginId={acc.login_id} />
           </div>
 
@@ -1970,8 +1998,8 @@ export default function AdminPage() {
                       <td className="text-xs font-medium">{acc.office_name}</td>
                       <td className="text-xs max-w-[140px] truncate" style={{ color: "#718096" }} title={acc.office_adr}>{acc.office_adr}</td>
                       <td className="text-xs" style={{ color: "#718096" }}>{acc.contact_name}</td>
-                      <td className="text-xs" style={{ color: "#718096" }}>{acc.contact_tel}</td>
-                      <td className="text-xs font-mono" style={{ color: "#718096" }}>{acc.biz_reg_no}</td>
+                      <td className="text-xs" style={{ color: "#718096" }}>{acc.contact_tel_formatted || formatPhoneKR(acc.contact_tel || "")}</td>
+                      <td className="text-xs font-mono" style={{ color: "#718096" }}>{acc.biz_reg_no_formatted || formatBizKR(acc.biz_reg_no || "")}</td>
                       <td className="text-xs font-mono" style={{ color: "#718096" }}>
                         {String(acc.has_agent_rrn) === "true"
                           ? `등록됨 ***${acc.agent_rrn_last4 || ""}`
