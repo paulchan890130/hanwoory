@@ -354,6 +354,20 @@ def _is_system_admin(current_user: dict) -> bool:
     return bool(current_user.get("is_system_admin") or current_user.get("is_master"))
 
 
+def _office_role_for(is_admin: bool, source_application_id, current_user: dict) -> Optional[str]:
+    """canonical 사무소 역할 — DB role(admin/user/sub_admin) 저장 체계와 **분리**해 계산한다.
+
+    - system admin/master → None
+    - 승인형 사무소 계정(tenant.source_application_id 존재) + is_admin → "office_admin"
+    - 승인형 사무소 계정 + not is_admin → "office_staff"
+    - 그 외(레거시 비-SaaS) → None (문서 필수정보/온보딩 강제 안 함)"""
+    if _is_system_admin(current_user):
+        return None
+    if not (str(source_application_id or "").strip()):
+        return None
+    return "office_admin" if is_admin else "office_staff"
+
+
 def _compute_profile(role: str, *, office_name, office_adr, contact_name,
                      contact_tel_effective, biz_reg_no, agent_rrn_registered) -> tuple[bool, list[str]]:
     """역할별 문서 자동작성 필수정보 완성도. (complete, missing_keys). 비-office 역할은 완성 처리(경고 억제)."""
@@ -402,11 +416,14 @@ def get_me(current_user: dict = Depends(get_current_user)):
     login_id = current_user.get("login_id", "")
     acc = find_account(login_id) or {}
     role = acc.get("role", "") or ""
+    acc_is_admin = str(acc.get("is_admin", "")).upper() in ("TRUE", "Y", "1")
+    # canonical 사무소 역할(DB role 과 분리) — profile/onboarding 판정은 이 값을 쓴다.
+    office_role = _office_role_for(acc_is_admin, acc.get("source_application_id", ""), current_user)
 
     contact_tel = acc.get("contact_tel", "") or ""
     contact_tel_source = "stored"
     # 대표자(office_admin) 연락처 미기입 + 승인 신청서에 유효한 office_phone → 표시용 fallback(GET 은 DB 미수정).
-    if role == "office_admin" and not normalize_phone(contact_tel):
+    if office_role == "office_admin" and not normalize_phone(contact_tel):
         app_id = acc.get("source_application_id", "") or ""
         if app_id:
             try:
@@ -424,20 +441,21 @@ def get_me(current_user: dict = Depends(get_current_user)):
     agent_rrn_last4 = acc.get("agent_rrn_last4", "") or ""
 
     complete, missing = _compute_profile(
-        role,
+        office_role or "",
         office_name=acc.get("office_name", ""), office_adr=acc.get("office_adr", ""),
         contact_name=acc.get("contact_name", ""), contact_tel_effective=contact_tel,
         biz_reg_no=biz_reg_no, agent_rrn_registered=agent_rrn_registered,
     )
 
     done_ver = _read_onboarding_version(login_id)
-    # 시스템 관리자는 신규 tenant 용 tour 를 강제하지 않는다.
-    onboarding_required = (not _is_system_admin(current_user)) and (
-        role in _PROFILE_REQUIRED) and (done_ver is None or int(done_ver) < ONBOARDING_VERSION)
+    # 시스템 관리자는 신규 tenant 용 tour 를 강제하지 않는다. office_role 기준으로만 강제.
+    onboarding_required = (office_role in _PROFILE_REQUIRED) and (
+        done_ver is None or int(done_ver) < ONBOARDING_VERSION)
 
     return {
         **current_user,
         "role":                 role or current_user.get("role", ""),
+        "office_role":          office_role,
         "office_name":          acc.get("office_name", "") or current_user.get("office_name", ""),
         "office_adr":           acc.get("office_adr", ""),
         "contact_name":         acc.get("contact_name", "") or current_user.get("contact_name", ""),
@@ -573,23 +591,32 @@ def update_my_agent_rrn(body: AgentRrnMeRequest, current_user: dict = Depends(ge
 
 @router.post("/me/onboarding/complete")
 def complete_my_onboarding(body: OnboardingCompleteRequest, current_user: dict = Depends(get_current_user)):
-    """최초 로그인 온보딩 완료/건너뛰기 기록 — 현재 사용자에게만. 다른 tenant/user 미수정."""
+    """최초 로그인 온보딩 완료/건너뛰기 기록 — 현재 사용자에게만. 다른 tenant/user 미수정.
+    action 은 completed|skipped, version 은 현재 ONBOARDING_VERSION 과 정확히 일치해야 한다(그 외 400)."""
     from datetime import datetime, timezone
     from sqlalchemy import select
     from backend.db.models.user import AccountUser
     from backend.db.session import get_sessionmaker
 
+    if body.action not in ("completed", "skipped"):
+        raise HTTPException(status_code=400, detail={
+            "code": "INVALID_ONBOARDING_ACTION", "message": "action 은 completed 또는 skipped 여야 합니다."})
+    if int(body.version) != ONBOARDING_VERSION:
+        raise HTTPException(status_code=400, detail={
+            "code": "INVALID_ONBOARDING_VERSION",
+            "message": "온보딩 버전이 현재 버전과 일치하지 않습니다.",
+            "expected_version": ONBOARDING_VERSION})
+
     login_id = current_user.get("login_id", "")
-    ver = int(body.version or ONBOARDING_VERSION)
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         u = session.scalar(select(AccountUser).where(AccountUser.login_id == login_id))
         if u is None:
             raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
-        u.onboarding_completed_version = ver
+        u.onboarding_completed_version = ONBOARDING_VERSION
         u.onboarding_completed_at = datetime.now(timezone.utc)
         session.commit()
-    return {"ok": True, "onboarding_version": ver, "action": body.action}
+    return {"ok": True, "onboarding_version": ONBOARDING_VERSION, "action": body.action}
 
 
 @router.patch("/me/password")

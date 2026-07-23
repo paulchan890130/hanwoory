@@ -5,8 +5,8 @@ import { test, expect, Page, Route } from "@playwright/test";
 // SSR 백엔드 없이 route interception 으로 셸 endpoint 를 mock 한다.
 
 const ME_ADMIN = {
-  login_id: "admin@test", tenant_id: "t1", role: "office_admin",
-  is_admin: false, is_master: false, office_name: "테스트사무소",
+  login_id: "admin@test", tenant_id: "t1", role: "admin", office_role: "office_admin",
+  is_admin: true, is_master: false, office_name: "테스트사무소",
   onboarding_required: true, onboarding_version: 1,
   profile_complete: false, missing_profile_fields: ["agent_rrn"],
 };

@@ -30,10 +30,15 @@ CURRENT_ONBOARDING_VERSION = 1
 def upgrade() -> None:
     op.add_column("users", sa.Column("onboarding_completed_version", sa.Integer(), nullable=True))
     op.add_column("users", sa.Column("onboarding_completed_at", sa.DateTime(timezone=True), nullable=True))
-    # 기존 사용자 backfill — 현재 버전 완료 처리(신규 초대 사용자만 NULL=미완료로 시작).
+    # 기존 사용자 backfill — 현재 버전 완료 처리하되, **account_status='invited'(아직 최초 로그인 전
+    # 초대 상태)는 NULL 로 남겨** 활성화 후 최초 로그인에서 안내가 뜨게 한다. active/기타(정지·교체·
+    # 비활성 등) 기존 사용자는 갑작스런 팝업 방지를 위해 완료 처리. version 과 시각이 모순되지 않게
+    # onboarding_completed_at 도 migration 실행 시각으로 채운다. account_status 는 0031 에서 추가됨
+    # (0032 down_revision) → 항상 존재. NULL 이면 active 로 간주.
     op.execute(
-        "UPDATE users SET onboarding_completed_version = %d "
-        "WHERE onboarding_completed_version IS NULL" % CURRENT_ONBOARDING_VERSION
+        "UPDATE users SET onboarding_completed_version = %d, onboarding_completed_at = now() "
+        "WHERE onboarding_completed_version IS NULL "
+        "AND COALESCE(account_status, 'active') <> 'invited'" % CURRENT_ONBOARDING_VERSION
     )
 
 

@@ -51,7 +51,9 @@ def engine():
     from backend.db.models.user import AccountUser
     from backend.db.models.user_session import UserSession
     from backend.db.models.activation_token import ActivationToken
-    tables = [Tenant.__table__, AccountUser.__table__, UserSession.__table__, ActivationToken.__table__]
+    from backend.db.models.office_application import OfficeApplication
+    tables = [Tenant.__table__, AccountUser.__table__, UserSession.__table__,
+              ActivationToken.__table__, OfficeApplication.__table__]
     # 격리: 우리 테이블만 drop 후 재생성(빈 CI DB 기준 — 다른 테이블 FK 없음).
     Base.metadata.drop_all(eng, tables=list(reversed(tables)))
     Base.metadata.create_all(eng, tables=tables)
@@ -68,7 +70,8 @@ def db(engine, monkeypatch):
     monkeypatch.setattr(dbs, "is_configured", lambda: True)
     # 각 테스트 전 초기화.
     with engine.begin() as c:
-        c.execute(text("TRUNCATE activation_tokens, user_sessions, users, tenants RESTART IDENTITY CASCADE"))
+        c.execute(text("TRUNCATE office_applications, activation_tokens, user_sessions, users, tenants "
+                       "RESTART IDENTITY CASCADE"))
     return SessionLocal
 
 
@@ -624,3 +627,70 @@ def test_concurrent_same_token_activation(db):
     assert len(errs) == 1, results        # 정확히 1건 실패
     assert errs[0][1] == "BAD_TOKEN", results
     assert _token_used(db, raw) is True   # 성공분이 소비
+
+
+# ── PART A: 실제 approve → DB role(admin/user) → canonical office_role ───────────
+def test_approve_sets_db_roles_and_office_role(db):
+    """실제 승인 흐름: 대표자 role=admin/is_admin, 실무자 role=user/not admin;
+    office_role 은 별도 canonical 계산(source_application_id 존재 + is_admin)."""
+    from backend.services import office_application_pg_service as oa
+    from backend.routers.auth import _office_role_for
+    from backend.db.models.user import AccountUser
+    from backend.db.models.tenant import Tenant
+
+    app = oa.create_application({
+        "office_name": "역할테스트사무소",
+        "representative_name": "대표자", "representative_email": "rep_role@example.com",
+        "staff_name": "실무자", "staff_email": "staff_role@example.com",
+        "business_registration_number": "1112233445",
+        "office_address": "서울시 어딘가", "office_phone": "021234567",
+    })
+    res = oa.approve(app["application_id"], reviewer="reviewer@test")
+    tid = res["tenant_id"]
+
+    with db() as s:
+        rep = s.scalar(select(AccountUser).where(AccountUser.login_id == "rep_role@example.com"))
+        staff = s.scalar(select(AccountUser).where(AccountUser.login_id == "staff_role@example.com"))
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == tid))
+        assert rep is not None and staff is not None and t is not None
+        # DB role 저장 체계는 admin/user 그대로(office_admin/office_staff 로 바꾸지 않음).
+        assert rep.role == "admin" and rep.is_admin is True
+        assert staff.role == "user" and staff.is_admin is False
+        src = t.source_application_id
+        assert src, "승인 tenant 에 source_application_id 연결"
+
+        cur = {"is_system_admin": False, "is_master": False}
+        assert _office_role_for(rep.is_admin, src, cur) == "office_admin"
+        assert _office_role_for(staff.is_admin, src, cur) == "office_staff"
+        # 시스템 관리자 → None(투어/필수정보 강제 안 함)
+        assert _office_role_for(True, src, {"is_master": True}) is None
+        # 비-SaaS(source 없음) → None
+        assert _office_role_for(True, "", cur) is None
+
+
+# ── PART B: migration 0032 backfill 의미(invited→NULL, active/기타→1, 신규→NULL) ──
+def test_onboarding_backfill_invited_preserved(db, engine):
+    from backend.db.models.user import AccountUser
+    _mk_tenant(db, seat_limit=9)
+    _mk_user(db, "act@of1.kr", is_active=True, account_status="active")
+    _mk_user(db, "inv@of1.kr", is_active=False, account_status="invited")
+    _mk_user(db, "sus@of1.kr", is_active=False, account_status="suspended")
+    # migration 0032 upgrade() 의 backfill 과 동일한 UPDATE(모델 컬럼은 create_all 로 이미 존재, 기본 NULL).
+    with engine.begin() as c:
+        c.execute(text(
+            "UPDATE users SET onboarding_completed_version = 1, onboarding_completed_at = now() "
+            "WHERE onboarding_completed_version IS NULL "
+            "AND COALESCE(account_status, 'active') <> 'invited'"))
+    # deferred 컬럼은 세션 밖 접근 시 detach 오류 → 컬럼을 직접 SELECT.
+    with db() as s:
+        got = {lid: ver for lid, ver in s.execute(
+            select(AccountUser.login_id, AccountUser.onboarding_completed_version)).all()}
+    assert got["act@of1.kr"] == 1           # 기존 active → 완료 처리(팝업 방지)
+    assert got["sus@of1.kr"] == 1           # suspended 등 기타 기존 → 1 가능
+    assert got["inv@of1.kr"] is None        # invited → NULL(활성화 후 최초 로그인에 안내)
+    # migration 이후 신규 insert → 기본값 없이 NULL
+    _mk_user(db, "new@of1.kr", is_active=True, account_status="active")
+    with db() as s:
+        ver = s.execute(select(AccountUser.onboarding_completed_version)
+                        .where(AccountUser.login_id == "new@of1.kr")).scalar_one()
+    assert ver is None

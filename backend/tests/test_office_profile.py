@@ -54,30 +54,87 @@ def test_profile_non_office_role_not_nagged():
     assert complete is True and missing == []
 
 
-# ── 문서생성 게이트 (quick_doc._office_profile_missing / _require_office_profile) ──
-def test_docgen_gate_all_empty_blocks_409():
-    from backend.routers.quick_doc import _require_office_profile
+# ── 문서별 필수정보 게이트 (quick_doc._require_office_profile_for_docs) ──────────
+def test_office_field_missing_per_field():
+    from backend.routers.quick_doc import _office_field_missing
+    ok = {"contact_tel": "01012345678", "biz_reg_no": "2131237464", "agent_rrn": "9001011234567",
+          "agent_rrn_registered": True, "agent_rrn_decrypt_failed": False}
+    assert _office_field_missing(ok, "agent_tel") is False
+    assert _office_field_missing(ok, "agent_biz_no") is False
+    assert _office_field_missing(ok, "agent_rrn") is False
+    assert _office_field_missing({"contact_tel": ""}, "agent_tel") is True
+    assert _office_field_missing({"biz_reg_no": "123"}, "agent_biz_no") is True
+    assert _office_field_missing({"agent_rrn": ""}, "agent_rrn") is True
+    # 복호화 실패는 조용히 통과시키지 않는다(빈 문자열이어도 missing=True)
+    assert _office_field_missing({"agent_rrn": "", "agent_rrn_decrypt_failed": True}, "agent_rrn") is True
+
+
+def test_docgen_gate_blocks_only_used_fields(monkeypatch):
+    # 문서가 실제 쓰는 필드만 검사 — agent_rrn 만 쓰는 문서에서 RRN 누락 → 409.
+    import backend.routers.quick_doc as qd
     from fastapi import HTTPException
-    acc = {"office_name": "", "contact_tel": "", "agent_rrn": ""}
+    monkeypatch.setattr(qd, "_template_agent_fields", lambda tpl: {"agent_rrn"} if tpl == "doc-rrn" else set())
+    monkeypatch.setattr(qd, "_resolve_template_path", lambda name: name)
+    acc = {"office_name": "한우리", "contact_tel": "01012345678", "biz_reg_no": "2131237464",
+           "agent_rrn": "", "agent_rrn_registered": False, "agent_rrn_decrypt_failed": False}
     with pytest.raises(HTTPException) as ei:
-        _require_office_profile(acc)
+        qd._require_office_profile_for_docs(acc, ["doc-rrn"])
     assert ei.value.status_code == 409
     assert ei.value.detail.get("code") == "OFFICE_PROFILE_INCOMPLETE"
+    assert ei.value.detail.get("missing") == ["agent_rrn"]
 
 
-def test_docgen_gate_partial_profile_passes():
-    # 일부라도 있으면 통과(불필요 문서까지 일괄 차단하지 않음).
-    from backend.routers.quick_doc import _require_office_profile
-    _require_office_profile({"office_name": "한우리", "contact_tel": "", "agent_rrn": ""})  # 예외 없음
-    _require_office_profile({"office_name": "", "contact_tel": "01012345678", "agent_rrn": ""})
-    _require_office_profile(None)  # 계정 없음 → 통과(사무소정보 없이 생성 허용)
+def test_docgen_gate_customer_only_doc_passes(monkeypatch):
+    # 고객정보만 쓰는 문서(행정사 필드 미사용) → RRN 없어도 통과(일괄 차단 금지).
+    import backend.routers.quick_doc as qd
+    monkeypatch.setattr(qd, "_template_agent_fields", lambda tpl: set())
+    monkeypatch.setattr(qd, "_resolve_template_path", lambda name: name)
+    acc = {"office_name": "", "contact_tel": "", "agent_rrn": ""}
+    qd._require_office_profile_for_docs(acc, ["customer-only"])  # 예외 없음
+    qd._require_office_profile_for_docs(None, ["customer-only"])  # 계정 없음도 통과
 
 
-def test_docgen_missing_list():
-    from backend.routers.quick_doc import _office_profile_missing
-    assert set(_office_profile_missing({"office_name": "", "contact_tel": "", "agent_rrn": ""})) == {
-        "office_name", "contact_tel", "agent_rrn"}
-    assert _office_profile_missing({"office_name": "x", "contact_tel": "01012345678", "agent_rrn": "9001011234567"}) == []
+def test_docgen_gate_decrypt_failure_blocks(monkeypatch):
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    monkeypatch.setattr(qd, "_template_agent_fields", lambda tpl: {"agent_rrn"})
+    monkeypatch.setattr(qd, "_resolve_template_path", lambda name: name)
+    acc = {"office_name": "한우리", "contact_tel": "01012345678", "biz_reg_no": "2131237464",
+           "agent_rrn": "", "agent_rrn_registered": True, "agent_rrn_decrypt_failed": True}
+    with pytest.raises(HTTPException) as ei:
+        qd._require_office_profile_for_docs(acc, ["d"])
+    assert ei.value.status_code == 409 and ei.value.detail.get("missing") == ["agent_rrn"]
+
+
+# ── PART A: canonical office_role (DB role 과 분리) ─────────────────────────────
+def test_office_role_computation():
+    from backend.routers.auth import _office_role_for
+    assert _office_role_for(True, "app-1", {}) == "office_admin"
+    assert _office_role_for(False, "app-1", {}) == "office_staff"
+    assert _office_role_for(True, "", {}) is None          # 비-SaaS(source 없음)
+    assert _office_role_for(False, None, {}) is None
+    assert _office_role_for(True, "app-1", {"is_master": True}) is None
+    assert _office_role_for(True, "app-1", {"is_system_admin": True}) is None
+
+
+# ── PART C: 온보딩 완료 API 검증(action/version) ─────────────────────────────────
+def test_onboarding_complete_rejects_bad_action():
+    from backend.routers.auth import complete_my_onboarding, OnboardingCompleteRequest, ONBOARDING_VERSION
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as ei:
+        complete_my_onboarding(OnboardingCompleteRequest(version=ONBOARDING_VERSION, action="bogus"),
+                               current_user={"login_id": "x"})
+    assert ei.value.status_code == 400 and ei.value.detail["code"] == "INVALID_ONBOARDING_ACTION"
+
+
+def test_onboarding_complete_rejects_bad_version():
+    from backend.routers.auth import complete_my_onboarding, OnboardingCompleteRequest, ONBOARDING_VERSION
+    from fastapi import HTTPException
+    for bad in (0, -1, ONBOARDING_VERSION + 1):
+        with pytest.raises(HTTPException) as ei:
+            complete_my_onboarding(OnboardingCompleteRequest(version=bad, action="completed"),
+                                   current_user={"login_id": "x"})
+        assert ei.value.status_code == 400 and ei.value.detail["code"] == "INVALID_ONBOARDING_VERSION"
 
 
 # ── 자가점검 게시글 placement (backend) ───────────────────────────────────────

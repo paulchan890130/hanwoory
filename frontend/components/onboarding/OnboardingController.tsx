@@ -7,6 +7,7 @@
 // - route 가 바뀌어도 단계 유지(컨트롤러가 셸에 상주). 화면 밖 대상은 scrollIntoView 후 강조.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { getUser } from "@/lib/auth";
 import { authApi } from "@/lib/api";
 
@@ -55,14 +56,16 @@ export default function OnboardingController() {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const versionRef = useRef(ONBOARDING_VERSION);
   const loginRef = useRef("");
+  const manualRef = useRef(false);   // true = '사용법 다시 보기'(서버 상태 미변경)
 
-  const start = useCallback((isAdmin: boolean) => {
+  const start = useCallback((isAdmin: boolean, manual = false) => {
+    manualRef.current = manual;
     setSteps(buildSteps(isAdmin));
     setIdx(0);
     setOpen(true);
   }, []);
 
-  // 자동 표시(서버 권위) — 최초 마운트 1회.
+  // 자동 표시(서버 권위) — 최초 마운트 1회. office_role(canonical) 기준.
   useEffect(() => {
     const u = getUser();
     loginRef.current = u?.login_id ?? "";
@@ -71,26 +74,27 @@ export default function OnboardingController() {
       .then((r) => {
         if (cancelled) return;
         const d = r.data as {
-          onboarding_required?: boolean; onboarding_version?: number;
-          role?: string; is_admin?: boolean; is_master?: boolean;
+          onboarding_required?: boolean; onboarding_version?: number; office_role?: string | null;
         };
         versionRef.current = d.onboarding_version ?? ONBOARDING_VERSION;
         const gk = `onboarding_done_${loginRef.current}_v${versionRef.current}`;
         if (localStorage.getItem(gk) === "1") return;         // 이미 완료/건너뜀(로컬 가드)
         if (!d.onboarding_required) return;                   // 서버가 불필요 판단(기존·시스템관리자)
-        const isAdmin = d.role === "office_admin" || !!d.is_admin || !!d.is_master;
-        start(isAdmin);
+        start(d.office_role === "office_admin", false);
       })
       .catch(() => {/* 실패 시 강제 표시하지 않음 */});
     return () => { cancelled = true; };
   }, [start]);
 
-  // "사용법 다시 보기" — 언제든 재시작(서버 상태 미변경).
+  // "사용법 다시 보기" — 언제든 재시작(서버 상태 미변경). office_role 은 /me 로 재조회.
   useEffect(() => {
     const onRestart = () => {
-      const u = getUser();
-      const isAdmin = u?.role === "office_admin" || !!u?.is_admin || !!u?.is_master;
-      start(isAdmin);
+      authApi.me()
+        .then((r) => start((r.data as { office_role?: string | null }).office_role === "office_admin", true))
+        .catch(() => {
+          const u = getUser();
+          start(!!u?.is_admin || !!u?.is_master, true);
+        });
     };
     window.addEventListener("restart-onboarding", onRestart as EventListener);
     return () => window.removeEventListener("restart-onboarding", onRestart as EventListener);
@@ -140,11 +144,20 @@ export default function OnboardingController() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, open, pathname]);
 
-  const finish = useCallback((action: "completed" | "skipped") => {
+  const finish = useCallback(async (action: "completed" | "skipped") => {
+    // '사용법 다시 보기'(manual)는 서버 상태를 변경하지 않고 닫기만 한다.
+    if (manualRef.current) { setOpen(false); setRect(null); return; }
+    // 자동 온보딩: **서버 먼저 기록 → 성공 시에만** localStorage 가드 + 닫기.
+    // 실패 시 localStorage 미기록(다음 로그인에 다시 표시) + 안내.
+    try {
+      await authApi.completeOnboarding(versionRef.current, action);
+    } catch {
+      toast.error("온보딩 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    try { localStorage.setItem(guardKey(loginRef.current), "1"); } catch { /* noop */ }
     setOpen(false);
     setRect(null);
-    try { localStorage.setItem(guardKey(loginRef.current), "1"); } catch { /* noop */ }
-    authApi.completeOnboarding(versionRef.current, action).catch(() => {/* 기록 실패 무시 */});
   }, []);
 
   if (!open || !step) return null;

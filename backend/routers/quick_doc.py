@@ -257,43 +257,93 @@ def _load_account(tenant_id: str) -> Optional[dict]:
             return None
         cipher = str(acc.pop("agent_rrn_encrypted", "") or "")
         agent_rrn = ""
+        acc["agent_rrn_registered"] = bool(cipher)   # 등록 여부(암호문 존재)
+        acc["agent_rrn_decrypt_failed"] = False
         if cipher:
             try:
                 from backend.services.pii_crypto import decrypt_agent_rrn
                 agent_rrn = decrypt_agent_rrn(cipher)
             except Exception:
-                # 민감정보 없는 경고만(평문/암호문 미기록). PDF 는 agent_rrn 빈 값으로 계속 진행.
-                print("[quick_doc._load_account] agent_rrn decrypt failed → blank")
+                # 민감정보 없는 경고만(평문/암호문 미기록). 빈 값으로 두되, 필수 문서 게이트가
+                # 조용히 통과시키지 않도록 decrypt 실패 플래그를 남긴다.
+                print("[quick_doc._load_account] agent_rrn decrypt failed → flagged")
                 agent_rrn = ""
+                acc["agent_rrn_decrypt_failed"] = True
         acc["agent_rrn"] = agent_rrn
         return acc
     except Exception:
         return None
 
 
-def _office_profile_missing(account: Optional[dict]) -> list[str]:
-    """사무소 문서 필수정보 중 비어 있는 핵심 항목(사무소명·대표연락처·행정사 주민번호)."""
+# 문서 field contract → 이 필드를 실제로 쓰는 문서만 해당 사무소 정보를 요구한다.
+_AGENT_FIELD_KEYS = ("agent_rrn", "agent_biz_no", "agent_tel")
+_AGENT_FIELD_LABEL = {"agent_rrn": "행정사 주민등록번호", "agent_biz_no": "사업자등록번호", "agent_tel": "대표 전화번호"}
+_TEMPLATE_AGENT_FIELDS_CACHE: dict = {}   # path → (mtime, frozenset(agent fields present))
+
+
+def _template_agent_fields(template_path: Optional[str]) -> set:
+    """템플릿(PDF)이 실제로 사용하는 행정사 필드 집합(agent_rrn/agent_biz_no/agent_tel).
+    PDF 위젯 이름을 정규화해 대조한다. 비-PDF/오류/미존재 → 빈 집합(과차단 방지)."""
+    if not template_path:
+        return set()
+    abs_path = template_path if os.path.isabs(template_path) else os.path.join(_TEMPLATES_DIR, template_path)
+    try:
+        if not os.path.exists(abs_path) or not abs_path.lower().endswith(".pdf"):
+            return set()
+        mtime = os.path.getmtime(abs_path)
+        cached = _TEMPLATE_AGENT_FIELDS_CACHE.get(abs_path)
+        if cached and cached[0] == mtime:
+            return set(cached[1])
+        import fitz  # PyMuPDF
+        found = set()
+        with fitz.open(abs_path) as doc:
+            for page in doc:
+                for w in (page.widgets() or []):
+                    base = normalize_field_name(getattr(w, "field_name", "") or "")
+                    if base in _AGENT_FIELD_KEYS:
+                        found.add(base)
+        _TEMPLATE_AGENT_FIELDS_CACHE[abs_path] = (mtime, frozenset(found))
+        return found
+    except Exception:
+        return set()   # 템플릿 검사 실패 시 과차단하지 않음
+
+
+def _office_field_missing(account: Optional[dict], field: str) -> bool:
+    """해당 행정사 필드가 문서에 쓸 수 없는 상태인지(미등록/무효/복호화 실패)."""
     if not account:
-        return []
-    from backend.services.korean_identifier_format import validate_phone
-    checks = {
-        "office_name": bool(str(account.get("office_name", "") or "").strip()),
-        "contact_tel": validate_phone(str(account.get("contact_tel", "") or "")),
-        "agent_rrn":   bool(str(account.get("agent_rrn", "") or "").strip()),
-    }
-    return [k for k, ok in checks.items() if not ok]
+        return True
+    from backend.services.korean_identifier_format import validate_phone, validate_biz_reg_no
+    if field == "agent_tel":
+        return not validate_phone(str(account.get("contact_tel", "") or ""))
+    if field == "agent_biz_no":
+        return not validate_biz_reg_no(str(account.get("biz_reg_no", "") or ""))
+    if field == "agent_rrn":
+        # 미등록 또는 복호화 실패(조용한 빈값 통과 금지) 또는 빈 값.
+        if account.get("agent_rrn_decrypt_failed"):
+            return True
+        return not str(account.get("agent_rrn", "") or "").strip()
+    return False
 
 
-def _require_office_profile(account: Optional[dict]) -> None:
-    """사무소 필수정보가 **전부** 미기입이면 조용히 빈 문서를 만들지 않고 409.
-    보수적 게이트 — 셋 중 하나라도 있으면 통과(부분정보 문서까지 일괄 차단하지 않는다)."""
-    miss = _office_profile_missing(account)
-    if account is not None and len(miss) == 3:
+def _require_office_profile_for_docs(account: Optional[dict], selected_docs: list) -> None:
+    """선택 문서들이 실제로 사용하는 행정사 필드만 검사 → 누락 시 409(문서별 정확한 missing).
+    고객정보만 쓰는 문서(행정사 필드 미사용)는 차단하지 않는다. 계정 미존재면 통과(사무소정보 없이 생성)."""
+    if account is None:
+        return
+    used: set = set()
+    for doc_name in (selected_docs or []):
+        try:
+            tpl = _resolve_template_path(doc_name)
+        except Exception:
+            tpl = None
+        used |= _template_agent_fields(tpl)
+    missing = [f for f in _AGENT_FIELD_KEYS if f in used and _office_field_missing(account, f)]
+    if missing:
         raise HTTPException(status_code=409, detail={
             "code": "OFFICE_PROFILE_INCOMPLETE",
-            "message": "문서 자동작성에 필요한 사무소 정보가 없습니다. "
-                       "마이페이지에서 행정사 주민등록번호와 연락처를 입력하세요.",
-            "missing": miss,
+            "message": "이 문서에 필요한 사무소 정보가 없습니다. 마이페이지에서 "
+                       + ", ".join(_AGENT_FIELD_LABEL[f] for f in missing) + "을(를) 입력하세요.",
+            "missing": missing,
         })
 
 
@@ -1743,7 +1793,7 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
 
     # ── 행정사(account) 정보 조회 ──
     account = _load_account(tenant_id)
-    _require_office_profile(account)
+    _require_office_profile_for_docs(account, req.selected_docs)
 
     # ── 미성년 판별 ──
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
@@ -2148,7 +2198,9 @@ def _collect_full_field_values(req: "FullDocGenRequest", user: dict) -> dict:
     aggregator = find_customer(req.aggregator_id)
 
     account = _load_account(tenant_id)
-    _require_office_profile(account)
+    # HWPX 템플릿은 PDF 위젯 검사 대상이 아니라 필드 계약을 확정할 수 없어 과차단하지 않는다
+    # (누락 예방은 마이페이지/온보딩 UX 가 담당). PDF 문서가 섞인 경우만 해당 필드 게이트 적용.
+    _require_office_profile_for_docs(account, getattr(req, "selected_docs", None) or [])
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
 
     kind   = req.kind   if req.kind   and req.kind   != "x" else ""
@@ -2800,7 +2852,8 @@ def _quick_poa_impl(req: QuickPoaRequest, user: dict):
     # 행정사 계정 정보 조회
     tenant_id = user.get("tenant_id") or user.get("sub", "")
     account = _load_account(tenant_id)
-    _require_office_profile(account)
+    # 선택된 원클릭 출력(DOC_TEMPLATES 키)이 실제로 쓰는 행정사 필드만 검사.
+    _require_office_profile_for_docs(account, list(req.selected_outputs or ["위임장"]))
 
     row = {
         "한글": req.kor_name.strip(),

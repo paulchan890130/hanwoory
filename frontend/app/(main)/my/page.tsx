@@ -18,9 +18,13 @@ const LOGO_MAX_BYTES = 200 * 1024;
 const LOGO_ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
 const LOGO_ACCEPT = LOGO_ALLOWED_MIME.join(",");
 
+const lblStyle: React.CSSProperties = { display: "block", fontSize: 11, color: "#718096", marginBottom: 4, fontWeight: 600 };
+const inpStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+
 interface MyInfo {
   login_id: string;
   role?: string;
+  office_role?: string | null;
   is_admin?: boolean;
   is_master?: boolean;
   office_name: string;
@@ -429,7 +433,9 @@ export default function MyPage() {
   }, []);
 
   // 대표자(사무소 관리자) 또는 전체 관리자만 tenant 공통정보(사무소명·주소·사업자번호·주민번호) 편집.
-  const canEditTenant = info.role === "office_admin" || !!info.is_admin || !!info.is_master;
+  // canonical office_role 기준(DB role=admin/user 와 분리).
+  const canEditTenant = info.office_role === "office_admin" || !!info.is_admin || !!info.is_master;
+  const isStaff = info.office_role === "office_staff";
 
   const handleInfoSave = () => {
     submitInfo(
@@ -510,21 +516,25 @@ export default function MyPage() {
             {" "}이 정보가 없으면 문서 자동작성 결과에 필수정보가 누락될 수 있습니다.
           </div>
         )}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+        {/* auto-fit → 320px 등 좁은 화면에서 자동 1열 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0 16px" }}>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="사무소명" value={info.office_name}
-              onChange={canEditTenant ? (v) => setInfo((p) => ({ ...p, office_name: v })) : () => {}} />
+            <label style={lblStyle}>사무소명</label>
+            <input className="hw-input" style={{ ...inpStyle, background: canEditTenant ? "#fff" : "#F7FAFC" }}
+              value={info.office_name} readOnly={!canEditTenant}
+              onChange={(e) => setInfo((p) => ({ ...p, office_name: e.target.value }))} />
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="사무소 주소" value={info.office_adr}
-              onChange={canEditTenant ? (v) => setInfo((p) => ({ ...p, office_adr: v })) : () => {}}
-              placeholder="사무소 주소" />
+            <label style={lblStyle}>사무소 주소</label>
+            <input className="hw-input" style={{ ...inpStyle, background: canEditTenant ? "#fff" : "#F7FAFC" }}
+              value={info.office_adr} placeholder="사무소 주소" readOnly={!canEditTenant}
+              onChange={(e) => setInfo((p) => ({ ...p, office_adr: e.target.value }))} />
           </div>
           <Field label="담당자명" value={info.contact_name}
             onChange={(v) => setInfo((p) => ({ ...p, contact_name: v }))} />
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4, fontWeight: 600 }}>대표 전화번호</label>
-            <input className="hw-input" style={{ width: "100%", boxSizing: "border-box" }}
+            <label style={lblStyle}>{isStaff ? "내 연락처" : "대표 전화번호"}</label>
+            <input className="hw-input" style={inpStyle}
               value={fmtPhoneKR(info.contact_tel)}
               placeholder="010-0000-0000"
               onChange={(e) => setInfo((p) => ({ ...p, contact_tel: e.target.value.replace(/[^0-9]/g, "") }))} />
@@ -533,8 +543,8 @@ export default function MyPage() {
             )}
           </div>
           <div>
-            <label style={{ display: "block", fontSize: 11, color: "#718096", marginBottom: 4, fontWeight: 600 }}>사업자등록번호</label>
-            <input className="hw-input" style={{ width: "100%", boxSizing: "border-box", background: canEditTenant ? "#fff" : "#F7FAFC" }}
+            <label style={lblStyle}>사업자등록번호</label>
+            <input className="hw-input" style={{ ...inpStyle, background: canEditTenant ? "#fff" : "#F7FAFC" }}
               value={fmtBizKR(info.biz_reg_no)} placeholder="000-00-00000" readOnly={!canEditTenant}
               onChange={(e) => setInfo((p) => ({ ...p, biz_reg_no: e.target.value.replace(/[^0-9]/g, "") }))} />
             {!canEditTenant && <div style={{ fontSize: 10.5, color: "#A0AEC0", marginTop: 3 }}>대표자(사무소 관리자)만 수정할 수 있습니다.</div>}
