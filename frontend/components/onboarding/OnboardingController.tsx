@@ -65,7 +65,9 @@ export default function OnboardingController() {
     setOpen(true);
   }, []);
 
-  // 자동 표시(서버 권위) — 최초 마운트 1회. office_role(canonical) 기준.
+  // 자동 표시 — **서버(onboarding_required)만 권위**. 과거 localStorage 가드로 서버의 true 판정을
+  // 억제하지 않는다(브라우저 stale 값 때문에 최초 로그인 팝업이 사라지던 버그 수정). localStorage 는
+  // 완료 기록용 부가값일 뿐 자동표시 판단에서 제외한다.
   useEffect(() => {
     const u = getUser();
     loginRef.current = u?.login_id ?? "";
@@ -77,8 +79,6 @@ export default function OnboardingController() {
           onboarding_required?: boolean; onboarding_version?: number; office_role?: string | null;
         };
         versionRef.current = d.onboarding_version ?? ONBOARDING_VERSION;
-        const gk = `onboarding_done_${loginRef.current}_v${versionRef.current}`;
-        if (localStorage.getItem(gk) === "1") return;         // 이미 완료/건너뜀(로컬 가드)
         if (!d.onboarding_required) return;                   // 서버가 불필요 판단(기존·시스템관리자)
         start(d.office_role === "office_admin", false);
       })

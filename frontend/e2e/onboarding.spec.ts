@@ -11,7 +11,7 @@ const ME_ADMIN = {
   profile_complete: false, missing_profile_fields: ["agent_rrn"],
 };
 
-async function setupShell(page: Page, me: Record<string, unknown>, onComplete?: (body: unknown) => void) {
+async function setupShell(page: Page, me: Record<string, unknown>, onComplete?: (body: unknown) => void, seedGuard = false) {
   const json = (body: unknown) => (route: Route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   // 넓은 catch-all(리스트 endpoint 는 빈 배열 허용) → 특정 endpoint 는 아래에서 override.
@@ -28,11 +28,13 @@ async function setupShell(page: Page, me: Record<string, unknown>, onComplete?: 
   await page.route("**/api/customers/expiry-alerts", json({ card_alerts: [], passport_alerts: [] }));
   await page.route("**/api/dashboard**", json({}));
   await page.goto("/");
-  await page.evaluate((u) => {
+  await page.evaluate((args) => {
+    const { u, guard } = args as { u: Record<string, unknown>; guard: boolean };
     localStorage.setItem("access_token", "e2e-token");
     localStorage.setItem("user_info", JSON.stringify(u));
+    if (guard) localStorage.setItem(`onboarding_done_${u.login_id}_v${u.onboarding_version || 1}`, "1");
     document.cookie = "kid_auth=1; path=/; SameSite=Lax";
-  }, me);
+  }, { u: me, guard: seedGuard });
   await page.goto("/dashboard");
 }
 
@@ -54,6 +56,13 @@ test.describe("최초 로그인 온보딩 투어", () => {
     await page.getByTestId("onboarding-skip").click();
     await expect(page.getByTestId("onboarding-overlay")).toHaveCount(0);
     await expect.poll(() => (body as { action?: string } | null)?.action).toBe("skipped");
+  });
+
+  test("과거 localStorage 가드가 있어도 서버 required=true 면 표시(서버 권위)", async ({ page }) => {
+    // onboarding_done_<login>_v1=1 가 남아 있어도 서버가 required=true 면 팝업이 떠야 한다.
+    await setupShell(page, ME_ADMIN, undefined, /* seedGuard */ true);
+    await expect(page.getByTestId("onboarding-overlay")).toBeVisible();
+    await expect(page.getByTestId("onboarding-card")).toContainText("환영");
   });
 
   test("onboarding_required=false → 자동 표시 안 함", async ({ page }) => {

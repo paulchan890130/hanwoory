@@ -1,5 +1,5 @@
 """문서 자동작성 라우터 - 체류/사증 선택 트리 + 필요서류 + PDF 생성 (full injection)"""
-import sys, os, io, datetime
+import sys, os, io, re, datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -310,6 +310,25 @@ def _load_account(tenant_id: str) -> Optional[dict]:
 _AGENT_FIELD_KEYS = ("agent_rrn", "agent_biz_no", "agent_tel")
 _AGENT_FIELD_LABEL = {"agent_rrn": "행정사 주민등록번호", "agent_biz_no": "사업자등록번호", "agent_tel": "대표 전화번호"}
 _TEMPLATE_AGENT_FIELDS_CACHE: dict = {}   # abs_path → (mtime, frozenset(agent fields present))
+_AGENT_SPLIT_RE = re.compile(r"\d+$")
+
+
+def _canonical_agent_contract_field(name: str) -> Optional[str]:
+    """위젯/누름틀 필드명 → 행정사 계약 canonical 필드(agent_rrn/agent_biz_no/agent_tel) 또는 None.
+
+    ① normalize_field_name(#suffix·[annotation] 제거) 후 ② 정확히 세 필드면 그대로,
+    ③ **끝 숫자 접미사**만 제거한 base 가 세 필드면 base(HWPX 분할 필드: agent_rrn1..13,
+    agent_tel1..3, agent_biz_no10 등). agent_rrn_note / my_agent_tel / agent_tel_extra /
+    agent1_rrn 처럼 base 가 다른 것은 매칭하지 않는다(false positive 차단)."""
+    base = normalize_field_name(name or "")
+    if not base:
+        return None
+    if base in _AGENT_FIELD_KEYS:
+        return base
+    stripped = _AGENT_SPLIT_RE.sub("", base)   # 끝 숫자만 제거
+    if stripped != base and stripped in _AGENT_FIELD_KEYS:
+        return stripped
+    return None
 
 
 def _agent_fields_of_template(abs_path: str) -> set:
@@ -331,9 +350,9 @@ def _agent_fields_of_template(abs_path: str) -> set:
             with fitz.open(abs_path) as doc:
                 for page in doc:
                     for w in (page.widgets() or []):
-                        base = normalize_field_name(getattr(w, "field_name", "") or "")
-                        if base in _AGENT_FIELD_KEYS:
-                            found.add(base)
+                        canon = _canonical_agent_contract_field(getattr(w, "field_name", "") or "")
+                        if canon:
+                            found.add(canon)
         except Exception:
             raise OfficeProfileContractUnavailable("pdf:" + os.path.basename(abs_path))
     elif low.endswith(".hwpx"):
@@ -341,9 +360,9 @@ def _agent_fields_of_template(abs_path: str) -> set:
             from utils.hwpx_document import extract_hwpx_fields
             info = extract_hwpx_fields(abs_path)
             for name in info.get("unique_fields", []):
-                base = normalize_field_name(name)
-                if base in _AGENT_FIELD_KEYS:
-                    found.add(base)
+                canon = _canonical_agent_contract_field(name)   # 분할 필드(agent_rrn1..13 등) canonical
+                if canon:
+                    found.add(canon)
         except Exception:
             raise OfficeProfileContractUnavailable("hwpx:" + os.path.basename(abs_path))
     else:

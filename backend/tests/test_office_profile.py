@@ -244,6 +244,65 @@ def test_onboarding_complete_rejects_bad_version():
         assert ei.value.status_code == 400 and ei.value.detail["code"] == "INVALID_ONBOARDING_VERSION"
 
 
+# ── PART B: HWPX 분할 필드 canonical (_canonical_agent_contract_field) ──────────
+def test_canonical_agent_contract_field_exact():
+    from backend.routers.quick_doc import _canonical_agent_contract_field as C
+    assert C("agent_rrn") == "agent_rrn"
+    assert C("agent_biz_no") == "agent_biz_no"
+    assert C("agent_tel") == "agent_tel"
+
+
+def test_canonical_agent_contract_field_split():
+    from backend.routers.quick_doc import _canonical_agent_contract_field as C
+    assert C("agent_rrn1") == "agent_rrn"
+    assert C("agent_rrn13") == "agent_rrn"
+    assert C("agent_tel1") == "agent_tel"
+    assert C("agent_tel3") == "agent_tel"
+    assert C("agent_biz_no1") == "agent_biz_no"
+    assert C("agent_biz_no10") == "agent_biz_no"
+
+
+def test_canonical_agent_contract_field_false_positives():
+    from backend.routers.quick_doc import _canonical_agent_contract_field as C
+    for bad in ("agent_rrn_note", "my_agent_tel", "agent_tel_extra", "agent1_rrn", "agentrrn", "", "  "):
+        assert C(bad) is None, bad
+
+
+def test_canonical_agent_contract_field_with_annotations():
+    from backend.routers.quick_doc import _canonical_agent_contract_field as C
+    # normalize_field_name 이 #suffix 와 ' [annotation]' 를 제거한 뒤 canonical 적용.
+    assert C("agent_rrn#0") == "agent_rrn"
+    assert C("agent_tel1 [0]") == "agent_tel"
+    assert C("agent_biz_no10#3") == "agent_biz_no"
+
+
+def test_hwpx_split_fields_canonicalized(monkeypatch):
+    """분할 필드만 있는 HWPX → canonical 3필드로 합산."""
+    import os, glob
+    import backend.routers.quick_doc as qd
+    hwpx_dir = os.path.join(qd._BASE, "templates", "hwpx")
+    files = glob.glob(os.path.join(hwpx_dir, "*.hwpx"))
+    if not files:
+        pytest.skip("hwpx 템플릿 없음")
+    real = files[0]                      # getmtime 이 통하도록 실재 파일 경로 사용
+    qd._TEMPLATE_AGENT_FIELDS_CACHE.pop(real, None)
+    monkeypatch.setattr("utils.hwpx_document.extract_hwpx_fields",
+                        lambda p: {"unique_fields": ["agent_rrn1", "agent_rrn2", "agent_tel1", "agent_biz_no10", "Surname"]})
+    assert qd._agent_fields_of_template(real) == {"agent_rrn", "agent_tel", "agent_biz_no"}
+
+
+def test_split_field_hwpx_missing_rrn_blocks(monkeypatch):
+    """분할 필드 HWPX 선택 + RRN 누락 → 409 OFFICE_PROFILE_INCOMPLETE."""
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: {"agent_rrn"})
+    acc = {"office_name": "한우리", "contact_tel": "01012345678", "biz_reg_no": "2131237464",
+           "agent_rrn": "", "agent_rrn_registered": False, "agent_rrn_decrypt_failed": False}
+    with pytest.raises(HTTPException) as ei:
+        qd._require_office_profile_for_docs(acc, ["hwpx-doc"], output="hwpx")
+    assert ei.value.status_code == 409 and ei.value.detail.get("missing") == ["agent_rrn"]
+
+
 # ── 자가점검 게시글 placement (backend) ───────────────────────────────────────
 def test_self_check_supports_post_placement():
     from backend.routers.self_check import SUPPORTED_PLACEMENTS
