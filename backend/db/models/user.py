@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Text, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.base import Base
@@ -64,6 +64,11 @@ class AccountUser(Base):
     replaces_user_id: Mapped[int | None] = mapped_column(BigInteger, deferred=True)
     invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
+    # ── 최초 로그인 온보딩(사용법 안내) 상태 (migration 0032) — deferred: 미적용 DB 에서도
+    #    기존 full-row select(AccountUser) 가 깨지지 않도록 명시 접근 시에만 읽는다.
+    #    NULL = 미완료(신규 초대 사용자). 기존 사용자는 migration 에서 현재 버전으로 backfill. ──
+    onboarding_completed_version: Mapped[int | None] = mapped_column(Integer, deferred=True)
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), deferred=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

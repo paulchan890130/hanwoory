@@ -8,6 +8,8 @@ import Sidebar, {
   SIDEBAR_COLLAPSED_WIDTH,
 } from "@/components/layout/sidebar";
 import Topbar from "@/components/layout/topbar";
+import OnboardingController from "@/components/onboarding/OnboardingController";
+import ProfileIncompleteBanner from "@/components/onboarding/ProfileIncompleteBanner";
 import { X } from "lucide-react";
 
 type PinnedCustomer = Record<string, string>;
@@ -251,6 +253,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener("pin-customer", handler);
   }, []);
 
+  // 온보딩 투어가 모바일 사이드바 대상을 강조할 때 드로어를 연다.
+  useEffect(() => {
+    const open = () => { if (window.innerWidth < 768) setMobileDrawerOpen(true); };
+    window.addEventListener("onboarding-open-sidebar", open);
+    return () => window.removeEventListener("onboarding-open-sidebar", open);
+  }, []);
+
   useEffect(() => {
     const check = () => {
       const mobile = window.innerWidth < 768;
@@ -312,12 +321,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             transition: "margin-right 0.2s",
           }}
         >
+          <ProfileIncompleteBanner />
           {children}
         </main>
       </div>
 
       {/* 매뉴얼 업데이트 알림 — 로그인 후 최초 1회(세션당) */}
       <ManualUpdateAlertModal />
+
+      {/* 최초 로그인 온보딩(사용법 안내) 투어 */}
+      <OnboardingController />
 
       {/* 고객카드 고정 패널 — 모바일에서는 숨김 */}
       {!isMobile && pinnedCustomer && (

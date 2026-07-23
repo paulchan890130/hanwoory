@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, Menu, PenLine } from "lucide-react";
+import { Bell, LogOut, Menu, PenLine, HelpCircle } from "lucide-react";
 import { getUser, clearUser } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi, api, authApi } from "@/lib/api";
@@ -279,8 +279,23 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
         {/* 가운데 스페이서 */}
         <div style={{ flex: "1 1 auto" }} />
 
-        {/* ── 오른쪽 그룹: 사무소명 + 로그아웃 ── */}
+        {/* ── 오른쪽 그룹: 사용법 다시 보기 + 사무소명 + 로그아웃 ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {/* 사용법 다시 보기 — 온보딩 투어 재시작(서버 상태 미변경) */}
+          <button
+            type="button"
+            data-testid="restart-onboarding"
+            onClick={() => window.dispatchEvent(new CustomEvent("restart-onboarding"))}
+            title="사용법 다시 보기"
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors"
+            style={{ color: "#718096", border: "1px solid #E2E8F0" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F7FAFC"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+          >
+            <HelpCircle size={14} />
+            <span>사용법</span>
+          </button>
+
           {/* 사무소명 */}
           <span
             className="hidden sm:block text-[13px] truncate max-w-[140px]"

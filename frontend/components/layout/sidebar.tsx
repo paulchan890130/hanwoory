@@ -30,6 +30,13 @@ const NAV_ITEMS = [
   // { href: "/manual", label: "메뉴얼 검색", icon: HelpCircle },
 ];
 
+// 온보딩 투어 강조 대상(안정적 앵커). 나머지 메뉴는 undefined → 속성 미부여.
+const NAV_TOUR_ID: Record<string, string | undefined> = {
+  "/customers": "sidebar-customers",
+  "/tasks": "sidebar-work",
+  "/quick-doc": "sidebar-quick-doc",
+};
+
 const HIKOREA_MANUAL_URL =
   "https://www.hikorea.go.kr/board/BoardNtcDetailR.pt?BBS_SEQ=1&BBS_GB_CD=BS10&NTCCTT_SEQ=1062&page=1";
 
@@ -210,6 +217,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
               key={href}
               href={navHref(href)}
               title={!showExpanded ? label : undefined}
+              data-tour-id={NAV_TOUR_ID[href]}
               className={`hw-sidebar-item ${navActive(href) ? "active" : ""}`}
               aria-current={navActive(href) ? "page" : undefined}
               onClick={isMobile ? onMobileClose : undefined}
@@ -238,6 +246,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
           <Link
             href={MY_ITEM.href}
             title={!showExpanded ? MY_ITEM.label : undefined}
+            data-tour-id="sidebar-my"
             className={`hw-sidebar-item ${isActive(MY_ITEM.href) ? "active" : ""}`}
             aria-current={isActive(MY_ITEM.href) ? "page" : undefined}
             onClick={isMobile ? onMobileClose : undefined}
@@ -252,6 +261,7 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
             <Link
               href={OFFICE_ACCOUNTS_ITEM.href}
               title={!showExpanded ? OFFICE_ACCOUNTS_ITEM.label : undefined}
+              data-tour-id="sidebar-account"
               className={`hw-sidebar-item ${isActive(OFFICE_ACCOUNTS_ITEM.href) ? "active" : ""}`}
               aria-current={isActive(OFFICE_ACCOUNTS_ITEM.href) ? "page" : undefined}
               onClick={isMobile ? onMobileClose : undefined}

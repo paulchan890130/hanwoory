@@ -166,14 +166,20 @@ export default function ApplyPage() {
             padding: "12px 16px", marginTop: 16 }}>
             <div style={{ fontWeight: 700, color: "var(--hw-text)", marginBottom: 6 }}>다음 절차로 진행됩니다</div>
             <ol style={{ paddingLeft: 18, margin: 0 }}>
-              <li>신청서 접수 완료</li>
-              <li><strong>사업자등록증과 사업장 사진 3장</strong>을 <strong>chan@hanwory.com</strong>으로 발송</li>
-              <li>관리자가 제출 자료 확인</li>
-              <li>승인 후 대표자·실무자 활성화 링크 전달 (자동 이메일 없음)</li>
-              <li>각 사용자가 활성화 링크에서 최초 비밀번호 설정</li>
+              <li>신청서 접수</li>
+              <li><strong>사업자등록증과 사업장 사진 3장</strong>을 <strong>chan@hanwory.com</strong>으로 이메일 제출</li>
+              <li>관리자 자료 확인과 사무소 승인</li>
+              <li>관리자가 <strong>가입신청 때 입력한 이메일 주소</strong>로 대표자·실무자 활성화 링크 전달 (대표자·실무자 링크는 서로 다름)</li>
+              <li>각 사용자가 링크에서 최초 비밀번호 설정</li>
               <li>이메일(로그인 ID)과 설정한 비밀번호로 로그인</li>
+              <li>최초 로그인 후 <strong>마이페이지에서 문서 자동작성 필수정보 입력</strong></li>
+              <li>필수정보 저장 후 고객관리·업무관리·문서 자동작성 사용</li>
             </ol>
             <div style={{ marginTop: 8 }}>{DOCS_NOTICE}</div>
+            <div style={{ marginTop: 8, background: "#fff", border: "1px dashed var(--hw-gold-300, #E3C77A)", borderRadius: 6, padding: "8px 12px", color: "var(--hw-text)" }}>
+              승인 후 최초 로그인하면 마이페이지에서 <strong>대표 전화번호, 사업자등록번호, 사무소 주소, 행정사 주민등록번호</strong>를 반드시 확인·입력하세요.
+              이 정보가 없으면 문서 자동작성 결과에 필수정보가 누락될 수 있습니다.
+            </div>
           </div>
 
           {/* 로그인 방법 — 이메일이 로그인 ID, 신청 단계 비밀번호 없음 */}
