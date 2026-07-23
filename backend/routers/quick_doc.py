@@ -189,6 +189,33 @@ def _db_config_active() -> bool:
         return False
 
 
+def _resolve_template_abs_path(template_path) -> Optional[str]:
+    """템플릿 상대/절대 경로 → 검증된 절대경로(모든 경로 해석의 단일 소스).
+
+    규칙: `templates/foo.pdf`·`templates/hwpx/foo.hwpx` → `_BASE/…`; 파일명만(`foo.pdf`)
+    → `_TEMPLATES_DIR/foo.pdf`; 절대경로는 그대로. **`..` traversal 차단**, 최종 경로가 반드시
+    `_TEMPLATES_DIR` 내부여야 한다(외부면 None). Windows/Linux 모두 동작. `fill_and_append_pdf`
+    와 `_template_agent_fields` 가 동일 규칙을 공유한다(경로 해석 불일치 제거)."""
+    if not template_path:
+        return None
+    p = str(template_path).replace("\\", "/")
+    if ".." in [seg for seg in p.split("/")]:
+        return None
+    if os.path.isabs(template_path):
+        abs_path = os.path.normpath(template_path)
+    elif "/" not in p:                              # 파일명만 → templates 디렉터리
+        abs_path = os.path.normpath(os.path.join(_TEMPLATES_DIR, p))
+    else:                                           # templates/… (또는 templates/hwpx/…) → _BASE 기준
+        abs_path = os.path.normpath(os.path.join(_BASE, p))
+    root = os.path.normpath(_TEMPLATES_DIR)
+    try:
+        if os.path.commonpath([root, abs_path]) != root:
+            return None                             # templates 디렉터리 외부 → 거부
+    except ValueError:
+        return None                                 # 다른 드라이브 등 → 거부
+    return abs_path
+
+
 def _resolve_template_path(doc_name: str) -> Optional[str]:
     """서류명 → templates/ 상대경로. DB 매핑 우선, 없으면 DOC_TEMPLATES, 그래도 없으면
     자동매핑(파일명 후보) 시도. 반환 ``None`` = 템플릿 없음(missing).
@@ -242,70 +269,87 @@ ROLE_SIGN_WIDGETS: dict = {
 
 # ── 유틸 함수 ─────────────────────────────────────────────────────────────────
 
+class OfficeProfileUnavailable(Exception):
+    """사무소 계정 조회 실패(DB 연결/조회 오류) — '계정 없음'과 구별(문서 생성 시 503)."""
+
+
+class OfficeProfileContractUnavailable(Exception):
+    """문서 필드 계약(PDF 위젯/HWPX 필드) 확인 실패 — 조용한 빈 집합 금지(422)."""
+
+
 def _load_account(tenant_id: str) -> Optional[dict]:
     """행정사/사무소 계정 조회 — **PG-only(Phase B)**.
 
-    PG(tenants + 대표 user)에서 office_name/office_adr/biz_reg_no/contact_name/contact_tel 을
-    조회한다. 행정사 주민번호(``agent_rrn``)는 tenants.agent_rrn_encrypted(암호문)를 **복호화**해
-    채운다(Phase I-1J-6E). 미저장이면 빈 값. key 없음/복호화 실패 시에도 PDF 생성을 막지 않고
-    agent_rrn 만 빈 값으로 둔다(로그에 평문 미기록). 반환 shape 는 build_field_values 매핑과 호환.
-    PG 미존재/오류 시 None(문서는 사무소정보 없이 생성)."""
+    - DB 연결/조회 오류 → ``OfficeProfileUnavailable`` (계정 없음으로 위장하지 않는다).
+    - tenant/account 행 없음 → ``None``.
+    - 암호화 키·복호화 실패 → account 객체 + ``agent_rrn_decrypt_failed=True`` flag(빈 값).
+    평문/암호문/DB 원문 오류는 로그에 남기지 않는다."""
+    from backend.services.auth_pg_service import find_account_by_tenant_pg
     try:
-        from backend.services.auth_pg_service import find_account_by_tenant_pg
         acc = find_account_by_tenant_pg(tenant_id)
-        if not acc:
-            return None
-        cipher = str(acc.pop("agent_rrn_encrypted", "") or "")
-        agent_rrn = ""
-        acc["agent_rrn_registered"] = bool(cipher)   # 등록 여부(암호문 존재)
-        acc["agent_rrn_decrypt_failed"] = False
-        if cipher:
-            try:
-                from backend.services.pii_crypto import decrypt_agent_rrn
-                agent_rrn = decrypt_agent_rrn(cipher)
-            except Exception:
-                # 민감정보 없는 경고만(평문/암호문 미기록). 빈 값으로 두되, 필수 문서 게이트가
-                # 조용히 통과시키지 않도록 decrypt 실패 플래그를 남긴다.
-                print("[quick_doc._load_account] agent_rrn decrypt failed → flagged")
-                agent_rrn = ""
-                acc["agent_rrn_decrypt_failed"] = True
-        acc["agent_rrn"] = agent_rrn
-        return acc
-    except Exception:
+    except Exception as e:  # noqa: BLE001 — DB 오류는 삼키지 않고 상위에서 503
+        raise OfficeProfileUnavailable(type(e).__name__)
+    if not acc:
         return None
+    cipher = str(acc.pop("agent_rrn_encrypted", "") or "")
+    acc["agent_rrn_registered"] = bool(cipher)
+    acc["agent_rrn_decrypt_failed"] = False
+    agent_rrn = ""
+    if cipher:
+        try:
+            from backend.services.pii_crypto import decrypt_agent_rrn
+            agent_rrn = decrypt_agent_rrn(cipher)
+        except Exception:
+            print("[quick_doc._load_account] agent_rrn decrypt failed → flagged")  # PII 없음
+            acc["agent_rrn_decrypt_failed"] = True
+    acc["agent_rrn"] = agent_rrn
+    return acc
 
 
 # 문서 field contract → 이 필드를 실제로 쓰는 문서만 해당 사무소 정보를 요구한다.
 _AGENT_FIELD_KEYS = ("agent_rrn", "agent_biz_no", "agent_tel")
 _AGENT_FIELD_LABEL = {"agent_rrn": "행정사 주민등록번호", "agent_biz_no": "사업자등록번호", "agent_tel": "대표 전화번호"}
-_TEMPLATE_AGENT_FIELDS_CACHE: dict = {}   # path → (mtime, frozenset(agent fields present))
+_TEMPLATE_AGENT_FIELDS_CACHE: dict = {}   # abs_path → (mtime, frozenset(agent fields present))
 
 
-def _template_agent_fields(template_path: Optional[str]) -> set:
-    """템플릿(PDF)이 실제로 사용하는 행정사 필드 집합(agent_rrn/agent_biz_no/agent_tel).
-    PDF 위젯 이름을 정규화해 대조한다. 비-PDF/오류/미존재 → 빈 집합(과차단 방지)."""
-    if not template_path:
-        return set()
-    abs_path = template_path if os.path.isabs(template_path) else os.path.join(_TEMPLATES_DIR, template_path)
+def _agent_fields_of_template(abs_path: str) -> set:
+    """PDF/HWPX 템플릿이 실제 쓰는 행정사 필드({agent_rrn,agent_tel,agent_biz_no}).
+    PDF=위젯 field_name, HWPX=fieldBegin name(extract_hwpx_fields) 를 normalize 후 대조.
+    읽기 실패 시 ``OfficeProfileContractUnavailable`` (조용한 빈집합 금지)."""
+    low = abs_path.lower()
     try:
-        if not os.path.exists(abs_path) or not abs_path.lower().endswith(".pdf"):
-            return set()
         mtime = os.path.getmtime(abs_path)
-        cached = _TEMPLATE_AGENT_FIELDS_CACHE.get(abs_path)
-        if cached and cached[0] == mtime:
-            return set(cached[1])
-        import fitz  # PyMuPDF
-        found = set()
-        with fitz.open(abs_path) as doc:
-            for page in doc:
-                for w in (page.widgets() or []):
-                    base = normalize_field_name(getattr(w, "field_name", "") or "")
-                    if base in _AGENT_FIELD_KEYS:
-                        found.add(base)
-        _TEMPLATE_AGENT_FIELDS_CACHE[abs_path] = (mtime, frozenset(found))
-        return found
-    except Exception:
-        return set()   # 템플릿 검사 실패 시 과차단하지 않음
+    except OSError:
+        raise OfficeProfileContractUnavailable(os.path.basename(abs_path))
+    cached = _TEMPLATE_AGENT_FIELDS_CACHE.get(abs_path)
+    if cached and cached[0] == mtime:
+        return set(cached[1])
+    found: set = set()
+    if low.endswith(".pdf"):
+        try:
+            import fitz  # PyMuPDF
+            with fitz.open(abs_path) as doc:
+                for page in doc:
+                    for w in (page.widgets() or []):
+                        base = normalize_field_name(getattr(w, "field_name", "") or "")
+                        if base in _AGENT_FIELD_KEYS:
+                            found.add(base)
+        except Exception:
+            raise OfficeProfileContractUnavailable("pdf:" + os.path.basename(abs_path))
+    elif low.endswith(".hwpx"):
+        try:
+            from utils.hwpx_document import extract_hwpx_fields
+            info = extract_hwpx_fields(abs_path)
+            for name in info.get("unique_fields", []):
+                base = normalize_field_name(name)
+                if base in _AGENT_FIELD_KEYS:
+                    found.add(base)
+        except Exception:
+            raise OfficeProfileContractUnavailable("hwpx:" + os.path.basename(abs_path))
+    else:
+        return set()   # 알 수 없는 확장자 — 행정사 필드 계약 없음
+    _TEMPLATE_AGENT_FIELDS_CACHE[abs_path] = (mtime, frozenset(found))
+    return found
 
 
 def _office_field_missing(account: Optional[dict], field: str) -> bool:
@@ -318,25 +362,53 @@ def _office_field_missing(account: Optional[dict], field: str) -> bool:
     if field == "agent_biz_no":
         return not validate_biz_reg_no(str(account.get("biz_reg_no", "") or ""))
     if field == "agent_rrn":
-        # 미등록 또는 복호화 실패(조용한 빈값 통과 금지) 또는 빈 값.
         if account.get("agent_rrn_decrypt_failed"):
-            return True
+            return True   # 복호화 실패 → 조용한 빈값 통과 금지
         return not str(account.get("agent_rrn", "") or "").strip()
     return False
 
 
-def _require_office_profile_for_docs(account: Optional[dict], selected_docs: list) -> None:
-    """선택 문서들이 실제로 사용하는 행정사 필드만 검사 → 누락 시 409(문서별 정확한 missing).
-    고객정보만 쓰는 문서(행정사 필드 미사용)는 차단하지 않는다. 계정 미존재면 통과(사무소정보 없이 생성)."""
-    if account is None:
-        return
+def _required_agent_fields_for_docs(selected_docs: list, output: str) -> set:
+    """선택 문서 중 **실제 이 출력(output=pdf|hwpx)으로 생성될 문서**의 행정사 필드 union.
+    endpoint 별 skip 규칙과 동일: pdf 는 fmt in (hwpx,disabled) 제외, hwpx 는 (pdf,disabled) 제외.
+    계약 확인 불가 → OfficeProfileContractUnavailable 전파(조용한 빈집합 금지)."""
+    out_fmt = _doc_output_formats()
     used: set = set()
     for doc_name in (selected_docs or []):
-        try:
-            tpl = _resolve_template_path(doc_name)
-        except Exception:
-            tpl = None
-        used |= _template_agent_fields(tpl)
+        fmt = out_fmt.get(doc_name, "")
+        if output == "pdf":
+            if fmt in ("hwpx", "disabled"):
+                continue
+            rel = _resolve_template_path(doc_name)
+        else:  # hwpx
+            if fmt in ("pdf", "disabled"):
+                continue
+            rel = _resolve_hwpx_template(doc_name)
+        if not rel:
+            continue   # 해당 output 템플릿 없음 → 이 문서는 그 output 으로 생성되지 않음
+        abs_path = _resolve_template_abs_path(rel)
+        if not abs_path or not os.path.exists(abs_path):
+            continue
+        used |= _agent_fields_of_template(abs_path)
+    return used
+
+
+def _require_office_profile_for_docs(account: Optional[dict], selected_docs: list, output: str = "pdf") -> None:
+    """선택 문서가 실제로 쓰는 행정사 필드만 검사. 계약 확인 불가 → 422, 필요한데 계정/필드 없음 → 409.
+    고객정보만 쓰는 문서(행정사 필드 미사용)는 account 없이도 통과."""
+    try:
+        used = _required_agent_fields_for_docs(selected_docs, output)
+    except OfficeProfileContractUnavailable:
+        raise HTTPException(status_code=422, detail={
+            "code": "OFFICE_PROFILE_CONTRACT_UNAVAILABLE",
+            "message": "문서 필수정보 계약을 확인할 수 없습니다. 잠시 후 다시 시도하세요."})
+    if not used:
+        return   # 행정사 필드 미사용 문서 → 사무소 정보 불필요
+    if account is None:
+        raise HTTPException(status_code=409, detail={
+            "code": "OFFICE_PROFILE_INCOMPLETE",
+            "message": "이 문서에 필요한 사무소 정보를 불러올 수 없습니다.",
+            "missing": sorted(used)})
     missing = [f for f in _AGENT_FIELD_KEYS if f in used and _office_field_missing(account, f)]
     if missing:
         raise HTTPException(status_code=409, detail={
@@ -345,6 +417,16 @@ def _require_office_profile_for_docs(account: Optional[dict], selected_docs: lis
                        + ", ".join(_AGENT_FIELD_LABEL[f] for f in missing) + "을(를) 입력하세요.",
             "missing": missing,
         })
+
+
+def _load_account_or_503(tenant_id: str) -> Optional[dict]:
+    """_load_account 래퍼 — DB 오류를 503 OFFICE_PROFILE_UNAVAILABLE 로 변환(계정 없음 위장 금지)."""
+    try:
+        return _load_account(tenant_id)
+    except OfficeProfileUnavailable:
+        raise HTTPException(status_code=503, detail={
+            "code": "OFFICE_PROFILE_UNAVAILABLE",
+            "message": "사무소 정보를 불러오지 못했습니다. 잠시 후 다시 시도하세요."})
 
 
 def _name_or_english(korean, surname="", given="") -> str:
@@ -1206,8 +1288,8 @@ def fill_and_append_pdf(template_path: str, field_values: dict,
     """
     if not template_path:
         return
-    abs_path = template_path if os.path.isabs(template_path) else os.path.join(_BASE, template_path)
-    if not os.path.exists(abs_path):
+    abs_path = _resolve_template_abs_path(template_path)
+    if not abs_path or not os.path.exists(abs_path):
         return
     try:
         import fitz
@@ -1792,8 +1874,8 @@ def _generate_full_impl(req: FullDocGenRequest, user: dict):
     aggregator = find_customer(req.aggregator_id)
 
     # ── 행정사(account) 정보 조회 ──
-    account = _load_account(tenant_id)
-    _require_office_profile_for_docs(account, req.selected_docs)
+    account = _load_account_or_503(tenant_id)
+    _require_office_profile_for_docs(account, req.selected_docs, output="pdf")
 
     # ── 미성년 판별 ──
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
@@ -2197,10 +2279,9 @@ def _collect_full_field_values(req: "FullDocGenRequest", user: dict) -> dict:
     guardian   = find_customer(req.guardian_id)
     aggregator = find_customer(req.aggregator_id)
 
-    account = _load_account(tenant_id)
-    # HWPX 템플릿은 PDF 위젯 검사 대상이 아니라 필드 계약을 확정할 수 없어 과차단하지 않는다
-    # (누락 예방은 마이페이지/온보딩 UX 가 담당). PDF 문서가 섞인 경우만 해당 필드 게이트 적용.
-    _require_office_profile_for_docs(account, getattr(req, "selected_docs", None) or [])
+    account = _load_account_or_503(tenant_id)
+    # HWPX 생성 경로 — extract_hwpx_fields 로 HWPX field contract 를 검사한다(PDF 위젯과 동일 개념).
+    _require_office_profile_for_docs(account, getattr(req, "selected_docs", None) or [], output="hwpx")
     is_minor = calc_is_minor(str(applicant.get("등록증", "")))
 
     kind   = req.kind   if req.kind   and req.kind   != "x" else ""
@@ -2851,9 +2932,9 @@ def _quick_poa_impl(req: QuickPoaRequest, user: dict):
 
     # 행정사 계정 정보 조회
     tenant_id = user.get("tenant_id") or user.get("sub", "")
-    account = _load_account(tenant_id)
-    # 선택된 원클릭 출력(DOC_TEMPLATES 키)이 실제로 쓰는 행정사 필드만 검사.
-    _require_office_profile_for_docs(account, list(req.selected_outputs or ["위임장"]))
+    account = _load_account_or_503(tenant_id)
+    # 선택된 원클릭 출력(DOC_TEMPLATES 키·PDF)이 실제로 쓰는 행정사 필드만 검사.
+    _require_office_profile_for_docs(account, list(req.selected_outputs or ["위임장"]), output="pdf")
 
     row = {
         "한글": req.kor_name.strip(),

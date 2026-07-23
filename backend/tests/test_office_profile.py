@@ -73,37 +73,143 @@ def test_docgen_gate_blocks_only_used_fields(monkeypatch):
     # 문서가 실제 쓰는 필드만 검사 — agent_rrn 만 쓰는 문서에서 RRN 누락 → 409.
     import backend.routers.quick_doc as qd
     from fastapi import HTTPException
-    monkeypatch.setattr(qd, "_template_agent_fields", lambda tpl: {"agent_rrn"} if tpl == "doc-rrn" else set())
-    monkeypatch.setattr(qd, "_resolve_template_path", lambda name: name)
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: {"agent_rrn"})
     acc = {"office_name": "한우리", "contact_tel": "01012345678", "biz_reg_no": "2131237464",
            "agent_rrn": "", "agent_rrn_registered": False, "agent_rrn_decrypt_failed": False}
     with pytest.raises(HTTPException) as ei:
-        qd._require_office_profile_for_docs(acc, ["doc-rrn"])
+        qd._require_office_profile_for_docs(acc, ["doc-rrn"], output="pdf")
     assert ei.value.status_code == 409
     assert ei.value.detail.get("code") == "OFFICE_PROFILE_INCOMPLETE"
     assert ei.value.detail.get("missing") == ["agent_rrn"]
 
 
 def test_docgen_gate_customer_only_doc_passes(monkeypatch):
-    # 고객정보만 쓰는 문서(행정사 필드 미사용) → RRN 없어도 통과(일괄 차단 금지).
+    # 고객정보만 쓰는 문서(행정사 필드 미사용) → RRN 없어도 통과(일괄 차단 금지, 계정 없음도 허용).
     import backend.routers.quick_doc as qd
-    monkeypatch.setattr(qd, "_template_agent_fields", lambda tpl: set())
-    monkeypatch.setattr(qd, "_resolve_template_path", lambda name: name)
-    acc = {"office_name": "", "contact_tel": "", "agent_rrn": ""}
-    qd._require_office_profile_for_docs(acc, ["customer-only"])  # 예외 없음
-    qd._require_office_profile_for_docs(None, ["customer-only"])  # 계정 없음도 통과
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: set())
+    qd._require_office_profile_for_docs({"office_name": ""}, ["customer-only"])  # 예외 없음
+    qd._require_office_profile_for_docs(None, ["customer-only"])                 # 계정 없음도 통과
+
+
+def test_docgen_gate_account_none_but_fields_needed_409(monkeypatch):
+    # 행정사 필드가 필요한데 account 없음(조회 실패 아님) → 409(조용한 통과 금지).
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: {"agent_tel"})
+    with pytest.raises(HTTPException) as ei:
+        qd._require_office_profile_for_docs(None, ["d"], output="pdf")
+    assert ei.value.status_code == 409 and ei.value.detail.get("missing") == ["agent_tel"]
+
+
+def test_docgen_gate_contract_unavailable_422(monkeypatch):
+    # 계약(PDF/HWPX 필드) 확인 실패 → 422(조용한 빈집합 금지).
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    def _boom(docs, output):
+        raise qd.OfficeProfileContractUnavailable("hwpx:x")
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", _boom)
+    with pytest.raises(HTTPException) as ei:
+        qd._require_office_profile_for_docs({"x": 1}, ["d"], output="hwpx")
+    assert ei.value.status_code == 422
+    assert ei.value.detail.get("code") == "OFFICE_PROFILE_CONTRACT_UNAVAILABLE"
 
 
 def test_docgen_gate_decrypt_failure_blocks(monkeypatch):
     import backend.routers.quick_doc as qd
     from fastapi import HTTPException
-    monkeypatch.setattr(qd, "_template_agent_fields", lambda tpl: {"agent_rrn"})
-    monkeypatch.setattr(qd, "_resolve_template_path", lambda name: name)
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: {"agent_rrn"})
     acc = {"office_name": "한우리", "contact_tel": "01012345678", "biz_reg_no": "2131237464",
            "agent_rrn": "", "agent_rrn_registered": True, "agent_rrn_decrypt_failed": True}
     with pytest.raises(HTTPException) as ei:
-        qd._require_office_profile_for_docs(acc, ["d"])
+        qd._require_office_profile_for_docs(acc, ["d"], output="pdf")
     assert ei.value.status_code == 409 and ei.value.detail.get("missing") == ["agent_rrn"]
+
+
+def test_load_account_db_error_raises_unavailable(monkeypatch):
+    # DB 오류 → OfficeProfileUnavailable (계정 없음으로 위장 금지) → _load_account_or_503 는 503.
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    def _boom(_tid):
+        raise RuntimeError("db down")
+    monkeypatch.setattr("backend.services.auth_pg_service.find_account_by_tenant_pg", _boom)
+    with pytest.raises(qd.OfficeProfileUnavailable):
+        qd._load_account("t1")
+    with pytest.raises(HTTPException) as ei:
+        qd._load_account_or_503("t1")
+    assert ei.value.status_code == 503 and ei.value.detail.get("code") == "OFFICE_PROFILE_UNAVAILABLE"
+
+
+def test_load_account_missing_returns_none(monkeypatch):
+    import backend.routers.quick_doc as qd
+    monkeypatch.setattr("backend.services.auth_pg_service.find_account_by_tenant_pg", lambda _tid: None)
+    assert qd._load_account("t-missing") is None
+
+
+# ── PART A: 템플릿 절대경로 resolver (실제 저장소 템플릿) ─────────────────────────
+def test_resolve_template_abs_path_rules():
+    import os
+    import backend.routers.quick_doc as qd
+    base, tdir = qd._BASE, qd._TEMPLATES_DIR
+    # templates/foo.pdf → _BASE/templates/foo.pdf (templates/templates 중복 없음)
+    r = qd._resolve_template_abs_path("templates/위임장.pdf")
+    assert r == os.path.normpath(os.path.join(base, "templates/위임장.pdf"))
+    assert "templates" + os.sep + "templates" not in r
+    # 파일명만 → _TEMPLATES_DIR/foo.pdf
+    assert qd._resolve_template_abs_path("위임장.pdf") == os.path.normpath(os.path.join(tdir, "위임장.pdf"))
+    # templates/hwpx/foo.hwpx → _BASE/templates/hwpx/...
+    assert qd._resolve_template_abs_path("templates/hwpx/거주숙소제공확인서.hwpx") == \
+        os.path.normpath(os.path.join(base, "templates/hwpx/거주숙소제공확인서.hwpx"))
+    # ../ traversal 차단
+    assert qd._resolve_template_abs_path("templates/../../etc/passwd") is None
+    assert qd._resolve_template_abs_path("../secret.pdf") is None
+    # templates 외부 절대경로 차단
+    assert qd._resolve_template_abs_path(os.path.join(base, "fonts", "x.ttf")) is None
+
+
+def test_doc_templates_resolve_and_open_real_pdfs():
+    """실제 저장소 DOC_TEMPLATES PDF 들이 올바른 절대경로로 resolve + fitz open 되는지(우회 없음)."""
+    import os
+    import backend.routers.quick_doc as qd
+    opened = 0
+    agent_docs = {}
+    for name, rel in qd.DOC_TEMPLATES.items():
+        if not rel or not str(rel).lower().endswith(".pdf"):
+            continue
+        abs_path = qd._resolve_template_abs_path(rel)
+        assert abs_path is not None, f"{name}: resolve None"
+        assert "templates" + os.sep + "templates" not in abs_path, f"{name}: 중복 templates"
+        if not os.path.exists(abs_path):
+            continue
+        fields = qd._agent_fields_of_template(abs_path)   # 실제 fitz open
+        opened += 1
+        if fields:
+            agent_docs[name] = sorted(fields)
+    assert opened >= 1, "실제 PDF 템플릿을 하나도 열지 못함"
+    print("PDF agent-field docs:", agent_docs)
+
+
+def test_hwpx_templates_agent_field_scan():
+    """실제 HWPX 템플릿에서 extract_hwpx_fields 로 행정사 필드 계약을 검사(제외하지 않음)."""
+    import os, glob
+    import backend.routers.quick_doc as qd
+    hwpx_dir = os.path.join(qd._BASE, "templates", "hwpx")
+    if not os.path.isdir(hwpx_dir):
+        pytest.skip("hwpx 디렉터리 없음")
+    scanned = 0
+    agent_docs = {}
+    for f in sorted(glob.glob(os.path.join(hwpx_dir, "*.hwpx"))):
+        try:
+            fields = qd._agent_fields_of_template(f)
+        except qd.OfficeProfileContractUnavailable:
+            continue
+        scanned += 1
+        if fields:
+            agent_docs[os.path.basename(f)] = sorted(fields)
+    assert scanned >= 1, "실제 HWPX 템플릿을 하나도 스캔하지 못함"
+    print("HWPX agent-field docs:", agent_docs)
+
+
+# ── 자가점검 게시글 placement (backend) ───────────────────────────────────────
 
 
 # ── PART A: canonical office_role (DB role 과 분리) ─────────────────────────────

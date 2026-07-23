@@ -694,3 +694,131 @@ def test_onboarding_backfill_invited_preserved(db, engine):
         ver = s.execute(select(AccountUser.onboarding_completed_version)
                         .where(AccountUser.login_id == "new@of1.kr")).scalar_one()
     assert ver is None
+
+
+# ── PART G: 실제 approve → activate → GET /me (office_role/profile/onboarding) ────
+def test_approve_activate_get_me_office_role(db):
+    from backend.services import office_application_pg_service as oa
+    from backend.services import activation_pg_service as act
+    from backend.routers.auth import get_me, complete_my_onboarding, OnboardingCompleteRequest
+
+    app = oa.create_application({
+        "office_name": "미엔드사무소",
+        "representative_name": "대표", "representative_email": "rep_me@example.com",
+        "staff_name": "실무", "staff_email": "staff_me@example.com",
+        "business_registration_number": "5566778899",
+        "office_address": "부산", "office_phone": "0512345678",
+    })
+    res = oa.approve(app["application_id"], reviewer="rev@test")
+    toks = {u["login_id"]: u["activation_token"] for u in res["users"]}
+    for lid, raw in toks.items():
+        act.complete_activation(raw, "password123")
+
+    rep = get_me(current_user={"login_id": "rep_me@example.com", "is_admin": True, "is_master": False})
+    assert rep["office_role"] == "office_admin"
+    assert rep["profile_complete"] is False        # agent_rrn 미등록
+    assert "agent_rrn" in rep["missing_profile_fields"]
+    assert rep["onboarding_required"] is True
+
+    staff = get_me(current_user={"login_id": "staff_me@example.com", "is_admin": False, "is_master": False})
+    assert staff["office_role"] == "office_staff"
+    assert staff["profile_complete"] is False       # 실무자 본인 전화 미기입(approve 시 None)
+    assert "contact_tel" in staff["missing_profile_fields"]
+    assert staff["onboarding_required"] is True
+
+    # 온보딩 완료 기록 후 재조회 → onboarding_required False
+    complete_my_onboarding(OnboardingCompleteRequest(version=1, action="completed"),
+                           current_user={"login_id": "rep_me@example.com"})
+    rep2 = get_me(current_user={"login_id": "rep_me@example.com", "is_admin": True, "is_master": False})
+    assert rep2["onboarding_required"] is False
+
+
+# ── PART 16: 실제 Alembic migration 0032 up/down (SQL 복사 아님) ──────────────────
+def test_migration_0032_real_upgrade_downgrade():
+    import os
+    from sqlalchemy import create_engine as _ce, text as _t
+    from alembic.config import Config
+    from alembic import command
+    url = make_url(TEST_DB_URL)
+    mig_db = (url.database or "kid") + "_mig0032"
+    _ensure_database(url.set(database=mig_db).render_as_string(hide_password=False))
+    mig_url = url.set(database=mig_db).render_as_string(hide_password=False)
+    eng = _ce(mig_url, future=True)
+    try:
+        # 깨끗한 상태 보장(이전 실행 잔재 제거).
+        with eng.begin() as c:
+            c.execute(_t("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
+        cfg = Config(os.path.join(os.getcwd(), "alembic.ini"))
+        cfg.set_main_option("sqlalchemy.url", mig_url)
+        prev = os.environ.get("DATABASE_URL")
+        os.environ["DATABASE_URL"] = mig_url
+        try:
+            command.upgrade(cfg, "a1b2c3d40031")               # 0032 직전까지
+            with eng.begin() as c:
+                c.execute(_t("INSERT INTO tenants (tenant_id, office_name) VALUES ('mt','T')"))
+                c.execute(_t("INSERT INTO users (login_id, tenant_id, password_hash, account_status) "
+                             "VALUES ('act@mt','mt','x','active'), ('inv@mt','mt','x','invited')"))
+            command.upgrade(cfg, "b2c3d4e50032")               # 0032 적용(backfill)
+            with eng.connect() as c:
+                rows = dict(c.execute(_t(
+                    "SELECT login_id, onboarding_completed_version FROM users")).all())
+                at_null = c.execute(_t("SELECT onboarding_completed_at IS NULL FROM users "
+                                       "WHERE login_id='act@mt'")).scalar_one()
+            assert rows["act@mt"] == 1 and rows["inv@mt"] is None
+            assert at_null is False                            # active backfill → completed_at 채움
+            # 신규 insert → NULL
+            with eng.begin() as c:
+                c.execute(_t("INSERT INTO users (login_id, tenant_id, password_hash, account_status) "
+                             "VALUES ('new@mt','mt','x','active')"))
+                v = c.execute(_t("SELECT onboarding_completed_version FROM users WHERE login_id='new@mt'")).scalar_one()
+            assert v is None
+            # downgrade → 컬럼 제거
+            command.downgrade(cfg, "a1b2c3d40031")
+            with eng.connect() as c:
+                cols = [r[0] for r in c.execute(_t(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name='users'")).all()]
+            assert "onboarding_completed_version" not in cols and "onboarding_completed_at" not in cols
+            command.upgrade(cfg, "b2c3d4e50032")               # 재적용 정상
+        finally:
+            if prev is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = prev
+    finally:
+        eng.dispose()
+
+
+# ── PART F: 관리자 저장 식별번호 normalize/validate (digits-only 저장, 무효 400) ──
+def test_admin_update_account_normalizes_and_validates(db, monkeypatch):
+    import backend.routers.admin as adm
+    from backend.routers.admin import update_account, AccountUpdate
+    from backend.db.models.user import AccountUser
+    from fastapi import HTTPException
+    monkeypatch.setattr(adm, "_approved_saas_on", lambda: True)   # SaaS ON 에서도 연락처 수정 200
+    _mk_tenant(db, seat_limit=5)
+    _mk_user(db, "u@of1.kr", is_admin=True, account_status="active")
+    usr = {"login_id": "sys", "is_admin": True, "is_master": False}
+
+    # 하이픈 입력 → digits-only 저장
+    update_account("u@of1.kr", AccountUpdate(contact_tel="010-1234-5678", biz_reg_no="213-12-37464"), user=usr)
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "u@of1.kr"))
+        tel, tid = u.contact_tel, u.tenant_id
+    with db() as s:
+        from backend.db.models.tenant import Tenant
+        biz = s.scalar(select(Tenant.biz_reg_no).where(Tenant.tenant_id == tid))
+    assert tel == "01012345678" and biz == "2131237464"
+
+    # 잘못된 전화 → 400
+    with pytest.raises(HTTPException) as e1:
+        update_account("u@of1.kr", AccountUpdate(contact_tel="12"), user=usr)
+    assert e1.value.status_code == 400
+    # 잘못된 사업자번호 → 400
+    with pytest.raises(HTTPException) as e2:
+        update_account("u@of1.kr", AccountUpdate(biz_reg_no="123"), user=usr)
+    assert e2.value.status_code == 400
+    # 공백 입력 → 명시적 삭제(digits "")
+    update_account("u@of1.kr", AccountUpdate(contact_tel=""), user=usr)
+    with db() as s:
+        u2 = s.scalar(select(AccountUser).where(AccountUser.login_id == "u@of1.kr"))
+        assert (u2.contact_tel or "") == ""
