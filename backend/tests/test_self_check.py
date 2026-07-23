@@ -626,9 +626,10 @@ def test_admin_flags_obsolete_legacy(monkeypatch):
     import json
     import backend.routers.self_check as sc
     content = json.dumps(_obsolete_tb_legacy(), ensure_ascii=False)
-    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    monkeypatch.setattr(sc, "_load_row", lambda *a, **k: {"is_published": "TRUE", "content": content})
     out = sc.admin_get_config(user={"login_id": "sys"})
     assert out["obsolete_legacy"] is True
+    assert out["config_state"] == "legacy"
     assert len(out["items"]) == 1  # 원본은 편집·확인을 위해 그대로 반환(자동 변경 없음)
 
 
@@ -636,9 +637,10 @@ def test_admin_normal_legacy_not_flagged(monkeypatch):
     import json
     import backend.routers.self_check as sc
     content = json.dumps(_normal_legacy(), ensure_ascii=False)
-    monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": content})
+    monkeypatch.setattr(sc, "_load_row", lambda *a, **k: {"is_published": "TRUE", "content": content})
     out = sc.admin_get_config(user={"login_id": "sys"})
     assert out["obsolete_legacy"] is False
+    assert out["config_state"] == "legacy"
 
 
 # ── PART D: placement 공개 API fail-closed ────────────────────────────────────
@@ -684,3 +686,107 @@ def test_public_verified_tb_v2_item_shown(monkeypatch):
     monkeypatch.setattr(sc, "_load_row", lambda: {"is_published": "TRUE", "content": _bundle_json([it])})
     out = sc.public_get_config(Response())
     assert [x["item_id"] for x in out["items"]] == ["tuberculosis"]
+
+
+# ── PART A/B/C: 관리자 조회 경계(실패/없음/정상/손상) + 무손실 ──────────────────
+def _raise_get_post(monkeypatch, exc=RuntimeError("db down")):
+    def boom(_cid):
+        raise exc
+    monkeypatch.setattr("backend.services.marketing_pg_service.get_post", boom)
+
+
+def _set_get_post(monkeypatch, row):
+    monkeypatch.setattr("backend.services.marketing_pg_service.get_post", lambda _cid: row)
+
+
+def test_public_get_config_db_error_failclosed(monkeypatch):
+    # 공개 GET: 저장 계층 오류 → items=[] (fail-closed, 500 없음).
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    _raise_get_post(monkeypatch)
+    out = sc.public_get_config(Response())
+    assert out == {"schema_version": 2, "items": []}
+
+
+def test_admin_get_config_db_error_503(monkeypatch):
+    # 관리자 GET: 저장 계층 오류 → 503, 빈/기본 bundle 반환 금지.
+    import backend.routers.self_check as sc
+    _raise_get_post(monkeypatch)
+    with pytest.raises(Exception) as ei:
+        sc.admin_get_config(user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 503
+    assert ei.value.detail.get("code") == "SELF_CHECK_CONFIG_UNAVAILABLE"
+
+
+def test_admin_get_config_absent_when_no_row(monkeypatch):
+    import backend.routers.self_check as sc
+    _set_get_post(monkeypatch, None)
+    out = sc.admin_get_config(user={"login_id": "sys"})
+    assert out["config_state"] == "absent" and out["items"] == [] and out["obsolete_legacy"] is False
+
+
+def test_admin_get_config_absent_when_empty_content(monkeypatch):
+    import backend.routers.self_check as sc
+    _set_get_post(monkeypatch, {"is_published": "FALSE", "content": ""})
+    out = sc.admin_get_config(user={"login_id": "sys"})
+    assert out["config_state"] == "absent" and out["items"] == []
+
+
+def test_admin_get_config_valid_v2_preserves_items(monkeypatch):
+    import backend.routers.self_check as sc
+    content = _bundle_json([_item("a", published=False), _item("b", published=True), _item("c", published=False)])
+    _set_get_post(monkeypatch, {"is_published": "TRUE", "content": content})
+    out = sc.admin_get_config(user={"login_id": "sys"})
+    assert out["config_state"] == "valid"
+    assert [it["item_id"] for it in out["items"]] == ["a", "b", "c"]  # 전 item 보존
+
+
+def test_admin_get_config_corrupt_json_409(monkeypatch):
+    import backend.routers.self_check as sc
+    _set_get_post(monkeypatch, {"is_published": "TRUE", "content": "{bad json"})
+    with pytest.raises(Exception) as ei:
+        sc.admin_get_config(user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 409
+    assert ei.value.detail.get("code") == "SELF_CHECK_CONFIG_CORRUPT"
+
+
+def test_admin_get_config_malformed_v2_item_409_no_partial(monkeypatch):
+    # v2 번들: 정상 CR + config=null 손상 TB + 정상 FP → 409, 정상 2개 부분 반환 없음, DB 변경 없음.
+    import json
+    import backend.routers.self_check as sc
+    bad = _tb_item(_tb_cfg(), published=False); bad["config"] = None
+    raw = {"schema_version": 2, "items": [_item("criminal-record"), bad, _item("fingerprint")]}
+    _set_get_post(monkeypatch, {"is_published": "TRUE", "content": json.dumps(raw, ensure_ascii=False)})
+    with pytest.raises(Exception) as ei:
+        sc.admin_get_config(user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 409
+    assert ei.value.detail.get("code") == "SELF_CHECK_CONFIG_CORRUPT"
+
+
+def test_admin_get_config_unknown_structure_409(monkeypatch):
+    import json
+    import backend.routers.self_check as sc
+    _set_get_post(monkeypatch, {"is_published": "TRUE", "content": json.dumps({"foo": "bar"})})
+    with pytest.raises(Exception) as ei:
+        sc.admin_get_config(user={"login_id": "sys"})
+    assert getattr(ei.value, "status_code", None) == 409
+
+
+def test_public_get_config_malformed_v2_failclosed(monkeypatch):
+    # 공개 GET: v2 번들 구조 손상 → 전체 items=[] (부분 공개 없음, 500 없음).
+    import json
+    from fastapi import Response
+    import backend.routers.self_check as sc
+    bad = _item("x", published=True); bad["config"] = None  # config 손상
+    raw = {"schema_version": 2, "items": [_item("ok", published=True), bad]}
+    _set_get_post(monkeypatch, {"is_published": "TRUE", "content": json.dumps(raw, ensure_ascii=False)})
+    assert sc.public_get_config(Response())["items"] == []
+
+
+def test_load_row_suppress_vs_raise(monkeypatch):
+    # _load_row(suppress_errors=True) → None(공개), suppress_errors=False → 예외(관리자).
+    import backend.routers.self_check as sc
+    _raise_get_post(monkeypatch)
+    assert sc._load_row(suppress_errors=True) is None
+    with pytest.raises(sc.SelfCheckConfigUnavailable):
+        sc._load_row(suppress_errors=False)

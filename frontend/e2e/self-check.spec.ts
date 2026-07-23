@@ -272,7 +272,8 @@ test.describe("공통기준 자가점검 관리자 편집기", () => {
   const legacyContent = { ...CRIMINAL_RECORD_CONFIG, item_name: "기존 단일 설정" };
 
   // 공개 페이지에서 실제 origin 에 localStorage(isLoggedIn) + cookie(미들웨어)를 심은 뒤 보호 라우트로 이동.
-  async function authAndGoto(page: import("@playwright/test").Page, adminBody: unknown) {
+  // adminStatus 로 관리자 GET 의 HTTP 상태를 지정(기본 200) → 503/409 fail-closed 화면 검증.
+  async function authAndGoto(page: import("@playwright/test").Page, adminBody: unknown, adminStatus = 200) {
     // (main) 레이아웃이 마운트 시 호출하는 두 endpoint 를 올바른 shape 으로 mock →
     // 5xx/401 로 인한 /login 자동 리다이렉트·크래시 없이 관리 화면이 렌더된다.
     const json = (body: unknown) => (route: import("@playwright/test").Route) =>
@@ -284,7 +285,10 @@ test.describe("공통기준 자가점검 관리자 편집기", () => {
     await page.route("**/api/signature/temp-slots", json([]));
     await page.route("**/api/signature/pad/events", json({ events: [] }));
     await page.route("**/api/customers/expiry-alerts", json({ card_alerts: [], passport_alerts: [] }));
-    await page.route(ADMIN_URL, json(adminBody));
+    await page.route(ADMIN_URL, (route) => {
+      if (route.request().method() !== "GET") return route.fallback();  // PUT(저장)은 아래 테스트별 mock 로
+      return route.fulfill({ status: adminStatus, contentType: "application/json", body: JSON.stringify(adminBody) });
+    });
     await page.goto("/");  // 공개 → 리다이렉트 없음, origin 확보
     await page.evaluate(() => {
       localStorage.setItem("access_token", "e2e-test-token");
@@ -366,5 +370,74 @@ test.describe("공통기준 자가점검 관리자 편집기", () => {
     await expect(page.getByTestId("selfcheck-obsolete-banner")).toContainText("폐기 대상");
     // obsolete 일 때는 일반 legacy 배너를 대신 표시하지 않는다.
     await expect(page.getByTestId("selfcheck-legacy-banner")).toHaveCount(0);
+  });
+
+  // ── PART D/E: 관리자 조회 fail-closed + 빈 bundle 보존 + obsolete 갱신 ──────────
+  test("관리자 GET 503 → unavailable(편집기·저장·기본안 없음)", async ({ page }) => {
+    await authAndGoto(page, { detail: { code: "SELF_CHECK_CONFIG_UNAVAILABLE", message: "x" } }, 503);
+    await expect(page.getByTestId("selfcheck-unavailable")).toBeVisible();
+    await expect(page.getByTestId("selfcheck-retry")).toBeVisible();
+    await expect(page.getByRole("button", { name: "저장(공개 상태 반영)" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" })).toHaveCount(0);
+    await expect(page.getByText("해외범죄경력증명 필요 확인")).toHaveCount(0);  // 기본안 자동 표시 없음
+  });
+
+  test("관리자 GET 409 corrupt → 편집 차단(저장·기본안 없음)", async ({ page }) => {
+    await authAndGoto(page, { detail: { code: "SELF_CHECK_CONFIG_CORRUPT", message: "x", errors: ["JSON 파싱 실패"] } }, 409);
+    await expect(page.getByTestId("selfcheck-corrupt")).toBeVisible();
+    await expect(page.getByRole("button", { name: "저장(공개 상태 반영)" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" })).toHaveCount(0);
+  });
+
+  test("관리자 GET 빈 bundle → 항목 0개(기본안 자동생성 없음, 불러오기 버튼 노출)", async ({ page }) => {
+    await authAndGoto(page, { schema_version: 2, items: [], config_state: "absent", obsolete_legacy: false });
+    // 편집기는 렌더되지만 항목은 0개, 기본 3항목이 자동 생성되지 않음
+    await expect(page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" })).toBeVisible();
+    await expect(page.getByTestId("publish-criminal-record")).toHaveCount(0);
+    await expect(page.getByTestId("publish-tuberculosis")).toHaveCount(0);
+    await expect(page.getByText("항목이 없습니다.", { exact: false })).toBeVisible();
+  });
+
+  test("기본안 불러오기: 클릭만으로 PUT 0회 · 저장 후 PUT 1회", async ({ page }) => {
+    let puts = 0;
+    await authAndGoto(page, { schema_version: 2, items: [], config_state: "absent", obsolete_legacy: false });
+    // 저장 PUT 카운트(GET 은 authAndGoto 로 fallback)
+    await page.route(ADMIN_URL, (route) => {
+      if (route.request().method() === "PUT") { puts += 1; return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, published_items: [], item_errors: {}, tb_warnings: {} }) }); }
+      return route.fallback();
+    });
+    page.on("dialog", (d) => d.accept());  // loadDefaults 의 window.confirm 수락
+    await page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" }).click();
+    // 3개 항목 로드 + 전부 비공개
+    await expect(page.getByTestId("publish-criminal-record")).not.toBeChecked();
+    await expect(page.getByTestId("publish-tuberculosis")).not.toBeChecked();
+    await expect(page.getByTestId("publish-fingerprint")).not.toBeChecked();
+    await page.waitForTimeout(200);
+    expect(puts, "불러오기만으로 PUT 발생").toBe(0);
+    // 저장 → PUT 1회
+    await page.getByRole("button", { name: "저장(공개 상태 반영)" }).click();
+    await expect.poll(() => puts).toBe(1);
+  });
+
+  test("obsolete legacy → 불러오기 미저장 안내 → 저장 후 경고 제거", async ({ page }) => {
+    const body = { schema_version: 2, items: [{ item_id: "legacy", title: "기존 설정", description: null, sort_order: 0, is_published: true, popup_enabled: true, placement: ["home"], config: legacyContent }], obsolete_legacy: true };
+    await authAndGoto(page, body);
+    await page.route(ADMIN_URL, (route) => {
+      if (route.request().method() === "PUT") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, published_items: [], item_errors: {}, tb_warnings: {} }) });
+      return route.fallback();
+    });
+    page.on("dialog", (d) => d.accept());
+    await expect(page.getByTestId("selfcheck-obsolete-banner")).toBeVisible();
+    await page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" }).click();
+    await expect(page.getByTestId("selfcheck-obsolete-unsaved")).toBeVisible();  // 미저장 안내
+    await page.getByRole("button", { name: "저장(공개 상태 반영)" }).click();
+    await expect(page.getByTestId("selfcheck-obsolete-banner")).toHaveCount(0);  // 저장 후 경고 제거
+  });
+
+  test("정상 v2 → 기존 항목 그대로 표시(자동 대체 없음)", async ({ page }) => {
+    await authAndGoto(page, { ...v2Bundle, config_state: "valid", obsolete_legacy: false });
+    await expect(page.getByTestId("publish-criminal-record")).toBeVisible();
+    await expect(page.getByTestId("publish-tuberculosis")).toBeVisible();
+    await expect(page.getByTestId("publish-fingerprint")).toHaveCount(0);  // 원본에 없던 항목 자동추가 없음
   });
 });

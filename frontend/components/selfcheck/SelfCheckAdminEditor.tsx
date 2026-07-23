@@ -2,7 +2,7 @@
 // 관리자 편집기 — 다중 항목(번들) 관리. 좌: 항목 목록 + 선택 항목 편집, 우: 미리보기.
 // 미리보기는 공개 컴포넌트(CommonCriteriaSelfCheck)를 그대로 재사용(별도 복제 UI 없음).
 // 미리보기 답변/결과도 메모리에만 존재하며 저장/전송하지 않는다.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { selfCheckApi } from "@/lib/api";
 import type { SelfCheckConfig, SelfCheckQuestion, SelfCheckResult, SelfCheckItem, SelfCheckBundle } from "@/lib/selfcheck/types";
@@ -47,6 +47,10 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [previewVpIdx, setPreviewVpIdx] = useState(0); // 기본 360×740
+  // 구형(obsolete) 경고는 저장 후 갱신되어야 한다 — 서버 prop 을 초기값으로 내부 state 로 보유.
+  const [obsolete, setObsolete] = useState(obsoleteLegacy);
+  const [loadedDefaults, setLoadedDefaults] = useState(false); // PDF 기본안 불러오기만 한(미저장) 상태
+  useEffect(() => { setObsolete(obsoleteLegacy); setLoadedDefaults(false); }, [obsoleteLegacy]);
   const isLegacy = bundle.items.some((it) => it.item_id === "legacy");
 
   const sorted = useMemo(() => bundle.items.map((it, i) => ({ it, i })).sort((a, b) => (a.it.sort_order ?? 0) - (b.it.sort_order ?? 0)), [bundle]);
@@ -123,6 +127,7 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
     if (!window.confirm("현재 편집 중인 임시 설정을 PDF 기준 기본안으로 교체합니다.\nDB에는 저장 버튼을 누르기 전까지 반영되지 않습니다.\n계속하시겠습니까?")) return;
     setBundle(JSON.parse(JSON.stringify(DEFAULT_SELF_CHECK_BUNDLE)));
     setSelIdx(0);
+    setLoadedDefaults(true);   // 불러오기만 한 미저장 상태 — 운영 DB 는 아직 이전 설정
     toast.success("PDF 기준 3개 기본 항목을 불러왔습니다. (미저장)");
   };
 
@@ -138,6 +143,9 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
     try {
       await selfCheckApi.adminSave(bundle);
       const pub = bundle.items.filter((it) => it.is_published).length;
+      // 저장 성공 → 현재 저장본이 새 bundle 이므로 구형(obsolete) 경고 제거(새로고침 없이 갱신).
+      setObsolete(false);
+      setLoadedDefaults(false);
       toast.success(pub ? `저장 완료 · 공개 항목 ${pub}개` : "저장 완료 (모두 비공개)");
     } catch (e) {
       const d = (e as { response?: { data?: { detail?: { message?: string } } } })?.response?.data?.detail;
@@ -151,14 +159,20 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
-      {obsoleteLegacy && (
+      {obsolete && (
         <div data-testid="selfcheck-obsolete-banner" style={{ flex: "1 1 100%", background: "#FFF5F5", border: "1px solid #FEB2B2",
           color: "#C53030", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>
           현재 공개 설정은 <b>폐기 대상인 구형 결핵 판정 로직</b>입니다. 공개 홈페이지에서는 안전을 위해 표시되지 않습니다.
           ‘PDF 기준 3개 기본 항목 불러오기’ 후 내용을 검토하고 저장하세요. 자동으로 운영 설정을 변경하지 않습니다.
+          {loadedDefaults && (
+            <div data-testid="selfcheck-obsolete-unsaved" style={{ marginTop: 6, fontWeight: 600 }}>
+              PDF 기준 기본안을 불러왔습니다(미저장). 운영 DB 에는 아직 구형 설정이 남아 있으며 공개 API 에서는 안전 차단 중입니다.
+              저장해야 공개 설정이 교체됩니다.
+            </div>
+          )}
         </div>
       )}
-      {isLegacy && !obsoleteLegacy && (
+      {isLegacy && !obsolete && (
         <div data-testid="selfcheck-legacy-banner" style={{ flex: "1 1 100%", background: "#FFFAF0", border: "1px solid #FBD38D",
           color: "#9C4221", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>
           현재 저장본은 <b>기존 단일 자가점검 설정</b>입니다. PDF 기준 3개 항목을 적용하려면

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -17,7 +18,13 @@ from pydantic import BaseModel
 
 from backend.auth import require_system_admin
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+class SelfCheckConfigUnavailable(Exception):
+    """저장 계층 조회 실패 — '설정 없음'과 반드시 구별(관리자에게 503)."""
 
 CONFIG_ID = "common-criteria-self-check"
 CONFIG_CATEGORY = "self_check_config"
@@ -236,11 +243,23 @@ def _validate_config(cfg: dict, for_publish: bool = False) -> list[str]:
     return _validate_config_report(cfg)["errors"]
 
 
-def _load_row() -> dict | None:
+def _load_row(suppress_errors: bool = True) -> dict | None:
+    """저장 row 조회. 반환 None = 실제 '설정 없음'.
+
+    - suppress_errors=True (공개 경로): 저장 계층 오류를 잡아 None 반환(fail-closed, 빈 items).
+      개인정보 없이 오류 '종류'만 로그.
+    - suppress_errors=False (관리자 경로): 오류를 삼키지 않고 SelfCheckConfigUnavailable 로 전파
+      → '설정 없음'과 '조회 실패'를 구별(관리자에게 503)."""
     from backend.services import marketing_pg_service as mk
     try:
         return mk.get_post(CONFIG_ID)
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        if not suppress_errors:
+            raise SelfCheckConfigUnavailable(type(e).__name__) from e
+        try:
+            logger.warning("self-check public config load failed: %s", type(e).__name__)
+        except Exception:  # noqa: BLE001
+            pass
         return None
 
 
@@ -322,6 +341,9 @@ def public_get_config(response: Response, placement: str | None = None):
     # PART C: 폐기 대상 구형 결핵 legacy 는 게시 상태여도 공개에서 즉시 숨긴다(DB 자동 변경 없음).
     if _is_obsolete_legacy_selfcheck(raw):
         return {"schema_version": 2, "items": []}
+    # PART C: v2 번들 구조가 손상이면 부분 공개하지 않고 전체 fail-closed(정상 item 만 골라 흘리지 않음).
+    if isinstance(raw, dict) and isinstance(raw.get("items"), list) and _structural_bundle_errors(raw):
+        return {"schema_version": 2, "items": []}
     bundle = _normalize_bundle(raw, legacy_published=True)
     # PART D: placement fail-closed — query 없으면 home 으로 해석(위치 필터를 해제하지 않는다).
     # 지원하지 않는 위치 값은 전면 미노출(우회로 전체 반환되는 것을 막는다).
@@ -331,13 +353,45 @@ def public_get_config(response: Response, placement: str | None = None):
     return {"schema_version": 2, "items": _public_items(bundle, placement=place)}
 
 
-# ── 관리자: 편집용 조회(게시 여부 무관) — 전체 번들 반환 ───────────────────────
-# 폐기 대상 구형 결핵 legacy 는 obsolete_legacy=True 로 표시(원본은 편집·확인을 위해 그대로 반환).
+# ── 관리자: 편집용 조회 — 조회실패/설정없음/정상/손상을 명확히 구별 ─────────────
+# 원칙: 조회 실패를 '설정 없음'으로 위장하지 않는다. 손상 설정은 편집기·저장을 차단한다.
+# 어떤 경우에도 기본(PDF) 설정을 자동 반환하지 않고, 운영 DB 를 자동 수정·삭제하지 않는다.
+def _corrupt(errors: list[str]):
+    return HTTPException(status_code=409, detail={
+        "code": "SELF_CHECK_CONFIG_CORRUPT",
+        "message": "저장된 자가점검 설정이 손상되어 안전하게 편집할 수 없습니다.",
+        "errors": errors})
+
+
 @router.get("/admin/config")
 def admin_get_config(user: dict = Depends(require_system_admin)):
-    raw, published = _parse_content(_load_row())
-    bundle = _normalize_bundle(raw, legacy_published=published)
-    return {**bundle, "obsolete_legacy": _is_obsolete_legacy_selfcheck(raw)}
+    try:
+        row = _load_row(suppress_errors=False)   # 조회 실패를 삼키지 않음
+    except SelfCheckConfigUnavailable:
+        raise HTTPException(status_code=503, detail={
+            "code": "SELF_CHECK_CONFIG_UNAVAILABLE",
+            "message": "자가점검 설정을 불러오지 못했습니다. 잠시 후 다시 시도하세요."})
+    # 설정 없음(빈 content 포함) → absent (기본안 자동 반환 금지)
+    if not row or not (row.get("content") or "").strip():
+        return {"schema_version": 2, "items": [], "config_state": "absent", "obsolete_legacy": False}
+    published = str(row.get("is_published", "")).upper() in ("TRUE", "Y", "1")
+    try:
+        raw = json.loads(row["content"])
+    except Exception:
+        raise _corrupt(["JSON 파싱 실패"])   # 손상 JSON → 409(부분/기본 반환 없음)
+    # v2 번들: 저장 raw 전체를 strict 검사(malformed item 조용한 제거 금지)
+    if isinstance(raw, dict) and isinstance(raw.get("items"), list):
+        errs = _structural_bundle_errors(raw)
+        if errs:
+            raise _corrupt(errs)
+        bundle = _normalize_bundle(raw, legacy_published=published)
+        return {**bundle, "config_state": "valid", "obsolete_legacy": False}
+    # 레거시 단일 config
+    if isinstance(raw, dict) and isinstance(raw.get("questions"), list) and isinstance(raw.get("results"), list):
+        bundle = _normalize_bundle(raw, legacy_published=published)
+        return {**bundle, "config_state": "legacy", "obsolete_legacy": _is_obsolete_legacy_selfcheck(raw)}
+    # 인식 불가 구조 → 손상 취급(기본안 자동 반환 금지)
+    raise _corrupt(["알 수 없는 설정 구조"])
 
 
 # ── 쓰기 엄격 검증: 잘못된 item 을 조용히 버리지 않는다(하나라도 손상 시 전체 400) ──
