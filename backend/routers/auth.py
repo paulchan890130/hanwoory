@@ -8,14 +8,17 @@ from typing import Optional
 from backend.models import LoginRequest, SignupRequest, TokenResponse
 from backend.auth import (
     create_access_token, get_current_user, is_master_login,
-    is_system_admin as _is_system_admin,
+    # login_id(문자열) 기반 판정 — 아래 라우터에 정의된 dict 기반 로컬 ``_is_system_admin``
+    # (current_user dict 인자)과 **이름이 충돌하지 않도록** 별칭을 구분한다. (회귀 방지)
+    is_system_admin as _is_system_admin_by_login_id,
 )
 
 # ── 공용 helper (모든 Accounts 읽기·쓰기는 accounts_service 경유) ─────────────
 from backend.services.accounts_service import (
     hash_password   as _hash_password,
     verify_password as _verify_password,
-    find_account    as _find_account,
+    find_account_for_login as _find_account_for_login,
+    AuthBackendUnavailable,
     build_account_dict,
     append_account,
 )
@@ -47,7 +50,19 @@ def login(req: LoginRequest, request: Request = None):
                           ip=_ip, user_agent=_ua, success=False, reason="lockout", risk_level="low")
         raise HTTPException(status_code=429, detail=_LOCKED_MSG)
 
-    acc = _find_account(req.login_id) or {}
+    # 로그인 전용 조회 — deferred/optional 프로필 컬럼(role/source_application_id/onboarding …)을
+    # 절대 접근하지 않아 미적용 migration DB 에서도 lazy-load 500 이 나지 않는다. DB 연결/스키마
+    # 오류는 503(AUTH_BACKEND_UNAVAILABLE)로 구조화 — 자격증명 실패(401)로 위장하지 않는다.
+    try:
+        acc = _find_account_for_login(req.login_id) or {}
+    except AuthBackendUnavailable as exc:
+        # 오류 클래스명만 기록(로그인ID/비밀번호/해시/DB URL 등 개인·비밀 정보는 남기지 않음).
+        print(f"[auth.login] AUTH_BACKEND_UNAVAILABLE: {exc}")
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "AUTH_BACKEND_UNAVAILABLE",
+                    "message": "로그인 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."},
+        )
 
     def _fail():
         locked = _guard.record_failure(req.login_id, ip=_ip, user_agent=_ua)
@@ -186,7 +201,7 @@ def login(req: LoginRequest, request: Request = None):
         is_admin=is_admin,
         role=role,
         is_master=is_master,
-        is_system_admin=_is_system_admin(req.login_id),
+        is_system_admin=_is_system_admin_by_login_id(req.login_id),
         office_name=office_name,
         contact_name=contact_name,
     )

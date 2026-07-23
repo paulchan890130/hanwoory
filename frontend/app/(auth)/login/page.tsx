@@ -107,11 +107,33 @@ export default function LoginPage() {
       toast.success(`${res.data.office_name || data.login_id}님, 환영합니다!`);
       router.replace("/dashboard");
     } catch (err: unknown) {
-      // detail 은 문자열 또는 구조화 객체({code,message}) — ACCOUNT_NOT_ACTIVATED 등 구분.
-      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-      let msg = "로그인 실패";
-      if (typeof detail === "string") msg = detail;
-      else if (detail && typeof detail === "object") msg = String((detail as { message?: string }).message || msg);
+      // HTTP status 로 구분하되, 서버가 내려준 구조화 메시지(문자열 또는 {code,message})를
+      // 최우선으로 표시한다(401 자격증명 / 403 상태차단 / 429 잠금 / 503 백엔드 일시장애).
+      // 운영 내부 stack trace 는 절대 화면에 표시하지 않는다.
+      const axErr = err as { response?: { status?: number; data?: { detail?: unknown } } };
+      const status = axErr?.response?.status;
+      const detail = axErr?.response?.data?.detail;
+      let serverMsg = "";
+      if (typeof detail === "string") serverMsg = detail;
+      else if (detail && typeof detail === "object") serverMsg = String((detail as { message?: string }).message || "");
+
+      let msg: string;
+      if (!axErr?.response) {
+        // 응답 자체가 없음 — 네트워크 단절/타임아웃.
+        msg = "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      } else if (status === 401) {
+        msg = serverMsg || "ID 또는 비밀번호가 올바르지 않습니다.";
+      } else if (status === 403 || status === 429) {
+        msg = serverMsg || "로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      } else if (status === 503) {
+        msg = serverMsg || "로그인 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+      } else if (status === 502 || status === 504) {
+        msg = "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      } else if (typeof status === "number" && status >= 500) {
+        msg = "로그인 처리 중 서버 오류가 발생했습니다.";
+      } else {
+        msg = serverMsg || "로그인 실패";
+      }
       toast.error(msg);
     } finally {
       inflightRef.current = false;
