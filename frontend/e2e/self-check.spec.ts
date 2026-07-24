@@ -96,6 +96,13 @@ test.describe("공통기준 자가점검 — 게시글 단일 항목 shortcode",
     await expect(page.getByText("첫 번째 질문입니까?")).toBeVisible();  // 선택화면 건너뜀
   });
 
+  test("shortcode 정상 + 공개 항목 없음 → 아무것도 표시하지 않음", async ({ page }) => {
+    // 공개 API items=[] 이면 shortcode 가 정상 파싱돼도 열기 버튼조차 렌더하지 않는다.
+    await mountPostEditor(page, bundle([]));
+    await typeShortcode(page, "criminal-record");
+    await expect(page.getByTestId("selfcheck-post-open-criminal-record")).toHaveCount(0);
+  });
+
   test("결과까지 진행 + 내 답변/판정경로/전체로직/버전 표시", async ({ page }) => {
     await mountPostEditor(page, bundle([item("simple", SIMPLE_CFG)]));
     await openPost(page, "simple");
@@ -478,6 +485,43 @@ test.describe("공통기준 자가점검 관리자 편집기", () => {
     await page.getByTestId("placement-home").check();
     await expect(page.getByTestId("placement-home")).toBeChecked();
     await expect(page.getByTestId("placement-post")).toBeChecked();  // post 는 유지(강제 해제 없음)
+  });
+
+  // ── PART A: 게시글 공개 상태 진단(읽기 전용, 공개 API) ──────────────────────────
+  test("게시글 공개 상태 확인 → 공개 항목 없음 표시", async ({ page }) => {
+    await authAndGoto(page, v2Bundle);
+    await page.route(CONFIG_URL, (r) => r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ schema_version: 2, items: [] }) }));
+    await page.getByTestId("selfcheck-public-check-btn").click();
+    await expect(page.getByTestId("selfcheck-public-none")).toBeVisible();
+  });
+
+  test("게시글 공개 상태 확인 → 공개 항목 item_id 표시", async ({ page }) => {
+    await authAndGoto(page, v2Bundle);
+    await page.route(CONFIG_URL, (r) => r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ schema_version: 2, items: [{ item_id: "tuberculosis" }] }) }));
+    await page.getByTestId("selfcheck-public-check-btn").click();
+    await expect(page.getByTestId("selfcheck-public-items")).toContainText("tuberculosis");
+  });
+
+  test("게시글 공개 상태 확인 → 공개 API 오류(503) 구분 표시", async ({ page }) => {
+    await authAndGoto(page, v2Bundle);
+    await page.route(CONFIG_URL, (r) => r.fulfill({ status: 503, contentType: "application/json", body: "{}" }));
+    await page.getByTestId("selfcheck-public-check-btn").click();
+    await expect(page.getByTestId("selfcheck-public-error")).toContainText("503");
+  });
+
+  test("항목 게시글 공개 가능 상태: 조건 충족 → 게시가능 / home만 → 게시불가", async ({ page }) => {
+    const b = { schema_version: 2, items: [
+      { item_id: "cr", title: "CR항목", description: "", sort_order: 1, is_published: true, popup_enabled: true, placement: ["post"], config: CRIMINAL_RECORD_CONFIG },
+      { item_id: "homeonly", title: "HO항목", description: "", sort_order: 2, is_published: true, popup_enabled: true, placement: ["home"], config: FINGERPRINT_CONFIG },
+    ] };
+    await authAndGoto(page, b);
+    await expect(page.getByTestId("selfcheck-post-eligible-cr")).toContainText("게시가능");
+    await expect(page.getByTestId("selfcheck-post-eligible-homeonly")).toContainText("게시불가");
+    // 선택 항목 상세 verdict
+    await page.getByText("CR항목", { exact: true }).click();
+    await expect(page.getByTestId("selfcheck-item-eligible-verdict")).toContainText("공개 가능");
   });
 
   test("obsolete legacy → 불러오기 미저장 안내 → 저장 후 경고 제거", async ({ page }) => {

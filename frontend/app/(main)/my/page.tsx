@@ -438,6 +438,7 @@ export default function MyPage() {
   const isStaff = info.office_role === "office_staff";
 
   const handleInfoSave = () => {
+    const intendedTel = (info.contact_tel || "").replace(/[^0-9]/g, "");
     submitInfo(
       async () => {
         const payload: Record<string, string> = {
@@ -450,7 +451,13 @@ export default function MyPage() {
           payload.biz_reg_no = info.biz_reg_no;
         }
         await api.patch("/api/auth/me", payload);
-        await reloadMe();
+        // 저장 후 서버 재조회로 확정 — 재조회 값이 저장 의도와 다르면 성공으로 처리하지 않는다.
+        const fresh = (await api.get<MyInfo>("/api/auth/me")).data;
+        setInfo(fresh);
+        const savedTel = (fresh.contact_tel || "").replace(/[^0-9]/g, "");
+        if (savedTel !== intendedTel) {
+          throw new Error("저장한 연락처가 재조회 값과 일치하지 않습니다. 다시 시도해 주세요.");
+        }
       },
       { successMessage: "문서 자동작성 필수정보가 저장되었습니다.", errorMessage: "저장 실패" }
     );

@@ -101,6 +101,40 @@ def test_docgen_gate_account_none_but_fields_needed_409(monkeypatch):
     assert ei.value.status_code == 409 and ei.value.detail.get("missing") == ["agent_tel"]
 
 
+def test_docgen_gate_representative_not_configured_409(monkeypatch):
+    # tenant 는 있으나 대표자 미설정(representative_configured=False) + 행정사 필드 필요 → 전용 409.
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: {"agent_tel"})
+    acc = {"office_name": "한우리", "contact_tel": "", "biz_reg_no": "2131237464",
+           "agent_rrn": "", "agent_rrn_registered": False, "agent_rrn_decrypt_failed": False,
+           "representative_configured": False}
+    with pytest.raises(HTTPException) as ei:
+        qd._require_office_profile_for_docs(acc, ["d"], output="pdf")
+    assert ei.value.status_code == 409
+    assert ei.value.detail.get("code") == "OFFICE_REPRESENTATIVE_NOT_CONFIGURED"
+
+
+def test_docgen_gate_representative_not_configured_skips_customer_only(monkeypatch):
+    # 대표자 미설정이어도 행정사 필드 미사용(고객정보만) 문서는 통과(대표자 불필요).
+    import backend.routers.quick_doc as qd
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: set())
+    qd._require_office_profile_for_docs({"representative_configured": False}, ["customer-only"])  # 예외 없음
+
+
+def test_docgen_gate_representative_configured_uses_field_checks(monkeypatch):
+    # 대표자 설정됨 + 필드 누락 → 기존 OFFICE_PROFILE_INCOMPLETE 경로(대표자 코드로 가리지 않음).
+    import backend.routers.quick_doc as qd
+    from fastapi import HTTPException
+    monkeypatch.setattr(qd, "_required_agent_fields_for_docs", lambda docs, output: {"agent_rrn"})
+    acc = {"office_name": "한우리", "contact_tel": "01012345678", "biz_reg_no": "2131237464",
+           "agent_rrn": "", "agent_rrn_registered": False, "agent_rrn_decrypt_failed": False,
+           "representative_configured": True}
+    with pytest.raises(HTTPException) as ei:
+        qd._require_office_profile_for_docs(acc, ["d"], output="pdf")
+    assert ei.value.status_code == 409 and ei.value.detail.get("code") == "OFFICE_PROFILE_INCOMPLETE"
+
+
 def test_docgen_gate_contract_unavailable_422(monkeypatch):
     # 계약(PDF/HWPX 필드) 확인 실패 → 422(조용한 빈집합 금지).
     import backend.routers.quick_doc as qd
@@ -131,7 +165,7 @@ def test_load_account_db_error_raises_unavailable(monkeypatch):
     from fastapi import HTTPException
     def _boom(_tid):
         raise RuntimeError("db down")
-    monkeypatch.setattr("backend.services.auth_pg_service.find_account_by_tenant_pg", _boom)
+    monkeypatch.setattr("backend.services.auth_pg_service.find_document_office_profile_by_tenant_pg", _boom)
     with pytest.raises(qd.OfficeProfileUnavailable):
         qd._load_account("t1")
     with pytest.raises(HTTPException) as ei:
@@ -141,7 +175,7 @@ def test_load_account_db_error_raises_unavailable(monkeypatch):
 
 def test_load_account_missing_returns_none(monkeypatch):
     import backend.routers.quick_doc as qd
-    monkeypatch.setattr("backend.services.auth_pg_service.find_account_by_tenant_pg", lambda _tid: None)
+    monkeypatch.setattr("backend.services.auth_pg_service.find_document_office_profile_by_tenant_pg", lambda _tid: None)
     assert qd._load_account("t-missing") is None
 
 

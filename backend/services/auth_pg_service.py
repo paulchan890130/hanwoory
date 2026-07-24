@@ -185,6 +185,54 @@ def find_account_by_tenant_pg(tenant_id: str) -> Optional[dict]:
         }
 
 
+def find_document_office_profile_by_tenant_pg(tenant_id: str) -> Optional[dict]:
+    """문서 자동작성 **전용** 사무소 프로필 계약.
+
+    사무소 공통정보(office_name/office_adr/biz_reg_no/agent_rrn_encrypted)는 ``tenants`` 행에서,
+    담당자(성명/연락처)는 **대표자 계정에서만** 가져온다. 문서에는 대표 행정사의 정보만 들어가야
+    하므로 다음을 **금지**한다: 실무자(office_staff)로 fallback, 현재 로그인한 사용자의 연락처
+    사용, login_id/user-id 순서로 임의 대체. 조회는 ``tenant_id`` 로만 대표자를 결정한다.
+
+    대표자 결정 규칙(결정적): ``is_admin=true AND is_active=true`` 계정만 후보 → id 오름차순
+    첫 계정. 활성 대표자가 여러 명이어도(비정상) 결정적으로 하나를 고르며 **실무자는 절대
+    고르지 않는다**. 활성 대표자가 없으면 담당자 필드를 빈 값으로 두고
+    ``representative_configured=False`` 로 표시한다(실무자 값으로 채우지 않는다) — 호출측
+    (quick_doc)이 이를 409 OFFICE_REPRESENTATIVE_NOT_CONFIGURED 로 변환한다.
+
+    반환: tenant 행 없음 → ``None``. 그 외 dict."""
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    from backend.db.session import get_sessionmaker
+
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        t = session.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if t is None:
+            return None
+        # 대표자 = 활성(is_active) 관리자(is_admin) 중 id 최소. 명시 projection(deferred 컬럼 미접근).
+        rep = session.execute(
+            select(AccountUser.contact_name, AccountUser.contact_tel)
+            .where(
+                AccountUser.tenant_id == tenant_id,
+                AccountUser.is_admin.is_(True),
+                AccountUser.is_active.is_(True),
+            )
+            .order_by(AccountUser.id.asc())
+        ).first()
+        return {
+            "tenant_id":    t.tenant_id,
+            "office_name":  t.office_name or "",
+            "office_adr":   t.office_adr or "",
+            "biz_reg_no":   t.biz_reg_no or "",
+            # 원본 주민번호는 평문 미보관 — 암호문만 전달(호출측이 복호화).
+            "agent_rrn_encrypted": t.agent_rrn_encrypted or "",
+            # 담당자(성명/연락처)는 대표자 계정에서만 — 실무자 fallback 없음.
+            "contact_name": (rep[0] if rep else "") or "",
+            "contact_tel":  (rep[1] if rep else "") or "",
+            "representative_configured": rep is not None,
+        }
+
+
 def verify_login_pg(login_id: str, password: str) -> Optional[PGUserInfo]:
     """Return the user dict iff the credentials are valid AND the user is active."""
     from backend.services.accounts_service import verify_password

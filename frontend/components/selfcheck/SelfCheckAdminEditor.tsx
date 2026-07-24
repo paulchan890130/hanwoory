@@ -58,6 +58,34 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
 
   const sorted = useMemo(() => bundle.items.map((it, i) => ({ it, i })).sort((a, b) => (a.it.sort_order ?? 0) - (b.it.sort_order ?? 0)), [bundle]);
   const bundleReport = useMemo(() => validateBundle(bundle), [bundle]);
+
+  // ── PART A: 게시글 실제 공개 상태 진단(읽기 전용) — 편집 중(미저장) 상태와 분리해서 본다.
+  // "게시글 공개 상태 확인" 버튼은 실제 공개 API(GET /api/self-check/config?placement=post)를 호출해
+  // 지금 게시글에서 공개되는 item_id 를 보여준다. 저장/공개를 자동으로 수행하지 않는다.
+  const [pubCheck, setPubCheck] = useState<{ status: "idle" | "loading" | "ok" | "error"; items: string[]; http?: number }>({ status: "idle", items: [] });
+  const checkPublic = async () => {
+    setPubCheck({ status: "loading", items: [] });
+    try {
+      const r = await selfCheckApi.getPublic("post");
+      const items = ((r.data as { items?: { item_id: string }[] })?.items || []).map((x) => x.item_id);
+      setPubCheck({ status: "ok", items });
+    } catch (e: unknown) {
+      const http = (e as { response?: { status?: number } })?.response?.status;
+      setPubCheck({ status: "error", items: [], http });
+    }
+  };
+  // 편집 중(미저장) 기준 "게시글 공개 가능" 상태 — 실제 공개 API 와 다를 수 있음(저장 전).
+  const postEligibility = (it: SelfCheckItem) => {
+    const published = !!it.is_published;
+    const popup = !!it.popup_enabled;
+    const post = (it.placement || []).includes("post");
+    const structure = (bundleReport.itemErrors?.[it.item_id]?.length || 0) === 0;
+    const isTb = isTuberculosisItem(it);
+    const tb = isTb ? verifyTuberculosis(it.config) : null;
+    const eligible = published && popup && post && structure && (!isTb || !!tb?.ok);
+    return { published, popup, post, structure, isTb, tb, eligible };
+  };
+
   const item: SelfCheckItem | undefined = bundle.items[selIdx];
   const cfg = item?.config;
   const report = useMemo(() => (cfg ? validateConfig(cfg) : { errors: ["항목이 선택되지 않았습니다."], warnings: [] }), [cfg]);
@@ -195,6 +223,31 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
           기본항목은 게시글 노출로 설정됩니다. 게시글 편집기에서 자가점검 항목을 삽입한 뒤 공개하세요.
         </div>
 
+        {/* PART A: 게시글 실제 공개 상태 진단(읽기 전용) — 편집 중(미저장)과 실제 공개 API 를 구분한다. */}
+        <div style={{ marginTop: 8, border: "1px solid var(--hw-border)", borderRadius: 8, padding: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn-secondary" data-testid="selfcheck-public-check-btn" style={{ fontSize: 12 }}
+              onClick={checkPublic} disabled={pubCheck.status === "loading"}>
+              {pubCheck.status === "loading" ? "확인 중…" : "게시글 공개 상태 확인"}
+            </button>
+            <span style={{ fontSize: 11, color: "var(--hw-text-sub)" }}>실제 공개 API(placement=post) 기준 — 저장/공개는 하지 않음</span>
+          </div>
+          <div data-testid="selfcheck-public-check-result" style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6 }}>
+            {pubCheck.status === "idle" && <span style={{ color: "var(--hw-text-sub)" }}>아직 확인하지 않았습니다.</span>}
+            {pubCheck.status === "error" && (
+              <span data-testid="selfcheck-public-error" style={{ color: "#C53030" }}>
+                공개 상태 API 오류{pubCheck.http ? ` (HTTP ${pubCheck.http})` : ""} — 잠시 후 다시 시도하세요.
+              </span>
+            )}
+            {pubCheck.status === "ok" && (pubCheck.items.length === 0
+              ? <span data-testid="selfcheck-public-none" style={{ color: "#B7791F" }}>게시글 공개 항목 없음 — 게시글 shortcode 를 넣어도 표시되지 않습니다.</span>
+              : <span data-testid="selfcheck-public-items">현재 게시글 공개 항목: <b>{pubCheck.items.join(", ")}</b></span>)}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 11, color: "var(--hw-text-sub)" }}>
+            아래 목록의 “게시글 공개 가능/불가”는 <b>편집 중(미저장)</b> 기준 예상입니다. 실제 공개 반영은 저장 후 위 버튼으로 확인하세요.
+          </div>
+        </div>
+
         {/* 항목 목록 */}
         <div style={{ marginTop: 10, border: "1px solid var(--hw-border)", borderRadius: 8, overflow: "hidden" }}>
           {sorted.length === 0 && (
@@ -208,6 +261,14 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
                 borderBottom: "1px solid var(--hw-border)", background: i === selIdx ? "var(--hw-gold-50)" : "#fff", flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", flex: "1 1 140px", minWidth: 0 }}>{it.title || it.config.item_name || "(제목 없음)"}</span>
               <span style={{ fontSize: 11, color: "#A0AEC0" }}>{it.config.logic_version}</span>
+              {(() => { const el = postEligibility(it); return (
+                <span data-testid={`selfcheck-post-eligible-${it.item_id}`}
+                  title={el.eligible ? "게시글 공개 가능(편집 중 기준)" : "게시글 공개 불가(편집 중 기준)"}
+                  style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 10,
+                    background: el.eligible ? "#C6F6D5" : "#EDF2F7", color: el.eligible ? "#22543D" : "#718096" }}>
+                  {el.eligible ? "게시가능" : "게시불가"}
+                </span>
+              ); })()}
               <label style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" data-testid={`publish-${it.item_id}`} checked={it.is_published} onChange={(e) => tryTogglePublish(i, e.target.checked)} /> 공개
               </label>
@@ -271,6 +332,37 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
                 })}
               </div>
             </div>
+
+            {/* PART A: 이 항목의 게시글 공개 가능 상태(편집 중 기준) — 실제 공개는 저장 후 공개 API 로 확인 */}
+            {(() => {
+              const el = postEligibility(item);
+              const Chk = ({ ok, label }: { ok: boolean; label: string }) => (
+                <span style={{ fontSize: 12, color: ok ? "#276749" : "#C53030" }}>{ok ? "✓" : "✗"} {label}</span>
+              );
+              return (
+                <div data-testid="selfcheck-item-eligibility" style={{ marginBottom: 12, border: "1px solid var(--hw-border)", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+                    게시글 공개 가능 상태(편집 중): <b data-testid="selfcheck-item-eligible-verdict" style={{ color: el.eligible ? "#276749" : "#C53030" }}>{el.eligible ? "공개 가능" : "공개 불가"}</b>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    <Chk ok={el.published} label="공개(is_published)" />
+                    <Chk ok={el.popup} label="팝업(popup_enabled)" />
+                    <Chk ok={el.post} label="게시글 placement(post)" />
+                    <Chk ok={el.structure} label="구조 검증" />
+                    {el.isTb && el.tb && (<>
+                      <Chk ok={el.tb.count === TB_CANONICAL_COUNT} label={`TB 35개국(${el.tb.count})`} />
+                      <Chk ok={el.tb.dup === 0} label="중복 0" />
+                      <Chk ok={el.tb.matchesCanonical} label="공식 set 일치" />
+                      <Chk ok={el.tb.hasSource} label="출처 metadata" />
+                      <Chk ok={!el.tb.banned} label="폐기문구 없음" />
+                    </>)}
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 11, color: "var(--hw-text-sub)" }}>
+                    “최상위 저장행 공개 여부”를 포함한 실제 공개 반영은 위 “게시글 공개 상태 확인” 버튼(공개 API)으로 확인하세요.
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ marginBottom: 12 }}>
               <label style={lbl}>고위험 국가 목록(첫 질문에서 펼침, 한 줄에 하나 · 결과 화면에는 미출력)</label>

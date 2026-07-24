@@ -284,9 +284,9 @@ def _load_account(tenant_id: str) -> Optional[dict]:
     - tenant/account 행 없음 → ``None``.
     - 암호화 키·복호화 실패 → account 객체 + ``agent_rrn_decrypt_failed=True`` flag(빈 값).
     평문/암호문/DB 원문 오류는 로그에 남기지 않는다."""
-    from backend.services.auth_pg_service import find_account_by_tenant_pg
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg
     try:
-        acc = find_account_by_tenant_pg(tenant_id)
+        acc = find_document_office_profile_by_tenant_pg(tenant_id)
     except Exception as e:  # noqa: BLE001 — DB 오류는 삼키지 않고 상위에서 503
         raise OfficeProfileUnavailable(type(e).__name__)
     if not acc:
@@ -428,6 +428,12 @@ def _require_office_profile_for_docs(account: Optional[dict], selected_docs: lis
             "code": "OFFICE_PROFILE_INCOMPLETE",
             "message": "이 문서에 필요한 사무소 정보를 불러올 수 없습니다.",
             "missing": sorted(used)})
+    # 문서에는 대표 행정사의 정보만 들어간다 — 대표자 미설정이면 실무자 값으로 대체하지 않고 차단.
+    # (representative_configured 키가 없는 손수 만든 dict 는 하위호환으로 통과시킨다 — 기본 True.)
+    if account.get("representative_configured", True) is False:
+        raise HTTPException(status_code=409, detail={
+            "code": "OFFICE_REPRESENTATIVE_NOT_CONFIGURED",
+            "message": "문서 자동작성에 사용할 사무소 대표자 정보를 찾을 수 없습니다."})
     missing = [f for f in _AGENT_FIELD_KEYS if f in used and _office_field_missing(account, f)]
     if missing:
         raise HTTPException(status_code=409, detail={

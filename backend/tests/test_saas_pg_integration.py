@@ -822,3 +822,127 @@ def test_admin_update_account_normalizes_and_validates(db, monkeypatch):
     with db() as s:
         u2 = s.scalar(select(AccountUser).where(AccountUser.login_id == "u@of1.kr"))
         assert (u2.contact_tel or "") == ""
+
+
+# ── 문서 자동작성 대표자 계약 + 실무자 연락처 (PART B/C) ──────────────────────────
+def _seed_office(db, *, rep_tel="01011112222", rep_name="대표", staff_tel=None,
+                 staff_name="실무", with_rep=True, with_staff=True, tid="of-1"):
+    """대표(active admin) + 실무(active staff) 시드. contact_name/tel 명시 설정."""
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        t = Tenant(tenant_id=tid, office_name="한우리", office_adr="서울시", biz_reg_no="2131237464", is_active=True)
+        s.add(t)
+        if with_rep:
+            s.add(AccountUser(login_id=f"admin@{tid}", tenant_id=tid, password_hash="x",
+                              is_admin=True, is_active=True, contact_name=rep_name, contact_tel=rep_tel))
+        if with_staff:
+            s.add(AccountUser(login_id=f"staff@{tid}", tenant_id=tid, password_hash="x",
+                              is_admin=False, is_active=True, contact_name=staff_name, contact_tel=staff_tel))
+        s.commit()
+
+
+def test_document_profile_uses_representative_only(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    _seed_office(db, rep_tel="01011112222", staff_tel="01033334444")
+    p = f("of-1")
+    assert p is not None and p["representative_configured"] is True
+    assert p["contact_name"] == "대표" and p["contact_tel"] == "01011112222"   # 대표자
+    assert p["office_name"] == "한우리" and p["office_adr"] == "서울시" and p["biz_reg_no"] == "2131237464"
+
+
+def test_document_profile_no_admin_not_configured_no_staff_fallback(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    _seed_office(db, with_rep=False, staff_tel="01033334444")   # 실무자만
+    p = f("of-1")
+    assert p is not None and p["representative_configured"] is False
+    assert p["contact_tel"] == "" and p["contact_name"] == ""    # 실무자 값으로 대체 금지
+
+
+def test_document_profile_inactive_admin_not_configured(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        s.add(Tenant(tenant_id="of-1", office_name="한우리", is_active=True))
+        s.add(AccountUser(login_id="admin@of-1", tenant_id="of-1", password_hash="x",
+                          is_admin=True, is_active=False, contact_name="대표", contact_tel="01011112222"))
+        s.commit()
+    p = f("of-1")
+    assert p["representative_configured"] is False and p["contact_tel"] == ""
+
+
+def test_document_profile_multiple_admins_deterministic(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        s.add(Tenant(tenant_id="of-1", office_name="한우리", is_active=True))
+        s.add(AccountUser(login_id="admin1@of-1", tenant_id="of-1", password_hash="x",
+                          is_admin=True, is_active=True, contact_name="대표1", contact_tel="01011112222"))
+        s.add(AccountUser(login_id="admin2@of-1", tenant_id="of-1", password_hash="x",
+                          is_admin=True, is_active=True, contact_name="대표2", contact_tel="01055556666"))
+        s.add(AccountUser(login_id="staff@of-1", tenant_id="of-1", password_hash="x",
+                          is_admin=False, is_active=True, contact_name="실무", contact_tel="01033334444"))
+        s.commit()
+    p1 = f("of-1"); p2 = f("of-1")
+    # 결정적(가장 낮은 id 의 active admin), 실무자는 절대 아님, 호출마다 동일
+    assert p1["contact_tel"] == "01011112222" and p2["contact_tel"] == "01011112222"
+    assert p1["contact_tel"] != "01033334444"
+
+
+def test_document_profile_tenant_missing_none(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    assert f("no-such-tenant") is None
+
+
+def test_load_account_document_contract_is_representative(db):
+    """quick_doc._load_account 이 대표자 연락처를 쓰고, 실무자 변경엔 불변·대표자 변경엔 반영."""
+    import backend.routers.quick_doc as qd
+    from backend.db.models.user import AccountUser
+    _seed_office(db, rep_tel="01011112222", staff_tel="01033334444")
+    acc = qd._load_account("of-1")
+    assert acc["contact_tel"] == "01011112222" and acc["representative_configured"] is True
+    # 실무자 연락처 변경 → 문서 프로필 불변
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "staff@of-1"))
+        u.contact_tel = "01099998888"; s.commit()
+    assert qd._load_account("of-1")["contact_tel"] == "01011112222"
+    # 대표자 연락처 변경 → 문서 프로필 반영
+    with db() as s:
+        u = s.scalar(select(AccountUser).where(AccountUser.login_id == "admin@of-1"))
+        u.contact_tel = "01077778888"; s.commit()
+    assert qd._load_account("of-1")["contact_tel"] == "01077778888"
+
+
+def test_staff_patch_me_saves_own_contact_only(db):
+    """office_staff 가 PATCH /me 로 본인 연락처 저장 → GET /me 반영, 대표자·tenant 불변."""
+    from backend.routers.auth import update_me, get_me, MeUpdateRequest
+    from backend.db.models.tenant import Tenant
+    from backend.db.models.user import AccountUser
+    _seed_office(db, rep_tel="01011112222", staff_tel=None)   # 실무자 tel NULL
+    staff_user = {"login_id": "staff@of-1", "tenant_id": "of-1", "is_admin": False, "is_master": False}
+    # 실무자 본인 연락처 저장
+    assert update_me(MeUpdateRequest(contact_tel="01033334444"), current_user=staff_user)["ok"] is True
+    me = get_me(current_user=staff_user)
+    assert me["contact_tel"] == "01033334444"
+    # 대표자 연락처 불변 + tenant 공통정보 불변
+    with db() as s:
+        rep = s.scalar(select(AccountUser).where(AccountUser.login_id == "admin@of-1"))
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        assert (rep.contact_tel or "") == "01011112222"
+        assert t.office_name == "한우리" and t.biz_reg_no == "2131237464"
+    # 문서 프로필은 여전히 대표자 연락처(실무자 저장의 영향 없음)
+    import backend.routers.quick_doc as qd
+    assert qd._load_account("of-1")["contact_tel"] == "01011112222"
+
+
+def test_staff_patch_me_cannot_edit_tenant_common(db):
+    """office_staff 가 tenant 공통정보(사업자번호) 수정 시도 → 403."""
+    from backend.routers.auth import update_me, MeUpdateRequest
+    from fastapi import HTTPException
+    _seed_office(db, staff_tel="01033334444")
+    staff_user = {"login_id": "staff@of-1", "tenant_id": "of-1", "is_admin": False, "is_master": False}
+    with pytest.raises(HTTPException) as ei:
+        update_me(MeUpdateRequest(biz_reg_no="9999999999"), current_user=staff_user)
+    assert ei.value.status_code == 403
