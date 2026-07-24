@@ -26,6 +26,11 @@ import io
 import re
 from typing import Optional
 
+
+class BulkTemplateMismatch(Exception):
+    """업로드 파일이 고객 일괄등록 양식(고객 시트 + 2행 15개 헤더)과 일치하지 않음.
+    위치 기반으로 조용히 등록하지 않도록 파싱 전에 차단 → 라우터에서 400 으로 변환한다."""
+
 # 엑셀 열(표시 헤더, 한글 표준키, 필수). 고객ID/중국명/생년월일 제외.
 # 영문명 → 성+명 분해, 전화번호 → 연/락/처 분해(아래 _row_to_customer).
 EXCEL_COLUMNS = [
@@ -41,7 +46,9 @@ EXCEL_COLUMNS = [
     ("여권번호", "여권", False),
     ("여권 발급일(예: 2026-06-24 또는 20260624)", "발급", False),
     ("여권 만기일(예: 2026-06-24 또는 20260624)", "만기", False),
-    ("체류자격(예: F-4 또는 F4)", "체류자격", False),
+    # 체류자격 애플리케이션 정본 키는 "V"(= customers.v_status, 고객카드/검색/quick-doc 과 동일).
+    # 표시 헤더는 "체류자격…" 그대로. (구 표준키 "체류자격"→visa_status 로 분리되던 버그 수정)
+    ("체류자격(예: F-4 또는 F4)", "V", False),
     ("주소", "주소", False),
     ("메모", "비고", False),
 ]
@@ -82,7 +89,7 @@ EXAMPLE_BY_KEY = {
     "여권": "E12345678",
     "발급": "20240101",
     "만기": "20340101",
-    "체류자격": "F4",
+    "V": "F4",
     "주소": "경기도 시흥시 정왕동",
     "비고": "예시 행입니다. 업로드 시 등록되지 않습니다.",
 }
@@ -200,17 +207,59 @@ def _cell_to_str(v) -> str:
 
 # ── 양식 생성 ──────────────────────────────────────────────────────────────────
 
-def build_template_bytes() -> bytes:
-    """입력 양식 xlsx(bytes). 1행 안내 + 2행 헤더 + 3행 예시 잠금, 4행~ 해제, 시트 보호."""
+def _record_to_form_cells(record: dict) -> list[str]:
+    """고객 레코드(list_customers 한글키 dict) → 등록 양식 15개 셀 값(STD_KEYS 순서).
+    영문명=성+공백+명(하나만 있으면 그 값), 전화=연-락-처(하이픈), 체류자격=canonical resolver(V 우선)."""
+    from backend.services.customer_pg_service import resolve_customer_visa
+    sur = str(record.get("성", "") or "").strip()
+    given = str(record.get("명", "") or "").strip()
+    eng = " ".join(p for p in (sur, given) if p)
+    phone = "-".join(p for p in (
+        str(record.get("연", "") or "").strip(),
+        str(record.get("락", "") or "").strip(),
+        str(record.get("처", "") or "").strip(),
+    ) if p)
+    by_key = {
+        "한글": record.get("한글", ""),
+        "_eng_name": eng,
+        "성별": record.get("성별", ""),
+        "국적": record.get("국적", ""),
+        "_phone": phone,
+        "등록증": record.get("등록증", ""),
+        "번호": record.get("번호", ""),
+        "발급일": record.get("발급일", ""),
+        "만기일": record.get("만기일", ""),
+        "여권": record.get("여권", ""),
+        "발급": record.get("발급", ""),
+        "만기": record.get("만기", ""),
+        "V": resolve_customer_visa(record),
+        "주소": record.get("주소", ""),
+        "비고": record.get("비고", ""),
+    }
+    return [str(by_key.get(k, "") or "") for k in STD_KEYS]
+
+
+def build_customer_bulk_workbook_bytes(records=None, *, mode: str = "template") -> bytes:
+    """고객 일괄등록 양식 / 일괄추출을 **동일 구조**로 만드는 단일 정본 빌더.
+
+    - mode="template": 데이터 없음(1~3행 + 4행~ 빈 입력영역).
+    - mode="export":  4행부터 records 기록(등록 양식과 동일 시트/헤더/예시/서식) + 읽기 전용
+      "추출 부가정보" 시트(고객ID·성명·위임내역·폴더).
+
+    공통: 시트명 '고객', 1행 안내·2행 헤더·3행 예시, freeze A4, Text(@) 서식, 사용법 시트.
+    헤더 배열(HEADERS/EXCEL_COLUMNS)은 이 함수 한 곳에서만 사용(중복 선언 없음). export 결과는
+    그대로 bulk validate/commit 에 넣을 수 있다(round-trip)."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill, Protection
     from openpyxl.utils import get_column_letter
 
+    data_rows = list(records or []) if mode == "export" else []
+
     wb = Workbook()
     ws = wb.active
     ws.title = SHEET_NAME
-
     n = len(HEADERS)
+
     # 1행: 안내문(병합)
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n)
     c = ws.cell(row=1, column=1, value=GUIDE_TEXT)
@@ -229,26 +278,33 @@ def build_template_bytes() -> bytes:
         ws.column_dimensions[get_column_letter(i)].width = 16 if len(h) <= 8 else 26
     ws.row_dimensions[HEADER_ROW].height = 42
 
-    # 3행: 예시(회색)
+    # 3행: 예시(회색) — 항상 3행에 존재(업로드 시 무시).
     example_fill = PatternFill("solid", fgColor="EDEDED")
     for i, key in enumerate(STD_KEYS, start=1):
         cell = ws.cell(row=EXAMPLE_ROW, column=i, value=EXAMPLE_BY_KEY.get(key, ""))
         cell.font = Font(italic=True, color="888888", size=10)
         cell.fill = example_fill
 
-    # 잠금: 1~3행 locked, 4행~ unlocked(입력영역)
+    # 4행~: 데이터(export 만) — 등록 양식과 동일 열 순서로 기록.
+    for offset, record in enumerate(data_rows):
+        for col, val in enumerate(_record_to_form_cells(record), start=1):
+            ws.cell(row=DATA_START_ROW + offset, column=col, value=val)
+
+    # 입력/기록 영역 행 수: template 1000행, export 는 데이터 수 확보(최소 1000).
+    capacity = max(len(data_rows), 1000)
+    last_row = DATA_START_ROW + capacity - 1
+
+    # 잠금: 1~3행 locked, 4행~ unlocked
     for r in (1, HEADER_ROW, EXAMPLE_ROW):
         for col in range(1, n + 1):
             ws.cell(row=r, column=col).protection = Protection(locked=True)
-    for r in range(DATA_START_ROW, DATA_START_ROW + 1000):
+    for r in range(DATA_START_ROW, last_row + 1):
         for col in range(1, n + 1):
             ws.cell(row=r, column=col).protection = Protection(locked=False)
 
-    # Excel "일반" 서식은 앞자리 0을 지운다(전화번호 01099240490 → 1099240490,
-    # 등록증 앞자리 000101 → 101 등 2000년 이후 출생자 케이스도 동일하게 깨짐).
-    # 예시행 + 입력 가능한 모든 행의 **모든 열**을 Text(@) 서식으로 고정해 입력값이
-    # 그대로(있는 그대로) 문자열로 저장되게 한다.
-    for r in range(EXAMPLE_ROW, DATA_START_ROW + 1000):
+    # Excel "일반" 서식은 앞자리 0을 지운다(전화 01099240490→1099240490, 등록증 000101→101).
+    # 예시행 + 입력영역 전 열을 Text(@) 로 고정해 입력·추출 값이 그대로 문자열로 보존되게 한다.
+    for r in range(EXAMPLE_ROW, last_row + 1):
         for col in range(1, n + 1):
             ws.cell(row=r, column=col).number_format = "@"
 
@@ -272,6 +328,7 @@ def build_template_bytes() -> bytes:
         "8. 영문명은 '성 이름' 순서로 입력하면 성/이름으로 분리 저장됩니다.",
         "9. 외국인등록번호 뒷자리는 암호화되어 저장되며 화면에는 마스킹됩니다.",
         "10. 업로드 후 미리보기에서 신규/중복의심/오류와 정규화 결과를 확인한 뒤 등록합니다.",
+        "11. 일괄추출 파일의 '고객' 시트는 이 양식과 동일하며, 그대로 다시 업로드(재등록·검증)할 수 있습니다.",
     ]
     for idx, line in enumerate(lines, start=1):
         cell = info.cell(row=idx, column=1, value=line)
@@ -279,19 +336,62 @@ def build_template_bytes() -> bytes:
             cell.font = Font(bold=True, size=12)
     info.column_dimensions["A"].width = 84
 
+    # 추출 부가정보 시트(export 만) — bulk importer 는 '고객' 시트만 읽으므로 등록에 영향 없음.
+    # 하이코리아/소시넷 ID/PW 는 어느 시트에도 포함하지 않는다.
+    if mode == "export":
+        aux = wb.create_sheet("추출 부가정보")
+        aux.append(["고객ID", "성명", "위임내역", "폴더"])
+        aux.cell(row=1, column=1).font = Font(bold=True, size=10)
+        for record in data_rows:
+            aux.append([
+                str(record.get("고객ID", "") or ""),
+                str(record.get("한글", "") or ""),
+                str(record.get("위임내역", "") or ""),
+                str(record.get("폴더", "") or ""),
+            ])
+        for col, w in ((1, 12), (2, 14), (3, 40), (4, 28)):
+            aux.column_dimensions[get_column_letter(col)].width = w
+        for r in range(2, len(data_rows) + 2):
+            aux.cell(row=r, column=1).number_format = "@"   # 고객ID 선행 0 보존
+
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
 
 
+def build_template_bytes() -> bytes:
+    """입력 양식 xlsx(bytes) — build_customer_bulk_workbook_bytes(mode='template') wrapper."""
+    return build_customer_bulk_workbook_bytes(None, mode="template")
+
+
+def build_export_workbook_bytes(records) -> tuple[bytes, int]:
+    """일괄추출 xlsx(bytes) + 건수 — 등록 양식과 동일한 '고객' 시트(단일 정본)."""
+    safe = list(records or [])
+    return build_customer_bulk_workbook_bytes(safe, mode="export"), len(safe)
+
+
 # ── 파싱 / 검증 ────────────────────────────────────────────────────────────────
 
 def _read_rows(file_bytes: bytes) -> list[dict]:
-    """업로드 xlsx → 행 dict 목록(표준키). 4행~ 만 읽음(3행 예시 무시). 빈 행 제외."""
+    """업로드 xlsx → 행 dict 목록(표준키). 4행~ 만 읽음(3행 예시 무시). 빈 행 제외.
+
+    파싱 전에 **고객 시트 존재 + 2행 헤더가 기대 15개 헤더와 정확히 일치**하는지 검증한다.
+    불일치(구형 19열 추출·순서 변경·다른 헤더 등)면 위치 기반으로 조용히 읽지 않고
+    ``BulkTemplateMismatch`` 를 올려 열 밀림 등록을 차단한다."""
     from openpyxl import load_workbook
 
     wb = load_workbook(io.BytesIO(file_bytes), data_only=True, read_only=True)
-    ws = wb[SHEET_NAME] if SHEET_NAME in wb.sheetnames else wb.worksheets[0]
+    if SHEET_NAME not in wb.sheetnames:
+        wb.close()
+        raise BulkTemplateMismatch("no-customer-sheet")
+    ws = wb[SHEET_NAME]
+
+    # 2행 헤더 정확 일치 검증. 초과 열은 앞 15개만 비교(19열 추출도 앞 15개가 다르므로 차단됨).
+    header_cells = next(ws.iter_rows(min_row=HEADER_ROW, max_row=HEADER_ROW, values_only=True), ())
+    header_vals = [(_cell_to_str(c) if c is not None else "") for c in (header_cells or ())][: len(HEADERS)]
+    if header_vals != HEADERS:
+        wb.close()
+        raise BulkTemplateMismatch("header-mismatch")
 
     rows = []
     for r_idx, row in enumerate(ws.iter_rows(min_row=DATA_START_ROW, values_only=True), start=DATA_START_ROW):
@@ -350,10 +450,10 @@ def _row_to_customer(raw: dict):
     data["번호"] = raw.get("번호", "")  # create_customer 가 암호화
     data["여권"] = raw.get("여권", "")
 
-    # 체류자격 정규화
-    visa_in = raw.get("체류자격", "")
+    # 체류자격 정규화 — 정본 키는 "V"(= customers.v_status). visa_status(체류자격)로 쓰지 않는다.
+    visa_in = raw.get("V", "")
     visa_out, visa_changed, visa_known = normalize_visa(visa_in)
-    data["체류자격"] = visa_out
+    data["V"] = visa_out
     if visa_changed:
         transforms.append(f"체류자격 {visa_in.strip()} → {visa_out}")
     elif visa_in.strip() and not visa_known:
@@ -455,7 +555,7 @@ def validate(file_bytes: bytes, tenant_id: str) -> dict:
             "status": status,
             "name": data.get("한글", ""),
             "nationality": data.get("국적", ""),
-            "visa": data.get("체류자격", ""),
+            "visa": data.get("V", ""),
             "passport_masked": _mask_tail(data.get("여권", "")),
             "messages": msgs,
             "transforms": transforms,

@@ -45,6 +45,22 @@ SHEET_TO_PG = {
 PG_TO_SHEET = {v: k for k, v in SHEET_TO_PG.items()}
 PG_TO_SHEET["memo"] = "비고"
 
+
+def resolve_customer_visa(record: dict) -> str:
+    """체류자격 canonical **읽기 전용** resolver.
+
+    우선순위: ① V(= v_status, 애플리케이션/DB 정본) → ② 체류자격(= visa_status, 레거시) → ③ "".
+    두 값이 모두 있고 서로 다르면 조용히 임의 선택하지 않고 경고(개인정보 없이 사실만)를 남기며
+    **V 를 정본**으로 사용한다. 값 정규화(F4→F-4)는 쓰기 시점에 이미 수행되므로 여기선 strip 만."""
+    v = str((record or {}).get("V", "") or "").strip()
+    legacy = str((record or {}).get("체류자격", "") or "").strip()
+    if v and legacy and v != legacy:
+        try:
+            print("[customer_visa] V/visa_status mismatch — using V as canonical")  # PII 없음
+        except Exception:
+            pass
+    return v or legacy or ""
+
 # 날짜만 의미하는 컬럼 — 저장 전/응답 전 항상 'YYYY-MM-DD' 로 정규화한다.
 # (등록증 발급/만기, 여권 발급/만기. card_expiry_date = 체류만료일)
 _DATE_PG_COLUMNS = (
@@ -164,6 +180,12 @@ def _row_to_dict(row, *, reveal: bool = False) -> dict:
     for pg_col, sheet_key in PG_TO_SHEET.items():
         val = getattr(row, pg_col, "")
         out[sheet_key] = "" if val is None else str(val)
+
+    # 체류자격 정본 통일(읽기 방어): v_status(V) 가 비었고 레거시 visa_status(체류자격)만 있으면
+    # V 에 fallback 을 제공해 고객카드·검색·quick-doc·추출이 모두 동일 체류자격을 본다.
+    # DB 원문은 수정하지 않는다(신규 쓰기의 정본은 여전히 V 하나). 두 값이 다르면 V 우선(resolver).
+    if not str(out.get("V", "") or "").strip() and str(out.get("체류자격", "") or "").strip():
+        out["V"] = out["체류자격"]
 
     # 날짜 필드는 응답 직전 'YYYY-MM-DD' 로 정규화한다. 이렇게 하면 DB 에 과거
     # 'YYYY-MM-DD 00:00:00' 형태가 남아 있어도 API/화면 재발을 막는다(읽기 방어선).

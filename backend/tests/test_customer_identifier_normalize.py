@@ -245,22 +245,23 @@ def test_bulk_validate_marks_error_row_and_commit_skips(monkeypatch):
     assert res["counts"]["error"] >= 1
 
 
-# ── 6) 엑셀 추출 라운드트립(Text(@) + 값 보존) ────────────────────────────────
+# ── 6) 엑셀 추출 라운드트립(통일 양식: 고객 시트·4행 데이터·Text(@) + 값 보존) ──────
 def test_export_reg_front_text_format_and_value():
     from openpyxl import load_workbook
 
-    from backend.services.customer_excel_service import (
-        _EXPORT_COLUMNS,
-        build_export_bytes_from_records,
+    from backend.services.customer_bulk_service import (
+        DATA_START_ROW, SHEET_NAME, STD_KEYS,
     )
+    from backend.services.customer_excel_service import build_export_bytes_from_records
 
-    reg_col_idx = next(i for i, (_h, k, _w) in enumerate(_EXPORT_COLUMNS, start=1) if k == "등록증")
+    reg_col_idx = STD_KEYS.index("등록증") + 1
     records = [{"고객ID": "0001", "한글": "최테스트", "등록증": "001010"}]
     blob, count = build_export_bytes_from_records(records)
     assert count == 1
     wb = load_workbook(io.BytesIO(blob))
-    ws = wb["고객목록"]
-    cell = ws.cell(row=2, column=reg_col_idx)
+    assert SHEET_NAME in wb.sheetnames          # 추출 첫 시트 = 등록 양식 '고객'
+    ws = wb[SHEET_NAME]
+    cell = ws.cell(row=DATA_START_ROW, column=reg_col_idx)   # 데이터는 4행부터
     assert cell.value == "001010"           # 선행 0 보존
     assert cell.number_format == "@"        # 텍스트 서식(엑셀 재해석 방지)
 

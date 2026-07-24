@@ -125,11 +125,14 @@ def _import_workbook_bytes(reg_value, *, number_format=None):
     from openpyxl import Workbook
 
     from backend.services.customer_bulk_service import (
-        DATA_START_ROW, SHEET_NAME, STD_KEYS,
+        DATA_START_ROW, HEADER_ROW, HEADERS, SHEET_NAME, STD_KEYS,
     )
     wb = Workbook()
     ws = wb.active
     ws.title = SHEET_NAME
+    # 2행 헤더(파서의 헤더 정확 일치 검증 통과용).
+    for _c, _h in enumerate(HEADERS, start=1):
+        ws.cell(row=HEADER_ROW, column=_c, value=_h)
     name_col = STD_KEYS.index("한글") + 1
     reg_col = STD_KEYS.index("등록증") + 1
     ws.cell(row=DATA_START_ROW, column=name_col, value="엑셀합성")
@@ -206,3 +209,60 @@ def test_expiry_alert_birth_from_legacy_reg_front(db):
     res = get_expiry_alerts(user={"tenant_id": "t-regfront", "sub": "x"})
     births = [row["생년월일"] for row in res["card_alerts"] if row["고객ID"] == "7100"]
     assert births and births[0] == "2000-10-10"  # 뒷자리 7 → 2000, 앞자리 복구
+
+
+# ── 체류자격 canonical(V=v_status) 저장/읽기/재추출 (PART C) ──────────────────────
+def test_bulk_import_visa_saves_to_v_status(db):
+    """엑셀 일괄등록 F4 → v_status=F-4 저장(visa_status 아님), 고객카드 GET V=F-4."""
+    from backend.services import customer_bulk_service as bulk
+    from backend.services.customer_pg_service import find_customer
+
+    blob, _ = bulk.build_export_workbook_bytes([{"한글": "비자합성", "V": "F4", "등록증": "001010"}])
+    res = bulk.commit(blob, "t-regfront", include_duplicates=True)
+    assert res["registered"] == 1, res
+    cid = res["new_customer_ids"][0]
+    assert find_customer("t-regfront", cid)["V"] == "F-4"          # 고객카드/quick-doc 정본
+    with db() as s:
+        row = s.execute(text("SELECT v_status, visa_status FROM customers WHERE customer_id=:c")
+                        .bindparams(c=cid)).first()
+    assert (row[0] or "") == "F-4"                                  # v_status 저장
+    assert (row[1] or "") == ""                                     # visa_status 로 분리되지 않음
+
+
+def test_legacy_visa_status_read_fallback_and_export(db):
+    """레거시로 visa_status 에만 값이 있는 행 → 읽기(V)·추출 모두 그 값으로 통일(원문 불변)."""
+    from backend.services.customer_pg_service import find_customer
+    from backend.services import customer_bulk_service as bulk
+    import io as _io
+    from openpyxl import load_workbook
+
+    with db() as s:
+        s.execute(text(
+            "INSERT INTO customers (tenant_id, customer_id, korean_name, visa_status) "
+            "VALUES (:t, :c, :n, :v)"
+        ).bindparams(t="t-regfront", c="9500", n="레거시비자", v="F-5"))
+        s.commit()
+    got = find_customer("t-regfront", "9500")
+    assert got["V"] == "F-5"                     # V fallback(고객카드/검색/quick-doc 통일)
+    # 재추출 시에도 F-5 유지(resolver)
+    blob, _n = bulk.build_export_workbook_bytes([got])
+    ws = load_workbook(_io.BytesIO(blob))[bulk.SHEET_NAME]
+    v_idx = bulk.STD_KEYS.index("V") + 1
+    assert ws.cell(row=bulk.DATA_START_ROW, column=v_idx).value == "F-5"
+    # DB 원문 비파괴(v_status 여전히 비어 있음)
+    with db() as s:
+        row = s.execute(text("SELECT v_status, visa_status FROM customers WHERE customer_id='9500'")).first()
+    assert (row[0] or "") == "" and (row[1] or "") == "F-5"
+
+
+def test_reexport_preserves_visa(db):
+    """신규(V=F-4) 등록 → 추출 → 다시 파싱 시 F-4 유지."""
+    from backend.services.customer_pg_service import create_customer, list_customers
+    from backend.services import customer_bulk_service as bulk
+
+    create_customer("t-regfront", {"한글": "재추출", "등록증": "001010", "V": "F-4"})
+    records = list_customers("t-regfront", reveal=True)
+    blob, _n = bulk.build_export_workbook_bytes(records)
+    rows = bulk._read_rows(blob)
+    data, msgs, _t, _w = bulk._row_to_customer(rows[0])
+    assert not msgs and data["V"] == "F-4"

@@ -297,6 +297,8 @@ def bulk_validate(file: UploadFile = File(...), user: dict = Depends(get_current
         return bulk.validate(content, tenant_id)
     except HTTPException:
         raise
+    except bulk.BulkTemplateMismatch:
+        raise HTTPException(status_code=400, detail="고객 일괄등록 양식이 일치하지 않습니다. 최신 양식을 다시 다운로드하세요.")
     except Exception:
         # 파싱 실패 — 민감정보 노출 방지 위해 일반 메시지만.
         raise HTTPException(status_code=400, detail="엑셀을 읽는 중 오류가 발생했습니다. 양식을 확인해 주세요.")
@@ -316,6 +318,8 @@ def bulk_commit(
         result = bulk.commit(content, tenant_id, include_duplicates)
     except HTTPException:
         raise
+    except bulk.BulkTemplateMismatch:
+        raise HTTPException(status_code=400, detail="고객 일괄등록 양식이 일치하지 않습니다. 최신 양식을 다시 다운로드하세요.")
     except Exception:
         raise HTTPException(status_code=400, detail="엑셀을 읽는 중 오류가 발생했습니다. 양식을 확인해 주세요.")
     cache_invalidate(tenant_id, _CACHE_EXPIRY)
