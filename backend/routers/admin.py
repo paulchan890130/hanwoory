@@ -171,13 +171,15 @@ def list_accounts(user: dict = Depends(require_admin_or_system)):
                 if local_count and not real_count:
                     return ("partial", f"로컬 모의 ({len(present)}/3)")
                 if real_count and not local_count:
-                    return ("partial", f"Google Drive ({len(present)}/3)")
-                return ("partial", f"혼합 ({len(present)}/3)")
+                    # 런타임 Google API 호출은 0건(gspread/googleapiclient 미사용) → 활성 연결이 아니라
+                    # 레거시로 남은 외부 저장소 식별자다. 표시 문구도 그렇게 정정한다(status 코드는 유지).
+                    return ("partial", f"레거시 외부저장소 식별자 ({len(present)}/3)")
+                return ("partial", f"레거시 식별자 혼합 ({len(present)}/3)")
             if local_count == 3:
                 return ("local-mock", "로컬 모의 저장소")
             if real_count == 3:
-                return ("google-drive", "Google Drive")
-            return ("mixed", f"혼합 (local {local_count} + real {real_count})")
+                return ("google-drive", "레거시 외부저장소 식별자 (런타임 미사용)")
+            return ("mixed", f"레거시 식별자 혼합 (local {local_count} + real {real_count})")
 
         # Per-tenant business-data presence — single query each, grouped.
         from sqlalchemy.orm import undefer

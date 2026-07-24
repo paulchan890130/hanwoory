@@ -299,6 +299,9 @@ def admin_suspend_tenant(tenant_id: str, user: dict = Depends(require_system_adm
     try:
         return svc.suspend_tenant(tenant_id, user.get("login_id", ""))
     except svc.LifecycleError as e:
+        if e.code == "MASTER_TENANT_PROTECTED":
+            # P0: 시스템 관리자 연결 보호 사업장 — 구조화 오류(code 포함) + 409.
+            raise HTTPException(status_code=409, detail={"code": e.code, "message": e.message})
         code_map = {"NOT_FOUND": 404, **_STATE_HTTP}
         raise HTTPException(status_code=code_map.get(e.code, 400), detail=e.message)
 

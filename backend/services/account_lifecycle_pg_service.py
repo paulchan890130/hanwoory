@@ -226,10 +226,20 @@ def suspend_tenant(tenant_id: str, actor: str) -> dict:
         block = _st.suspend_tenant_block_reason(t)  # terminated → 거부(종착 상태)
         if block is not None:
             raise LifecycleError(block[0], block[1])
-        t.service_status = "suspended"
-        t.is_active = False
         logins = list(session.scalars(
             select(AccountUser.login_id).where(AccountUser.tenant_id == tenant_id)).all())
+        # P0 보호: 마스터/시스템 관리자 계정이 연결된 사업장은 정지 불가. 변이 이전에 차단하므로
+        # tenant/users/tokens/sessions 모두 무변경(트랜잭션 미commit 롤백). audit 는 아래에서 별도 기록.
+        from backend.auth import is_system_admin as _is_sysadmin
+        if any(_is_sysadmin(str(l or "")) for l in logins):
+            _audit("tenant_suspend_blocked", actor, None, tenant_id,
+                   {"reason": "master_tenant_protected", "user_count": len(logins)})
+            raise LifecycleError(
+                "MASTER_TENANT_PROTECTED",
+                "시스템 관리자 계정이 연결된 보호 사업장입니다. 시스템 관리자 연결을 안전하게 "
+                "분리하기 전에는 정지할 수 없습니다.")
+        t.service_status = "suspended"
+        t.is_active = False
         # 소속 사용자 전원의 미사용 초대 토큰 폐기 — 같은 트랜잭션(정지 우회 방지).
         from backend.db.models.activation_token import ActivationToken
         from sqlalchemy import update
@@ -239,7 +249,11 @@ def suspend_tenant(tenant_id: str, actor: str) -> dict:
             .values(used_at=_now())
         )
         session.commit()
+    # 방어선: tenant-wide 세션 revoke 에서도 시스템 관리자는 제외(정상 경로엔 애초에 없음).
+    from backend.auth import is_system_admin as _is_sysadmin2
     for lid in logins:
+        if _is_sysadmin2(str(lid or "")):
+            continue
         _revoke_sessions(lid, reason="tenant_suspended")
     _audit("tenant_suspended", actor, None, tenant_id, {"user_count": len(logins)})
     return {"tenant_id": tenant_id, "service_status": "suspended"}

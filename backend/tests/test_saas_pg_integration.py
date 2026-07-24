@@ -872,7 +872,8 @@ def test_document_profile_inactive_admin_not_configured(db):
     assert p["representative_configured"] is False and p["contact_tel"] == ""
 
 
-def test_document_profile_multiple_admins_deterministic(db):
+def test_document_profile_multiple_admins_ambiguous(db):
+    # PART B 갱신: 비-시스템 활성 관리자가 2명 이상이면 id 최소 임의 선택하지 않고 **모호(ambiguous)**.
     from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
     from backend.db.models.tenant import Tenant
     from backend.db.models.user import AccountUser
@@ -885,10 +886,10 @@ def test_document_profile_multiple_admins_deterministic(db):
         s.add(AccountUser(login_id="staff@of-1", tenant_id="of-1", password_hash="x",
                           is_admin=False, is_active=True, contact_name="실무", contact_tel="01033334444"))
         s.commit()
-    p1 = f("of-1"); p2 = f("of-1")
-    # 결정적(가장 낮은 id 의 active admin), 실무자는 절대 아님, 호출마다 동일
-    assert p1["contact_tel"] == "01011112222" and p2["contact_tel"] == "01011112222"
-    assert p1["contact_tel"] != "01033334444"
+    p = f("of-1")
+    assert p["representative_ambiguous"] is True and p["representative_configured"] is False
+    assert p["representative_candidate_count"] == 2
+    assert p["contact_tel"] == ""      # 임의 선택 금지(실무자·특정 admin 모두 아님)
 
 
 def test_document_profile_tenant_missing_none(db):
@@ -946,3 +947,80 @@ def test_staff_patch_me_cannot_edit_tenant_common(db):
     with pytest.raises(HTTPException) as ei:
         update_me(MeUpdateRequest(biz_reg_no="9999999999"), current_user=staff_user)
     assert ei.value.status_code == 403
+
+
+# ── P0: 문서 대표자 시스템관리자 제외 + 모호성 (PART B) ──────────────────────────
+def _mk_office_admin(db, login_id, tid="of-1", *, tel="01000000000", name="관리", is_active=True):
+    from backend.db.models.user import AccountUser
+    with db() as s:
+        s.add(AccountUser(login_id=login_id, tenant_id=tid, password_hash="x",
+                          is_admin=True, is_active=is_active, contact_name=name, contact_tel=tel))
+        s.commit()
+
+
+def test_document_rep_excludes_master(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    _mk_tenant(db, "of-1")
+    _mk_office_admin(db, "wkdwhfl", "of-1", tel="01000000000", name="마스터")   # 먼저 seed → id 최소
+    _mk_office_admin(db, "admin@of-1", "of-1", tel="01011112222", name="대표")
+    p = f("of-1")
+    assert p["representative_configured"] is True and p["representative_ambiguous"] is False
+    assert p["contact_tel"] == "01011112222" and p["contact_name"] == "대표"   # 마스터 아님(id 더 작아도)
+
+
+def test_document_rep_only_master_not_configured(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    _mk_tenant(db, "of-1")
+    _mk_office_admin(db, "wkdwhfl", "of-1")
+    p = f("of-1")
+    assert p["representative_configured"] is False and p["representative_candidate_count"] == 0
+
+
+def test_document_rep_ambiguous(db):
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    _mk_tenant(db, "of-1")
+    _mk_office_admin(db, "a1@of-1", "of-1", tel="01011112222")
+    _mk_office_admin(db, "a2@of-1", "of-1", tel="01033334444")
+    p = f("of-1")
+    assert p["representative_ambiguous"] is True and p["representative_configured"] is False
+    assert p["representative_candidate_count"] == 2 and p["contact_tel"] == ""
+
+
+def test_document_rep_env_system_admin_excluded(db, monkeypatch):
+    monkeypatch.setenv("SYSTEM_ADMIN_LOGIN_IDS", "sys@of-1")
+    from backend.services.auth_pg_service import find_document_office_profile_by_tenant_pg as f
+    _mk_tenant(db, "of-1")
+    _mk_office_admin(db, "sys@of-1", "of-1", tel="01000000000")   # env 시스템관리자
+    _mk_office_admin(db, "admin@of-1", "of-1", tel="01011112222")
+    p = f("of-1")
+    assert p["representative_configured"] is True and p["contact_tel"] == "01011112222"
+
+
+# ── P0: 마스터/시스템관리자 사업장 정지 보호 (PART D) ────────────────────────────
+def test_suspend_master_tenant_blocked_no_change(db):
+    from backend.services import account_lifecycle_pg_service as svc
+    from backend.db.models.tenant import Tenant
+    _mk_tenant(db, "of-1", service_status="active")
+    _mk_office_admin(db, "wkdwhfl", "of-1")
+    _mk_office_admin(db, "admin@of-1", "of-1")
+    with pytest.raises(svc.LifecycleError) as ei:
+        svc.suspend_tenant("of-1", actor="sys")
+    assert ei.value.code == "MASTER_TENANT_PROTECTED"
+    with db() as s:  # tenant/users 무변경
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-1"))
+        assert t.service_status == "active" and bool(t.is_active) is True
+        from backend.db.models.user import AccountUser
+        actives = s.scalars(select(AccountUser.is_active).where(AccountUser.tenant_id == "of-1")).all()
+        assert all(bool(a) for a in actives)
+
+
+def test_suspend_normal_tenant_ok(db):
+    from backend.services import account_lifecycle_pg_service as svc
+    from backend.db.models.tenant import Tenant
+    _mk_tenant(db, "of-2", service_status="active")
+    _mk_office_admin(db, "admin@of-2", "of-2")
+    out = svc.suspend_tenant("of-2", actor="sys")
+    assert out["service_status"] == "suspended"
+    with db() as s:
+        t = s.scalar(select(Tenant).where(Tenant.tenant_id == "of-2"))
+        assert t.service_status == "suspended" and bool(t.is_active) is False

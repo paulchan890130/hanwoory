@@ -428,8 +428,12 @@ def _require_office_profile_for_docs(account: Optional[dict], selected_docs: lis
             "code": "OFFICE_PROFILE_INCOMPLETE",
             "message": "이 문서에 필요한 사무소 정보를 불러올 수 없습니다.",
             "missing": sorted(used)})
-    # 문서에는 대표 행정사의 정보만 들어간다 — 대표자 미설정이면 실무자 값으로 대체하지 않고 차단.
-    # (representative_configured 키가 없는 손수 만든 dict 는 하위호환으로 통과시킨다 — 기본 True.)
+    # 문서에는 대표 행정사의 정보만 들어간다 — 대표자 미설정/모호면 실무자·시스템관리자 값으로
+    # 대체하지 않고 차단. (키 없는 손수 만든 dict 는 하위호환으로 통과 — 기본 configured=True.)
+    if account.get("representative_ambiguous") is True:
+        raise HTTPException(status_code=409, detail={
+            "code": "OFFICE_REPRESENTATIVE_AMBIGUOUS",
+            "message": "문서 자동작성에 사용할 대표자가 여러 명입니다. 사업장 관리에서 대표자를 정리하세요."})
     if account.get("representative_configured", True) is False:
         raise HTTPException(status_code=409, detail={
             "code": "OFFICE_REPRESENTATIVE_NOT_CONFIGURED",
