@@ -326,3 +326,34 @@ def test_public_config_post_placement_filters(monkeypatch):
     assert [x["item_id"] for x in out["items"]] == ["a"]
     out2 = sc.public_get_config(Response(), placement="home")
     assert [x["item_id"] for x in out2["items"]] == ["b"]
+
+
+# ── 문서 출력 전화번호 하이픈 (quick-poa 회귀) ─────────────────────────────────
+def test_quick_poa_agent_tel_is_hyphenated(monkeypatch):
+    """위임장 원클릭(quick-poa) 출력에서 agent_tel 이 한국 표준 하이픈으로 채워진다.
+    (build_field_values 가 포맷한 값을 raw contact_tel 로 덮어써 하이픈이 사라지던 회귀 방지.)"""
+    pytest.importorskip("fitz", reason="PyMuPDF 미설치 — quick-poa PDF 경로 테스트 skip")
+    import os
+    import backend.routers.quick_doc as qd
+    from backend.routers.quick_doc import QuickPoaRequest, DOC_TEMPLATES
+    # 위임장 실제 템플릿이 없으면 skip(경로 검증 단계에서 500 나므로).
+    base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(qd.__file__))))
+    if not os.path.exists(os.path.join(base, DOC_TEMPLATES.get("위임장", ""))):
+        pytest.skip("위임장 템플릿 없음")
+
+    account = {"contact_tel": "01012345678", "office_name": "사무소", "contact_name": "홍길동",
+               "biz_reg_no": "2131237464", "agent_rrn": "", "office_adr": "",
+               "agent_rrn_registered": False, "agent_rrn_decrypt_failed": False}
+    monkeypatch.setattr(qd, "_load_account_or_503", lambda tid: account)
+    monkeypatch.setattr(qd, "_require_office_profile_for_docs", lambda *a, **k: None)
+    monkeypatch.setattr(qd, "make_seal_bytes", lambda *a, **k: None)
+
+    captured = {}
+    def _capture(template, fv, seals, merged, signs):  # noqa: ANN001
+        captured["fv"] = dict(fv)
+        merged.new_page()  # 유효 PDF 로 저장되도록 빈 페이지 추가
+    monkeypatch.setattr(qd, "fill_and_append_pdf", _capture)
+
+    req = QuickPoaRequest(kor_name="홍길동", apply_applicant_seal=False, apply_agent_seal=False)
+    qd._quick_poa_impl(req, {"tenant_id": "of-1", "sub": "admin@of1.kr"})
+    assert captured.get("fv", {}).get("agent_tel") == "010-1234-5678"

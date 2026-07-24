@@ -2984,6 +2984,9 @@ def _quick_poa_impl(req: QuickPoaRequest, user: dict):
     )
 
     today = datetime.date.today()
+    # 전화번호는 출력 시 한국 표준 하이픈(build_field_values 의 agent_tel 과 동일 규칙) —
+    # 아래 update 가 agent_tel 을 다시 세팅하므로 raw 숫자로 덮어써 하이픈이 사라지지 않도록 포맷 적용.
+    from backend.services.korean_identifier_format import format_phone as _fmt_tel_poa
     field_values.update({
         "작성년": str(today.year),
         "월":    str(today.month),
@@ -2999,8 +3002,8 @@ def _quick_poa_impl(req: QuickPoaRequest, user: dict):
         "ID":          str(req.site_id or "").strip(),
         # 소시넷(여권) 구여권 → PDF 필드 `opassport`
         "opassport":   str(req.old_passport or "").strip(),
-        # agent_tel 명시적 보장: _load_account 실패 시에도 항상 field_values에 포함
-        "agent_tel":   str((account or {}).get("contact_tel", "") or "").strip(),
+        # agent_tel 명시적 보장: _load_account 실패 시에도 항상 field_values에 포함(출력 하이픈 유지)
+        "agent_tel":   _fmt_tel_poa(str((account or {}).get("contact_tel", "") or "").strip()),
     })
 
     # ── 도장/서명 상호 배타 정규화 (서명 우선) ─────────────────────────────────
