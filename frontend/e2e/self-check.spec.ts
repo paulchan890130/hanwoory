@@ -463,6 +463,23 @@ test.describe("공통기준 자가점검 관리자 편집기", () => {
     await expect.poll(() => puts).toBe(1);
   });
 
+  test("기본안 불러오기 → 기본 노출 위치는 게시글(post), 홈 미선택", async ({ page }) => {
+    // 홈 런처 제거 후 공개 경로는 게시글 shortcode 뿐 → 기본 seed placement 는 ["post"] 이어야
+    // 불러와서 그대로 저장·공개했을 때 게시글에서 보인다(회귀 방지). home 은 관리자가 직접 선택 시만.
+    await authAndGoto(page, { schema_version: 2, items: [], config_state: "absent", obsolete_legacy: false });
+    page.on("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "PDF 기준 3개 기본 항목 불러오기" }).click();
+    // loadDefaults 가 첫 항목(해외범죄경력증명)을 선택 → 편집칸의 노출 위치 확인
+    await expect(page.getByTestId("placement-post")).toBeChecked();
+    await expect(page.getByTestId("placement-home")).not.toBeChecked();
+    // 관리자 안내문도 게시글 노출을 명시
+    await expect(page.getByTestId("selfcheck-placement-guide")).toContainText("게시글 노출");
+    // home 을 직접 선택하면 하위호환 동작(체크 반영)
+    await page.getByTestId("placement-home").check();
+    await expect(page.getByTestId("placement-home")).toBeChecked();
+    await expect(page.getByTestId("placement-post")).toBeChecked();  // post 는 유지(강제 해제 없음)
+  });
+
   test("obsolete legacy → 불러오기 미저장 안내 → 저장 후 경고 제거", async ({ page }) => {
     const body = { schema_version: 2, items: [{ item_id: "legacy", title: "기존 설정", description: null, sort_order: 0, is_published: true, popup_enabled: true, placement: ["home"], config: legacyContent }], obsolete_legacy: true };
     await authAndGoto(page, body);

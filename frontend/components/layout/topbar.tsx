@@ -165,6 +165,8 @@ export default function Topbar({ leftOffset, isMobile, onMobileMenuToggle }: Top
         {isMobile && (
           <button
             onClick={onMobileMenuToggle}
+            data-testid="mobile-menu-toggle"
+            aria-label="메뉴 열기"
             style={{ color: "#4A5568", background: "none", border: "none", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", flexShrink: 0 }}
           >
             <Menu size={20} />

@@ -190,6 +190,11 @@ export default function SelfCheckAdminEditor({ initialBundle, obsoleteLegacy = f
           <button className="btn-secondary" style={{ fontSize: 12 }} onClick={loadDefaults}>PDF 기준 3개 기본 항목 불러오기</button>
         </div>
 
+        {/* 노출 위치 안내: 기본항목은 게시글 노출(post)로 설정된다(홈 런처는 제거됨). */}
+        <div data-testid="selfcheck-placement-guide" style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: "var(--hw-text-sub)" }}>
+          기본항목은 게시글 노출로 설정됩니다. 게시글 편집기에서 자가점검 항목을 삽입한 뒤 공개하세요.
+        </div>
+
         {/* 항목 목록 */}
         <div style={{ marginTop: 10, border: "1px solid var(--hw-border)", borderRadius: 8, overflow: "hidden" }}>
           {sorted.length === 0 && (

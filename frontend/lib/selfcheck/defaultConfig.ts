@@ -77,10 +77,12 @@ export const FINGERPRINT_CONFIG: SelfCheckConfig = {
 
 // PDF 기준 기본 항목(관리자 "불러오기" 시드). 안전을 위해 모두 비공개(draft)로 불러온다.
 // 공개는 관리자가 내용을 검토하고 저장할 때만 반영된다(운영 반영은 별도 승인 단계).
+// placement 기본값은 ["post"] — 홈 런처는 제거됐고 공개 노출 경로는 게시글 shortcode 뿐이므로,
+// 기본항목을 그대로 저장·공개하면 게시글에서 보이게 한다(home 은 관리자가 직접 선택 시 하위호환 유지).
 export const PDF_DEFAULT_ITEMS: SelfCheckItem[] = [
-  { item_id: "criminal-record", title: "해외범죄경력증명 필요 확인", description: SCOPE_NOTICE, sort_order: 1, is_published: false, popup_enabled: true, placement: ["home"], config: CRIMINAL_RECORD_CONFIG },
-  { item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "결핵 고위험 국가 공식 35개국 목록과 출처 확인이 완료된 항목입니다. 내용을 검토한 뒤 공개하세요.", sort_order: 2, is_published: false, popup_enabled: true, placement: ["home"], config: TUBERCULOSIS_CONFIG },
-  { item_id: "fingerprint", title: "지문등록 필요 확인", description: SCOPE_NOTICE, sort_order: 3, is_published: false, popup_enabled: true, placement: ["home"], config: FINGERPRINT_CONFIG },
+  { item_id: "criminal-record", title: "해외범죄경력증명 필요 확인", description: SCOPE_NOTICE, sort_order: 1, is_published: false, popup_enabled: true, placement: ["post"], config: CRIMINAL_RECORD_CONFIG },
+  { item_id: "tuberculosis", title: "결핵검진 필요 확인", description: "결핵 고위험 국가 공식 35개국 목록과 출처 확인이 완료된 항목입니다. 내용을 검토한 뒤 공개하세요.", sort_order: 2, is_published: false, popup_enabled: true, placement: ["post"], config: TUBERCULOSIS_CONFIG },
+  { item_id: "fingerprint", title: "지문등록 필요 확인", description: SCOPE_NOTICE, sort_order: 3, is_published: false, popup_enabled: true, placement: ["post"], config: FINGERPRINT_CONFIG },
 ];
 
 export const DEFAULT_SELF_CHECK_BUNDLE: SelfCheckBundle = {

@@ -79,3 +79,53 @@ test.describe("최초 로그인 온보딩 투어", () => {
     await expect(page.getByTestId("onboarding-overlay")).toBeVisible();
   });
 });
+
+test.describe("모바일 사용법 다시 보기", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  const GUARD_KEY = `onboarding_done_${ME_ADMIN.login_id}_v${ME_ADMIN.onboarding_version}`;
+
+  test("모바일 사이드바 다시 보기 → 첫 단계 표시(서버 완료 API 미호출·가드 미삭제)", async ({ page }) => {
+    let completeCalls = 0;
+    // onboarding_required=false + 완료 가드 seed → 자동 표시 없음(완료 상태 재현).
+    await setupShell(page, { ...ME_ADMIN, onboarding_required: false }, () => { completeCalls += 1; }, /* seedGuard */ true);
+    await page.waitForTimeout(300);
+    await expect(page.getByTestId("onboarding-overlay")).toHaveCount(0);
+    expect(await page.evaluate((k) => localStorage.getItem(k), GUARD_KEY)).toBe("1");
+
+    // 모바일 드로어 열기 → 사이드바의 '사용법 다시 보기' 클릭
+    await page.getByTestId("mobile-menu-toggle").click();
+    const mobileBtn = page.getByTestId("restart-onboarding-mobile");
+    await expect(mobileBtn).toBeVisible();
+    await mobileBtn.click();
+
+    // 첫 단계(환영) 표시
+    await expect(page.getByTestId("onboarding-overlay")).toBeVisible();
+    await expect(page.getByTestId("onboarding-card")).toContainText("환영");
+    // 서버 완료 API 미호출 + localStorage 완료값 미삭제(다시보기는 완료 상태를 되돌리지 않음)
+    expect(completeCalls).toBe(0);
+    expect(await page.evaluate((k) => localStorage.getItem(k), GUARD_KEY)).toBe("1");
+  });
+
+  test("route 이동 후에도 다시 보기 동작(컨트롤러 상주)", async ({ page }) => {
+    await setupShell(page, { ...ME_ADMIN, onboarding_required: false }, undefined, true);
+    await page.waitForTimeout(200);
+    await page.goto("/tasks");
+    await page.waitForTimeout(200);
+    await page.getByTestId("mobile-menu-toggle").click();
+    await page.getByTestId("restart-onboarding-mobile").click();
+    await expect(page.getByTestId("onboarding-overlay")).toBeVisible();
+  });
+
+  for (const w of [320, 360, 375, 390, 412]) {
+    test(`드로어 열림 상태 가로 오버플로 없음 @${w}px`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: 800 });
+      await setupShell(page, { ...ME_ADMIN, onboarding_required: false }, undefined, true);
+      await page.waitForTimeout(150);
+      await page.getByTestId("mobile-menu-toggle").click();
+      await expect(page.getByTestId("restart-onboarding-mobile")).toBeVisible();
+      const overflow = await page.evaluate(() =>
+        document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+      expect(overflow, `가로 스크롤 발생 @${w}px`).toBe(false);
+    });
+  }
+});

@@ -9,7 +9,7 @@ import {
   Home, Users, ClipboardList, DollarSign,
   FileText, ScanLine, Search, FileEdit,
   MessageSquare, Settings, ChevronLeft, ChevronRight, BarChart2,
-  ExternalLink, X, Library, Globe, User, Award,
+  ExternalLink, X, Library, Globe, User, Award, HelpCircle,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -308,6 +308,20 @@ export default function Sidebar({ collapsed, onToggle, isMobile, mobileOpen, onM
                 )
               )}
             </Link>
+          )}
+
+          {/* 사용법 다시 보기 — 모바일 전용(데스크톱은 topbar 버튼). 동일한 restart-onboarding
+              이벤트를 발생시켜 같은 온보딩 컨트롤러가 처리한다(서버 상태·완료값 변경 없음). */}
+          {isMobile && (
+            <button
+              type="button"
+              data-testid="restart-onboarding-mobile"
+              className="hw-sidebar-item"
+              onClick={() => { window.dispatchEvent(new CustomEvent("restart-onboarding")); onMobileClose?.(); }}
+            >
+              <HelpCircle size={16} className="shrink-0" />
+              <span className="truncate">사용법 다시 보기</span>
+            </button>
           )}
         </nav>
 
